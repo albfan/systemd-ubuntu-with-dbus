@@ -63,14 +63,6 @@ static char model_enc_str[256];
 static char revision_str[16];
 static char type_str[16];
 
-_printf_(6,0)
-static void log_fn(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
-        log_metav(priority, file, line, fn, format, args);
-}
-
 static void set_type(const char *from, char *to, size_t len)
 {
         int type_num;
@@ -182,7 +174,7 @@ static int get_file_options(struct udev *udev,
                 if (errno == ENOENT)
                         return 1;
                 else {
-                        log_error("can't open %s: %m", config_file);
+                        log_error_errno(errno, "can't open %s: %m", config_file);
                         return -1;
                 }
         }
@@ -317,8 +309,8 @@ static void help(void) {
                "  -f,--config=                     location of config file\n"
                "  -p,--page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
                "  -s,--sg-version=3|4              use SGv3 or SGv4\n"
-               "  -b,--blacklisted                 threat device as blacklisted\n"
-               "  -g,--whitelisted                 threat device as whitelisted\n"
+               "  -b,--blacklisted                 treat device as blacklisted\n"
+               "  -g,--whitelisted                 treat device as whitelisted\n"
                "  -u,--replace-whitespace          replace all whitespace by underscores\n"
                "  -v,--verbose                     verbose logging\n"
                "     --version                     print version\n"
@@ -390,7 +382,6 @@ static int set_options(struct udev *udev,
                 case 'v':
                         log_set_target(LOG_TARGET_CONSOLE);
                         log_set_max_level(LOG_DEBUG);
-                        udev_set_log_priority(udev, LOG_DEBUG);
                         log_open();
                         break;
 
@@ -590,8 +581,6 @@ int main(int argc, char **argv)
         udev = udev_new();
         if (udev == NULL)
                 goto exit;
-
-        udev_set_log_fn(udev, log_fn);
 
         /*
          * Get config file options.

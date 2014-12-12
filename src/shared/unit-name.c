@@ -243,6 +243,30 @@ static char *do_escape(const char *f, char *t) {
         return t;
 }
 
+static char *do_escape_mangle(const char *f, enum unit_name_mangle allow_globs, char *t) {
+        const char *valid_chars;
+
+        assert(f);
+        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
+        assert(t);
+
+        /* We'll only escape the obvious characters here, to play
+         * safe. */
+
+        valid_chars = allow_globs == MANGLE_GLOB ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
+
+        for (; *f; f++) {
+                if (*f == '/')
+                        *(t++) = '-';
+                else if (!strchr(valid_chars, *f))
+                        t = do_escape_char(*f, t);
+                else
+                        *(t++) = *f;
+        }
+
+        return t;
+}
+
 char *unit_name_escape(const char *f) {
         char *r, *t;
 
@@ -478,15 +502,18 @@ int unit_name_from_dbus_path(const char *path, char **name) {
 }
 
 /**
- *  Try to turn a string that might not be a unit name into a
- *  sensible unit name.
+ *  Convert a string to a unit name. /dev/blah is converted to dev-blah.device,
+ *  /blah/blah is converted to blah-blah.mount, anything else is left alone,
+ *  except that @suffix is appended if a valid unit suffix is not present.
+ *
+ *  If @allow_globs, globs characters are preserved. Otherwise they are escaped.
  */
-char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
-        const char *valid_chars, *f;
+char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix) {
         char *r, *t;
 
         assert(name);
-        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
+        assert(suffix);
+        assert(suffix[0] == '.');
 
         if (is_device_path(name))
                 return unit_name_from_path(name, ".device");
@@ -494,59 +521,13 @@ char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
         if (path_is_absolute(name))
                 return unit_name_from_path(name, ".mount");
 
-        /* We'll only escape the obvious characters here, to play
-         * safe. */
-
-        valid_chars = allow_globs == MANGLE_GLOB ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
-
-        r = new(char, strlen(name) * 4 + strlen(".service") + 1);
-        if (!r)
-                return NULL;
-
-        for (f = name, t = r; *f; f++) {
-                if (*f == '/')
-                        *(t++) = '-';
-                else if (!strchr(valid_chars, *f))
-                        t = do_escape_char(*f, t);
-                else
-                        *(t++) = *f;
-        }
-
-        if (unit_name_to_type(name) < 0)
-                strcpy(t, ".service");
-        else
-                *t = 0;
-
-        return r;
-}
-
-/**
- *  Similar to unit_name_mangle(), but is called when we know
- *  that this is about a specific unit type.
- */
-char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix) {
-        char *r, *t;
-        const char *f;
-
-        assert(name);
-        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
-        assert(suffix);
-        assert(suffix[0] == '.');
-
         r = new(char, strlen(name) * 4 + strlen(suffix) + 1);
         if (!r)
                 return NULL;
 
-        for (f = name, t = r; *f; f++) {
-                if (*f == '/')
-                        *(t++) = '-';
-                else if (!strchr(VALID_CHARS, *f))
-                        t = do_escape_char(*f, t);
-                else
-                        *(t++) = *f;
-        }
+        t = do_escape_mangle(name, allow_globs, r);
 
-        if (!endswith(name, suffix))
+        if (unit_name_to_type(name) < 0)
                 strcpy(t, suffix);
         else
                 *t = 0;

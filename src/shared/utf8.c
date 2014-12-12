@@ -142,18 +142,20 @@ int utf8_encoded_to_unichar(const char *str) {
 }
 
 bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
-        const uint8_t *p;
+        const char *p;
 
         assert(str);
 
-        for (p = (const uint8_t*) str; length;) {
+        for (p = str; length;) {
                 int encoded_len, val;
 
-                encoded_len = utf8_encoded_valid_unichar((const char *) p);
-                val = utf8_encoded_to_unichar((const char*) p);
-
+                encoded_len = utf8_encoded_valid_unichar(p);
                 if (encoded_len < 0 ||
-                    val < 0 ||
+                    (size_t) encoded_len > length)
+                        return false;
+
+                val = utf8_encoded_to_unichar(p);
+                if (val < 0 ||
                     is_unicode_control(val) ||
                     (!newline && val == '\n'))
                         return false;
@@ -200,7 +202,46 @@ char *utf8_escape_invalid(const char *str) {
                         s = mempcpy(s, str, len);
                         str += len;
                 } else {
-                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
+                        s = stpcpy(s, UTF8_REPLACEMENT_CHARACTER);
+                        str += 1;
+                }
+        }
+
+        *s = '\0';
+
+        return p;
+}
+
+char *utf8_escape_non_printable(const char *str) {
+        char *p, *s;
+
+        assert(str);
+
+        p = s = malloc(strlen(str) * 4 + 1);
+        if (!p)
+                return NULL;
+
+        while (*str) {
+                int len;
+
+                len = utf8_encoded_valid_unichar(str);
+                if (len > 0) {
+                        if (utf8_is_printable(str, len)) {
+                                s = mempcpy(s, str, len);
+                                str += len;
+                        } else {
+                                while (len > 0) {
+                                        *(s++) = '\\';
+                                        *(s++) = 'x';
+                                        *(s++) = hexchar((int) *str >> 4);
+                                        *(s++) = hexchar((int) *str);
+
+                                        str += 1;
+                                        len --;
+                                }
+                        }
+                } else {
+                        s = stpcpy(s, UTF8_REPLACEMENT_CHARACTER);
                         str += 1;
                 }
         }

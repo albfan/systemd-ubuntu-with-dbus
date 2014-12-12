@@ -222,8 +222,8 @@ static int idev_evdev_io(idev_evdev *evdev) {
         }
 
         if (error < 0)
-                log_debug("idev-evdev: %s/%s: error on data event: %s",
-                          e->session->name, e->name, strerror(-error));
+                log_debug_errno(error, "idev-evdev: %s/%s: error on data event: %m",
+                                e->session->name, e->name);
         return error;
 
 error:
@@ -426,15 +426,15 @@ static void unmanaged_evdev_resume(idev_element *e) {
                 fd = open(eu->devnode, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                 if (fd < 0) {
                         if (errno != EACCES && errno != EPERM) {
-                                log_debug("idev-evdev: %s/%s: cannot open node %s: %m",
-                                          e->session->name, e->name, eu->devnode);
+                                log_debug_errno(errno, "idev-evdev: %s/%s: cannot open node %s: %m",
+                                                e->session->name, e->name, eu->devnode);
                                 return;
                         }
 
                         fd = open(eu->devnode, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                         if (fd < 0) {
-                                log_debug("idev-evdev: %s/%s: cannot open node %s: %m",
-                                          e->session->name, e->name, eu->devnode);
+                                log_debug_errno(errno, "idev-evdev: %s/%s: cannot open node %s: %m",
+                                                e->session->name, e->name, eu->devnode);
                                 return;
                         }
 
@@ -448,8 +448,8 @@ static void unmanaged_evdev_resume(idev_element *e) {
 
         r = idev_evdev_resume(&eu->evdev, fd);
         if (r < 0)
-                log_debug("idev-evdev: %s/%s: cannot resume: %s",
-                          e->session->name, e->name, strerror(-r));
+                log_debug_errno(r, "idev-evdev: %s/%s: cannot resume: %m",
+                                e->session->name, e->name);
 }
 
 static void unmanaged_evdev_pause(idev_element *e) {
@@ -565,14 +565,14 @@ static int managed_evdev_take_device_fn(sd_bus *bus,
 
         fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (fd < 0) {
-                log_debug("idev-evdev: %s/%s: cannot duplicate evdev fd: %m", s->name, e->name);
+                log_debug_errno(errno, "idev-evdev: %s/%s: cannot duplicate evdev fd: %m", s->name, e->name);
                 return 0;
         }
 
         r = idev_evdev_resume(&em->evdev, fd);
         if (r < 0)
-                log_debug("idev-evdev: %s/%s: cannot resume: %s",
-                          s->name, e->name, strerror(-r));
+                log_debug_errno(r, "idev-evdev: %s/%s: cannot resume: %m",
+                                s->name, e->name);
 
         return 0;
 }
@@ -621,8 +621,8 @@ static void managed_evdev_enable(idev_element *e) {
         return;
 
 error:
-        log_debug("idev-evdev: %s/%s: cannot send TakeDevice request: %s",
-                  s->name, e->name, strerror(-r));
+        log_debug_errno(r, "idev-evdev: %s/%s: cannot send TakeDevice request: %m",
+                        s->name, e->name);
 }
 
 static void managed_evdev_disable(idev_element *e) {
@@ -679,8 +679,8 @@ static void managed_evdev_disable(idev_element *e) {
         }
 
         if (r < 0 && r != -ENOTCONN)
-                log_debug("idev-evdev: %s/%s: cannot send ReleaseDevice: %s",
-                          s->name, e->name, strerror(-r));
+                log_debug_errno(r, "idev-evdev: %s/%s: cannot send ReleaseDevice: %m",
+                                s->name, e->name);
 }
 
 static void managed_evdev_resume(idev_element *e, int fd) {
@@ -698,15 +698,15 @@ static void managed_evdev_resume(idev_element *e, int fd) {
 
         fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (fd < 0) {
-                log_debug("idev-evdev: %s/%s: cannot duplicate evdev fd: %m",
-                          s->name, e->name);
+                log_debug_errno(errno, "idev-evdev: %s/%s: cannot duplicate evdev fd: %m",
+                                s->name, e->name);
                 return;
         }
 
         r = idev_evdev_resume(&em->evdev, fd);
         if (r < 0)
-                log_debug("idev-evdev: %s/%s: cannot resume: %s",
-                          s->name, e->name, strerror(-r));
+                log_debug_errno(r, "idev-evdev: %s/%s: cannot resume: %m",
+                                s->name, e->name);
 
         return;
 }
@@ -776,8 +776,8 @@ static void managed_evdev_pause(idev_element *e, const char *mode) {
                 }
 
                 if (r < 0)
-                        log_debug("idev-evdev: %s/%s: cannot send PauseDeviceComplete: %s",
-                                  s->name, e->name, strerror(-r));
+                        log_debug_errno(r, "idev-evdev: %s/%s: cannot send PauseDeviceComplete: %m",
+                                        s->name, e->name);
         }
 }
 

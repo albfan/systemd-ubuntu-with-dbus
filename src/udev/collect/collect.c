@@ -86,12 +86,12 @@ static void usage(void)
  */
 static int prepare(char *dir, char *filename)
 {
-        struct stat statbuf;
         char buf[512];
-        int fd;
+        int r, fd;
 
-        if (stat(dir, &statbuf) < 0)
-                mkdir(dir, 0700);
+        r = mkdir(dir, 0700);
+        if (r < 0 && errno != EEXIST)
+                return -errno;
 
         snprintf(buf, sizeof(buf), "%s/%s", dir, filename);
 
@@ -254,7 +254,7 @@ static void reject(char *us)
  * kickout
  *
  * Remove all IDs in the internal list which are not part
- * of the list passed via the commandline.
+ * of the list passed via the command line.
  */
 static void kickout(void)
 {

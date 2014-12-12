@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd-user-sessions.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-user-sessions.service, systemd-user-sessions — Permit user logins after boot, prohibit user logins at shutdown</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-user-sessions.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-user-sessions</code></p></div><div class="refsect1"><a name="idm214171551440"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-user-sessions.service</code>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemd-user-sessions.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-user-sessions.service, systemd-user-sessions — Permit user logins after boot, prohibit user logins at shutdown</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-user-sessions.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-user-sessions</code></p></div><div class="refsect1"><a name="idm140375895883104"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-user-sessions.service</code>
                 is a service that controls user logins. After basic
                 system initialization is complete it removes
                 <code class="filename">/run/nologin</code>, thus permitting
@@ -27,7 +27,7 @@
                 <code class="filename">/run/nologin</code>, thus prohibiting
                 further logins. At the same time it also kills all
                 user processes, so that system shutdown may proceed
-                without any remaining user processes around.</p></div><div class="refsect1"><a name="idm214171575488"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                without any remaining user processes around.</p></div><div class="refsect1"><a name="idm140375895879472"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
                         <a href="http://man7.org/linux/man-pages/man8/pam_nologin.8.html"><span class="citerefentry"><span class="refentrytitle">pam_nologin</span>(8)</span></a>

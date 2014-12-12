@@ -50,6 +50,7 @@
 #include "journald-stream.h"
 #include "journald-console.h"
 #include "journald-native.h"
+#include "journald-audit.h"
 #include "journald-server.h"
 
 #ifdef HAVE_ACL
@@ -203,7 +204,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         r = fchmod(f->fd, 0640);
         if (r < 0)
-                log_warning("Failed to fix access mode on %s, ignoring: %s", f->path, strerror(-r));
+                log_warning_errno(r, "Failed to fix access mode on %s, ignoring: %m", f->path);
 
 #ifdef HAVE_ACL
         if (uid <= SYSTEM_UID_MAX)
@@ -211,7 +212,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         acl = acl_get_fd(f->fd);
         if (!acl) {
-                log_warning("Failed to read ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to read ACL on %s, ignoring: %m", f->path);
                 return;
         }
 
@@ -221,7 +222,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 if (acl_create_entry(&acl, &entry) < 0 ||
                     acl_set_tag_type(entry, ACL_USER) < 0 ||
                     acl_set_qualifier(entry, &uid) < 0) {
-                        log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
+                        log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
                         goto finish;
                 }
         }
@@ -231,12 +232,12 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0 ||
             calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
                 goto finish;
         }
 
         if (acl_set_fd(f->fd, acl) < 0)
-                log_warning("Failed to set ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to set ACL on %s, ignoring: %m", f->path);
 
 finish:
         acl_free(acl);
@@ -307,11 +308,11 @@ static int do_rotate(Server *s, JournalFile **f, const char* name,
         r = journal_file_rotate(f, s->compress, seal);
         if (r < 0)
                 if (*f)
-                        log_error("Failed to rotate %s: %s",
-                                  (*f)->path, strerror(-r));
+                        log_error_errno(r, "Failed to rotate %s: %m",
+                                        (*f)->path);
                 else
-                        log_error("Failed to create new %s journal: %s",
-                                  name, strerror(-r));
+                        log_error_errno(r, "Failed to create new %s journal: %m",
+                                        name);
         else
                 server_fix_perms(s, *f, uid);
         return r;
@@ -347,19 +348,19 @@ void server_sync(Server *s) {
         if (s->system_journal) {
                 r = journal_file_set_offline(s->system_journal);
                 if (r < 0)
-                        log_error("Failed to sync system journal: %s", strerror(-r));
+                        log_error_errno(r, "Failed to sync system journal: %m");
         }
 
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
-                        log_error("Failed to sync user journal: %s", strerror(-r));
+                        log_error_errno(r, "Failed to sync user journal: %m");
         }
 
         if (s->sync_event_source) {
                 r = sd_event_source_set_enabled(s->sync_event_source, SD_EVENT_OFF);
                 if (r < 0)
-                        log_error("Failed to disable sync timer source: %s", strerror(-r));
+                        log_error_errno(r, "Failed to disable sync timer source: %m");
         }
 
         s->sync_scheduled = false;
@@ -374,9 +375,9 @@ static void do_vacuum(Server *s, char *ids, JournalFile *f, const char* path,
                 return;
 
         p = strappenda(path, ids);
-        r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec);
+        r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
         if (r < 0 && r != -ENOENT)
-                log_error("Failed to vacuum %s: %s", p, strerror(-r));
+                log_error_errno(r, "Failed to vacuum %s: %m", p);
 }
 
 void server_vacuum(Server *s) {
@@ -390,7 +391,7 @@ void server_vacuum(Server *s) {
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
-                log_error("Failed to get machine ID: %s", strerror(-r));
+                log_error_errno(r, "Failed to get machine ID: %m");
                 return;
         }
         sd_id128_to_string(machine, ids);
@@ -510,7 +511,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 for (i = 0; i < n; i++)
                         size += iovec[i].iov_len;
 
-                log_error("Failed to write entry (%d items, %zu bytes), ignoring: %s", n, size, strerror(-r));
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, size);
                 return;
         }
 
@@ -529,7 +530,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 for (i = 0; i < n; i++)
                         size += iovec[i].iov_len;
 
-                log_error("Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %s", n, size, strerror(-r));
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, size);
         } else
                 server_schedule_sync(s, priority);
 }
@@ -537,8 +538,8 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 static void dispatch_message_real(
                 Server *s,
                 struct iovec *iovec, unsigned n, unsigned m,
-                struct ucred *ucred,
-                struct timeval *tv,
+                const struct ucred *ucred,
+                const struct timeval *tv,
                 const char *label, size_t label_len,
                 const char *unit_id,
                 int priority,
@@ -840,7 +841,7 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         IOVEC_SET_STRING(iovec[n++], buffer);
 
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
-                snprintf(mid, sizeof(mid), MESSAGE_ID(message_id));
+                snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
                 char_array_0(mid);
                 IOVEC_SET_STRING(iovec[n++], mid);
         }
@@ -855,8 +856,8 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
 void server_dispatch_message(
                 Server *s,
                 struct iovec *iovec, unsigned n, unsigned m,
-                struct ucred *ucred,
-                struct timeval *tv,
+                const struct ucred *ucred,
+                const struct timeval *tv,
                 const char *label, size_t label_len,
                 const char *unit_id,
                 int priority,
@@ -926,10 +927,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
         char ids[33];
 
         r = sd_id128_get_machine(&machine);
-        if (r < 0) {
-                log_error("Failed to get machine id: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine id: %m");
 
         sd_id128_to_string(machine, ids);
 
@@ -957,7 +956,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         server_fix_perms(s, s->system_journal, 0);
                 else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
-                                log_warning("Failed to open system journal: %s", strerror(-r));
+                                log_warning_errno(r, "Failed to open system journal: %m");
 
                         r = 0;
                 }
@@ -981,7 +980,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        log_warning("Failed to open runtime journal: %s", strerror(-r));
+                                        log_warning_errno(r, "Failed to open runtime journal: %m");
 
                                 r = 0;
                         }
@@ -998,10 +997,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
                         free(fn);
 
-                        if (r < 0) {
-                                log_error("Failed to open runtime journal: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
 
                 if (s->runtime_journal)
@@ -1044,10 +1041,8 @@ int server_flush_to_var(Server *s) {
                 return r;
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
-        if (r < 0) {
-                log_error("Failed to read runtime journal: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read runtime journal: %m");
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -1062,7 +1057,7 @@ int server_flush_to_var(Server *s) {
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
                 if (r < 0) {
-                        log_error("Can't read entry: %s", strerror(-r));
+                        log_error_errno(r, "Can't read entry: %m");
                         goto finish;
                 }
 
@@ -1071,7 +1066,7 @@ int server_flush_to_var(Server *s) {
                         continue;
 
                 if (!shall_try_append_again(s->system_journal, r)) {
-                        log_error("Can't write entry: %s", strerror(-r));
+                        log_error_errno(r, "Can't write entry: %m");
                         goto finish;
                 }
 
@@ -1087,7 +1082,7 @@ int server_flush_to_var(Server *s) {
                 log_debug("Retrying write.");
                 r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
                 if (r < 0) {
-                        log_error("Can't write entry: %s", strerror(-r));
+                        log_error_errno(r, "Can't write entry: %m");
                         goto finish;
                 }
         }
@@ -1112,7 +1107,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
         Server *s = userdata;
 
         assert(s);
-        assert(fd == s->native_fd || fd == s->syslog_fd);
+        assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
 
         if (revents != EPOLLIN) {
                 log_error("Got invalid event from epoll for datagram fd: %"PRIx32, revents);
@@ -1142,35 +1137,44 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                                     CMSG_SPACE(sizeof(int)) + /* fd */
                                     CMSG_SPACE(NAME_MAX)]; /* selinux label */
                 } control = {};
+                union sockaddr_union sa = {};
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),
+                        .msg_name = &sa,
+                        .msg_namelen = sizeof(sa),
                 };
 
                 ssize_t n;
-                int v;
                 int *fds = NULL;
                 unsigned n_fds = 0;
+                int v = 0;
+                size_t m;
 
-                if (ioctl(fd, SIOCINQ, &v) < 0) {
-                        log_error("SIOCINQ failed: %m");
-                        return -errno;
-                }
+                /* Try to get the right size, if we can. (Not all
+                 * sockets support SIOCINQ, hence we just try, but
+                 * don't rely on it. */
+                (void) ioctl(fd, SIOCINQ, &v);
 
-                if (!GREEDY_REALLOC(s->buffer, s->buffer_size, LINE_MAX + (size_t) v))
+                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful!*/
+                m = PAGE_ALIGN(MAX3((size_t) v + 1,
+                                    (size_t) LINE_MAX,
+                                    ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
+
+                if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
                         return log_oom();
 
                 iovec.iov_base = s->buffer;
-                iovec.iov_len = s->buffer_size;
+                iovec.iov_len = s->buffer_size - 1; /* Leave room for trailing NUL we add later */
 
                 n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (n < 0) {
                         if (errno == EINTR || errno == EAGAIN)
                                 return 0;
 
-                        log_error("recvmsg() failed: %m");
+                        log_error_errno(errno, "recvmsg() failed: %m");
                         return -errno;
                 }
 
@@ -1195,20 +1199,30 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                         }
                 }
 
+                /* And a trailing NUL, just in case */
+                s->buffer[n] = 0;
+
                 if (fd == s->syslog_fd) {
-                        if (n > 0 && n_fds == 0) {
-                                s->buffer[n] = 0;
+                        if (n > 0 && n_fds == 0)
                                 server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
-                        } else if (n_fds > 0)
+                        else if (n_fds > 0)
                                 log_warning("Got file descriptors via syslog socket. Ignoring.");
 
-                } else {
+                } else if (fd == s->native_fd) {
                         if (n > 0 && n_fds == 0)
                                 server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
                         else if (n == 0 && n_fds == 1)
                                 server_process_native_file(s, fds[0], ucred, tv, label, label_len);
                         else if (n_fds > 0)
                                 log_warning("Got too many file descriptors via native socket. Ignoring.");
+
+                } else {
+                        assert(fd == s->audit_fd);
+
+                        if (n > 0 && n_fds == 0)
+                                server_process_audit_message(s, s->buffer, n, ucred, &sa, msghdr.msg_namelen);
+                        else if (n_fds > 0)
+                                log_warning("Got file descriptors via audit socket. Ignoring.");
                 }
 
                 close_many(fds, n_fds);
@@ -1290,10 +1304,10 @@ static int server_parse_proc_cmdline(Server *s) {
         int r;
 
         r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
                 return 0;
+        }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 _cleanup_free_ char *word;
@@ -1337,10 +1351,11 @@ static int server_parse_proc_cmdline(Server *s) {
 static int server_parse_config_file(Server *s) {
         assert(s);
 
-        return config_parse(NULL, "/etc/systemd/journald.conf", NULL,
-                            "Journal\0",
-                            config_item_perf_lookup, journald_gperf_lookup,
-                            false, false, true, s);
+        return config_parse_many("/etc/systemd/journald.conf",
+                                 CONF_DIRS_NULSTR("systemd/journald.conf"),
+                                 "Journal\0",
+                                 config_item_perf_lookup, journald_gperf_lookup,
+                                 false, s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
@@ -1417,10 +1432,8 @@ static int server_open_hostname(Server *s) {
         assert(s);
 
         s->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
-        if (s->hostname_fd < 0) {
-                log_error("Failed to open /proc/sys/kernel/hostname: %m");
-                return -errno;
-        }
+        if (s->hostname_fd < 0)
+                return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
 
         r = sd_event_add_io(s->event, &s->hostname_event_source, s->hostname_fd, 0, dispatch_hostname_change, s);
         if (r < 0) {
@@ -1433,15 +1446,12 @@ static int server_open_hostname(Server *s) {
                         return 0;
                 }
 
-                log_error("Failed to register hostname fd in event loop: %s", strerror(-r));
-                return r;
+                return log_error_errno(r, "Failed to register hostname fd in event loop: %m");
         }
 
         r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
-        if (r < 0) {
-                log_error("Failed to adjust priority of host name event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust priority of host name event source: %m");
 
         return 0;
 }
@@ -1452,7 +1462,7 @@ int server_init(Server *s) {
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->hostname_fd = -1;
+        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = -1;
         s->compress = true;
         s->seal = true;
 
@@ -1494,18 +1504,14 @@ int server_init(Server *s) {
                 return log_oom();
 
         r = sd_event_default(&s->event);
-        if (r < 0) {
-                log_error("Failed to create event loop: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create event loop: %m");
 
         sd_event_set_watchdog(s->event, true);
 
         n = sd_listen_fds(true);
-        if (n < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s", strerror(-n));
-                return n;
-        }
+        if (n < 0)
+                return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
 
@@ -1537,9 +1543,24 @@ int server_init(Server *s) {
 
                         s->syslog_fd = fd;
 
+                } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+
+                        if (s->audit_fd >= 0) {
+                                log_error("Too many audit sockets passed.");
+                                return -EINVAL;
+                        }
+
+                        s->audit_fd = fd;
+
                 } else {
-                        log_error("Unknown socket passed.");
-                        return -EINVAL;
+                        log_warning("Unknown socket passed as file descriptor %d, ignoring.", fd);
+
+                        /* Let's close the fd, better be safe than
+                           sorry. The fd might reference some resource
+                           that we really want to release if we don't
+                           make use of it. */
+
+                        safe_close(fd);
                 }
         }
 
@@ -1556,6 +1577,10 @@ int server_init(Server *s) {
                 return r;
 
         r = server_open_dev_kmsg(s);
+        if (r < 0)
+                return r;
+
+        r = server_open_audit(s);
         if (r < 0)
                 return r;
 
@@ -1632,6 +1657,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->native_event_source);
         sd_event_source_unref(s->stdout_event_source);
         sd_event_source_unref(s->dev_kmsg_event_source);
+        sd_event_source_unref(s->audit_event_source);
         sd_event_source_unref(s->sync_event_source);
         sd_event_source_unref(s->sigusr1_event_source);
         sd_event_source_unref(s->sigusr2_event_source);
@@ -1644,6 +1670,7 @@ void server_done(Server *s) {
         safe_close(s->native_fd);
         safe_close(s->stdout_fd);
         safe_close(s->dev_kmsg_fd);
+        safe_close(s->audit_fd);
         safe_close(s->hostname_fd);
 
         if (s->rate_limit)
@@ -1655,6 +1682,7 @@ void server_done(Server *s) {
         free(s->buffer);
         free(s->tty_path);
         free(s->cgroup_root);
+        free(s->hostname_field);
 
         if (s->mmap)
                 mmap_cache_unref(s->mmap);

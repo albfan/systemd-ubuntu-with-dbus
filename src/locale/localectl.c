@@ -110,7 +110,7 @@ static void print_overriden_variables(void) {
                            NULL);
 
         if (r < 0 && r != -ENOENT) {
-                log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
+                log_warning_errno(r, "Failed to read /proc/cmdline: %m");
                 goto finish;
         }
 
@@ -118,11 +118,11 @@ static void print_overriden_variables(void) {
                 if (variables[j]) {
                         if (print_warning) {
                                 log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
-                                            "  Command Line: %s=%s\n", locale_variable_to_string(j), variables[j]);
+                                            "  Command Line: %s=%s", locale_variable_to_string(j), variables[j]);
 
                                 print_warning = false;
                         } else
-                                log_warning("                %s=%s\n", locale_variable_to_string(j), variables[j]);
+                                log_warning("                %s=%s", locale_variable_to_string(j), variables[j]);
                 }
  finish:
         for (j = 0; j < _VARIABLE_LC_MAX; j++)
@@ -178,7 +178,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    map,
                                    &info);
         if (r < 0) {
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(r, "Could not get properties: %m");
                 goto fail;
         }
 
@@ -234,10 +234,8 @@ static int list_locales(sd_bus *bus, char **args, unsigned n) {
         assert(args);
 
         r = get_locales(&l);
-        if (r < 0) {
-                log_error("Failed to read list of locales: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of locales: %m");
 
         pager_open_if_enabled();
         strv_print(l);
@@ -309,10 +307,8 @@ static int nftw_cb(
                 *e = 0;
 
         r = set_consume(keymaps, p);
-        if (r < 0 && r != -EEXIST) {
-                log_error("Can't add keymap: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Can't add keymap: %m");
 
         return 0;
 }
@@ -405,10 +401,8 @@ static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
         }
 
         f = fopen("/usr/share/X11/xkb/rules/base.lst", "re");
-        if (!f) {
-                log_error("Failed to open keyboard mapping list. %m");
-                return -errno;
-        }
+        if (!f)
+                return log_error_errno(errno, "Failed to open keyboard mapping list. %m");
 
         if (streq(args[0], "list-x11-keymap-models"))
                 look_for = MODELS;
@@ -505,7 +499,7 @@ static void help(void) {
                "  list-locales             Show known locales\n"
                "  set-keymap MAP [MAP]     Set virtual console keyboard mapping\n"
                "  list-keymaps             Show known virtual console keyboard mappings\n"
-               "  set-x11-keymap LAYOUT [MODEL] [VARIANT] [OPTIONS]\n"
+               "  set-x11-keymap LAYOUT [MODEL [VARIANT [OPTIONS]]]\n"
                "                           Set X11 keyboard mapping\n"
                "  list-x11-keymap-models   Show known X11 keyboard mapping models\n"
                "  list-x11-keymap-layouts  Show known X11 keyboard mapping layouts\n"
@@ -683,7 +677,7 @@ int main(int argc, char*argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

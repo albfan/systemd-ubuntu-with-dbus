@@ -105,7 +105,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOWeight=%lu\n"
                 "%sStartupBlockIOWeight=%lu\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
-                "%sDevicePolicy=%s\n",
+                "%sDevicePolicy=%s\n"
+                "%sDelegate=%s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
@@ -115,7 +116,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
                 prefix, c->memory_limit,
-                prefix, cgroup_device_policy_to_string(c->device_policy));
+                prefix, cgroup_device_policy_to_string(c->device_policy),
+                prefix, yes_no(c->delegate));
 
         LIST_FOREACH(device_allow, a, c->device_allow)
                 fprintf(f,
@@ -151,10 +153,8 @@ static int lookup_blkio_device(const char *p, dev_t *dev) {
         assert(dev);
 
         r = stat(p, &st);
-        if (r < 0) {
-                log_warning("Couldn't stat device %s: %m", p);
-                return -errno;
-        }
+        if (r < 0)
+                return log_warning_errno(errno, "Couldn't stat device %s: %m", p);
 
         if (S_ISBLK(st.st_mode))
                 *dev = st.st_rdev;
@@ -216,10 +216,8 @@ static int whitelist_major(const char *path, const char *name, char type, const 
         assert(type == 'b' || type == 'c');
 
         f = fopen("/proc/devices", "re");
-        if (!f) {
-                log_warning("Cannot open /proc/devices to resolve %s (%c): %m", name, type);
-                return -errno;
-        }
+        if (!f)
+                return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s (%c): %m", name, type);
 
         FOREACH_LINE(line, f, goto fail) {
                 char buf[2+DECIMAL_STR_MAX(unsigned)+3+4], *p, *w;
@@ -278,7 +276,7 @@ static int whitelist_major(const char *path, const char *name, char type, const 
         return 0;
 
 fail:
-        log_warning("Failed to read /proc/devices: %m");
+        log_warning_errno(errno, "Failed to read /proc/devices: %m");
         return -errno;
 }
 
@@ -461,7 +459,8 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
             c->memory_limit != (uint64_t) -1)
                 mask |= CGROUP_MEMORY;
 
-        if (c->device_allow || c->device_policy != CGROUP_AUTO)
+        if (c->device_allow ||
+            c->device_policy != CGROUP_AUTO)
                 mask |= CGROUP_DEVICE;
 
         return mask;
@@ -473,6 +472,19 @@ CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         c = unit_get_cgroup_context(u);
         if (!c)
                 return 0;
+
+        /* If delegation is turned on, then turn on all cgroups,
+         * unless the process we fork into it is known to drop
+         * privileges anyway, and shouldn't get access to the
+         * controllers anyway. */
+
+        if (c->delegate) {
+                ExecContext *e;
+
+                e = unit_get_exec_context(u);
+                if (!e || exec_context_maintains_privileges(e))
+                        return _CGROUP_CONTROLLER_MASK_ALL;
+        }
 
         return cgroup_context_get_mask(c);
 }
@@ -593,40 +605,66 @@ static const char *migrate_callback(CGroupControllerMask mask, void *userdata) {
 }
 
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
-        _cleanup_free_ char *path = NULL;
+        CGroupContext *c;
         int r;
 
         assert(u);
 
-        path = unit_default_cgroup_path(u);
-        if (!path)
-                return log_oom();
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
 
-        r = hashmap_put(u->manager->cgroup_unit, path, u);
-        if (r < 0) {
-                log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));
-                return r;
-        }
-        if (r > 0) {
-                u->cgroup_path = path;
-                path = NULL;
+        if (!u->cgroup_path) {
+                _cleanup_free_ char *path = NULL;
+
+                path = unit_default_cgroup_path(u);
+                if (!path)
+                        return log_oom();
+
+                r = hashmap_put(u->manager->cgroup_unit, path, u);
+                if (r < 0) {
+                        log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));
+                        return r;
+                }
+                if (r > 0) {
+                        u->cgroup_path = path;
+                        path = NULL;
+                }
         }
 
         /* First, create our own group */
         r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path);
-        if (r < 0) {
-                log_error("Failed to create cgroup %s: %s", u->cgroup_path, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create cgroup %s: %m", u->cgroup_path);
 
         /* Keep track that this is now realized */
         u->cgroup_realized = true;
         u->cgroup_realized_mask = mask;
 
-        /* Then, possibly move things over */
-        r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
+        if (u->type != UNIT_SLICE && !c->delegate) {
+
+                /* Then, possibly move things over, but not if
+                 * subgroups may contain processes, which is the case
+                 * for slice and delegation units. */
+                r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to migrate cgroup from to %s: %m", u->cgroup_path);
+        }
+
+        return 0;
+}
+
+int unit_attach_pids_to_cgroup(Unit *u) {
+        int r;
+        assert(u);
+
+        r = unit_realize_cgroup(u);
         if (r < 0)
-                log_warning("Failed to migrate cgroup from to %s: %s", u->cgroup_path, strerror(-r));
+                return r;
+
+        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->pids, migrate_callback, u);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -699,7 +737,7 @@ unsigned manager_dispatch_cgroup_queue(Manager *m) {
 
                 r = unit_realize_cgroup_now(i, state);
                 if (r < 0)
-                        log_warning("Failed to realize cgroups for queued unit %s: %s", i->id, strerror(-r));
+                        log_warning_errno(r, "Failed to realize cgroups for queued unit %s: %m", i->id);
 
                 n++;
         }
@@ -772,7 +810,7 @@ int unit_realize_cgroup(Unit *u) {
         return unit_realize_cgroup_now(u, manager_state(u->manager));
 }
 
-void unit_destroy_cgroup(Unit *u) {
+void unit_destroy_cgroup_if_empty(Unit *u) {
         int r;
 
         assert(u);
@@ -781,8 +819,10 @@ void unit_destroy_cgroup(Unit *u) {
                 return;
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
-        if (r < 0)
-                log_debug("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to destroy cgroup %s: %m", u->cgroup_path);
+                return;
+        }
 
         hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
 
@@ -790,7 +830,6 @@ void unit_destroy_cgroup(Unit *u) {
         u->cgroup_path = NULL;
         u->cgroup_realized = false;
         u->cgroup_realized_mask = 0;
-
 }
 
 pid_t unit_search_main_pid(Unit *u) {
@@ -841,10 +880,8 @@ int manager_setup_cgroup(Manager *m) {
         m->cgroup_root = NULL;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
-        if (r < 0) {
-                log_error("Cannot determine cgroup we are running in: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
         /* LEGACY: Already in /system.slice? If so, let's cut this
          * off. This is to support live upgrades from older systemd
@@ -867,10 +904,8 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 2. Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
-        if (r < 0) {
-                log_error("Cannot find cgroup mount point: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot find cgroup mount point: %m");
 
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
         if (!m->test_run) {
@@ -879,7 +914,7 @@ int manager_setup_cgroup(Manager *m) {
                 if (m->running_as == SYSTEMD_SYSTEM) {
                         r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
                         if (r < 0)
-                                log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
+                                log_warning_errno(r, "Failed to install release agent, ignoring: %m");
                         else if (r > 0)
                                 log_debug("Installed release agent.");
                         else
@@ -888,19 +923,15 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* 4. Make sure we are in the root cgroup */
                 r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
-                if (r < 0) {
-                        log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create root cgroup hierarchy: %m");
 
                 /* 5. And pin it, so that it cannot be unmounted */
                 safe_close(m->pin_cgroupfs_fd);
 
                 m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-                if (m->pin_cgroupfs_fd < 0) {
-                        log_error("Failed to open pin file: %m");
-                        return -errno;
-                }
+                if (m->pin_cgroupfs_fd < 0)
+                        return log_error_errno(errno, "Failed to open pin file: %m");
 
                 /* 6.  Always enable hierarchial support if it exists... */
                 cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");

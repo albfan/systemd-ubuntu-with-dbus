@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/mman.h>
+
 #include "special.h"
 #include "bus-kernel.h"
 #include "bus-internal.h"
@@ -26,6 +28,7 @@
 #include "service.h"
 #include "dbus-busname.h"
 #include "busname.h"
+#include "kdbus.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,
@@ -197,13 +200,13 @@ static int busname_verify(BusName *n) {
                 return 0;
 
         if (!service_name_is_valid(n->name)) {
-                log_error_unit(UNIT(n)->id, "%s's Name= setting is not a valid service name Refusing.", UNIT(n)->id);
+                log_unit_error(UNIT(n)->id, "%s's Name= setting is not a valid service name Refusing.", UNIT(n)->id);
                 return -EINVAL;
         }
 
         e = strappenda(n->name, ".busname");
         if (!unit_has_name(UNIT(n), e)) {
-                log_error_unit(UNIT(n)->id, "%s's Name= setting doesn't match unit name. Refusing.", UNIT(n)->id);
+                log_unit_error(UNIT(n)->id, "%s's Name= setting doesn't match unit name. Refusing.", UNIT(n)->id);
                 return -EINVAL;
         }
 
@@ -265,7 +268,7 @@ static void busname_unwatch_fd(BusName *n) {
 
         r = sd_event_source_set_enabled(n->starter_event_source, SD_EVENT_OFF);
         if (r < 0)
-                log_debug_unit(UNIT(n)->id, "Failed to disable event source.");
+                log_unit_debug(UNIT(n)->id, "Failed to disable event source.");
 }
 
 static int busname_watch_fd(BusName *n) {
@@ -281,7 +284,7 @@ static int busname_watch_fd(BusName *n) {
         else
                 r = sd_event_add_io(UNIT(n)->manager->event, &n->starter_event_source, n->starter_fd, EPOLLIN, busname_dispatch_io, n);
         if (r < 0) {
-                log_warning_unit(UNIT(n)->id, "Failed to watch starter fd: %s", strerror(-r));
+                log_unit_warning_errno(UNIT(n)->id, r, "Failed to watch starter fd: %m");
                 busname_unwatch_fd(n);
                 return r;
         }
@@ -300,11 +303,8 @@ static int busname_open_fd(BusName *n) {
 
         mode = UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user";
         n->starter_fd = bus_kernel_open_bus_fd(mode, &path);
-        if (n->starter_fd < 0) {
-                log_warning_unit(UNIT(n)->id, "Failed to open %s: %s",
-                                 path ?: "kdbus", strerror(-n->starter_fd));
-                return n->starter_fd;
-        }
+        if (n->starter_fd < 0)
+                return log_unit_warning_errno(UNIT(n)->id, n->starter_fd, "Failed to open %s: %m", path ?: "kdbus");
 
         return 0;
 }
@@ -328,7 +328,7 @@ static void busname_set_state(BusName *n, BusNameState state) {
                 busname_close_fd(n);
 
         if (state != old_state)
-                log_debug_unit(UNIT(n)->id, "%s changed %s -> %s",
+                log_unit_debug(UNIT(n)->id, "%s changed %s -> %s",
                                UNIT(n)->id, busname_state_to_string(old_state), busname_state_to_string(state));
 
         unit_notify(UNIT(n), state_translation_table[old_state], state_translation_table[state], true);
@@ -407,7 +407,7 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
 
         fail_child:
                 log_open();
-                log_error("Failed to create starter connection at step %s: %s", exit_status_to_string(ret, EXIT_STATUS_SYSTEMD), strerror(-r));
+                log_error_errno(r, "Failed to create starter connection at step %s: %m", exit_status_to_string(ret, EXIT_STATUS_SYSTEMD));
 
                 _exit(ret);
         }
@@ -451,14 +451,14 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
                               n->control_pid,
                               false);
         if (r < 0) {
-                log_warning_unit(UNIT(n)->id, "%s failed to kill control process: %s", UNIT(n)->id, strerror(-r));
+                log_unit_warning_errno(UNIT(n)->id, r, "%s failed to kill control process: %m", UNIT(n)->id);
                 goto fail;
         }
 
         if (r > 0) {
                 r = busname_arm_timer(n);
                 if (r < 0) {
-                        log_warning_unit(UNIT(n)->id, "%s failed to arm timer: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to arm timer: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -482,7 +482,7 @@ static void busname_enter_listening(BusName *n) {
         if (n->activating) {
                 r = busname_watch_fd(n);
                 if (r < 0) {
-                        log_warning_unit(UNIT(n)->id, "%s failed to watch names: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to watch names: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -513,7 +513,7 @@ static void busname_enter_making(BusName *n) {
 
                 r = busname_make_starter(n, &n->control_pid);
                 if (r < 0) {
-                        log_warning_unit(UNIT(n)->id, "%s failed to fork 'making' task: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to fork 'making' task: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -524,7 +524,7 @@ static void busname_enter_making(BusName *n) {
 
                 r = bus_kernel_make_starter(n->starter_fd, n->name, n->activating, n->accept_fd, NULL, n->policy_world);
                 if (r < 0) {
-                        log_warning_unit(UNIT(n)->id, "%s failed to make starter: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to make starter: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -553,7 +553,7 @@ static void busname_enter_running(BusName *n) {
          * shut down anyway */
 
         if (unit_stop_pending(UNIT(n))) {
-                log_debug_unit(UNIT(n)->id, "Suppressing activation request on %s since unit stop is scheduled.", UNIT(n)->id);
+                log_unit_debug(UNIT(n)->id, "Suppressing activation request on %s since unit stop is scheduled.", UNIT(n)->id);
 
                 /* Flush all queued activation reqeuest by closing and reopening the connection */
                 bus_kernel_drop_one(n->starter_fd);
@@ -580,7 +580,7 @@ static void busname_enter_running(BusName *n) {
         return;
 
 fail:
-        log_warning_unit(UNIT(n)->id, "%s failed to queue service startup job: %s", UNIT(n)->id, bus_error_message(&error, r));
+        log_unit_warning(UNIT(n)->id, "%s failed to queue service startup job: %s", UNIT(n)->id, bus_error_message(&error, r));
         busname_enter_dead(n, BUSNAME_FAILURE_RESOURCES);
 }
 
@@ -604,7 +604,7 @@ static int busname_start(Unit *u) {
                 service = SERVICE(UNIT_DEREF(n->service));
 
                 if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_error_unit(u->id, "Bus service %s not loaded, refusing.", UNIT(service)->id);
+                        log_unit_error(u->id, "Bus service %s not loaded, refusing.", UNIT(service)->id);
                         return -ENOENT;
                 }
         }
@@ -678,7 +678,7 @@ static int busname_deserialize_item(Unit *u, const char *key, const char *value,
 
                 state = busname_state_from_string(value);
                 if (state < 0)
-                        log_debug_unit(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u->id, "Failed to parse state value %s", value);
                 else
                         n->deserialized_state = state;
 
@@ -687,7 +687,7 @@ static int busname_deserialize_item(Unit *u, const char *key, const char *value,
 
                 f = busname_result_from_string(value);
                 if (f < 0)
-                        log_debug_unit(u->id, "Failed to parse result value %s", value);
+                        log_unit_debug(u->id, "Failed to parse result value %s", value);
                 else if (f != BUSNAME_SUCCESS)
                         n->result = f;
 
@@ -695,20 +695,20 @@ static int busname_deserialize_item(Unit *u, const char *key, const char *value,
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug_unit(u->id, "Failed to parse control-pid value %s", value);
+                        log_unit_debug(u->id, "Failed to parse control-pid value %s", value);
                 else
                         n->control_pid = pid;
         } else if (streq(key, "starter-fd")) {
                 int fd;
 
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse starter fd value %s", value);
+                        log_unit_debug(u->id, "Failed to parse starter fd value %s", value);
                 else {
                         safe_close(n->starter_fd);
                         n->starter_fd = fdset_remove(fds, fd);
                 }
         } else
-                log_debug_unit(u->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -725,6 +725,88 @@ _pure_ static const char *busname_sub_state_to_string(Unit *u) {
         return busname_state_to_string(BUSNAME(u)->state);
 }
 
+static int busname_peek_message(BusName *n) {
+        struct kdbus_cmd_recv cmd_recv = {
+                .flags = KDBUS_RECV_PEEK,
+        };
+        struct kdbus_cmd_free cmd_free = {};
+        const char *comm = NULL;
+        struct kdbus_item *d;
+        struct kdbus_msg *k;
+        size_t start, ps, sz, delta;
+        void *p = NULL;
+        pid_t pid = 0;
+        int r;
+
+        /* Generate a friendly debug log message about which process
+         * caused triggering of this bus name. This simply peeks the
+         * metadata of the first queued message and logs it. */
+
+        assert(n);
+
+        /* Let's shortcut things a bit, if debug logging is turned off
+         * anyway. */
+
+        if (log_get_max_level() < LOG_DEBUG)
+                return 0;
+
+        r = ioctl(n->starter_fd, KDBUS_CMD_MSG_RECV, &cmd_recv);
+        if (r < 0) {
+                if (errno == EINTR || errno == EAGAIN)
+                        return 0;
+
+                log_unit_error(UNIT(n)->id, "%s: Failed to query activation message: %m", UNIT(n)->id);
+                return -errno;
+        }
+
+        /* We map as late as possible, and unmap imemdiately after
+         * use. On 32bit address space is scarce and we want to be
+         * able to handle a lot of activator connections at the same
+         * time, and hence shouldn't keep the mmap()s around for
+         * longer than necessary. */
+
+        ps = page_size();
+        start = (cmd_recv.offset / ps) * ps;
+        delta = cmd_recv.offset - start;
+        sz = PAGE_ALIGN(delta + cmd_recv.msg_size);
+
+        p = mmap(NULL, sz, PROT_READ, MAP_SHARED, n->starter_fd, start);
+        if (p == MAP_FAILED) {
+                log_unit_error(UNIT(n)->id, "%s: Failed to map activation message: %m", UNIT(n)->id);
+                r = -errno;
+                goto finish;
+        }
+
+        k = (struct kdbus_msg *) ((uint8_t *) p + delta);
+        KDBUS_ITEM_FOREACH(d, k, items) {
+                switch (d->type) {
+
+                case KDBUS_ITEM_PIDS:
+                        pid = d->pids.pid;
+                        break;
+
+                case KDBUS_ITEM_PID_COMM:
+                        comm = d->str;
+                        break;
+                }
+        }
+
+        if (pid > 0)
+                log_unit_debug(UNIT(n)->id, "%s: Activation triggered by process " PID_FMT " (%s)", UNIT(n)->id, pid, strna(comm));
+
+        r = 0;
+
+finish:
+        if (p)
+                (void) munmap(p, sz);
+
+        cmd_free.offset = cmd_recv.offset;
+        if (ioctl(n->starter_fd, KDBUS_CMD_FREE, &cmd_free) < 0)
+                log_unit_warning(UNIT(n)->id, "Failed to free peeked message, ignoring: %m");
+
+        return r;
+}
+
 static int busname_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         BusName *n = userdata;
 
@@ -734,14 +816,15 @@ static int busname_dispatch_io(sd_event_source *source, int fd, uint32_t revents
         if (n->state != BUSNAME_LISTENING)
                 return 0;
 
-        log_debug_unit(UNIT(n)->id, "Activation request on %s", UNIT(n)->id);
+        log_unit_debug(UNIT(n)->id, "Activation request on %s", UNIT(n)->id);
 
         if (revents != EPOLLIN) {
-                log_error_unit(UNIT(n)->id, "%s: Got unexpected poll event (0x%x) on starter fd.",
+                log_unit_error(UNIT(n)->id, "%s: Got unexpected poll event (0x%x) on starter fd.",
                                UNIT(n)->id, revents);
                 goto fail;
         }
 
+        busname_peek_message(n);
         busname_enter_running(n);
         return 0;
 fail:
@@ -773,8 +856,9 @@ static void busname_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown sigchld code");
 
-        log_full_unit(f == BUSNAME_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                      u->id, "%s control process exited, code=%s status=%i",
+        log_unit_full(u->id,
+                      f == BUSNAME_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                      "%s control process exited, code=%s status=%i",
                       u->id, sigchld_code_to_string(code), status);
 
         if (f != BUSNAME_SUCCESS)
@@ -811,17 +895,17 @@ static int busname_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         switch (n->state) {
 
         case BUSNAME_MAKING:
-                log_warning_unit(UNIT(n)->id, "%s making timed out. Terminating.", UNIT(n)->id);
+                log_unit_warning(UNIT(n)->id, "%s making timed out. Terminating.", UNIT(n)->id);
                 busname_enter_signal(n, BUSNAME_SIGTERM, BUSNAME_FAILURE_TIMEOUT);
                 break;
 
         case BUSNAME_SIGTERM:
-                log_warning_unit(UNIT(n)->id, "%s stopping timed out. Killing.", UNIT(n)->id);
+                log_unit_warning(UNIT(n)->id, "%s stopping timed out. Killing.", UNIT(n)->id);
                 busname_enter_signal(n, BUSNAME_SIGKILL, BUSNAME_FAILURE_TIMEOUT);
                 break;
 
         case BUSNAME_SIGKILL:
-                log_warning_unit(UNIT(n)->id, "%s still around after SIGKILL. Ignoring.", UNIT(n)->id);
+                log_unit_warning(UNIT(n)->id, "%s still around after SIGKILL. Ignoring.", UNIT(n)->id);
                 busname_enter_dead(n, BUSNAME_FAILURE_TIMEOUT);
                 break;
 

@@ -1,7 +1,3 @@
-Fixes needed before 217:
-
-* verify that both resolved and timesyncd work OK without networkd around
-
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
@@ -18,11 +14,12 @@ Bugfixes:
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
 
-* MEMORY return code is overloaded for syntax errors in the commandline.
+* MEMORY return code is overloaded for syntax errors in the command line.
   str_split_quoted() should return a real return code, so spawn_child can
   report the failure properly.
 
 External:
+
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
@@ -38,7 +35,71 @@ External:
 
 Features:
 
-* journald: allow per-priority and per-service retention times when rotating/vacuuming
+* port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
+
+* bash completion for busctl, to make it truly useful
+
+* journald: broken file systems are real (btrfs), we need to handle
+  SIGBUS in some way if we cannot write or read from the disk.
+  https://bugzilla.redhat.com/show_bug.cgi?id=1151848
+
+* "systemctl preset-all" should probably order the unit files it
+  operates on lexicographically before starting to work, in order to
+  ensure deterministic behaviour if two unit files conflict (like DMs
+  do, for example)
+
+* resolved should optionally register additional per-interface LLMNR
+  names, so that for the container case we can establish the same name
+  (maybe "host") for referencing the server, everywhere.
+
+* systemd-journal-upload (or a new, related tool): allow pushing out
+  journal messages onto the network in BSD syslog protocol,
+  continously. Default to some link-local IP mcast group, to make this
+  useful as a one-stop debugging tool.
+
+* synchronize console access with BSD locks:
+  http://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
+
+* as soon as we have kdbus, and sender timestamps, revisit coalescing multiple parallel daemon reloads:
+  http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
+
+* set $REMOTE_IP (or $REMOTE_ADDR/$REMOTE_PORT) environment variable when doing per-connection socket activation. use format introduced by xinetd or CGI for this
+
+* the install state probably shouldn't get confused by generated units, think dbus1/kdbus compat!
+
+* in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
+
+* we should try harder to collapse start jobs for swaps that end up being the same:
+  http://lists.freedesktop.org/archives/systemd-devel/2014-November/025359.html
+
+* timedated should compensate on SetTime for the time spent in polkit
+
+* figure out what to do with libmount and utab?
+
+* We really should have a FOREACH macro to iterate through inotify events we read, similar to KDBUS_FOREACH_ITEM
+
+* figure out when we can use the coarse timers
+
+* sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
+
+* add "systemctl start -v foobar.service" that shows logs of a service
+  while the start command runs. This is non-trivial to do without
+  races though, since we should flush out all journal messages before
+  returning from the "systemctl stop".
+
+* firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
+
+* timesyncd + resolved: add ugly bus calls to set NTP and DNS servers per-interface, for usage by NM
+
+* networkd-wait-online really should have a timeout by default
+
+* add infrastructure to allocate dynamic/transient users and UID ranges, for use in user-namespaced containers, per-seat gdm login screens and gdm guest sessions
+
+* machined: add an API so that libvirt-lxc can inform us about network interfaces being removed or added to an existing machine
+
+* maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
+
+* code cleanup: retire FOREACH_WORD_QUOTED, port to unquote_first_word() loops instead
 
 * introduce systemd-timesync-wait.service or so to sync on an NTP fix?
 
@@ -53,47 +114,25 @@ Features:
 * maybe allow timer units with an empty Units= setting, so that they
   can be used for resuming the system but nothing else.
 
-* what to do about udev db binary stability for apps?
+* what to do about udev db binary stability for apps? (raw access is not an option)
 
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
-
-* kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
-
-* PID 1 doesn't apply nspawns devices cgroup policy
-
-* rework journal-send.c to use memfds for large blobs if they are available instead of unlinked files in /tmp. Also, if we detect that the kernel knows memfds, refuse anything but sealed memfds.
 
 * maybe support a new very "soft" reboot mode, that simply kills all processes, disassembles everything, flushes /run and sysvipc, and then reexecs systemd again
 
 * man: document that corrupted journal files is nothing to act on
 
-* bus-proxy: when passing messages from kdbus, make sure we properly
-  handle the case where a large number of fds is appended that we
-  cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
-  253 messages)
-
-* busctl: add a pcap writer, using LINKTYPE_DBUS/231
-
 * man: maybe use the word "inspect" rather than "introspect"?
-
-* introduce machines.target to order after all nspawn instances
-
-* systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
 
 * "machinectl list" should probably show columns for OS version and IP addresses
 
-* systemctl: if it fails, show log output?
+* systemctl: if some operation fails, show log output?
 
-* maybe add "systemctl edit" that copies unit files from /usr/lib/systemd/system to /etc/systemd/system and invokes vim on them
-
-* maybe introduce AssertXYZ= similar to ConditionXYZ= that causes a unit to fail (instead of skipping it) if some condition is not true...
+* systemctl edit: add commented help text to the end, like git commit
 
 * refcounting in sd-resolve is borked
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
-
-* journald: make use of uid-range.h to managed uid ranges to split
-  journals in.
 
 * tmpfiles: port to unquote_many_words(), similar to sysusers
 
@@ -101,14 +140,7 @@ Features:
   currently uses FOREACH_WORD and friends. For example, most conf
   parsing callbacks should use it.
 
-* logind: make the Suspend()/Hibernate() bus calls wait for the for
-  the job to be completed. before returning, so that clients can wait
-  for "systemctl suspend" to finish to know when the suspending is
-  complete.
-
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
-
-* journald: allows specification of UID range for splitting up journal files
 
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
@@ -148,35 +180,26 @@ Features:
   - edns0
   - dname
   - cname on PTR (?)
-
-* Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
-  without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
-  pull-in the policy.
+  - maybe randomize DNS UDP source ports
+  - maybe compare query section of DNS replies
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
 * Add a new verb "systemctl top"
-
-* logind: allow users to kill or lock their own sessions
 
 * add new gpt type for btrfs volumes
 
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
   - fstab-generator: support systemd.volatile=yes|no|state on the kernel cmdline, too, similar to nspawn's --volatile=
-  - fstab-generator: add support for usr= in addition to root= on the kernel cmdline
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
-
-* support setting empty environment variables with Environment= and EnvironmentFile=
 
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
 * figure out a nice way how we can let the admin know what child/sibling unit causes cgroup membership for a specific unit
-
-* journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
 
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
@@ -186,8 +209,6 @@ Features:
 * Run most system services with cgroupfs read-only and procfs with a more secure mode (doesn't work, since the hidepid= option is per-pid-namespace, not per-mount)
 
 * sd-event: generate a failure of a default event loop is executed out-of-thread
-
-* expose "Locked" property on logind sesison objects
 
 * add bus api to query unit file's X fields.
 
@@ -199,11 +220,6 @@ Features:
   - Support LUKS for root devices
   - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
-
-* improve journalctl performance by loading journal files
-  lazily. Encode just enough information in the file name, so that we
-  do not have to open it to know that it is not interesting for us, for
-  the most common operations.
 
 * add generator that pulls in systemd-network from containers when
   CAP_NET_ADMIN is set, more than the loopback device is defined, even
@@ -272,10 +288,6 @@ Features:
 
 * refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
 
-* given that logind now lets PID 1 do all nasty work, we can
-  probably reduce the capability set it retains substantially.
-  (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
-
 * btrfs raid assembly: some .device jobs stay stuck in the queue
 
 * make sure gdm does not use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
@@ -288,12 +300,21 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
-  - when kdbus does not take our message without memfds, try again with memfds
-  - systemd-bus-proxyd needs to enforce good old XML policy
-  - allow updating attach flags during runtime
-  - pid1: peek into activating message when activating a service
-  - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
+  - kdbus: process fd=-1 for incoming msgs
+  - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
+  - kdbus: remove NameOwnerChanged kernel messages for monitors
+  - kdbus: PID/TID goes missing for method calls from outside the PID namespace?
+  - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
+  - kdbus: timestamps on kernel's NameOwnerChanged messages?
+  - kdbus' busnames.target should get pulled in by basic.target
+  - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
+    without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
+    pull-in the policy.
   - port to sd-resolve for connecting to TCP dbus servers
+  - kdbus: maybe add controlling tty and ppid metadata fields
+  - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
+  - when kdbus does not take our message without memfds, try again with memfds
+  - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
   - make AddMatch calls on dbus1 transports async?
@@ -306,6 +327,12 @@ Features:
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - test bloom filter generation indexes
+  - bus-proxy: when passing messages from kdbus, make sure we properly
+    handle the case where a large number of fds is appended that we
+    cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
+    253 messages)
+  - kdbus: introduce a concept of "send-only" connections
+  - kdbus: add counter for refused unicast messages that is passed out via the RECV ioctl. SImilar to the counter for dropped multicast messages we already have.
 
 * sd-event
   - allow multiple signal handlers per signal?
@@ -325,8 +352,6 @@ Features:
 * add a pam module that on password changes updates any LUKS slot where the password matches
 
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
-
-* timedatectl: print a nicer message when enabling ntp fails because ntpd/chrony are not installed
 
 * cgtop: make cgtop useful in a container
 
@@ -369,8 +394,6 @@ Features:
 
 * think about window-manager-run-as-user-service problem: exit 0 → activate shutdown.target; exit != 0 → restart service
 
-* use "log level" rather than "log priority" everywhere
-
 * merge unit_kill_common() and unit_kill_context()
 
 * introduce ExecCondition= in services
@@ -404,12 +427,26 @@ Features:
     any session we should probably just become a NOP, since that's
     usually not a real user session but just some system code that just
     needs setuid().
+  - logind: make the Suspend()/Hibernate() bus calls wait for the for
+    the job to be completed. before returning, so that clients can wait
+    for "systemctl suspend" to finish to know when the suspending is
+    complete.
+  - logind: when the power button is pressed short, just popup a
+    logout dialog. If it is pressed for 1s, do the usual
+    shutdown. Inspiration are Macs here.
+  - logind: allow users to kill or lock their own sessions
+  - expose "Locked" property on logind sesison objects
+  - given that logind now lets PID 1 do all nasty work, we can
+    probably reduce the capability set it retains substantially.
+    (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
+  - expose orientation sensors and tablet mode through logind
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
 
 * journal:
+  - consider introducing implicit _TTY= + _PPID= + _EUID= + _EGID= + _FSUID= + _FSGID= fields
   - import and delete pstore filesystem content at startup
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
@@ -431,17 +468,14 @@ Features:
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
-  - journald: check whether it is OK if the client can still modify delivered journal entries
   - journal live copy, based on libneon (client) and libmicrohttpd (server)
   - journald: add kernel cmdline option to disable ratelimiting for debug purposes
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
   - journal: deal nicely with byte-by-byte copied files, especially regards header
-  - journal: store euid in journal if it differs from uid
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
   - journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
-  - tmpfiles: when applying ownership to /run/log/journal, also do this for the journal fails contained in it
   - when a kernel driver logs in a tight loop, we should ratelimit that too.
   - journald: optionally, log debug messages to /run but everything else to /var
   - journald: when we drop syslog messages because the syslog socket is
@@ -452,6 +486,15 @@ Features:
     boot, and causes the journal to be moved back to /run on shutdown,
     so that we do not keep /var busy. This needs to happen synchronously,
     hence doing this via signals is not going to work.
+  - optionally support running journald from the command line for testing purposes in external projects
+  - journald: allow per-priority and per-service retention times when rotating/vacuuming
+  - journald: make use of uid-range.h to managed uid ranges to split
+    journals in.
+  - journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
+  - improve journalctl performance by loading journal files
+    lazily. Encode just enough information in the file name, so that we
+    do not have to open it to know that it is not interesting for us, for
+    the most common operations.
 
 * document:
   - document that deps in [Unit] sections ignore Alias= fields in
@@ -498,15 +541,6 @@ Features:
   - when parsing calendar timestamps support the UTC timezone (even if we will not support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
   - Modulate timer frequency based on battery state
 
-* update the kernel's TZ (sys_tz) when DST changes
-
-* sync down the system time to the RTC when:
-    - CLOCK_REALTIME makes jumps (the user explicitely requested a time set)
-    - DST/timezone changes && ntp is active && RTC-in-localtime (never do it without ntp)
-  This takes care of syncing ntpdate updates to the RTC, and DST updates for localtime
-  mode, it will never touch the RTC if the no reliable time source is active or the
-  user did not request anything like it.
-
 * add libsystemd-password or so to query passwords during boot using the password agent logic
 
 * If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
@@ -530,6 +564,9 @@ Features:
   - bind mount read-only the cgroup tree higher than nspawn
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
+  - introduce machines.target to order after all nspawn instances
+  - systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
+  - PID 1 doesn't apply nspawns devices cgroup policy
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
@@ -543,8 +580,6 @@ Features:
 * after deserializing sockets in socket.c we should reapply sockopts and things
 
 * make timer units go away after they elapsed
-
-* come up with a nice way to write queue/read_ahead_kb for a block device without interfering with readahead
 
 * move PID 1 segfaults to /var/lib/systemd/coredump?
 
@@ -646,13 +681,6 @@ Features:
 
 * and a dbus call to generate target from current state
 
-* readahead:
-  - drop /.readahead on bigger upgrades with yum
-  - move readahead files into /var (look for them with .path units?)
-  - readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
-  - readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
-  - readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
-
 * GC unreferenced jobs (such as .device jobs)
 
 * write blog stories about:
@@ -662,7 +690,6 @@ Features:
   - how to make changes to sysctl and sysfs attributes
   - remote access
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
-  - how to integrate cgconfig and suchlike with systemd
   - testing with Harald's awesome test kit
   - auto-restart
   - how to develop against journal browsing APIs
@@ -689,8 +716,6 @@ Features:
 * dot output for --test showing the 'initial transaction'
 
 * fingerprint.target, wireless.target, gps.target, netdevice.target
-
-* drop cap bounding set in readahead and other services
 
 * systemd-python:
    - figure out a simple way to wait for journal events in a way that

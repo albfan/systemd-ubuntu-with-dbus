@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
                          [ARGS...]
-                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm214181337840"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
+                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm139770177985200"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
                 run a command or OS in a light-weight namespace
                 container. In many ways it is similar to
                 <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
@@ -79,7 +79,7 @@
                 <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>). It
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to
-                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm214185204208"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
+                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm139770178155632"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
                 arguments are used as arguments for the init
                 binary. Otherwise, <em class="replaceable"><code>COMMAND</code></em>
                 specifies the program to launch in the container, and
@@ -255,7 +255,9 @@
                                 versa). Takes one of
                                 "<code class="literal">no</code>",
                                 "<code class="literal">host</code>",
+                                "<code class="literal">try-host</code>",
                                 "<code class="literal">guest</code>",
+                                "<code class="literal">try-guest</code>",
                                 "<code class="literal">auto</code>". If
                                 "<code class="literal">no</code>", the journal is
                                 not linked. If "<code class="literal">host</code>",
@@ -269,8 +271,11 @@
                                 guest file system (beneath
                                 <code class="filename">/var/log/journal/<em class="replaceable"><code>machine-id</code></em></code>)
                                 and the subdirectory is symlinked into the host
-                                at the same location. If
-                                "<code class="literal">auto</code>" (the default),
+                                at the same location. "<code class="literal">try-host</code>"
+                                and "<code class="literal">try-guest</code>" do the same
+                                but do not fail if the host does not have
+                                persistant journalling enabled.
+                                If "<code class="literal">auto</code>" (the default),
                                 and the right subdirectory of
                                 <code class="filename">/var/log/journal</code>
                                 exists, it will be bind mounted
@@ -283,7 +288,7 @@
                                 journal persistently if further on
                                 the default of "<code class="literal">auto</code>"
                                 is used.</p></dd><dt id="-j"><span class="term"><code class="option">-j</code></span><a class="headerlink" title="Permalink to this term" href="#-j">¶</a></dt><dd><p>Equivalent to
-                                <code class="option">--link-journal=guest</code>.</p></dd><dt id="--read-only"><span class="term"><code class="option">--read-only</code></span><a class="headerlink" title="Permalink to this term" href="#--read-only">¶</a></dt><dd><p>Mount the root file
+                                <code class="option">--link-journal=try-guest</code>.</p></dd><dt id="--read-only"><span class="term"><code class="option">--read-only</code></span><a class="headerlink" title="Permalink to this term" href="#--read-only">¶</a></dt><dd><p>Mount the root file
                                 system read-only for the
                                 container.</p></dd><dt id="--bind="><span class="term"><code class="option">--bind=</code>, </span><span class="term"><code class="option">--bind-ro=</code></span><a class="headerlink" title="Permalink to this term" href="#--bind=">¶</a></dt><dd><p>Bind mount a file or
                                 directory from the host into the
@@ -431,26 +436,26 @@
                                 <code class="filename">/var</code>
                                 automatically, as
                                 needed.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm214180168448"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm214180167808"></a><p class="title"><b>Example 1. Boot a minimal Fedora distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139770173115408"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm139770173114768"></a><p class="title"><b>Example 1. Boot a minimal Fedora distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</pre><p>This installs a minimal Fedora distribution into
                         the directory <code class="filename">/srv/mycontainer/</code> and
                         then boots an OS in a namespace container in
-                        it.</p></div></div><br class="example-break"><div class="example"><a name="idm214180164752"></a><p class="title"><b>Example 2. Spawn a shell in a container of a minimal Debian unstable distribution</b></p><div class="example-contents"><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
+                        it.</p></div></div><br class="example-break"><div class="example"><a name="idm139770173111712"></a><p class="title"><b>Example 2. Spawn a shell in a container of a minimal Debian unstable distribution</b></p><div class="example-contents"><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</pre><p>This installs a minimal Debian unstable
                         distribution into the directory
                         <code class="filename">~/debian-tree/</code> and then spawns a
-                        shell in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm214180162016"></a><p class="title"><b>Example 3. Boot a minimal Arch Linux distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
+                        shell in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139770173108976"></a><p class="title"><b>Example 3. Boot a minimal Arch Linux distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a mimimal Arch Linux distribution into
                         the directory <code class="filename">~/arch-tree/</code> and then
-                        boots an OS in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm214180159408"></a><p class="title"><b>Example 4. Enable Arch Linux container on boot</b></p><div class="example-contents"><pre class="programlisting"># mv ~/arch-tree /var/lib/container/arch
+                        boots an OS in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139770173106368"></a><p class="title"><b>Example 4. Enable Arch Linux container on boot</b></p><div class="example-contents"><pre class="programlisting"># mv ~/arch-tree /var/lib/container/arch
 # systemctl enable systemd-nspawn@arch.service
 # systemctl start systemd-nspawn@arch.service</pre><p>This makes the Arch Linux container part of the
                         <code class="filename">multi-user.target</code> on the host.
-                        </p></div></div><br class="example-break"><div class="example"><a name="idm214180156768"></a><p class="title"><b>Example 5. Boot into a btrfs snapshot of the host system</b></p><div class="example-contents"><pre class="programlisting"># btrfs subvolume snapshot / /.tmp
+                        </p></div></div><br class="example-break"><div class="example"><a name="idm139770173103728"></a><p class="title"><b>Example 5. Boot into a btrfs snapshot of the host system</b></p><div class="example-contents"><pre class="programlisting"># btrfs subvolume snapshot / /.tmp
 # systemd-nspawn --private-network -D /.tmp -b</pre><p>This runs a copy of the host system in a
-                        btrfs snapshot.</p></div></div><br class="example-break"><div class="example"><a name="idm214180154800"></a><p class="title"><b>Example 6. Run a container with SELinux sandbox security contexts</b></p><div class="example-contents"><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
-# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214180153056"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
-                container is returned.</p></div><div class="refsect1"><a name="idm214180151808"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        btrfs snapshot.</p></div></div><br class="example-break"><div class="example"><a name="idm139770173101760"></a><p class="title"><b>Example 6. Run a container with SELinux sandbox security contexts</b></p><div class="example-contents"><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139770173100016"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
+                container is returned.</p></div><div class="refsect1"><a name="idm139770173098768"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
                         <a href="http://linux.die.net/man/8/yum"><span class="citerefentry"><span class="refentrytitle">yum</span>(8)</span></a>,

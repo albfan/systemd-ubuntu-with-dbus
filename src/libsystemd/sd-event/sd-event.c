@@ -66,7 +66,7 @@ struct sd_event_source {
         void *userdata;
         sd_event_handler_t prepare;
 
-        char *name;
+        char *description;
 
         EventSourceType type:5;
         int enabled:3;
@@ -737,7 +737,7 @@ static void source_free(sd_event_source *s) {
         assert(s);
 
         source_disconnect(s);
-        free(s->name);
+        free(s->description);
         free(s);
 }
 
@@ -1031,6 +1031,9 @@ _public_ int sd_event_add_signal(
                 }
         }
 
+        /* Use the signal name as description for the event source by default */
+        (void) sd_event_source_set_description(s, signal_to_string(sig));
+
         if (ret)
                 *ret = s;
 
@@ -1253,18 +1256,20 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         return NULL;
 }
 
-_public_ int sd_event_source_set_name(sd_event_source *s, const char *name) {
+_public_ int sd_event_source_set_description(sd_event_source *s, const char *description) {
         assert_return(s, -EINVAL);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        return free_and_strdup(&s->name, name);
+        return free_and_strdup(&s->description, description);
 }
 
-_public_ int sd_event_source_get_name(sd_event_source *s, const char **name) {
+_public_ int sd_event_source_get_description(sd_event_source *s, const char **description) {
         assert_return(s, -EINVAL);
-        assert_return(name, -EINVAL);
+        assert_return(description, -EINVAL);
+        assert_return(s->description, -ENXIO);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        *name = s->name;
-
+        *description = s->description;
         return 0;
 }
 
@@ -2152,10 +2157,10 @@ static int source_dispatch(sd_event_source *s) {
         s->dispatching = false;
 
         if (r < 0) {
-                if (s->name)
-                        log_debug("Event source '%s' returned error, disabling: %s", s->name, strerror(-r));
+                if (s->description)
+                        log_debug_errno(r, "Event source '%s' returned error, disabling: %m", s->description);
                 else
-                        log_debug("Event source %p returned error, disabling: %s", s, strerror(-r));
+                        log_debug_errno(r, "Event source %p returned error, disabling: %m", s);
         }
 
         if (s->n_ref == 0)
@@ -2190,10 +2195,10 @@ static int event_prepare(sd_event *e) {
                 s->dispatching = false;
 
                 if (r < 0) {
-                        if (s->name)
-                                log_debug("Prepare callback of event source '%s' returned error, disabling: %s", s->name, strerror(-r));
+                        if (s->description)
+                                log_debug_errno(r, "Prepare callback of event source '%s' returned error, disabling: %m", s->description);
                         else
-                                log_debug("Prepare callback of event source %p returned error, disabling: %s", s, strerror(-r));
+                                log_debug_errno(r, "Prepare callback of event source %p returned error, disabling: %m", s);
                 }
 
                 if (s->n_ref == 0)

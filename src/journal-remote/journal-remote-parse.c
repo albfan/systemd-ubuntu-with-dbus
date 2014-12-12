@@ -125,7 +125,7 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
-                                log_error("read(%d, ..., %zd): %m", source->fd,
+                                log_error_errno(errno, "read(%d, ..., %zd): %m", source->fd,
                                           source->size - source->filled);
                         return -errno;
                 } else if (n == 0)
@@ -186,7 +186,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
-                                log_error("read(%d, ..., %zd): %m", source->fd,
+                                log_error_errno(errno, "read(%d, ..., %zd): %m", source->fd,
                                           source->size - source->filled);
                         return -errno;
                 } else if (n == 0)
@@ -451,8 +451,8 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
 
         r = writer_write(source->writer, &source->iovw, &source->ts, compress, seal);
         if (r < 0)
-                log_error("Failed to write entry of %zu bytes: %s",
-                          iovw_size(&source->iovw), strerror(-r));
+                log_error_errno(r, "Failed to write entry of %zu bytes: %m",
+                                iovw_size(&source->iovw));
         else
                 r = 1;
 

@@ -331,28 +331,65 @@ static void test_write_string_file(void) {
         unlink(fn);
 }
 
-static void test_sendfile_full(void) {
-        char in_fn[] = "/tmp/test-sendfile_full-XXXXXX";
-        char out_fn[] = "/tmp/test-sendfile_full-XXXXXX";
-        _cleanup_close_ int in_fd, out_fd;
-        char text[] = "boohoo\nfoo\n\tbar\n";
+static void test_write_string_file_no_create(void) {
+        char fn[] = "/tmp/test-write_string_file_no_create-XXXXXX";
+        _cleanup_close_ int fd;
         char buf[64] = {0};
 
-        in_fd = mkostemp_safe(in_fn, O_RDWR);
-        assert_se(in_fd >= 0);
-        out_fd = mkostemp_safe(out_fn, O_RDWR);
-        assert_se(out_fd >= 0);
+        fd = mkostemp_safe(fn, O_RDWR);
+        assert_se(fd >= 0);
 
-        assert_se(write_string_file(in_fn, text) == 0);
-        assert_se(sendfile_full(out_fd, "/a/file/which/does/not/exist/i/guess") < 0);
-        assert_se(sendfile_full(out_fd, in_fn) == sizeof(text) - 1);
-        assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
+        assert_se(write_string_file_no_create("/a/file/which/does/not/exists/i/guess", "boohoo") < 0);
+        assert_se(write_string_file_no_create(fn, "boohoo") == 0);
 
-        assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);
-        assert_se(streq(buf, text));
+        assert_se(read(fd, buf, sizeof(buf)) == strlen("boohoo\n"));
+        assert_se(streq(buf, "boohoo\n"));
 
-        unlink(in_fn);
-        unlink(out_fn);
+        unlink(fn);
+}
+
+static void test_load_env_file_pairs(void) {
+        char fn[] = "/tmp/test-load_env_file_pairs-XXXXXX";
+        int fd;
+        int r;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        char **k, **v;
+
+        fd = mkostemp_safe(fn, O_RDWR);
+        assert_se(fd >= 0);
+
+        r = write_string_file(fn,
+                        "NAME=\"Arch Linux\"\n"
+                        "ID=arch\n"
+                        "PRETTY_NAME=\"Arch Linux\"\n"
+                        "ANSI_COLOR=\"0;36\"\n"
+                        "HOME_URL=\"https://www.archlinux.org/\"\n"
+                        "SUPPORT_URL=\"https://bbs.archlinux.org/\"\n"
+                        "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n"
+                        );
+        assert_se(r == 0);
+
+        f = fdopen(fd, "r");
+        assert_se(f);
+
+        r = load_env_file_pairs(f, fn, NULL, &l);
+        assert_se(r >= 0);
+
+        assert_se(strv_length(l) == 14);
+        STRV_FOREACH_PAIR(k, v, l) {
+                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
+                printf("%s=%s\n", *k, *v);
+                if (streq(*k, "NAME")) assert_se(streq(*v, "Arch Linux"));
+                if (streq(*k, "ID")) assert_se(streq(*v, "arch"));
+                if (streq(*k, "PRETTY_NAME")) assert_se(streq(*v, "Arch Linux"));
+                if (streq(*k, "ANSI_COLOR")) assert_se(streq(*v, "0;36"));
+                if (streq(*k, "HOME_URL")) assert_se(streq(*v, "https://www.archlinux.org/"));
+                if (streq(*k, "SUPPORT_URL")) assert_se(streq(*v, "https://bbs.archlinux.org/"));
+                if (streq(*k, "BUG_REPORT_URL")) assert_se(streq(*v, "https://bugs.archlinux.org/"));
+        }
+
+        unlink(fn);
 }
 
 int main(int argc, char *argv[]) {
@@ -366,7 +403,8 @@ int main(int argc, char *argv[]) {
         test_capeff();
         test_write_string_stream();
         test_write_string_file();
-        test_sendfile_full();
+        test_write_string_file_no_create();
+        test_load_env_file_pairs();
 
         return 0;
 }

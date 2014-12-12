@@ -129,8 +129,10 @@ struct Unit {
 
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
+        LIST_HEAD(Condition, asserts);
 
         dual_timestamp condition_timestamp;
+        dual_timestamp assert_timestamp;
 
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;
@@ -177,8 +179,9 @@ struct Unit {
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
 
-        /* Cached unit file state */
+        /* Cached unit file state and preset */
         UnitFileState unit_file_state;
+        int unit_file_preset;
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
@@ -212,6 +215,7 @@ struct Unit {
 
         /* Did the last condition check succeed? */
         bool condition_result;
+        bool assert_result;
 
         /* Is this a transient unit? */
         bool transient;
@@ -557,6 +561,7 @@ void unit_start_on_failure(Unit *u);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
+int unit_get_unit_file_preset(Unit *u);
 
 Unit* unit_ref_set(UnitRef *ref, Unit *u);
 void unit_ref_unset(UnitRef *ref);
@@ -593,11 +598,20 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
-#define log_full_unit(level, unit, ...) log_meta_object(level, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
-#define log_debug_unit(unit, ...)       log_full_unit(LOG_DEBUG, unit, __VA_ARGS__)
-#define log_info_unit(unit, ...)        log_full_unit(LOG_INFO, unit, __VA_ARGS__)
-#define log_notice_unit(unit, ...)      log_full_unit(LOG_NOTICE, unit, __VA_ARGS__)
-#define log_warning_unit(unit, ...)     log_full_unit(LOG_WARNING, unit, __VA_ARGS__)
-#define log_error_unit(unit, ...)       log_full_unit(LOG_ERR, unit, __VA_ARGS__)
+#define log_unit_full_errno(unit, level, error, ...) log_object_internal(level, error, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
+#define log_unit_full(unit, level, ...) log_unit_full_errno(unit, level, 0, __VA_ARGS__)
 
-#define log_struct_unit(level, unit, ...) log_struct(level, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
+#define log_unit_debug(unit, ...)       log_unit_full(unit, LOG_DEBUG, __VA_ARGS__)
+#define log_unit_info(unit, ...)        log_unit_full(unit, LOG_INFO, __VA_ARGS__)
+#define log_unit_notice(unit, ...)      log_unit_full(unit, LOG_NOTICE, __VA_ARGS__)
+#define log_unit_warning(unit, ...)     log_unit_full(unit, LOG_WARNING, __VA_ARGS__)
+#define log_unit_error(unit, ...)       log_unit_full(unit, LOG_ERR, __VA_ARGS__)
+
+#define log_unit_debug_errno(unit, error, ...)       log_unit_full_errno(unit, LOG_DEBUG, error, __VA_ARGS__)
+#define log_unit_info_errno(unit, error, ...)        log_unit_full_errno(unit, LOG_INFO, error, __VA_ARGS__)
+#define log_unit_notice_errno(unit, error, ...)      log_unit_full_errno(unit, LOG_NOTICE, error, __VA_ARGS__)
+#define log_unit_warning_errno(unit, error, ...)     log_unit_full_errno(unit, LOG_WARNING, error, __VA_ARGS__)
+#define log_unit_error_errno(unit, error, ...)       log_unit_full_errno(unit, LOG_ERR, error, __VA_ARGS__)
+
+#define log_unit_struct(unit, level, ...) log_struct(level, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
+#define log_unit_struct_errno(unit, level, error, ...) log_struct_errno(level, error, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)

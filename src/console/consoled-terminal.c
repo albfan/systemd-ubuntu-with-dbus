@@ -52,7 +52,7 @@ static int terminal_pty_fn(Pty *pty, void *userdata, unsigned int event, const v
         case PTY_DATA:
                 r = term_screen_feed_text(t->screen, ptr, size);
                 if (r < 0)
-                        log_error("Cannot update screen state: %s", strerror(-r));
+                        log_error_errno(r, "Cannot update screen state: %m");
 
                 workspace_dirty(t->workspace);
                 break;
@@ -128,12 +128,12 @@ void terminal_resize(Terminal *t) {
         if (t->pty) {
                 r = pty_resize(t->pty, width, height);
                 if (r < 0)
-                        log_error("Cannot resize pty: %s", strerror(-r));
+                        log_error_errno(r, "Cannot resize pty: %m");
         }
 
         r = term_screen_resize(t->screen, width, height);
         if (r < 0)
-                log_error("Cannot resize screen: %s", strerror(-r));
+                log_error_errno(r, "Cannot resize screen: %m");
 }
 
 void terminal_run(Terminal *t) {
@@ -151,7 +151,7 @@ void terminal_run(Terminal *t) {
                        term_screen_get_width(t->screen),
                        term_screen_get_height(t->screen));
         if (pid < 0) {
-                log_error("Cannot fork PTY: %s", strerror(-pid));
+                log_error_errno(pid, "Cannot fork PTY: %m");
                 return;
         } else if (pid == 0) {
                 /* child */
@@ -165,7 +165,7 @@ void terminal_run(Terminal *t) {
                 setenv("COLORTERM", "systemd-console", 1);
 
                 execve(argv[0], argv, environ);
-                log_error("Cannot exec %s (%d): %m", argv[0], -errno);
+                log_error_errno(errno, "Cannot exec %s (%d): %m", argv[0], -errno);
                 _exit(1);
         }
 }
@@ -189,8 +189,7 @@ static void terminal_feed_keyboard(Terminal *t, idev_data *data) {
                                               kdata->codepoints,
                                               kdata->mods);
                 if (r < 0)
-                        log_error("Cannot feed keyboard data to screen: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Cannot feed keyboard data to screen: %m");
         }
 }
 

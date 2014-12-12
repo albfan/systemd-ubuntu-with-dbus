@@ -19,24 +19,35 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd-run"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-run — Run programs in transient scope or service units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...]  <em class="replaceable"><code>COMMAND</code></em>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemd-run"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-run — Run programs in transient scope or service or timer units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...]  <em class="replaceable"><code>COMMAND</code></em>
        [ARGS...]
-       </p></div></div><div class="refsect1"><a name="idm214184589872"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-run</strong></span> may be used to create and start
-    a transient <code class="filename">.service</code> or a
-    <code class="filename">.scope</code> unit and run the specified
-    <em class="replaceable"><code>COMMAND</code></em> in it.</p><p>If a command is run as transient service unit, it will be
+       </p></div><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...] [TIMER OPTIONS...] {<em class="replaceable"><code>COMMAND</code></em>} [ARGS...]</p></div></div><div class="refsect1"><a name="idm140717671223840"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-run</strong></span> may be used to create and
+    start a transient <code class="filename">.service</code> or a transient
+    <code class="filename">.timer</code> or a <code class="filename">.scope</code> unit
+    and run the specified <em class="replaceable"><code>COMMAND</code></em> in
+    it.</p><p>If a command is run as transient service unit, it will be
     started and managed by the service manager like any other service,
     and thus show up in the output of <span class="command"><strong>systemctl
     list-units</strong></span> like any other unit. It will run in a clean
     and detached execution environment. <span class="command"><strong>systemd-run</strong></span>
     will start the service asynchronously in the background and
-    immediately return.</p><p>If a command is run as transient scope unit, it will be
+    immediately return.</p><p>If a command is run with timer options, transient timer unit
+    also be created with transient service unit. But the transient
+    timer unit is only started immediately. The transient service unit
+    will be started when the transient timer is elapsed. If
+    <code class="option">--unit=</code> is specified with timer options, the
+    <em class="replaceable"><code>COMMAND</code></em> can be omitted. In this case,
+    <span class="command"><strong>systemd-run</strong></span> assumes service unit is already
+    loaded and creates transient timer unit only. To successfully
+    create timer unit, already loaded service unit should be specified
+    with <code class="option">--unit=</code>. This transient timer unit can
+    activate the existing service unit like any other timer.</p><p>If a command is run as transient scope unit, it will be
     started directly by <span class="command"><strong>systemd-run</strong></span> and thus
     inherit the execution environment of the caller. It is however
     managed by the service manager similar to normal services, and
     will also show up in the output of <span class="command"><strong>systemctl
     list-units</strong></span>. Execution in this case is synchronous, and
-    execution will return only when the command finishes.</p></div><div class="refsect1"><a name="idm214184582080"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--scope"><span class="term"><code class="option">--scope</code></span><a class="headerlink" title="Permalink to this term" href="#--scope">¶</a></dt><dd><p>Create a transient <code class="filename">.scope</code> unit instead of
+    execution will return only when the command finishes.</p></div><div class="refsect1"><a name="idm140717675112112"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--scope"><span class="term"><code class="option">--scope</code></span><a class="headerlink" title="Permalink to this term" href="#--scope">¶</a></dt><dd><p>Create a transient <code class="filename">.scope</code> unit instead of
           the default transient <code class="filename">.service</code> unit.
           </p></dd><dt id="--unit="><span class="term"><code class="option">--unit=</code></span><a class="headerlink" title="Permalink to this term" href="#--unit=">¶</a></dt><dd><p>Use this unit name instead of an automatically
         generated one.</p></dd><dt id="--property="><span class="term"><code class="option">--property=</code>, </span><span class="term"><code class="option">-p</code></span><a class="headerlink" title="Permalink to this term" href="#--property=">¶</a></dt><dd><p>Sets a unit property for the scope or service
@@ -85,12 +96,36 @@
       instance. Container names may be enumerated with
       <span class="command"><strong>machinectl -H
       <em class="replaceable"><code>HOST</code></em></strong></span>.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
-      container name to connect to.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div><p>All command-line arguments after the first non-option
-    argument become part of the commandline of the launched
+      container name to connect to.</p></dd><dt id="--on-active="><span class="term"><code class="option">--on-active=</code>, </span><span class="term"><code class="option">--on-boot=</code>, </span><span class="term"><code class="option">--on-startup=</code>, </span><span class="term"><code class="option">--on-unit-active=</code>, </span><span class="term"><code class="option">--on-unit-inactive=</code></span><a class="headerlink" title="Permalink to this term" href="#--on-active=">¶</a></dt><dd><p>Defines monotonic timers relative to different
+        starting points. Also see <code class="varname">OnActiveSec=</code>,
+        <code class="varname">OnBootSec=</code>,
+        <code class="varname">OnStartupSec=</code>,
+        <code class="varname">OnUnitActiveSec=</code> and
+        <code class="varname">OnUnitInactiveSec=</code> in
+        <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>. This
+        options have no effect in conjunction with
+        <code class="option">--scope</code>.</p></dd><dt id="--on-calendar="><span class="term"><code class="option">--on-calendar=</code></span><a class="headerlink" title="Permalink to this term" href="#--on-calendar=">¶</a></dt><dd><p>Defines realtime (i.e. wallclock) timers with
+        calendar event expressions. Also see
+        <code class="varname">OnCalendar=</code> in
+        <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>. This
+        option has no effect in conjunction with
+        <code class="option">--scope</code>.</p></dd><dt id="--timer-property="><span class="term"><code class="option">--timer-property=</code></span><a class="headerlink" title="Permalink to this term" href="#--timer-property=">¶</a></dt><dd><p>Sets a timer unit property for the timer unit
+        that is created. It is similar with
+        <code class="option">--property</code> but only for created timer
+        unit. This option only has effect in conjunction with
+        <code class="option">--on-active=</code>, <code class="option">--on-boot=</code>,
+        <code class="option">--on-startup=</code>,
+        <code class="option">--on-unit-active=</code>,
+        <code class="option">--on-unit-inactive=</code>,
+        <code class="option">--on-calendar=</code>. This takes an assignment in
+        the same format as
+        <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>'s
+        <span class="command"><strong>set-property</strong></span> command.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div><p>All command line arguments after the first non-option
+    argument become part of the command line of the launched
     process. If a command is run as service unit, its first argument
-    needs to be an absolute binary path.</p></div><div class="refsect1"><a name="idm214188433264"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-    code otherwise.</p></div><div class="refsect1"><a name="idm214188432080"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>The following command will log the environment variables
+    needs to be an absolute binary path.</p></div><div class="refsect1"><a name="idm140717670136336"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm140717670135184"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>The following command will log the environment variables
     provided by systemd to services:</p><pre class="programlisting"># systemd-run env
 Running as unit run-19945.service.
 # journalctl -u run-19945.service
@@ -103,7 +138,18 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
     tool, but lowers the block IO weight for it to 10. See
     <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>
     for more information on the <code class="varname">BlockIOWeight=</code>
-    property.</p><pre class="programlisting"># systemd-run -p BlockIOWeight=10 updatedb</pre></div><div class="refsect1"><a name="idm214183516288"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    property.</p><pre class="programlisting"># systemd-run -p BlockIOWeight=10 updatedb</pre><p>The following command will touch a file after 30 seconds.</p><pre class="programlisting"># date; systemd-run --on-active=30 --timer-property=AccuracySec=100ms /bin/touch /tmp/foo
+Mon Dec  8 20:44:24 KST 2014
+Running as unit run-71.timer.
+Will run as unit run-71.service.
+# journalctl -b -u run-73.timer
+-- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
+Dec 08 20:44:38 container systemd[1]: Starting /bin/touch /tmp/foo.
+Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo.
+# journalctl -b -u run-73.service
+-- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
+Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo...
+Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</pre></div><div class="refsect1"><a name="idm140717670127968"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
@@ -112,5 +158,6 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
       <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>,
       <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
       <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
+      <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>,
       <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>
     </p></div></div></body></html>

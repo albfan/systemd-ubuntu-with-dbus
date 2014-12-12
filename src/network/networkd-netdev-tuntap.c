@@ -70,13 +70,13 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
         fd = open(TUN_DEV, O_RDWR);
         if (fd < 0) {
-                log_error_netdev(netdev, "Failed to open tun dev: %m");
+                log_netdev_error(netdev, "Failed to open tun dev: %m");
                 return -errno;
         }
 
         r = ioctl(fd, TUNSETIFF, ifr);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "TUNSETIFF failed on tun dev: %s",
                                  strerror(-r));
                 return r;
@@ -95,14 +95,14 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL);
                 if (r < 0) {
-                        log_error("Cannot resolve user name %s: %s",
-                                  t->user_name, strerror(-r));
+                        log_error_errno(r, "Cannot resolve user name %s: %m",
+                                        t->user_name);
                         return 0;
                 }
 
                 r = ioctl(fd, TUNSETOWNER, uid);
                 if ( r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "TUNSETOWNER failed on tun dev: %s",
                                          strerror(-r));
                 }
@@ -114,14 +114,14 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 r = get_group_creds(&group, &gid);
                 if (r < 0) {
-                        log_error("Cannot resolve group name %s: %s",
-                                  t->group_name, strerror(-r));
+                        log_error_errno(r, "Cannot resolve group name %s: %m",
+                                        t->group_name);
                         return 0;
                 }
 
                 r = ioctl(fd, TUNSETGROUP, gid);
                 if( r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "TUNSETGROUP failed on tun dev: %s",
                                          strerror(-r));
                         return r;
@@ -131,7 +131,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
         r = ioctl(fd, TUNSETPERSIST, 1);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "TUNSETPERSIST failed on tun dev: %s",
                                  strerror(-r));
                 return r;
@@ -171,16 +171,7 @@ static void tuntap_done(NetDev *netdev) {
 }
 
 static int tuntap_verify(NetDev *netdev, const char *filename) {
-        TunTap *t = NULL;
-
         assert(netdev);
-
-        if (netdev->kind == NETDEV_KIND_TUN)
-                t = TUN(netdev);
-        else
-                t = TAP(netdev);
-
-        assert(t);
 
         if (netdev->mtu) {
                 log_warning_netdev(netdev, "MTU configured for %s, ignoring",

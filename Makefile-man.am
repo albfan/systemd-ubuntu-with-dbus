@@ -75,6 +75,8 @@ MANPAGES += \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
 	man/systemd-journald.service.8 \
+	man/systemd-machine-id-commit.1 \
+	man/systemd-machine-id-commit.service.8 \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-notify.1 \
 	man/systemd-nspawn.1 \
@@ -148,6 +150,7 @@ MANPAGES_ALIAS += \
 	man/SD_NOTICE.3 \
 	man/SD_WARNING.3 \
 	man/init.1 \
+	man/journald.conf.d.5 \
 	man/poweroff.8 \
 	man/reboot.8 \
 	man/sd_id128_equal.3 \
@@ -195,6 +198,8 @@ MANPAGES_ALIAS += \
 	man/sd_journal_wait.3 \
 	man/sd_machine_get_ifindices.3 \
 	man/sd_notifyf.3 \
+	man/sleep.conf.d.5 \
+	man/system.conf.d.5 \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.path.8 \
 	man/systemd-ask-password-wall.service.8 \
@@ -227,7 +232,8 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd-kernel.socket.8 \
 	man/systemd-udevd.8 \
 	man/systemd-update-done.8 \
-	man/systemd-user.conf.5
+	man/systemd-user.conf.5 \
+	man/user.conf.d.5
 man/SD_ALERT.3: man/sd-daemon.3
 man/SD_CRIT.3: man/sd-daemon.3
 man/SD_DEBUG.3: man/sd-daemon.3
@@ -254,6 +260,7 @@ man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
 man/SD_NOTICE.3: man/sd-daemon.3
 man/SD_WARNING.3: man/sd-daemon.3
 man/init.1: man/systemd.1
+man/journald.conf.d.5: man/journald.conf.5
 man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
 man/sd_id128_equal.3: man/sd-id128.3
@@ -301,6 +308,8 @@ man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
 man/sd_machine_get_ifindices.3: man/sd_machine_get_class.3
 man/sd_notifyf.3: man/sd_notify.3
+man/sleep.conf.d.5: man/systemd-sleep.conf.5
+man/system.conf.d.5: man/systemd-system.conf.5
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
@@ -334,6 +343,7 @@ man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
+man/user.conf.d.5: man/systemd-system.conf.5
 man/SD_ALERT.html: man/sd-daemon.html
 	$(html-alias)
 
@@ -410,6 +420,9 @@ man/SD_WARNING.html: man/sd-daemon.html
 	$(html-alias)
 
 man/init.html: man/systemd.html
+	$(html-alias)
+
+man/journald.conf.d.html: man/journald.conf.html
 	$(html-alias)
 
 man/poweroff.html: man/halt.html
@@ -553,6 +566,12 @@ man/sd_machine_get_ifindices.html: man/sd_machine_get_class.html
 man/sd_notifyf.html: man/sd_notify.html
 	$(html-alias)
 
+man/sleep.conf.d.html: man/systemd-sleep.conf.html
+	$(html-alias)
+
+man/system.conf.d.html: man/systemd-system.conf.html
+	$(html-alias)
+
 man/systemd-ask-password-console.path.html: man/systemd-ask-password-console.service.html
 	$(html-alias)
 
@@ -652,6 +671,9 @@ man/systemd-update-done.html: man/systemd-update-done.service.html
 man/systemd-user.conf.html: man/systemd-system.conf.html
 	$(html-alias)
 
+man/user.conf.d.html: man/systemd-system.conf.html
+	$(html-alias)
+
 
 if ENABLE_BACKLIGHT
 MANPAGES += \
@@ -681,8 +703,10 @@ MANPAGES += \
 	man/bootchart.conf.5 \
 	man/systemd-bootchart.1
 MANPAGES_ALIAS += \
-	#
-
+	man/bootchart.conf.d.5
+man/bootchart.conf.d.5: man/bootchart.conf.5
+man/bootchart.conf.d.html: man/bootchart.conf.html
+	$(html-alias)
 
 endif
 
@@ -692,8 +716,10 @@ MANPAGES += \
 	man/coredumpctl.1 \
 	man/systemd-coredump.8
 MANPAGES_ALIAS += \
-	#
-
+	man/coredump.conf.d.5
+man/coredump.conf.d.5: man/coredump.conf.5
+man/coredump.conf.d.html: man/coredump.conf.html
+	$(html-alias)
 
 endif
 
@@ -755,7 +781,6 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_gid.3 \
 	man/sd_bus_creds_get_mask.3 \
 	man/sd_bus_creds_get_owner_uid.3 \
-	man/sd_bus_creds_get_pid_starttime.3 \
 	man/sd_bus_creds_get_selinux_context.3 \
 	man/sd_bus_creds_get_session.3 \
 	man/sd_bus_creds_get_slice.3 \
@@ -824,7 +849,6 @@ man/sd_bus_creds_get_exe.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_gid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_mask.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_get_owner_uid.3: man/sd_bus_creds_get_pid.3
-man/sd_bus_creds_get_pid_starttime.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_selinux_context.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_session.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_slice.3: man/sd_bus_creds_get_pid.3
@@ -911,9 +935,6 @@ man/sd_bus_creds_get_mask.html: man/sd_bus_creds_new_from_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_owner_uid.html: man/sd_bus_creds_get_pid.html
-	$(html-alias)
-
-man/sd_bus_creds_get_pid_starttime.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_selinux_context.html: man/sd_bus_creds_get_pid.html
@@ -1110,8 +1131,13 @@ MANPAGES += \
 	man/logind.conf.5 \
 	man/systemd-logind.service.8
 MANPAGES_ALIAS += \
+	man/logind.conf.d.5 \
 	man/systemd-logind.8
+man/logind.conf.d.5: man/logind.conf.5
 man/systemd-logind.8: man/systemd-logind.service.8
+man/logind.conf.d.html: man/logind.conf.html
+	$(html-alias)
+
 man/systemd-logind.html: man/systemd-logind.service.html
 	$(html-alias)
 
@@ -1175,8 +1201,13 @@ MANPAGES += \
 	man/resolved.conf.5 \
 	man/systemd-resolved.service.8
 MANPAGES_ALIAS += \
+	man/resolved.conf.d.5 \
 	man/systemd-resolved.8
+man/resolved.conf.d.5: man/resolved.conf.5
 man/systemd-resolved.8: man/systemd-resolved.service.8
+man/resolved.conf.d.html: man/resolved.conf.html
+	$(html-alias)
+
 man/systemd-resolved.html: man/systemd-resolved.service.html
 	$(html-alias)
 
@@ -1210,9 +1241,14 @@ MANPAGES += \
 	man/systemd-timesyncd.service.8 \
 	man/timesyncd.conf.5
 MANPAGES_ALIAS += \
-	man/systemd-timesyncd.8
+	man/systemd-timesyncd.8 \
+	man/timesyncd.conf.d.5
 man/systemd-timesyncd.8: man/systemd-timesyncd.service.8
+man/timesyncd.conf.d.5: man/timesyncd.conf.5
 man/systemd-timesyncd.html: man/systemd-timesyncd.service.html
+	$(html-alias)
+
+man/timesyncd.conf.d.html: man/timesyncd.conf.html
 	$(html-alias)
 
 endif
@@ -1515,6 +1551,15 @@ MANPAGES_ALIAS += \
 
 endif
 
+if HAVE_SYSV_COMPAT
+MANPAGES += \
+	man/systemd-sysv-generator.8
+MANPAGES_ALIAS += \
+	#
+
+
+endif
+
 if HAVE_UTMP
 MANPAGES += \
 	man/runlevel.8 \
@@ -1624,6 +1669,7 @@ EXTRA_DIST += \
 	man/sd_uid_get_state.xml \
 	man/sd_watchdog_enabled.xml \
 	man/shutdown.xml \
+	man/standard-conf.xml \
 	man/standard-options.xml \
 	man/sysctl.d.xml \
 	man/systemctl.xml \
@@ -1664,6 +1710,8 @@ EXTRA_DIST += \
 	man/systemd-journald.service.xml \
 	man/systemd-localed.service.xml \
 	man/systemd-logind.service.xml \
+	man/systemd-machine-id-commit.service.xml \
+	man/systemd-machine-id-commit.xml \
 	man/systemd-machine-id-setup.xml \
 	man/systemd-machined.service.xml \
 	man/systemd-modules-load.service.xml \
@@ -1686,6 +1734,7 @@ EXTRA_DIST += \
 	man/systemd-system-update-generator.xml \
 	man/systemd-system.conf.xml \
 	man/systemd-sysusers.xml \
+	man/systemd-sysv-generator.xml \
 	man/systemd-timedated.service.xml \
 	man/systemd-timesyncd.service.xml \
 	man/systemd-tmpfiles.xml \

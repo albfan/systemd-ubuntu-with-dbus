@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 217" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 218" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -27,7 +27,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Configure additional binary formats for executables at boot
 .br
 \fBbootchart.conf\fR(5)
-\-\- Boot performance analysis graphing tool configuration file
+\-\- Boot performance analysis graphing tool configuration files
+.br
+\fBbootchart.conf.d\fR(5)
+\-\- Boot performance analysis graphing tool configuration files
 .br
 \fBbootctl\fR(1)
 \-\- Control the firmware and boot manager settings
@@ -42,7 +45,10 @@ systemd.index \- List all manpages from the systemd project
 .SH "C"
 .PP
 \fBcoredump.conf\fR(5)
-\-\- Coredump storage configuration file
+\-\- Coredump storage configuration files
+.br
+\fBcoredump.conf.d\fR(5)
+\-\- Coredump storage configuration files
 .br
 \fBcoredumpctl\fR(1)
 \-\- Retrieve coredumps from the journal
@@ -87,7 +93,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Query the systemd journal
 .br
 \fBjournald.conf\fR(5)
-\-\- Journal service configuration file
+\-\- Journal service configuration files
+.br
+\fBjournald.conf.d\fR(5)
+\-\- Journal service configuration files
 .br
 
 .SH "K"
@@ -114,7 +123,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Control the systemd login manager
 .br
 \fBlogind.conf\fR(5)
-\-\- Login manager configuration file
+\-\- Login manager configuration files
+.br
+\fBlogind.conf.d\fR(5)
+\-\- Login manager configuration files
 .br
 
 .SH "M"
@@ -159,7 +171,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Halt, power\-off or reboot the machine
 .br
 \fBresolved.conf\fR(5)
-\-\- Network Name Resolution configuration file
+\-\- Network Name Resolution configuration files
+.br
+\fBresolved.conf.d\fR(5)
+\-\- Network Name Resolution configuration files
 .br
 \fBrunlevel\fR(8)
 \-\- Print previous and current SysV runlevel
@@ -216,9 +231,6 @@ systemd.index \- List all manpages from the systemd project
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_pid\fR(3)
-\-\- Retrieve fields from a credentials object
-.br
-\fBsd_bus_creds_get_pid_starttime\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_selinux_context\fR(3)
@@ -872,8 +884,14 @@ systemd.index \- List all manpages from the systemd project
 \fBshutdown\fR(8)
 \-\- Halt, power\-off or reboot the machine
 .br
+\fBsleep.conf.d\fR(5)
+\-\- Suspend and hibernation configuration file
+.br
 \fBsysctl.d\fR(5)
 \-\- Configure kernel parameters at boot
+.br
+\fBsystem.conf.d\fR(5)
+\-\- System and session service manager configuration files
 .br
 \fBsystemctl\fR(1)
 \-\- Control the systemd system and service manager
@@ -1064,6 +1082,12 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-logind.service\fR(8)
 \-\- Login manager
 .br
+\fBsystemd-machine-id-commit\fR(1)
+\-\- Commit transient machine ID to /etc/machine\-id
+.br
+\fBsystemd-machine-id-commit.service\fR(8)
+\-\- Commit transient machine\-id to disk
+.br
 \fBsystemd-machine-id-setup\fR(1)
 \-\- Initialize the machine ID in /etc/machine\-id
 .br
@@ -1074,10 +1098,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Virtual machine and container registration manager
 .br
 \fBsystemd-modules-load\fR(8)
-\-\- Configure kernel modules to load at boot
+\-\- Load kernel modules at boot
 .br
 \fBsystemd-modules-load.service\fR(8)
-\-\- Configure kernel modules to load at boot
+\-\- Load kernel modules at boot
 .br
 \fBsystemd-networkd\fR(8)
 \-\- Network manager
@@ -1137,7 +1161,7 @@ systemd.index \- List all manpages from the systemd project
 \-\- Load and save the RF kill switch state at boot and shutdown
 .br
 \fBsystemd-run\fR(1)
-\-\- Run programs in transient scope or service units
+\-\- Run programs in transient scope or service or timer units
 .br
 \fBsystemd-shutdown\fR(8)
 \-\- System shutdown logic
@@ -1173,13 +1197,16 @@ systemd.index \- List all manpages from the systemd project
 \-\- Generator for redirecting boot to offline update mode
 .br
 \fBsystemd-system.conf\fR(5)
-\-\- System and session service manager configuration file
+\-\- System and session service manager configuration files
 .br
 \fBsystemd-sysusers\fR(8)
 \-\- Allocate system users and groups
 .br
 \fBsystemd-sysusers.service\fR(8)
 \-\- Allocate system users and groups
+.br
+\fBsystemd-sysv-generator\fR(8)
+\-\- Unit generator for SysV init scripts
 .br
 \fBsystemd-timedated\fR(8)
 \-\- Time and date bus mechanism
@@ -1245,7 +1272,7 @@ systemd.index \- List all manpages from the systemd project
 \-\- Permit user logins after boot, prohibit user logins at shutdown
 .br
 \fBsystemd-user.conf\fR(5)
-\-\- System and session service manager configuration file
+\-\- System and session service manager configuration files
 .br
 \fBsystemd-vconsole-setup\fR(8)
 \-\- Configure the virtual console at boot
@@ -1338,7 +1365,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Control the system time and date
 .br
 \fBtimesyncd.conf\fR(5)
-\-\- Network Time Synchronization configuration file
+\-\- Network Time Synchronization configuration files
+.br
+\fBtimesyncd.conf.d\fR(5)
+\-\- Network Time Synchronization configuration files
 .br
 \fBtmpfiles.d\fR(5)
 \-\- Configuration for creation, deletion and cleaning of volatile and temporary files
@@ -1355,6 +1385,9 @@ systemd.index \- List all manpages from the systemd project
 \fBudevadm\fR(8)
 \-\- udev management tool
 .br
+\fBuser.conf.d\fR(5)
+\-\- System and session service manager configuration files
+.br
 
 .SH "V"
 .PP
@@ -1366,4 +1399,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 429 entries, referring to 191 individual manual pages\&.
+This index contains 440 entries, referring to 194 individual manual pages\&.

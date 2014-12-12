@@ -37,9 +37,9 @@
 static bool arg_keep = false;
 
 noreturn static void log_assert_errno(const char *text, int eno, const char *file, int line, const char *func) {
-        log_meta(LOG_CRIT, file, line, func,
-                 "'%s' failed at %s:%u (%s): %s.",
-                 text, file, line, func, strerror(eno));
+        log_internal(LOG_CRIT, 0, file, line, func,
+                     "'%s' failed at %s:%u (%s): %s.",
+                     text, file, line, func, strerror(eno));
         abort();
 }
 
@@ -189,7 +189,7 @@ static void test_skip(void (*setup)(void)) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL);
+                journal_directory_vacuum(".", 3000000, 0, NULL, true);
 
                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
         }
@@ -274,7 +274,7 @@ static void test_sequence_numbers(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL);
+                journal_directory_vacuum(".", 3000000, 0, NULL, true);
 
                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
         }

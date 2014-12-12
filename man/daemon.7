@@ -1,5 +1,5 @@
 '\" t
-.TH "DAEMON" "7" "" "systemd 217" "daemon"
+.TH "DAEMON" "7" "" "systemd 218" "daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -363,11 +363,11 @@ interface\&.
 Instead of using the
 \fBsyslog()\fR
 call to log directly to the system syslog service, a new\-style daemon may choose to simply log to standard error via
-\fBfprintf()\fR, which is then forwarded to syslog by the init system\&. If log priorities are necessary, these can be encoded by prefixing individual log lines with strings like
+\fBfprintf()\fR, which is then forwarded to syslog by the init system\&. If log levels are necessary, these can be encoded by prefixing individual log lines with strings like
 "<4>"
-(for log priority 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel\*(Aqs
+(for log level 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel\*(Aqs
 \fBprintk()\fR
-priority system\&. For details, see
+level system\&. For details, see
 \fBsd-daemon\fR(3)
 and
 \fBsystemd.exec\fR(5)\&.

@@ -280,10 +280,8 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         id = strappenda("cryptsetup:", escaped_name);
 
         r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
-        if (r < 0) {
-                log_error("Failed to query password: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
                 _cleanup_strv_free_ char **passwords2 = NULL;
@@ -296,10 +294,8 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
                 id = strappenda("cryptsetup-verification:", escaped_name);
 
                 r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
-                if (r < 0) {
-                        log_error("Failed to query verification password: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query verification password: %m");
 
                 assert(strv_length(passwords2) == 1);
 
@@ -355,7 +351,7 @@ static int attach_tcrypt(struct crypt_device *cd,
         if (key_file) {
                 r = read_one_line_file(key_file, &passphrase);
                 if (r < 0) {
-                        log_error("Failed to read password file '%s': %s", key_file, strerror(-r));
+                        log_error_errno(r, "Failed to read password file '%s': %m", key_file);
                         return -EAGAIN;
                 }
 
@@ -400,7 +396,9 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                         /* plain isn't a real hash type. it just means "use no hash" */
                         if (!streq(arg_hash, "plain"))
                                 params.hash = arg_hash;
-                } else
+                } else if (!key_file)
+                        /* for CRYPT_PLAIN, the behaviour of cryptsetup
+                         * package is to not hash when a key file is provided */
                         params.hash = "ripemd160";
 
                 if (arg_cipher) {
@@ -436,10 +434,8 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 pass_volume_key = (params.hash == NULL);
         }
 
-        if (r < 0) {
-                log_error("Loading of cryptographic parameters failed: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
                  crypt_get_cipher(cd),
@@ -452,7 +448,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                                                      key_file, arg_keyfile_size,
                                                      arg_keyfile_offset, flags);
                 if (r < 0) {
-                        log_error("Failed to activate with key file '%s': %s", key_file, strerror(-r));
+                        log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
                         return -EAGAIN;
                 }
         } else {
@@ -565,7 +561,7 @@ int main(int argc, char *argv[]) {
 
                 k = crypt_init(&cd, argv[3]);
                 if (k) {
-                        log_error("crypt_init() failed: %s", strerror(-k));
+                        log_error_errno(k, "crypt_init() failed: %m");
                         goto finish;
                 }
 
@@ -621,7 +617,7 @@ int main(int argc, char *argv[]) {
                                 key_file = NULL;
                                 continue;
                         } else if (k != -EPERM) {
-                                log_error("Failed to activate: %s", strerror(-k));
+                                log_error_errno(k, "Failed to activate: %m");
                                 goto finish;
                         }
 
@@ -639,7 +635,7 @@ int main(int argc, char *argv[]) {
 
                 k = crypt_init_by_name(&cd, argv[2]);
                 if (k) {
-                        log_error("crypt_init() failed: %s", strerror(-k));
+                        log_error_errno(k, "crypt_init() failed: %m");
                         goto finish;
                 }
 
@@ -647,7 +643,7 @@ int main(int argc, char *argv[]) {
 
                 k = crypt_deactivate(cd, argv[2]);
                 if (k < 0) {
-                        log_error("Failed to deactivate: %s", strerror(-k));
+                        log_error_errno(k, "Failed to deactivate: %m");
                         goto finish;
                 }
 

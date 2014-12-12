@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALD\&.CONF" "5" "" "systemd 217" "journald.conf"
+.TH "JOURNALD\&.CONF" "5" "" "systemd 218" "journald.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,14 +20,49 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-journald.conf \- Journal service configuration file
+journald.conf, journald.conf.d \- Journal service configuration files
 .SH "SYNOPSIS"
 .PP
 /etc/systemd/journald\&.conf
+.PP
+/etc/systemd/journald\&.conf\&.d/*\&.conf
+.PP
+/run/systemd/journald\&.conf\&.d/*\&.conf
+.PP
+/usr/lib/systemd/journald\&.conf\&.d/*\&.conf
 .SH "DESCRIPTION"
 .PP
-This file configures various parameters of the systemd journal service,
+These files configure various parameters of the systemd journal service,
 \fBsystemd-journald.service\fR(8)\&.
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
+.PP
+Configuration files are read from directories in
+/etc/,
+/run/, and
+/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
+\fIfilename\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/run/
+and
+/usr/lib/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&.
+.PP
+Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
+.SH "CONFIGURATION FILE"
+.PP
+Configuration is also read from a single configuration file in
+/etc/\&. This file is read before any of the configuration directories, and has the lowest precedence; entries in a file in any configuration directory override entries in the single configuration file\&.
 .SH "OPTIONS"
 .PP
 All options are configured in the
@@ -63,7 +98,7 @@ turns off all storage, all log data received will be dropped\&. Forwarding to ot
 .PP
 \fICompress=\fR
 .RS 4
-Takes a boolean value\&. If enabled (the default), data objects that shall be stored in the journal and are larger than a certain threshold are compressed with the XZ compression algorithm before they are written to the file system\&.
+Takes a boolean value\&. If enabled (the default), data objects that shall be stored in the journal and are larger than a certain threshold are compressed before they are written to the file system\&.
 .RE
 .PP
 \fISeal=\fR

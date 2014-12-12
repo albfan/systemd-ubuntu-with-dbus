@@ -35,7 +35,7 @@
 #include "special.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "fileio.h"
 #include "udev-util.h"
 #include "path-util.h"
@@ -54,7 +54,7 @@ static void start_target(const char *target) {
 
         r = bus_open_system_systemd(&bus);
         if (r < 0) {
-                log_error("Failed to get D-Bus connection: %s", strerror(-r));
+                log_error_errno(r, "Failed to get D-Bus connection: %m");
                 return;
         }
 
@@ -236,7 +236,10 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        parse_proc_cmdline(parse_proc_cmdline_item);
+        q = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (q < 0)
+                log_warning_errno(q, "Failed to parse kernel command line, ignoring: %m");
+
         test_files();
 
         if (!arg_force && arg_skip)
@@ -253,7 +256,7 @@ int main(int argc, char *argv[]) {
                 root_directory = false;
 
                 if (stat(device, &st) < 0) {
-                        log_error("Failed to stat '%s': %m", device);
+                        log_error_errno(errno, "Failed to stat '%s': %m", device);
                         return EXIT_FAILURE;
                 }
 
@@ -268,7 +271,7 @@ int main(int argc, char *argv[]) {
                 /* Find root device */
 
                 if (stat("/", &st) < 0) {
-                        log_error("Failed to stat() the root directory: %m");
+                        log_error_errno(errno, "Failed to stat() the root directory: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -306,12 +309,12 @@ int main(int argc, char *argv[]) {
                         log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
                         return EXIT_SUCCESS;
                 } else if (r < 0)
-                        log_warning("fsck.%s cannot be used for %s: %s", type, device, strerror(-r));
+                        log_warning_errno(r, "fsck.%s cannot be used for %s: %m", type, device);
         }
 
         if (arg_show_progress)
                 if (pipe(progress_pipe) < 0) {
-                        log_error("pipe(): %m");
+                        log_error_errno(errno, "pipe(): %m");
                         return EXIT_FAILURE;
                 }
 
@@ -343,7 +346,7 @@ int main(int argc, char *argv[]) {
 
         pid = fork();
         if (pid < 0) {
-                log_error("fork(): %m");
+                log_error_errno(errno, "fork(): %m");
                 goto finish;
         } else if (pid == 0) {
                 /* Child */
@@ -362,7 +365,7 @@ int main(int argc, char *argv[]) {
 
         q = wait_for_terminate(pid, &status);
         if (q < 0) {
-                log_error("waitid(): %s", strerror(-q));
+                log_error_errno(q, "waitid(): %m");
                 goto finish;
         }
 

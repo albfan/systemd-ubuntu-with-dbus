@@ -52,26 +52,14 @@ struct bus_container {
         char *peeked_signature;
 };
 
-struct bus_header {
-        uint8_t endian;
-        uint8_t type;
-        uint8_t flags;
-        uint8_t version;
-        uint32_t body_size;
-
-        /* Note that what the bus spec calls "serial" we'll call
-        "cookie" instead, because we don't want to imply that the
-        cookie was in any way monotonically increasing. */
-        uint32_t serial;
-        uint32_t fields_size;
-} _packed_;
-
 struct bus_body_part {
         struct bus_body_part *next;
         void *data;
+        void *mmap_begin;
         size_t size;
         size_t mapped;
         size_t allocated;
+        uint64_t memfd_offset;
         int memfd;
         bool free_this:1;
         bool munmap_this:1;
@@ -100,6 +88,7 @@ struct sd_bus_message {
         usec_t realtime;
         uint64_t seqnum;
         int64_t priority;
+        uint64_t verify_destination_id;
 
         bool sealed:1;
         bool dont_send:1;
@@ -143,6 +132,7 @@ struct sd_bus_message {
 
         char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
         char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
+        char *destination_ptr;
 
         size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
         unsigned n_header_offsets;
@@ -221,7 +211,7 @@ int bus_message_from_malloc(
                 const char *label,
                 sd_bus_message **ret);
 
-const char* bus_message_get_arg(sd_bus_message *m, unsigned i);
+int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str, char ***strv);
 
 int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
 

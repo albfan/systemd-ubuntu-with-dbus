@@ -19,16 +19,19 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd-journald.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-journald.service, systemd-journald.socket, systemd-journald-dev-log.socket, systemd-journald — Journal service</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-journald.service</code></p><p><code class="filename">systemd-journald.socket</code></p><p><code class="filename">systemd-journald-dev-log.socket</code></p><p><code class="filename">/usr/lib/systemd/systemd-journald</code></p></div><div class="refsect1"><a name="idm214180661472"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-journald</code> is a
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemd-journald.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-journald.service, systemd-journald.socket, systemd-journald-dev-log.socket, systemd-journald — Journal service</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-journald.service</code></p><p><code class="filename">systemd-journald.socket</code></p><p><code class="filename">systemd-journald-dev-log.socket</code></p><p><code class="filename">/usr/lib/systemd/systemd-journald</code></p></div><div class="refsect1"><a name="idm140644670029440"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-journald</code> is a
                 system service that collects and stores logging data.
                 It creates and maintains structured, indexed journals
-                based on logging information that is received from the
-                kernel, from user processes via the libc
-                <a href="http://man7.org/linux/man-pages/man3/syslog.3.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
-                call, from standard input and standard error of system
-                services or via its native API. It will implicitly
-                collect numerous metadata fields for each log
-                messages in a secure and unfakeable way. See
+                based on logging information that is received from a
+                variety of sources:</p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>Kernel log messages, via kmsg</p></li><li class="listitem"><p>Simple system log messages, via the
+                        libc <a href="http://man7.org/linux/man-pages/man3/syslog.3.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
+                        call</p></li><li class="listitem"><p>Structured system log messages via the
+                        native Journal API, see
+                        <a href="http://man7.org/linux/man-pages/man4/sd_journal_print.4.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_print</span>(4)</span></a></p></li><li class="listitem"><p>Standard output and
+                        standard error of system
+                        services</p></li><li class="listitem"><p>Audit records, via the audit subsystem</p></li></ul></div><p>The daemon will implicitly collect numerous
+                metadata fields for each log messages in a secure and
+                unfakeable way. See
                 <a href="systemd.journal-fields.html"><span class="citerefentry"><span class="refentrytitle">systemd.journal-fields</span>(7)</span></a>
                 for more information about the collected metadata.
                 </p><p>Log data collected by the journal is primarily
@@ -42,14 +45,13 @@
                 <code class="filename">/var/log/journal/</code> where
                 <code class="filename">systemd-journald</code> will then store
                 the data.</p><p><code class="filename">systemd-journald</code> will
-                forward all received log messages to the <code class="constant">AF_UNIX</code>
-                <code class="constant">SOCK_DGRAM</code> socket
+                forward all received log messages to the <code class="constant">AF_UNIX</code>/<code class="constant">SOCK_DGRAM</code> socket
                 <code class="filename">/run/systemd/journal/syslog</code>, if it exists, which
                 may be used by Unix syslog daemons to process the data
                 further.</p><p>See
                 <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>
                 for information about the configuration of this
-                service.</p></div><div class="refsect1"><a name="idm214184603344"></a><h2 id="Signals">Signals<a class="headerlink" title="Permalink to this headline" href="#Signals">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="SIGUSR1"><span class="term">SIGUSR1</span><a class="headerlink" title="Permalink to this term" href="#SIGUSR1">¶</a></dt><dd><p>Request that journal
+                service.</p></div><div class="refsect1"><a name="idm140644666232464"></a><h2 id="Signals">Signals<a class="headerlink" title="Permalink to this headline" href="#Signals">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="SIGUSR1"><span class="term">SIGUSR1</span><a class="headerlink" title="Permalink to this term" href="#SIGUSR1">¶</a></dt><dd><p>Request that journal
                                 data from <code class="filename">/run/</code>
                                 is flushed to
                                 <code class="filename">/var/</code> in order to
@@ -62,7 +64,7 @@
                                 regardless of the
                                 configuration.</p></dd><dt id="SIGUSR2"><span class="term">SIGUSR2</span><a class="headerlink" title="Permalink to this term" href="#SIGUSR2">¶</a></dt><dd><p>Request immediate
                                 rotation of the journal
-                                files.</p></dd></dl></div></div><div class="refsect1"><a name="idm214184595536"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>A few configuration parameters from
+                                files.</p></dd></dl></div></div><div class="refsect1"><a name="idm140644670120976"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>A few configuration parameters from
                 <code class="filename">journald.conf</code> may be overridden on
                 the kernel command line:</p><div class="variablelist"><dl class="variablelist"><dt id="systemd.journald.forward_to_syslog="><span class="term"><code class="varname">systemd.journald.forward_to_syslog=</code>, </span><span class="term"><code class="varname">systemd.journald.forward_to_kmsg=</code>, </span><span class="term"><code class="varname">systemd.journald.forward_to_console=</code>, </span><span class="term"><code class="varname">systemd.journald.forward_to_wall=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.journald.forward_to_syslog=">¶</a></dt><dd><p>Enables/disables
                                 forwarding of collected log messages
@@ -70,7 +72,7 @@
                                 system console or wall.
                                 </p><p>See
                                 <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>
-                                for information about these settings.</p></dd></dl></div></div><div class="refsect1"><a name="idm214184588240"></a><h2 id="Access Control">Access Control<a class="headerlink" title="Permalink to this headline" href="#Access%20Control">¶</a></h2><p>Journal files are, by default, owned and readable
+                                for information about these settings.</p></dd></dl></div></div><div class="refsect1"><a name="idm140644670113680"></a><h2 id="Access Control">Access Control<a class="headerlink" title="Permalink to this headline" href="#Access%20Control">¶</a></h2><p>Journal files are, by default, owned and readable
                 by the "<code class="literal">systemd-journal</code>" system group
                 but are not writable. Adding a user to this group thus
                 enables her/him to read the journal files.</p><p>By default, each logged in user will get her/his
@@ -89,7 +91,7 @@
                 for existing journal files and for future journal
                 files created in the
                 <code class="filename">/var/log/journal/</code>
-                directory.</p></div><div class="refsect1"><a name="idm214184573264"></a><h2 id="Files">Files<a class="headerlink" title="Permalink to this headline" href="#Files">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/etc/systemd/journald.conf"><span class="term"><code class="filename">/etc/systemd/journald.conf</code></span><a class="headerlink" title="Permalink to this term" href="#/etc/systemd/journald.conf">¶</a></dt><dd><p>Configure
+                directory.</p></div><div class="refsect1"><a name="idm140644670098768"></a><h2 id="Files">Files<a class="headerlink" title="Permalink to this headline" href="#Files">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/etc/systemd/journald.conf"><span class="term"><code class="filename">/etc/systemd/journald.conf</code></span><a class="headerlink" title="Permalink to this term" href="#/etc/systemd/journald.conf">¶</a></dt><dd><p>Configure
                                 <span class="command"><strong>systemd-journald</strong></span>
                                 behaviour. See
                                 <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>.
@@ -114,7 +116,7 @@
                                 set in the
                                 <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>
                                 configuration file.
-                                </p></dd></dl></div></div><div class="refsect1"><a name="idm214179589488"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                </p></dd></dl></div></div><div class="refsect1"><a name="idm140644670079792"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,
                         <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>,
@@ -122,5 +124,6 @@
                         <a href="sd-journal.html"><span class="citerefentry"><span class="refentrytitle">sd-journal</span>(3)</span></a>,
                         <a href="systemd-coredump.html"><span class="citerefentry"><span class="refentrytitle">systemd-coredump</span>(8)</span></a>,
                         <a href="setfacl.html"><span class="citerefentry"><span class="refentrytitle">setfacl</span>(1)</span></a>,
+                        <a href="http://man7.org/linux/man-pages/man4/sd_journal_print.4.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_print</span>(4)</span></a>,
                         <span class="command"><strong>pydoc systemd.journal</strong></span>.
                 </p></div></div></body></html>

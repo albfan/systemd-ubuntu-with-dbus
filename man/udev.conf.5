@@ -1,5 +1,5 @@
 '\" t
-.TH "UDEV\&.CONF" "5" "" "systemd 217" "udev.conf"
+.TH "UDEV\&.CONF" "5" "" "systemd 218" "udev.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,7 +32,7 @@ expects its main configuration file at
 .PP
 \fIudev_log\fR
 .RS 4
-The logging priority\&. Valid values are the numerical syslog priorities or their textual representations:
+The log level\&. Valid values are the numerical syslog priorities or their textual representations:
 \fBerr\fR,
 \fBinfo\fR
 and
@@ -41,7 +41,7 @@ and
 .PP
 In addition,
 systemd\-udevd
-can be configured by command\-line options and the kernel commandline (see
+can be configured by command line options and the kernel command line (see
 \fBsystemd-udevd\fR(8))\&.
 .SH "SEE ALSO"
 .PP

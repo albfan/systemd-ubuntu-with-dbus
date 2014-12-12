@@ -474,9 +474,9 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL);
         if (r < 0) {
                 if (r == -ENOENT || r == -ESRCH)
-                        udev_err(rules->udev, "specified user '%s' unknown\n", owner);
+                        log_error("specified user '%s' unknown", owner);
                 else
-                        udev_err(rules->udev, "error resolving user '%s': %s\n", owner, strerror(-r));
+                        log_error_errno(r, "error resolving user '%s': %m", owner);
         }
 
         /* grow buffer if needed */
@@ -521,9 +521,9 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         r = get_group_creds(&group, &gid);
         if (r < 0) {
                 if (r == -ENOENT || r == -ESRCH)
-                        udev_err(rules->udev, "specified group '%s' unknown\n", group);
+                        log_error("specified group '%s' unknown", group);
                 else
-                        udev_err(rules->udev, "error resolving group '%s': %s\n", group, strerror(-r));
+                        log_error_errno(r, "error resolving group '%s': %m", group);
         }
 
         /* grow buffer if needed */
@@ -1042,11 +1042,11 @@ static int add_rule(struct udev_rules *rules, char *line,
                     const char *filename, unsigned int filename_off, unsigned int lineno) {
         char *linepos;
         const char *attr;
-        struct rule_tmp rule_tmp;
+        struct rule_tmp rule_tmp = {
+                .rules = rules,
+                .rule.type = TK_RULE,
+        };
 
-        memzero(&rule_tmp, sizeof(struct rule_tmp));
-        rule_tmp.rules = rules;
-        rule_tmp.rule.type = TK_RULE;
         /* the offset in the rule is limited to unsigned short */
         if (filename_off < USHRT_MAX)
                 rule_tmp.rule.rule.filename_off = filename_off;
@@ -1067,14 +1067,14 @@ static int add_rule(struct udev_rules *rules, char *line,
 
                         /* If we aren't at the end of the line, this is a parsing error.
                          * Make a best effort to describe where the problem is. */
-                        if (*linepos != '\n') {
-                                char buf[2] = {linepos[1]};
+                        if (!strchr(NEWLINE, *linepos)) {
+                                char buf[2] = {*linepos};
                                 _cleanup_free_ char *tmp;
 
                                 tmp = cescape(buf);
-                                log_error("invalid key/value pair in file %s on line %u, starting at character %tu ('%s')\n",
+                                log_error("invalid key/value pair in file %s on line %u, starting at character %tu ('%s')",
                                           filename, lineno, linepos - line + 1, tmp);
-                                if (linepos[1] == '#')
+                                if (*linepos == '#')
                                         log_error("hint: comments can only start at beginning of line");
                         }
                         break;
@@ -1685,7 +1685,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
 
         r = conf_files_list_strv(&files, ".rules", NULL, rules_dirs);
         if (r < 0) {
-                log_error("failed to enumerate rules files: %s", strerror(-r));
+                log_error_errno(r, "failed to enumerate rules files: %m");
                 return udev_rules_unref(rules);
         }
 
@@ -1876,6 +1876,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                               struct udev_event *event,
                               usec_t timeout_usec,
                               usec_t timeout_warn_usec,
+                              struct udev_list *properties_list,
                               const sigset_t *sigmask) {
         struct token *cur;
         struct token *rule;
@@ -1941,7 +1942,18 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         const char *value;
 
                         value = udev_device_get_property_value(event->dev, key_name);
-                        if (value == NULL)
+
+                        /* check global properties */
+                        if (!value && properties_list) {
+                                struct udev_list_entry *list_entry;
+
+                                list_entry = udev_list_get_entry(properties_list);
+                                list_entry = udev_list_entry_get_by_name(list_entry, key_name);
+                                if (list_entry != NULL)
+                                        value = udev_list_entry_get_value(list_entry);
+                        }
+
+                        if (!value)
                                 value = "";
                         if (match_key(rules, cur, value))
                                 goto nomatch;
@@ -2265,9 +2277,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        udev_err(event->udev, "specified user '%s' unknown\n", owner);
+                                        log_error("specified user '%s' unknown", owner);
                                 else
-                                        udev_err(event->udev, "error resolving user '%s': %s\n", owner, strerror(-r));
+                                        log_error_errno(r, "error resolving user '%s': %m", owner);
 
                                 event->uid = 0;
                         }
@@ -2291,9 +2303,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_group_creds(&gr, &event->gid);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        udev_err(event->udev, "specified group '%s' unknown\n", group);
+                                        log_error("specified group '%s' unknown", group);
                                 else
-                                        udev_err(event->udev, "error resolving group '%s': %s\n", group, strerror(-r));
+                                        log_error_errno(r, "error resolving group '%s': %m", group);
 
                                 event->gid = 0;
                         }
@@ -2523,10 +2535,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         f = fopen(attr, "we");
                         if (f != NULL) {
                                 if (fprintf(f, "%s", value) <= 0)
-                                        log_error("error writing ATTR{%s}: %m", attr);
+                                        log_error_errno(errno, "error writing ATTR{%s}: %m", attr);
                                 fclose(f);
                         } else {
-                                log_error("error opening ATTR{%s} for writing: %m", attr);
+                                log_error_errno(errno, "error opening ATTR{%s} for writing: %m", attr);
                         }
                         break;
                 }
@@ -2640,19 +2652,17 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
 
                                         strscpyl(tags_dir, sizeof(tags_dir), "/run/udev/static_node-tags/", *t, "/", NULL);
                                         r = mkdir_p(tags_dir, 0755);
-                                        if (r < 0) {
-                                                log_error("failed to create %s: %s", tags_dir, strerror(-r));
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "failed to create %s: %m", tags_dir);
 
                                         unescaped_filename = xescape(rules_str(rules, cur->key.value_off), "/.");
 
                                         strscpyl(tag_symlink, sizeof(tag_symlink), tags_dir, unescaped_filename, NULL);
                                         r = symlink(device_node, tag_symlink);
-                                        if (r < 0 && errno != EEXIST) {
-                                                log_error("failed to create symlink %s -> %s: %m", tag_symlink, device_node);
-                                                return -errno;
-                                        } else
+                                        if (r < 0 && errno != EEXIST)
+                                                return log_error_errno(errno, "failed to create symlink %s -> %s: %m",
+                                                                       tag_symlink, device_node);
+                                        else
                                                 r = 0;
                                 }
                         }

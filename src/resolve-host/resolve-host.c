@@ -26,7 +26,7 @@
 #include "sd-bus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "in-addr-util.h"
 #include "af-list.h"
 #include "build.h"
@@ -155,7 +155,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
                 r = in_addr_to_string(family, a, &pretty);
                 if (r < 0) {
-                        log_error("%s: failed to print address: %s", name, strerror(-r));
+                        log_error_errno(r, "%s: failed to print address: %m", name);
                         continue;
                 }
 
@@ -513,10 +513,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'i':
                         arg_ifindex = if_nametoindex(optarg);
-                        if (arg_ifindex <= 0) {
-                                log_error("Unknown interfaces %s: %m", optarg);
-                                return -errno;
-                        }
+                        if (arg_ifindex <= 0)
+                                return log_error_errno(errno, "Unknown interfaces %s: %m", optarg);
                         break;
 
                 case 't':
@@ -614,7 +612,7 @@ int main(int argc, char **argv) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0) {
-                log_error("sd_bus_open_system: %s", strerror(-r));
+                log_error_errno(r, "sd_bus_open_system: %m");
                 goto finish;
         }
 

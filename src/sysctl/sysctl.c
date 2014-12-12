@@ -38,15 +38,7 @@
 
 static char **arg_prefixes = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/sysctl.d\0"
-        "/run/sysctl.d\0"
-        "/usr/local/lib/sysctl.d\0"
-        "/usr/lib/sysctl.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/sysctl.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysctl");
 
 static char* normalize_sysctl(char *s) {
         char *n;
@@ -142,8 +134,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open file '%s', ignoring: %s", path, strerror(-r));
-                return r;
+                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
         log_debug("parse: %s", path);
@@ -156,7 +147,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read file '%s', ignoring: %m", path);
+                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                         return -errno;
                 }
 
@@ -204,7 +195,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
 
                 k = hashmap_put(sysctl_options, property, new_value);
                 if (k < 0) {
-                        log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-k));
+                        log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", property);
                         free(property);
                         free(new_value);
                         return k;
@@ -322,7 +313,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
-                        log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));
+                        log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
                         goto finish;
                 }
 

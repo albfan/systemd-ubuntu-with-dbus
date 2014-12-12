@@ -1,5 +1,5 @@
 '\" t
-.TH "HOSTNAMECTL" "1" "" "systemd 217" "hostnamectl"
+.TH "HOSTNAMECTL" "1" "" "systemd 218" "hostnamectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -72,6 +72,11 @@ Execute the operation remotely\&. Specify a hostname, or a username and hostname
 \fBmachinectl \-H \fR\fB\fIHOST\fR\fR\&.
 .RE
 .PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print a short help text and exit\&.
@@ -124,7 +129,9 @@ Set the chassis type to
 "server",
 "tablet",
 "handset",
-"watch", as well as the special chassis types
+"watch",
+"embedded"
+as well as the special chassis types
 "vm"
 and
 "container"

@@ -384,10 +384,8 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
-        if (r < 0) {
-                log_error("Could not get properties: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
 
         if (*new_line)
                 printf("\n");
@@ -498,7 +496,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
         if (r < 0) {
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(r, "Could not get properties: %m");
                 goto finish;
         }
 
@@ -562,7 +560,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
         if (r < 0) {
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(r, "Could not get properties: %m");
                 goto finish;
         }
 
@@ -617,7 +615,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
 
         r = bus_print_all_properties(bus, "org.freedesktop.login1", path, arg_property, arg_all);
         if (r < 0)
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(r, "Could not get properties: %m");
 
         return r;
 }
@@ -699,10 +697,8 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error("Failed to look up user %s: %s", args[i], strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method(
                                 bus,
@@ -859,10 +855,8 @@ static int enable_linger(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error("Failed to look up user %s: %s", args[i], strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method (
                         bus,
@@ -892,10 +886,8 @@ static int terminate_user(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error("Failed to look up user %s: %s", args[i], strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method (
                         bus,
@@ -928,10 +920,8 @@ static int kill_user(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error("Failed to look up user %s: %s", args[i], strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method (
                         bus,
@@ -1308,7 +1298,7 @@ int main(int argc, char *argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

@@ -54,12 +54,6 @@
 #include "dev-setup.h"
 #include "fileio.h"
 
-void udev_main_log(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args) {
-        log_metav(priority, file, line, fn, format, args);
-}
-
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *monitor;
@@ -81,6 +75,7 @@ static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
 static char *udev_cgroup;
+static struct udev_list properties_list;
 static bool udev_exit;
 
 enum event_state {
@@ -225,14 +220,14 @@ static void worker_new(struct event *event) {
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
                 if (fd_signal < 0) {
-                        log_error("error creating signalfd %m");
+                        log_error_errno(errno, "error creating signalfd %m");
                         rc = 2;
                         goto out;
                 }
 
                 fd_ep = epoll_create1(EPOLL_CLOEXEC);
                 if (fd_ep < 0) {
-                        log_error("error creating epoll fd: %m");
+                        log_error_errno(errno, "error creating epoll fd: %m");
                         rc = 3;
                         goto out;
                 }
@@ -248,7 +243,7 @@ static void worker_new(struct event *event) {
 
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
                     epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
-                        log_error("fail to add fds to epoll: %m");
+                        log_error_errno(errno, "fail to add fds to epoll: %m");
                         rc = 4;
                         goto out;
                 }
@@ -298,7 +293,7 @@ static void worker_new(struct event *event) {
                                 if (d) {
                                         fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                                         if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
-                                                log_debug("Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
+                                                log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
                                                 err = -EWOULDBLOCK;
                                                 fd_lock = safe_close(fd_lock);
                                                 goto skip;
@@ -310,12 +305,19 @@ static void worker_new(struct event *event) {
                         udev_event->rtnl = rtnl;
 
                         /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_event_timeout_warn_usec, rules, &sigmask_orig);
+                        udev_event_execute_rules(udev_event,
+                                                 arg_event_timeout_usec, arg_event_timeout_warn_usec,
+                                                 &properties_list,
+                                                 rules,
+                                                 &sigmask_orig);
 
-                        udev_event_execute_run(udev_event, arg_event_timeout_usec, arg_event_timeout_warn_usec, &sigmask_orig);
+                        udev_event_execute_run(udev_event,
+                                               arg_event_timeout_usec, arg_event_timeout_warn_usec,
+                                               &sigmask_orig);
 
-                        /* in case rtnl was initialized */
-                        rtnl = sd_rtnl_ref(udev_event->rtnl);
+                        if (udev_event->rtnl)
+                                /* in case rtnl was initialized */
+                                rtnl = sd_rtnl_ref(udev_event->rtnl);
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
@@ -357,7 +359,7 @@ skip:
                                 if (fdcount < 0) {
                                         if (errno == EINTR)
                                                 continue;
-                                        log_error("failed to poll: %m");
+                                        log_error_errno(errno, "failed to poll: %m");
                                         goto out;
                                 }
 
@@ -397,7 +399,7 @@ out:
                 udev_monitor_unref(worker_monitor);
                 event->state = EVENT_QUEUED;
                 free(worker);
-                log_error("fork of child failed: %m");
+                log_error_errno(errno, "fork of child failed: %m");
                 break;
         default:
                 /* close monitor, but keep address around */
@@ -428,7 +430,7 @@ static void event_run(struct event *event) {
 
                 count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
                 if (count < 0) {
-                        log_error("worker [%u] did not accept message %zi (%m), kill it", worker->pid, count);
+                        log_error_errno(errno, "worker [%u] did not accept message %zi (%m), kill it", worker->pid, count);
                         kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -644,7 +646,6 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl) {
         if (i >= 0) {
                 log_debug("udevd message (SET_LOG_LEVEL) received, log_priority=%i", i);
                 log_set_max_level(i);
-                udev_set_log_priority(udev, i);
                 worker_kill(udev);
         }
 
@@ -677,10 +678,10 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl) {
                                 val = &val[1];
                                 if (val[0] == '\0') {
                                         log_debug("udevd message (ENV) received, unset '%s'", key);
-                                        udev_add_property(udev, key, NULL);
+                                        udev_list_entry_add(&properties_list, key, NULL);
                                 } else {
                                         log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
-                                        udev_add_property(udev, key, val);
+                                        udev_list_entry_add(&properties_list, key, val);
                                 }
                         } else {
                                 log_error("wrong key format '%s'", key);
@@ -815,41 +816,34 @@ static int synthesize_change(struct udev_device *dev) {
 }
 
 static int handle_inotify(struct udev *udev) {
-        int nbytes, pos;
-        char *buf;
-        struct inotify_event *ev;
-        int r;
+        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+        struct inotify_event *e;
+        ssize_t l;
 
-        r = ioctl(fd_inotify, FIONREAD, &nbytes);
-        if (r < 0 || nbytes <= 0)
-                return -errno;
+        l = read(fd_inotify, buffer, sizeof(buffer));
+        if (l < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
 
-        buf = malloc(nbytes);
-        if (!buf) {
-                log_error("error getting buffer for inotify");
-                return -ENOMEM;
+                return log_error_errno(errno, "Failed to read inotify fd: %m");
         }
 
-        nbytes = read(fd_inotify, buf, nbytes);
-
-        for (pos = 0; pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
+        FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 struct udev_device *dev;
 
-                ev = (struct inotify_event *)(buf + pos);
-                dev = udev_watch_lookup(udev, ev->wd);
+                dev = udev_watch_lookup(udev, e->wd);
                 if (!dev)
                         continue;
 
-                log_debug("inotify event: %x for %s", ev->mask, udev_device_get_devnode(dev));
-                if (ev->mask & IN_CLOSE_WRITE)
+                log_debug("inotify event: %x for %s", e->mask, udev_device_get_devnode(dev));
+                if (e->mask & IN_CLOSE_WRITE)
                         synthesize_change(dev);
-                else if (ev->mask & IN_IGNORED)
+                else if (e->mask & IN_IGNORED)
                         udev_watch_end(udev, dev);
 
                 udev_device_unref(dev);
         }
 
-        free(buf);
         return 0;
 }
 
@@ -949,7 +943,7 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
 }
 
 /*
- * read the kernel commandline, in case we need to get into debug mode
+ * read the kernel command line, in case we need to get into debug mode
  *   udev.log-priority=<level>              syslog priority
  *   udev.children-max=<number of workers>  events are fully serialized if set to 1
  *   udev.exec-delay=<number of seconds>    delay execution of every executed program
@@ -961,13 +955,13 @@ static void kernel_cmdline_options(struct udev *udev) {
         int r;
 
         r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
                 return;
+        }
 
         FOREACH_WORD_QUOTED(word, l, line, state) {
-                char *s, *opt;
+                char *s, *opt, *value;
 
                 s = strndup(word, l);
                 if (!s)
@@ -979,24 +973,23 @@ static void kernel_cmdline_options(struct udev *udev) {
                 else
                         opt = s;
 
-                if (startswith(opt, "udev.log-priority=")) {
+                if ((value = startswith(opt, "udev.log-priority="))) {
                         int prio;
 
-                        prio = util_log_priority(opt + 18);
+                        prio = util_log_priority(value);
                         log_set_max_level(prio);
-                        udev_set_log_priority(udev, prio);
-                } else if (startswith(opt, "udev.children-max=")) {
-                        r = safe_atoi(opt + 18, &arg_children_max);
+                } else if ((value = startswith(opt, "udev.children-max="))) {
+                        r = safe_atoi(value, &arg_children_max);
                         if (r < 0)
-                                log_warning("Invalid udev.children-max ignored: %s", opt + 18);
-                } else if (startswith(opt, "udev.exec-delay=")) {
-                        r = safe_atoi(opt + 16, &arg_exec_delay);
+                                log_warning("Invalid udev.children-max ignored: %s", value);
+                } else if ((value = startswith(opt, "udev.exec-delay="))) {
+                        r = safe_atoi(value, &arg_exec_delay);
                         if (r < 0)
-                                log_warning("Invalid udev.exec-delay ignored: %s", opt + 16);
-                } else if (startswith(opt, "udev.event-timeout=")) {
-                        r = safe_atou64(opt + 16, &arg_event_timeout_usec);
+                                log_warning("Invalid udev.exec-delay ignored: %s", value);
+                } else if ((value = startswith(opt, "udev.event-timeout="))) {
+                        r = safe_atou64(value, &arg_event_timeout_usec);
                         if (r < 0) {
-                                log_warning("Invalid udev.event-timeout ignored: %s", opt + 16);
+                                log_warning("Invalid udev.event-timeout ignored: %s", value);
                                 break;
                         }
                         arg_event_timeout_usec *= USEC_PER_SEC;
@@ -1120,19 +1113,14 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        udev_set_log_fn(udev, udev_main_log);
-        log_set_max_level(udev_get_log_priority(udev));
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto exit;
 
         kernel_cmdline_options(udev);
 
-        if (arg_debug) {
+        if (arg_debug)
                 log_set_max_level(LOG_DEBUG);
-                udev_set_log_priority(udev, LOG_DEBUG);
-        }
 
         if (getuid() != 0) {
                 log_error("root privileges required");
@@ -1141,22 +1129,24 @@ int main(int argc, char *argv[]) {
 
         r = mac_selinux_init("/dev");
         if (r < 0) {
-                log_error("could not initialize labelling: %s", strerror(-r));
+                log_error_errno(r, "could not initialize labelling: %m");
                 goto exit;
         }
 
         /* set umask before creating any file/directory */
         r = chdir("/");
         if (r < 0) {
-                log_error("could not change dir to /: %m");
+                log_error_errno(errno, "could not change dir to /: %m");
                 goto exit;
         }
 
         umask(022);
 
+        udev_list_init(udev, &properties_list, true);
+
         r = mkdir("/run/udev", 0755);
         if (r < 0 && errno != EEXIST) {
-                log_error("could not create /run/udev: %m");
+                log_error_errno(errno, "could not create /run/udev: %m");
                 goto exit;
         }
 
@@ -1215,6 +1205,8 @@ int main(int argc, char *argv[]) {
                         goto exit;
                 }
                 fd_netlink = udev_monitor_get_fd(monitor);
+
+                udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
         }
 
         if (udev_monitor_enable_receiving(monitor) < 0) {
@@ -1229,9 +1221,7 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
-
-        log_info("starting version " VERSION "\n");
+        log_info("starting version " VERSION);
 
         udev_builtin_init(udev);
 
@@ -1243,7 +1233,7 @@ int main(int argc, char *argv[]) {
 
         rc = udev_rules_apply_static_dev_perms(rules);
         if (rc < 0)
-                log_error("failed to apply permissions on static device nodes - %s", strerror(-rc));
+                log_error_errno(rc, "failed to apply permissions on static device nodes - %m");
 
         if (arg_daemonize) {
                 pid_t pid;
@@ -1253,7 +1243,7 @@ int main(int argc, char *argv[]) {
                 case 0:
                         break;
                 case -1:
-                        log_error("fork of daemon failed: %m");
+                        log_error_errno(errno, "fork of daemon failed: %m");
                         rc = 4;
                         goto exit;
                 default:
@@ -1316,7 +1306,7 @@ int main(int argc, char *argv[]) {
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                log_error("error creating epoll fd: %m");
+                log_error_errno(errno, "error creating epoll fd: %m");
                 goto exit;
         }
         if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_ctrl, &ep_ctrl) < 0 ||
@@ -1324,7 +1314,7 @@ int main(int argc, char *argv[]) {
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_netlink, &ep_netlink) < 0 ||
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_worker, &ep_worker) < 0) {
-                log_error("fail to add fds to epoll: %m");
+                log_error_errno(errno, "fail to add fds to epoll: %m");
                 goto exit;
         }
 
@@ -1542,6 +1532,7 @@ exit_daemonize:
         udev_monitor_unref(monitor);
         udev_ctrl_connection_unref(ctrl_conn);
         udev_ctrl_unref(udev_ctrl);
+        udev_list_cleanup(&properties_list);
         mac_selinux_finish();
         udev_unref(udev);
         log_close();

@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_CREDS_NEW_FROM_PID" "3" "" "systemd 217" "sd_bus_creds_new_from_pid"
+.TH "SD_BUS_CREDS_NEW_FROM_PID" "3" "" "systemd 218" "sd_bus_creds_new_from_pid"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,7 +38,6 @@ sd_bus_creds_new_from_pid, sd_bus_creds_get_mask, sd_bus_creds_ref, sd_bus_creds
 .BI "sd_bus_creds *sd_bus_creds_unref(sd_bus_creds\ *" "c" ");"
 .PP
 \fBSD_BUS_CREDS_PID\fR,
-\fBSD_BUS_CREDS_PID_STARTTIME\fR,
 \fBSD_BUS_CREDS_TID\fR,
 \fBSD_BUS_CREDS_UID\fR,
 \fBSD_BUS_CREDS_GID\fR,
@@ -73,7 +72,6 @@ pointer\&.
 The information that will be stored is determined by
 \fIcreds_mask\fR\&. It may contain a subset of ORed constants
 \fBSD_BUS_CREDS_PID\fR,
-\fBSD_BUS_CREDS_PID_STARTTIME\fR,
 \fBSD_BUS_CREDS_TID\fR,
 \fBSD_BUS_CREDS_UID\fR,
 \fBSD_BUS_CREDS_GID\fR,
@@ -179,7 +177,6 @@ file\&.
 \fBsd_bus_creds_ref\fR(3),
 \fBsd_bus_creds_unref\fR(3),
 \fBsd_bus_creds_get_pid\fR(3),
-\fBsd_bus_creds_get_pid_starttime\fR(3),
 \fBsd_bus_creds_get_tid\fR(3),
 \fBsd_bus_creds_get_uid\fR(3),
 \fBsd_bus_creds_get_gid\fR(3),

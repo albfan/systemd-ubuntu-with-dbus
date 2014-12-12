@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="logind.conf" conditional='ENABLE_LOGIND'>
+<refentry id="logind.conf" conditional='ENABLE_LOGIND'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>logind.conf</title>
                 <productname>systemd</productname>
@@ -44,19 +45,25 @@
 
         <refnamediv>
                 <refname>logind.conf</refname>
-                <refpurpose>Login manager configuration file</refpurpose>
+                <refname>logind.conf.d</refname>
+                <refpurpose>Login manager configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/logind.conf</filename></para>
+                <para><filename>/etc/systemd/logind.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/logind.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>This file configures various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
-
+                <para>These files configure various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>
@@ -281,17 +288,17 @@
                                 sleep keys and the lid switch are
                                 subject to inhibitor locks. These
                                 settings take boolean arguments. If
-                                <literal>off</literal>, the inhibitor
+                                <literal>no</literal>, the inhibitor
                                 locks taken by applications in order
                                 to block the requested operation are
-                                respected. If <literal>on</literal>,
+                                respected. If <literal>yes</literal>,
                                 the requested operation is executed in
                                 any
                                 case. <varname>PowerKeyIgnoreInhibited=</varname>,
                                 <varname>SuspendKeyIgnoreInhibited=</varname>
                                 and
                                 <varname>HibernateKeyIgnoreInhibited=</varname>
-                                default to <literal>off</literal>.
+                                default to <literal>no</literal>.
                                 <varname>LidSwitchIgnoreInhibited=</varname>
                                 defaults to
                                 <literal>yes</literal>. This means

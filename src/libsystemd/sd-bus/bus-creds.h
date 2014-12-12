@@ -32,9 +32,18 @@ struct sd_bus_creds {
         uint64_t mask;
 
         uid_t uid;
+        uid_t euid;
+        uid_t suid;
+        uid_t fsuid;
         gid_t gid;
+        gid_t egid;
+        gid_t sgid;
+        gid_t fsgid;
+
+        gid_t *supplementary_gids;
+        unsigned n_supplementary_gids;
+
         pid_t pid;
-        usec_t pid_starttime;
         pid_t tid;
 
         char *comm;
@@ -62,10 +71,12 @@ struct sd_bus_creds {
         char *unique_name;
 
         char **well_known_names;
+        bool well_known_names_driver:1;
+        bool well_known_names_local:1;
 
         char *cgroup_root;
 
-        char *conn_name, *unescaped_conn_name;
+        char *description, *unescaped_description;
 };
 
 sd_bus_creds* bus_creds_new(void);

@@ -38,21 +38,13 @@
 
 static char **arg_proc_cmdline_modules = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/modules-load.d\0"
-        "/run/modules-load.d\0"
-        "/usr/local/lib/modules-load.d\0"
-        "/usr/lib/modules-load.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/modules-load.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("modules-load");
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_metav(priority, file, line, fn, format, args);
+        log_internalv(priority, 0, file, line, fn, format, args);
         REENABLE_WARNING;
 }
 
@@ -89,10 +81,8 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
         log_debug("load: %s", m);
 
         r = kmod_module_new_from_lookup(ctx, m, &modlist);
-        if (r < 0) {
-                log_error("Failed to lookup alias '%s': %s", m, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to lookup alias '%s': %m", m);
 
         if (!modlist) {
                 log_error("Failed to find module '%s'", m);
@@ -124,8 +114,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                                 log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                         else {
-                                log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
-                                          strerror(-err));
+                                log_error_errno(err, "Failed to insert '%s': %m", kmod_module_get_name(mod));
                                 r = err;
                         }
                 }
@@ -150,8 +139,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open %s, ignoring: %s", path, strerror(-r));
-                return r;
+                return log_error_errno(r, "Failed to open %s, ignoring: %m", path);
         }
 
         log_debug("apply: %s", path);
@@ -163,7 +151,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read file '%s', ignoring: %m", path);
+                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                         return -errno;
                 }
 
@@ -243,8 +231,9 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                return EXIT_FAILURE;
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         ctx = kmod_new(NULL, NULL);
         if (!ctx) {
@@ -278,7 +267,7 @@ int main(int argc, char *argv[]) {
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (k < 0) {
-                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-k));
+                        log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
                         if (r == 0)
                                 r = k;
                         goto finish;

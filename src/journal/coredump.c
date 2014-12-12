@@ -36,6 +36,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "fileio.h"
 #include "strv.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -119,10 +120,11 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse(NULL, "/etc/systemd/coredump.conf", NULL,
-                            "Coredump\0",
-                            config_item_table_lookup, items,
-                            false, false, true, NULL);
+        return config_parse_many("/etc/systemd/coredump.conf",
+                                 CONF_DIRS_NULSTR("systemd/coredump.conf"),
+                                 "Coredump\0",
+                                 config_item_table_lookup, items,
+                                 false, NULL);
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -141,29 +143,25 @@ static int fix_acl(int fd, uid_t uid) {
          * their own coredumps */
 
         acl = acl_get_fd(fd);
-        if (!acl) {
-                log_error("Failed to get ACL: %m");
-                return -errno;
-        }
+        if (!acl)
+                return log_error_errno(errno, "Failed to get ACL: %m");
 
         if (acl_create_entry(&acl, &entry) < 0 ||
             acl_set_tag_type(entry, ACL_USER) < 0 ||
             acl_set_qualifier(entry, &uid) < 0) {
-                log_error("Failed to patch ACL: %m");
+                log_error_errno(errno, "Failed to patch ACL: %m");
                 return -errno;
         }
 
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0 ||
             calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning("Failed to patch ACL: %m");
+                log_warning_errno(errno, "Failed to patch ACL: %m");
                 return -errno;
         }
 
-        if (acl_set_fd(fd, acl) < 0) {
-                log_error("Failed to apply ACL: %m");
-                return -errno;
-        }
+        if (acl_set_fd(fd, acl) < 0)
+                return log_error_errno(errno, "Failed to apply ACL: %m");
 #endif
 
         return 0;
@@ -222,15 +220,11 @@ static int fix_permissions(
         fix_acl(fd, uid);
         fix_xattr(fd, info);
 
-        if (fsync(fd) < 0) {
-                log_error("Failed to sync coredump %s: %m", filename);
-                return -errno;
-        }
+        if (fsync(fd) < 0)
+                return log_error_errno(errno, "Failed to sync coredump %s: %m", filename);
 
-        if (rename(filename, target) < 0) {
-                log_error("Failed to rename coredump %s -> %s: %m", filename, target);
-                return -errno;
-        }
+        if (rename(filename, target) < 0)
+                return log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
 
         return 0;
 }
@@ -246,10 +240,8 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
         if (!filename)
                 return 1;
 
-        if (unlink(filename) < 0 && errno != ENOENT) {
-                log_error("Failed to unlink %s: %m", filename);
-                return -errno;
-        }
+        if (unlink(filename) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to unlink %s: %m", filename);
 
         return 1;
 }
@@ -311,10 +303,8 @@ static int save_external_coredump(
         assert(ret_size);
 
         r = make_filename(info, &fn);
-        if (r < 0) {
-                log_error("Failed to determine coredump file name: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine coredump file name: %m");
 
         tmp = tempfn_random(fn);
         if (!tmp)
@@ -323,30 +313,28 @@ static int save_external_coredump(
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
         fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
-        if (fd < 0) {
-                log_error("Failed to create coredump file %s: %m", tmp);
-                return -errno;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
 
         r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
-        if (r == -E2BIG) {
+        if (r == -EFBIG) {
                 log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {
                 log_error("Not enough disk space for coredump of %s (%s), refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (r < 0) {
-                log_error("Failed to dump coredump to file: %s", strerror(-r));
+                log_error_errno(r, "Failed to dump coredump to file: %m");
                 goto fail;
         }
 
         if (fstat(fd, &st) < 0) {
-                log_error("Failed to fstat coredump %s: %m", tmp);
+                log_error_errno(errno, "Failed to fstat coredump %s: %m", tmp);
                 goto fail;
         }
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_error("Failed to seek on %s: %m", tmp);
+                log_error_errno(errno, "Failed to seek on %s: %m", tmp);
                 goto fail;
         }
 
@@ -372,13 +360,13 @@ static int save_external_coredump(
 
                 fd_compressed = open(tmp_compressed, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
                 if (fd_compressed < 0) {
-                        log_error("Failed to create file %s: %m", tmp_compressed);
+                        log_error_errno(errno, "Failed to create file %s: %m", tmp_compressed);
                         goto uncompressed;
                 }
 
                 r = compress_stream(fd, fd_compressed, -1);
                 if (r < 0) {
-                        log_error("Failed to compress %s: %s", tmp_compressed, strerror(-r));
+                        log_error_errno(r, "Failed to compress %s: %m", tmp_compressed);
                         goto fail_compressed;
                 }
 
@@ -430,10 +418,8 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         assert(ret);
         assert(ret_size);
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_warning("Failed to seek: %m");
-                return -errno;
-        }
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                return log_warning_errno(errno, "Failed to seek: %m");
 
         field = malloc(9 + size);
         if (!field) {
@@ -444,10 +430,8 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         memcpy(field, "COREDUMP=", 9);
 
         n = read(fd, field + 9, size);
-        if (n < 0) {
-                log_error("Failed to read core data: %s", strerror(-n));
-                return (int) n;
-        }
+        if (n < 0)
+                return log_error_errno((int) n, "Failed to read core data: %m");
         if ((size_t) n < size) {
                 log_error("Core data too short.");
                 return -EIO;
@@ -461,24 +445,118 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         return 0;
 }
 
+/* Joins /proc/[pid]/fd/ and /proc/[pid]/fdinfo/ into the following lines:
+ * 0:/dev/pts/23
+ * pos:    0
+ * flags:  0100002
+ *
+ * 1:/dev/pts/23
+ * pos:    0
+ * flags:  0100002
+ *
+ * 2:/dev/pts/23
+ * pos:    0
+ * flags:  0100002
+ * EOF
+ */
+static int compose_open_fds(pid_t pid, char **open_fds) {
+        _cleanup_closedir_ DIR *proc_fd_dir = NULL;
+        _cleanup_close_ int proc_fdinfo_fd = -1;
+        _cleanup_free_ char *buffer = NULL;
+        _cleanup_fclose_ FILE *stream = NULL;
+        const char *fddelim = "", *path;
+        struct dirent *dent = NULL;
+        size_t size = 0;
+        int r = 0;
+
+        assert(pid >= 0);
+        assert(open_fds != NULL);
+
+        path = procfs_file_alloca(pid, "fd");
+        proc_fd_dir = opendir(path);
+        if (!proc_fd_dir)
+                return -errno;
+
+        proc_fdinfo_fd = openat(dirfd(proc_fd_dir), "../fdinfo", O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (proc_fdinfo_fd < 0)
+                return -errno;
+
+        stream = open_memstream(&buffer, &size);
+        if (!stream)
+                return -ENOMEM;
+
+        FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
+                _cleanup_fclose_ FILE *fdinfo = NULL;
+                _cleanup_free_ char *fdname = NULL;
+                char line[LINE_MAX];
+                int fd;
+
+                r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
+                if (r < 0)
+                        return r;
+
+                fprintf(stream, "%s%s:%s\n", fddelim, dent->d_name, fdname);
+                fddelim = "\n";
+
+                /* Use the directory entry from /proc/[pid]/fd with /proc/[pid]/fdinfo */
+                fd = openat(proc_fdinfo_fd, dent->d_name, O_NOFOLLOW|O_CLOEXEC|O_RDONLY);
+                if (fd < 0)
+                        continue;
+
+                fdinfo = fdopen(fd, "re");
+                if (fdinfo == NULL) {
+                        close(fd);
+                        continue;
+                }
+
+                FOREACH_LINE(line, fdinfo, break) {
+                        fputs(line, stream);
+                        if (!endswith(line, "\n"))
+                                fputc('\n', stream);
+                }
+        }
+
+        errno = 0;
+        fclose(stream);
+        stream = NULL;
+
+        if (errno != 0)
+                return -errno;
+
+        *open_fds = buffer;
+        buffer = NULL;
+
+        return 0;
+}
+
 int main(int argc, char* argv[]) {
 
-        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
-                *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
-                *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL,
-                *exe = NULL, *comm = NULL, *filename = NULL;
+        /* The small core field we allocate on the stack, to keep things simple */
+        char
+                *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+                *core_session = NULL, *core_exe = NULL, *core_comm = NULL, *core_cmdline = NULL,
+                *core_cgroup = NULL, *core_cwd = NULL, *core_root = NULL, *core_unit = NULL,
+                *core_slice = NULL;
+
+        /* The larger ones we allocate on the heap */
+        _cleanup_free_ char
+                *core_timestamp = NULL,  *core_message = NULL, *coredump_data = NULL, *core_owner_uid = NULL,
+                *core_open_fds = NULL, *core_proc_status = NULL, *core_proc_maps = NULL, *core_proc_limits = NULL,
+                *core_proc_cgroup = NULL, *core_environ = NULL;
+
+        _cleanup_free_ char *exe = NULL, *comm = NULL, *filename = NULL;
         const char *info[_INFO_LEN];
 
         _cleanup_close_ int coredump_fd = -1;
 
-        struct iovec iovec[18];
+        struct iovec iovec[26];
         off_t coredump_size;
         int r, j = 0;
         uid_t uid, owner_uid;
         gid_t gid;
         pid_t pid;
         char *t;
+        const char *p;
 
         /* Make sure we never enter a loop */
         prctl(PR_SET_DUMPABLE, 0);
@@ -521,7 +599,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (get_process_comm(pid, &comm) < 0) {
-                log_warning("Failed to get COMM, falling back to the commandline.");
+                log_warning("Failed to get COMM, falling back to the command line.");
                 comm = strv_join(argv + INFO_COMM + 1, " ");
         }
 
@@ -539,6 +617,7 @@ int main(int argc, char* argv[]) {
         if (cg_pid_get_unit(pid, &t) >= 0) {
 
                 if (streq(t, SPECIAL_JOURNALD_SERVICE)) {
+                        free(t);
 
                         /* If we are journald, we cut things short,
                          * don't write to the journal, but still
@@ -559,9 +638,13 @@ int main(int argc, char* argv[]) {
                         goto finish;
                 }
 
-                core_unit = strappend("COREDUMP_UNIT=", t);
-        } else if (cg_pid_get_user_unit(pid, &t) >= 0)
-                core_unit = strappend("COREDUMP_USER_UNIT=", t);
+                core_unit = strappenda("COREDUMP_UNIT=", t);
+                free(t);
+
+        } else if (cg_pid_get_user_unit(pid, &t) >= 0) {
+                core_unit = strappenda("COREDUMP_USER_UNIT=", t);
+                free(t);
+        }
 
         if (core_unit)
                 IOVEC_SET_STRING(iovec[j++], core_unit);
@@ -571,28 +654,23 @@ int main(int argc, char* argv[]) {
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_open();
 
-        core_pid = strappend("COREDUMP_PID=", info[INFO_PID]);
-        if (core_pid)
-                IOVEC_SET_STRING(iovec[j++], core_pid);
+        core_pid = strappenda("COREDUMP_PID=", info[INFO_PID]);
+        IOVEC_SET_STRING(iovec[j++], core_pid);
 
-        core_uid = strappend("COREDUMP_UID=", info[INFO_UID]);
-        if (core_uid)
-                IOVEC_SET_STRING(iovec[j++], core_uid);
+        core_uid = strappenda("COREDUMP_UID=", info[INFO_UID]);
+        IOVEC_SET_STRING(iovec[j++], core_uid);
 
-        core_gid = strappend("COREDUMP_GID=", info[INFO_GID]);
-        if (core_gid)
-                IOVEC_SET_STRING(iovec[j++], core_gid);
+        core_gid = strappenda("COREDUMP_GID=", info[INFO_GID]);
+        IOVEC_SET_STRING(iovec[j++], core_gid);
 
-        core_signal = strappend("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
-        if (core_signal)
-                IOVEC_SET_STRING(iovec[j++], core_signal);
+        core_signal = strappenda("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
+        IOVEC_SET_STRING(iovec[j++], core_signal);
 
         if (sd_pid_get_session(pid, &t) >= 0) {
-                core_session = strappend("COREDUMP_SESSION=", t);
+                core_session = strappenda("COREDUMP_SESSION=", t);
                 free(t);
 
-                if (core_session)
-                        IOVEC_SET_STRING(iovec[j++], core_session);
+                IOVEC_SET_STRING(iovec[j++], core_session);
         }
 
         if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
@@ -603,39 +681,100 @@ int main(int argc, char* argv[]) {
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0) {
-                core_slice = strappend("COREDUMP_SLICE=", t);
+                core_slice = strappenda("COREDUMP_SLICE=", t);
                 free(t);
 
-                if (core_slice)
-                        IOVEC_SET_STRING(iovec[j++], core_slice);
+                IOVEC_SET_STRING(iovec[j++], core_slice);
         }
 
         if (comm) {
-                core_comm = strappend("COREDUMP_COMM=", comm);
-                if (core_comm)
-                        IOVEC_SET_STRING(iovec[j++], core_comm);
+                core_comm = strappenda("COREDUMP_COMM=", comm);
+                IOVEC_SET_STRING(iovec[j++], core_comm);
         }
 
         if (exe) {
-                core_exe = strappend("COREDUMP_EXE=", exe);
-                if (core_exe)
-                        IOVEC_SET_STRING(iovec[j++], core_exe);
+                core_exe = strappenda("COREDUMP_EXE=", exe);
+                IOVEC_SET_STRING(iovec[j++], core_exe);
         }
 
         if (get_process_cmdline(pid, 0, false, &t) >= 0) {
-                core_cmdline = strappend("COREDUMP_CMDLINE=", t);
+                core_cmdline = strappenda("COREDUMP_CMDLINE=", t);
                 free(t);
 
-                if (core_cmdline)
-                        IOVEC_SET_STRING(iovec[j++], core_cmdline);
+                IOVEC_SET_STRING(iovec[j++], core_cmdline);
         }
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0) {
-                core_cgroup = strappend("COREDUMP_CGROUP=", t);
+                core_cgroup = strappenda("COREDUMP_CGROUP=", t);
                 free(t);
 
-                if (core_cgroup)
-                        IOVEC_SET_STRING(iovec[j++], core_cgroup);
+                IOVEC_SET_STRING(iovec[j++], core_cgroup);
+        }
+
+        if (compose_open_fds(pid, &t) >= 0) {
+                core_open_fds = strappend("COREDUMP_OPEN_FDS=", t);
+                free(t);
+
+                if (core_open_fds)
+                        IOVEC_SET_STRING(iovec[j++], core_open_fds);
+        }
+
+        p = procfs_file_alloca(pid, "status");
+        if (read_full_file(p, &t, NULL) >= 0) {
+                core_proc_status = strappend("COREDUMP_PROC_STATUS=", t);
+                free(t);
+
+                if (core_proc_status)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_status);
+        }
+
+        p = procfs_file_alloca(pid, "maps");
+        if (read_full_file(p, &t, NULL) >= 0) {
+                core_proc_maps = strappend("COREDUMP_PROC_MAPS=", t);
+                free(t);
+
+                if (core_proc_maps)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_maps);
+        }
+
+        p = procfs_file_alloca(pid, "limits");
+        if (read_full_file(p, &t, NULL) >= 0) {
+                core_proc_limits = strappend("COREDUMP_PROC_LIMITS=", t);
+                free(t);
+
+                if (core_proc_limits)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_limits);
+        }
+
+        p = procfs_file_alloca(pid, "cgroup");
+        if (read_full_file(p, &t, NULL) >=0) {
+                core_proc_cgroup = strappend("COREDUMP_PROC_CGROUP=", t);
+                free(t);
+
+                if (core_proc_cgroup)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_cgroup);
+        }
+
+        if (get_process_cwd(pid, &t) >= 0) {
+                core_cwd = strappenda("COREDUMP_CWD=", t);
+                free(t);
+
+                IOVEC_SET_STRING(iovec[j++], core_cwd);
+        }
+
+        if (get_process_root(pid, &t) >= 0) {
+                core_root = strappenda("COREDUMP_ROOT=", t);
+                free(t);
+
+                IOVEC_SET_STRING(iovec[j++], core_root);
+        }
+
+        if (get_process_environ(pid, &t) >= 0) {
+                core_environ = strappend("COREDUMP_ENVIRON=", t);
+                free(t);
+
+                if (core_environ)
+                        IOVEC_SET_STRING(iovec[j++], core_environ);
         }
 
         core_timestamp = strjoin("COREDUMP_TIMESTAMP=", info[INFO_TIMESTAMP], "000000", NULL);
@@ -678,7 +817,7 @@ int main(int argc, char* argv[]) {
          * thus making sure the user gets access to the core dump. */
         if (setresgid(gid, gid, gid) < 0 ||
             setresuid(uid, uid, uid) < 0) {
-                log_error("Failed to drop privileges: %m");
+                log_error_errno(errno, "Failed to drop privileges: %m");
                 r = -errno;
                 goto finish;
         }
@@ -694,7 +833,7 @@ int main(int argc, char* argv[]) {
                 else if (r == -EINVAL)
                         log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
-                        log_warning("Failed to generate stack trace: %s", strerror(-r));
+                        log_warning_errno(r, "Failed to generate stack trace: %m");
         }
 
         if (!core_message)
@@ -721,7 +860,7 @@ log:
 
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
-                log_error("Failed to log coredump: %s", strerror(-r));
+                log_error_errno(r, "Failed to log coredump: %m");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

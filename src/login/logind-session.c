@@ -292,7 +292,7 @@ int session_save(Session *s) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save session data %s: %s", s->state_file, strerror(-r));
+                log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 
         return r;
 }
@@ -337,10 +337,8 @@ int session_load(Session *s) {
                            "CONTROLLER",     &controller,
                            NULL);
 
-        if (r < 0) {
-                log_error("Failed to read %s: %s", s->state_file, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
         if (!s->user) {
                 uid_t u;
@@ -549,11 +547,11 @@ int session_start(Session *s) {
                 return r;
 
         log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_SESSION_START),
+                   LOG_MESSAGE_ID(SD_MESSAGE_SESSION_START),
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->name,
                    "LEADER="PID_FMT, s->leader,
-                   "MESSAGE=New session %s of user %s.", s->id, s->user->name,
+                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name),
                    NULL);
 
         if (!dual_timestamp_is_set(&s->timestamp))
@@ -652,11 +650,11 @@ int session_finalize(Session *s) {
 
         if (s->started)
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
-                           MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
                            "LEADER="PID_FMT, s->leader,
-                           "MESSAGE=Removed session %s.", s->id,
+                           LOG_MESSAGE("Removed session %s.", s->id),
                            NULL);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
@@ -969,10 +967,8 @@ static int session_open_vt(Session *s) {
 
         sprintf(path, "/dev/tty%u", s->vtnr);
         s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
-        if (s->vtfd < 0) {
-                log_error("cannot open VT %s of session %s: %m", path, s->id);
-                return -errno;
-        }
+        if (s->vtfd < 0)
+                return log_error_errno(errno, "cannot open VT %s of session %s: %m", path, s->id);
 
         return s->vtfd;
 }
@@ -991,21 +987,21 @@ int session_prepare_vt(Session *s) {
         r = fchown(vt, s->user->uid, -1);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot change owner of /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot change owner of /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
         r = ioctl(vt, KDSKBMODE, K_OFF);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot set K_OFF on /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot set K_OFF on /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
         r = ioctl(vt, KDSETMODE, KD_GRAPHICS);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot set KD_GRAPHICS on /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot set KD_GRAPHICS on /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
@@ -1018,7 +1014,7 @@ int session_prepare_vt(Session *s) {
         r = ioctl(vt, VT_SETMODE, &mode);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot set VT_PROCESS on /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot set VT_PROCESS on /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
@@ -1075,7 +1071,7 @@ void session_leave_vt(Session *s) {
         session_device_pause_all(s);
         r = ioctl(s->vtfd, VT_RELDISP, 1);
         if (r < 0)
-                log_debug("Cannot release VT of session %s: %m", s->id);
+                log_debug_errno(errno, "Cannot release VT of session %s: %m", s->id);
 }
 
 bool session_is_controller(Session *s, const char *sender) {

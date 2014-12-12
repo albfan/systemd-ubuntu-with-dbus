@@ -185,16 +185,15 @@ static int found_override(const char *top, const char *bottom) {
         fflush(stdout);
 
         pid = fork();
-        if (pid < 0) {
-                log_error("Failed to fork off diff: %m");
-                return -errno;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork off diff: %m");
+        else if (pid == 0) {
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
-                log_error("Failed to execute diff: %m");
+                log_error_errno(errno, "Failed to execute diff: %m");
                 _exit(1);
         }
 
-        wait_for_terminate_and_warn("diff", pid);
+        wait_for_terminate_and_warn("diff", pid, false);
         putchar('\n');
 
         return k;
@@ -226,10 +225,8 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
         *c = 0;
 
         r = get_files_in_directory(path, &list);
-        if (r < 0){
-                log_error("Failed to enumerate %s: %s", path, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate %s: %m", path);
 
         STRV_FOREACH(file, list) {
                 Hashmap *h;
@@ -307,7 +304,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open %s: %m", path);
+                log_error_errno(errno, "Failed to open %s: %m", path);
                 return -errno;
         }
 
@@ -487,7 +484,7 @@ static int parse_flags(const char *flag_str, int flags) {
         const char *word, *state;
         size_t l;
 
-        FOREACH_WORD(word, l, flag_str, state) {
+        FOREACH_WORD_SEPARATOR(word, l, flag_str, ",", state) {
                 if (strneq("masked", word, l))
                         flags |= SHOW_MASKED;
                 else if (strneq ("equivalent", word, l))

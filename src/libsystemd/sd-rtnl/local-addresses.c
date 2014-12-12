@@ -30,14 +30,19 @@ static int address_compare(const void *_a, const void *_b) {
 
         /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
 
+        if (a->family == AF_INET && b->family == AF_INET6)
+                return -1;
+        if (a->family == AF_INET6 && b->family == AF_INET)
+                return 1;
+
         if (a->scope < b->scope)
                 return -1;
         if (a->scope > b->scope)
                 return 1;
 
-        if (a->family == AF_INET && b->family == AF_INET6)
+        if (a->metric < b->metric)
                 return -1;
-        if (a->family == AF_INET6 && b->family == AF_INET)
+        if (a->metric > b->metric)
                 return 1;
 
         if (a->ifindex < b->ifindex)
@@ -45,10 +50,10 @@ static int address_compare(const void *_a, const void *_b) {
         if (a->ifindex > b->ifindex)
                 return 1;
 
-        return 0;
+        return memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
 }
 
-int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
+int local_addresses(sd_rtnl *context, int ifindex, int af, struct local_address **ret) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
@@ -66,7 +71,7 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                         return r;
         }
 
-        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC);
+        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, af);
         if (r < 0)
                 return r;
 
@@ -78,7 +83,7 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 struct local_address *a;
                 unsigned char flags;
                 uint16_t type;
-                int ifi;
+                int ifi, family;
 
                 r = sd_rtnl_message_get_errno(m);
                 if (r < 0)
@@ -87,25 +92,28 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 r = sd_rtnl_message_get_type(m, &type);
                 if (r < 0)
                         return r;
-
                 if (type != RTM_NEWADDR)
                         continue;
 
                 r = sd_rtnl_message_addr_get_ifindex(m, &ifi);
                 if (r < 0)
                         return r;
+                if (ifindex > 0 && ifi != ifindex)
+                        continue;
 
-                if (ifindex != 0 && ifi != ifindex)
+                r = sd_rtnl_message_addr_get_family(m, &family);
+                if (r < 0)
+                        return r;
+                if (af != AF_UNSPEC && af != family)
                         continue;
 
                 r = sd_rtnl_message_addr_get_flags(m, &flags);
                 if (r < 0)
                         return r;
-
                 if (flags & IFA_F_DEPRECATED)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n_list+1))
+                if (!GREEDY_REALLOC0(list, n_allocated, n_list+1))
                         return -ENOMEM;
 
                 a = list + n_list;
@@ -117,11 +125,7 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 if (ifindex == 0 && (a->scope == RT_SCOPE_HOST || a->scope == RT_SCOPE_NOWHERE))
                         continue;
 
-                r = sd_rtnl_message_addr_get_family(m, &a->family);
-                if (r < 0)
-                        return r;
-
-                switch (a->family) {
+                switch (family) {
 
                 case AF_INET:
                         r = sd_rtnl_message_read_in_addr(m, IFA_LOCAL, &a->address.in);
@@ -146,11 +150,123 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 }
 
                 a->ifindex = ifi;
+                a->family = family;
 
                 n_list++;
         };
 
-        if (n_list)
+        if (n_list > 0)
+                qsort(list, n_list, sizeof(struct local_address), address_compare);
+
+        *ret = list;
+        list = NULL;
+
+        return (int) n_list;
+}
+
+int local_gateways(sd_rtnl *context, int ifindex, int af, struct local_address **ret) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_free_ struct local_address *list = NULL;
+        sd_rtnl_message *m = NULL;
+        size_t n_list = 0, n_allocated = 0;
+        int r;
+
+        assert(ret);
+
+        if (context)
+                rtnl = sd_rtnl_ref(context);
+        else {
+                r = sd_rtnl_open(&rtnl, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, af, RTPROT_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                struct local_address *a;
+                uint16_t type;
+                unsigned char dst_len, src_len;
+                uint32_t ifi;
+                int family;
+
+                r = sd_rtnl_message_get_errno(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_get_type(m, &type);
+                if (r < 0)
+                        return r;
+                if (type != RTM_NEWROUTE)
+                        continue;
+
+                /* We only care for default routes */
+                r = sd_rtnl_message_route_get_dst_prefixlen(m, &dst_len);
+                if (r < 0)
+                        return r;
+                if (dst_len != 0)
+                        continue;
+
+                r = sd_rtnl_message_route_get_src_prefixlen(m, &src_len);
+                if (r < 0)
+                        return r;
+                if (src_len != 0)
+                        continue;
+
+                r = sd_rtnl_message_read_u32(m, RTA_OIF, &ifi);
+                if (r < 0)
+                        return r;
+                if (ifindex > 0 && (int) ifi != ifindex)
+                        continue;
+
+                r = sd_rtnl_message_route_get_family(m, &family);
+                if (r < 0)
+                        return r;
+                if (af != AF_UNSPEC && af != family)
+                        continue;
+
+                if (!GREEDY_REALLOC0(list, n_allocated, n_list + 1))
+                        return -ENOMEM;
+
+                a = list + n_list;
+
+                switch (family) {
+                case AF_INET:
+                        r = sd_rtnl_message_read_in_addr(m, RTA_GATEWAY, &a->address.in);
+                        if (r < 0)
+                                continue;
+
+                        break;
+                case AF_INET6:
+                        r = sd_rtnl_message_read_in6_addr(m, RTA_GATEWAY, &a->address.in6);
+                        if (r < 0)
+                                continue;
+
+                        break;
+                default:
+                        continue;
+                }
+
+                sd_rtnl_message_read_u32(m, RTA_PRIORITY, &a->metric);
+
+                a->ifindex = ifi;
+                a->family = family;
+
+                n_list++;
+        }
+
+        if (n_list > 0)
                 qsort(list, n_list, sizeof(struct local_address), address_compare);
 
         *ret = list;

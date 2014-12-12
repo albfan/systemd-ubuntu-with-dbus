@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <sys/epoll.h>
+#include <sys/mman.h>
 
 #include "socket-util.h"
 #include "path-util.h"
@@ -32,6 +33,7 @@
 #include "journald-console.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
+#include "memfd-util.h"
 
 bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;
@@ -68,15 +70,15 @@ bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         return true;
 }
 
-static bool allow_object_pid(struct ucred *ucred) {
+static bool allow_object_pid(const struct ucred *ucred) {
         return ucred && ucred->uid == 0;
 }
 
 void server_process_native_message(
                 Server *s,
                 const void *buffer, size_t buffer_size,
-                struct ucred *ucred,
-                struct timeval *tv,
+                const struct ucred *ucred,
+                const struct timeval *tv,
                 const char *label, size_t label_len) {
 
         struct iovec *iovec = NULL;
@@ -301,21 +303,31 @@ finish:
 void server_process_native_file(
                 Server *s,
                 int fd,
-                struct ucred *ucred,
-                struct timeval *tv,
+                const struct ucred *ucred,
+                const struct timeval *tv,
                 const char *label, size_t label_len) {
 
         struct stat st;
-        _cleanup_free_ void *p = NULL;
-        ssize_t n;
+        bool sealed;
         int r;
+
+        /* Data is in the passed fd, since it didn't fit in a
+         * datagram. */
 
         assert(s);
         assert(fd >= 0);
 
-        if (!ucred || ucred->uid != 0) {
+        /* If it's a memfd, check if it is sealed. If so, we can just
+         * use map it and use it, and do not need to copy the data
+         * out. */
+        sealed = memfd_get_sealed(fd) > 0;
+
+        if (!sealed && (!ucred || ucred->uid != 0)) {
                 _cleanup_free_ char *sl = NULL, *k = NULL;
                 const char *e;
+
+                /* If this is not a sealed memfd, and the peer is unknown or
+                 * unprivileged, then verify the path. */
 
                 if (asprintf(&sl, "/proc/self/fd/%i", fd) < 0) {
                         log_oom();
@@ -324,7 +336,7 @@ void server_process_native_file(
 
                 r = readlink_malloc(sl, &k);
                 if (r < 0) {
-                        log_error("readlink(%s) failed: %m", sl);
+                        log_error_errno(errno, "readlink(%s) failed: %m", sl);
                         return;
                 }
 
@@ -344,13 +356,8 @@ void server_process_native_file(
                 }
         }
 
-        /* Data is in the passed file, since it didn't fit in a
-         * datagram. We can't map the file here, since clients might
-         * then truncate it and trigger a SIGBUS for us. So let's
-         * stupidly read it */
-
         if (fstat(fd, &st) < 0) {
-                log_error("Failed to stat passed file, ignoring: %m");
+                log_error_errno(errno, "Failed to stat passed file, ignoring: %m");
                 return;
         }
 
@@ -367,21 +374,46 @@ void server_process_native_file(
                 return;
         }
 
-        p = malloc(st.st_size);
-        if (!p) {
-                log_oom();
-                return;
-        }
+        if (sealed) {
+                void *p;
+                size_t ps;
 
-        n = pread(fd, p, st.st_size, 0);
-        if (n < 0)
-                log_error("Failed to read file, ignoring: %s", strerror(-n));
-        else if (n > 0)
-                server_process_native_message(s, p, n, ucred, tv, label, label_len);
+                /* The file is sealed, we can just map it and use it. */
+
+                ps = PAGE_ALIGN(st.st_size);
+                p = mmap(NULL, ps, PROT_READ, MAP_PRIVATE, fd, 0);
+                if (p == MAP_FAILED) {
+                        log_error_errno(errno, "Failed to map memfd, ignoring: %m");
+                        return;
+                }
+
+                server_process_native_message(s, p, st.st_size, ucred, tv, label, label_len);
+                assert_se(munmap(p, ps) >= 0);
+        } else {
+                _cleanup_free_ void *p = NULL;
+                ssize_t n;
+
+                /* The file is not sealed, we can't map the file here, since
+                 * clients might then truncate it and trigger a SIGBUS for
+                 * us. So let's stupidly read it */
+
+                p = malloc(st.st_size);
+                if (!p) {
+                        log_oom();
+                        return;
+                }
+
+                n = pread(fd, p, st.st_size, 0);
+                if (n < 0)
+                        log_error_errno(n, "Failed to read file, ignoring: %m");
+                else if (n > 0)
+                        server_process_native_message(s, p, n, ucred, tv, label, label_len);
+        }
 }
 
 int server_open_native_socket(Server*s) {
-        int one, r;
+        static const int one = 1;
+        int r;
 
         assert(s);
 
@@ -392,51 +424,38 @@ int server_open_native_socket(Server*s) {
                 };
 
                 s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->native_fd < 0) {
-                        log_error("socket() failed: %m");
-                        return -errno;
-                }
+                if (s->native_fd < 0)
+                        return log_error_errno(errno, "socket() failed: %m");
 
                 unlink(sa.un.sun_path);
 
                 r = bind(s->native_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error("bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 chmod(sa.un.sun_path, 0666);
         } else
                 fd_nonblock(s->native_fd, 1);
 
-        one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_PASSCRED failed: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
-                one = 1;
                 r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
-                        log_warning("SO_PASSSEC failed: %m");
+                        log_warning_errno(errno, "SO_PASSSEC failed: %m");
         }
 #endif
 
-        one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_TIMESTAMP failed: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 
         r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, process_datagram, s);
-        if (r < 0) {
-                log_error("Failed to add native server fd to event loop: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add native server fd to event loop: %m");
 
         return 0;
 }

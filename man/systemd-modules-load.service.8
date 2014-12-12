@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-MODULES\-LOAD\&.SERVICE" "8" "" "systemd 217" "systemd-modules-load.service"
+.TH "SYSTEMD\-MODULES\-LOAD\&.SERVICE" "8" "" "systemd 218" "systemd-modules-load.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-systemd-modules-load.service, systemd-modules-load \- Configure kernel modules to load at boot
+systemd-modules-load.service, systemd-modules-load \- Load kernel modules at boot
 .SH "SYNOPSIS"
 .PP
 systemd\-modules\-load\&.service
@@ -29,7 +29,7 @@ systemd\-modules\-load\&.service
 .SH "DESCRIPTION"
 .PP
 systemd\-modules\-load\&.service
-is an early\-boot service that loads kernel modules from static configuration\&.
+is an early\-boot service that loads kernel modules based on static configuration\&.
 .PP
 See
 \fBmodules-load.d\fR(5)

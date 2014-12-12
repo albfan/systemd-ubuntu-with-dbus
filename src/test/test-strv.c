@@ -113,6 +113,22 @@ static void test_strv_find_prefix(void) {
         assert_se(!strv_find_prefix((char **)input_table_multiple, "onee"));
 }
 
+static void test_strv_find_startswith(void) {
+        char *r;
+
+        r = strv_find_startswith((char **)input_table_multiple, "o");
+        assert_se(r && streq(r, "ne"));
+
+        r = strv_find_startswith((char **)input_table_multiple, "one");
+        assert_se(r && streq(r, ""));
+
+        r = strv_find_startswith((char **)input_table_multiple, "");
+        assert_se(r && streq(r, "one"));
+
+        assert_se(!strv_find_startswith((char **)input_table_multiple, "xxx"));
+        assert_se(!strv_find_startswith((char **)input_table_multiple, "onee"));
+}
+
 static void test_strv_join(void) {
         _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL;
 
@@ -149,7 +165,7 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         assert_se(p);
         assert_se(streq(p, quoted));
 
-        r = strv_split_quoted(&s, quoted);
+        r = strv_split_quoted(&s, quoted, false);
         assert_se(r == 0);
         assert_se(s);
         STRV_FOREACH(t, s) {
@@ -166,7 +182,7 @@ static void test_strv_unquote(const char *quoted, const char **list) {
         char **t;
         int r;
 
-        r = strv_split_quoted(&s, quoted);
+        r = strv_split_quoted(&s, quoted, false);
         assert_se(r == 0);
         assert_se(s);
         j = strv_join(s, " | ");
@@ -183,7 +199,7 @@ static void test_invalid_unquote(const char *quoted) {
         char **s = NULL;
         int r;
 
-        r = strv_split_quoted(&s, quoted);
+        r = strv_split_quoted(&s, quoted, false);
         assert_se(s == NULL);
         assert_se(r == -EINVAL);
 }
@@ -416,6 +432,44 @@ static void test_strv_from_stdarg_alloca(void) {
         test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
 }
 
+static void test_strv_push_prepend(void) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        a = strv_new("foo", "bar", "three", NULL);
+
+        assert_se(strv_push_prepend(&a, strdup("first")) >= 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(streq(a[1], "foo"));
+        assert_se(streq(a[2], "bar"));
+        assert_se(streq(a[3], "three"));
+        assert_se(!a[4]);
+
+        assert_se(strv_consume_prepend(&a, strdup("first2")) >= 0);
+        assert_se(streq(a[0], "first2"));
+        assert_se(streq(a[1], "first"));
+        assert_se(streq(a[2], "foo"));
+        assert_se(streq(a[3], "bar"));
+        assert_se(streq(a[4], "three"));
+        assert_se(!a[5]);
+}
+
+static void test_strv_push(void) {
+        _cleanup_strv_free_ char **a = NULL;
+        char *i, *j;
+
+        assert_se(i = strdup("foo"));
+        assert_se(strv_push(&a, i) >= 0);
+
+        assert_se(i = strdup("a"));
+        assert_se(j = strdup("b"));
+        assert_se(strv_push_pair(&a, i, j) >= 0);
+
+        assert_se(streq_ptr(a[0], "foo"));
+        assert_se(streq_ptr(a[1], "a"));
+        assert_se(streq_ptr(a[2], "b"));
+        assert_se(streq_ptr(a[3], NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -423,6 +477,7 @@ int main(int argc, char *argv[]) {
         test_strv_foreach_pair();
         test_strv_find();
         test_strv_find_prefix();
+        test_strv_find_startswith();
         test_strv_join();
 
         test_strv_quote_unquote(input_table_multiple, "\"one\" \"two\" \"three\"");
@@ -444,12 +499,12 @@ int main(int argc, char *argv[]) {
         test_strv_unquote("  \"x'\"   ", (const char*[]) { "x'", NULL });
         test_strv_unquote("a  '--b=c \"d e\"'", (const char*[]) { "a", "--b=c \"d e\"", NULL });
 
-        test_invalid_unquote("a  --b='c \"d e\"'");
-        test_invalid_unquote("a  --b='c \"d e\" '");
+        test_invalid_unquote("a  --b='c \"d e\"''");
+        test_invalid_unquote("a  --b='c \"d e\" '\"");
         test_invalid_unquote("a  --b='c \"d e\"garbage");
         test_invalid_unquote("'");
         test_invalid_unquote("\"");
-        test_invalid_unquote("'x'y");
+        test_invalid_unquote("'x'y'g");
 
         test_strv_split();
         test_strv_split_newlines();
@@ -462,6 +517,8 @@ int main(int argc, char *argv[]) {
         test_strv_extend();
         test_strv_extendf();
         test_strv_from_stdarg_alloca();
+        test_strv_push_prepend();
+        test_strv_push();
 
         return 0;
 }

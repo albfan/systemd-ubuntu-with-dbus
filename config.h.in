@@ -12,6 +12,9 @@
 /* Define if EFI support is to be enabled */
 #undef ENABLE_EFI
 
+/* Define if hashmap debugging is to be enabled */
+#undef ENABLE_HASHMAP_DEBUG
+
 /* Define if kdbus support is to be enabled */
 #undef ENABLE_KDBUS
 
@@ -48,6 +51,10 @@
 /* Define if dbus-1 library is available */
 #undef HAVE_DBUS
 
+/* Define to 1 if you have the declaration of `getrandom', and to 0 if you
+   don't. */
+#undef HAVE_DECL_GETRANDOM
+
 /* Define to 1 if you have the declaration of `gettid', and to 0 if you don't.
    */
 #undef HAVE_DECL_GETTID
@@ -59,6 +66,10 @@
 /* Define to 1 if you have the declaration of `IFLA_BRIDGE_VLAN_INFO', and to
    0 if you don't. */
 #undef HAVE_DECL_IFLA_BRIDGE_VLAN_INFO
+
+/* Define to 1 if you have the declaration of `IFLA_BRPORT_UNICAST_FLOOD', and
+   to 0 if you don't. */
+#undef HAVE_DECL_IFLA_BRPORT_UNICAST_FLOOD
 
 /* Define to 1 if you have the declaration of
    `IFLA_IPTUN_6RD_RELAY_PREFIXLEN', and to 0 if you don't. */
@@ -156,6 +167,9 @@
 
 /* Define if libidn is available */
 #undef HAVE_LIBIDN
+
+/* Define if libmount is available */
+#undef HAVE_LIBMOUNT
 
 /* Define to 1 if you have the <linux/btrfs.h> header file. */
 #undef HAVE_LINUX_BTRFS_H
@@ -307,6 +321,9 @@
 
 /* Define to 1 if you have the <valgrind/valgrind.h> header file. */
 #undef HAVE_VALGRIND_VALGRIND_H
+
+/* Define if libxkbcommon is available */
+#undef HAVE_XKBCOMMON
 
 /* Define if XZ is available */
 #undef HAVE_XZ

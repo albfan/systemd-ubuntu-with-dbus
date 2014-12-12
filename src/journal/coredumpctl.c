@@ -73,7 +73,7 @@ static Set *new_matches(void) {
 
         r = set_consume(set, tmp);
         if (r < 0) {
-                log_error("failed to add to set: %s", strerror(-r));
+                log_error_errno(r, "failed to add to set: %m");
                 set_free(set);
                 return NULL;
         }
@@ -110,14 +110,13 @@ static int add_match(Set *set, const char *match) {
         log_debug("Adding pattern: %s", pattern);
         r = set_consume(set, pattern);
         if (r < 0) {
-                log_error("Failed to add pattern: %s", strerror(-r));
+                log_error_errno(r, "Failed to add pattern: %m");
                 goto fail;
         }
 
         return 0;
 fail:
-        log_error("Failed to add match: %s", strerror(-r));
-        return r;
+        return log_error_errno(r, "Failed to add match: %m");
 }
 
 static void help(void) {
@@ -191,10 +190,8 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         }
 
                         output = fopen(optarg, "we");
-                        if (!output) {
-                                log_error("writing to '%s': %m", optarg);
-                                return -errno;
-                        }
+                        if (!output)
+                                return log_error_errno(errno, "writing to '%s': %m", optarg);
 
                         break;
 
@@ -326,10 +323,8 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         }
 
         r = sd_journal_get_realtime_usec(j, &t);
-        if (r < 0) {
-                log_error("Failed to get realtime timestamp: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         format_timestamp(buf, sizeof(buf), t);
         present = filename && access(filename, F_OK) == 0;
@@ -521,10 +516,8 @@ static int focus(sd_journal *j) {
         r = sd_journal_seek_tail(j);
         if (r == 0)
                 r = sd_journal_previous(j);
-        if (r < 0) {
-                log_error("Failed to search journal: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to search journal: %m");
         if (r == 0) {
                 log_error("No match found.");
                 return -ESRCH;
@@ -586,7 +579,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
          * compressed file (probably uncached). */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
         if (r < 0 && r != -ENOENT)
-                log_warning("Failed to retrieve COREDUMP_FILENAME: %s", strerror(-r));
+                log_warning_errno(r, "Failed to retrieve COREDUMP_FILENAME: %m");
         else if (r == 0)
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
 
@@ -614,10 +607,8 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 return log_oom();
 
                         fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
-                        if (fdt < 0) {
-                                log_error("Failed to create temporary file: %m");
-                                return -errno;
-                        }
+                        if (fdt < 0)
+                                return log_error_errno(errno, "Failed to create temporary file: %m");
                         log_debug("Created temporary file %s", temp);
 
                         fd = fdt;
@@ -633,7 +624,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         sz = write(fdt, data, len);
                         if (sz < 0) {
-                                log_error("Failed to write temporary file: %m");
+                                log_error_errno(errno, "Failed to write temporary file: %m");
                                 r = -errno;
                                 goto error;
                         }
@@ -648,14 +639,14 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
                         if (fdf < 0) {
-                                log_error("Failed to open %s: %m", filename);
+                                log_error_errno(errno, "Failed to open %s: %m", filename);
                                 r = -errno;
                                 goto error;
                         }
 
                         r = decompress_stream(filename, fdf, fd, -1);
                         if (r < 0) {
-                                log_error("Failed to decompress %s: %s", filename, strerror(-r));
+                                log_error_errno(r, "Failed to decompress %s: %m", filename);
                                 goto error;
                         }
 #else
@@ -667,7 +658,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                         if (r == -ENOENT)
                                 log_error("Cannot retrieve coredump from journal nor disk.");
                         else
-                                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+                                log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
                         goto error;
                 }
 
@@ -704,10 +695,8 @@ static int dump_core(sd_journal* j) {
         }
 
         r = save_core(j, output ? fileno(output) : STDOUT_FILENO, NULL, NULL);
-        if (r < 0) {
-                log_error("Coredump retrieval failed: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Coredump retrieval failed: %m");
 
         r = sd_journal_previous(j);
         if (r >= 0)
@@ -735,10 +724,8 @@ static int run_gdb(sd_journal *j) {
         fputs("\n", stdout);
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
-        if (r < 0) {
-                log_error("Failed to retrieve COREDUMP_EXE field: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
         assert(len > strlen("COREDUMP_EXE="));
         data += strlen("COREDUMP_EXE=");
@@ -759,27 +746,25 @@ static int run_gdb(sd_journal *j) {
         }
 
         r = save_core(j, -1, &path, &unlink_path);
-        if (r < 0) {
-                log_error("Failed to retrieve core: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve core: %m");
 
         pid = fork();
         if (pid < 0) {
-                log_error("Failed to fork(): %m");
+                log_error_errno(errno, "Failed to fork(): %m");
                 r = -errno;
                 goto finish;
         }
         if (pid == 0) {
                 execlp("gdb", "gdb", exe, path, NULL);
 
-                log_error("Failed to invoke gdb: %m");
+                log_error_errno(errno, "Failed to invoke gdb: %m");
                 _exit(1);
         }
 
         r = wait_for_terminate(pid, &st);
         if (r < 0) {
-                log_error("Failed to wait for gdb: %m");
+                log_error_errno(errno, "Failed to wait for gdb: %m");
                 goto finish;
         }
 
@@ -820,7 +805,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
         if (r < 0) {
-                log_error("Failed to open journal: %s", strerror(-r));
+                log_error_errno(r, "Failed to open journal: %m");
                 goto end;
         }
 
@@ -830,8 +815,8 @@ int main(int argc, char *argv[]) {
         SET_FOREACH(match, matches, it) {
                 r = sd_journal_add_match(j, match, strlen(match));
                 if (r != 0) {
-                        log_error("Failed to add match '%s': %s",
-                                  match, strerror(-r));
+                        log_error_errno(r, "Failed to add match '%s': %m",
+                                        match);
                         goto end;
                 }
         }

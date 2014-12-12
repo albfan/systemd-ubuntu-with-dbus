@@ -120,18 +120,14 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
                 return 0;
 
         r = pipe2(buffer, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0) {
-                log_error("Failed to allocate pipe buffer: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to allocate pipe buffer: %m");
 
         (void) fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
 
         r = fcntl(buffer[0], F_GETPIPE_SZ);
-        if (r < 0) {
-                log_error("Failed to get pipe buffer size: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to get pipe buffer size: %m");
 
         assert(r > 0);
         *sz = r;
@@ -171,10 +167,8 @@ static int connection_shovel(
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
-                        } else if (errno != EAGAIN && errno != EINTR) {
-                                log_error("Failed to splice: %m");
-                                return -errno;
-                        }
+                        } else if (errno != EAGAIN && errno != EINTR)
+                                return log_error_errno(errno, "Failed to splice: %m");
                 }
 
                 if (*full > 0 && *to >= 0) {
@@ -185,10 +179,8 @@ static int connection_shovel(
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
-                        } else if (errno != EAGAIN && errno != EINTR) {
-                                log_error("Failed to splice: %m");
-                                return -errno;
-                        }
+                        } else if (errno != EAGAIN && errno != EINTR)
+                                return log_error_errno(errno, "Failed to splice: %m");
                 }
         } while (shoveled);
 
@@ -265,10 +257,8 @@ static int connection_enable_event_sources(Connection *c) {
         else
                 r = 0;
 
-        if (r < 0) {
-                log_error("Failed to set up server event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up server event source: %m");
 
         if (c->client_event_source)
                 r = sd_event_source_set_io_events(c->client_event_source, b);
@@ -277,10 +267,8 @@ static int connection_enable_event_sources(Connection *c) {
         else
                 r = 0;
 
-        if (r < 0) {
-                log_error("Failed to set up client event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up client event source: %m");
 
         return 0;
 }
@@ -321,12 +309,12 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         solen = sizeof(error);
         r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen);
         if (r < 0) {
-                log_error("Failed to issue SO_ERROR: %m");
+                log_error_errno(errno, "Failed to issue SO_ERROR: %m");
                 goto fail;
         }
 
         if (error != 0) {
-                log_error("Failed to connect to remote host: %s", strerror(error));
+                log_error_errno(error, "Failed to connect to remote host: %m");
                 goto fail;
         }
 
@@ -348,7 +336,7 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
 
         c->client_fd = socket(sa->sa_family, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
         if (c->client_fd < 0) {
-                log_error("Failed to get remote socket: %m");
+                log_error_errno(errno, "Failed to get remote socket: %m");
                 goto fail;
         }
 
@@ -357,17 +345,17 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
                 if (errno == EINPROGRESS) {
                         r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
                         if (r < 0) {
-                                log_error("Failed to add connection socket: %s", strerror(-r));
+                                log_error_errno(r, "Failed to add connection socket: %m");
                                 goto fail;
                         }
 
                         r = sd_event_source_set_enabled(c->client_event_source, SD_EVENT_ONESHOT);
                         if (r < 0) {
-                                log_error("Failed to enable oneshot event source: %s", strerror(-r));
+                                log_error_errno(r, "Failed to enable oneshot event source: %m");
                                 goto fail;
                         }
                 } else {
-                        log_error("Failed to connect to remote host: %m");
+                        log_error_errno(errno, "Failed to connect to remote host: %m");
                         goto fail;
                 }
         } else {
@@ -449,7 +437,7 @@ static int resolve_remote(Connection *c) {
         log_debug("Looking up address info for %s:%s", node, service);
         r = sd_resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_cb, c);
         if (r < 0) {
-                log_error("Failed to resolve remote host: %s", strerror(-r));
+                log_error_errno(r, "Failed to resolve remote host: %m");
                 goto fail;
         }
 
@@ -514,21 +502,21 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
                 if (errno != -EAGAIN)
-                        log_warning("Failed to accept() socket: %m");
+                        log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
                 getpeername_pretty(nfd, &peer);
                 log_debug("New connection from %s", strna(peer));
 
                 r = add_connection_socket(context, nfd);
                 if (r < 0) {
-                        log_error("Failed to accept connection, ignoring: %s", strerror(-r));
+                        log_error_errno(r, "Failed to accept connection, ignoring: %m");
                         safe_close(fd);
                 }
         }
 
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
         if (r < 0) {
-                log_error("Error while re-enabling listener with ONESHOT: %s", strerror(-r));
+                log_error_errno(r, "Error while re-enabling listener with ONESHOT: %m");
                 sd_event_exit(context->event, r);
                 return r;
         }
@@ -550,30 +538,24 @@ static int add_listen_socket(Context *context, int fd) {
         }
 
         r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
-        if (r < 0) {
-                log_error("Failed to determine socket type: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine socket type: %m");
         if (r == 0) {
                 log_error("Passed in socket is not a stream socket.");
                 return -EINVAL;
         }
 
         r = fd_nonblock(fd, true);
-        if (r < 0) {
-                log_error("Failed to mark file descriptor non-blocking: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
 
         r = sd_event_add_io(context->event, &source, fd, EPOLLIN, accept_cb, context);
-        if (r < 0) {
-                log_error("Failed to add event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add event source: %m");
 
         r = set_put(context->listen, source);
         if (r < 0) {
-                log_error("Failed to add source to set: %s", strerror(-r));
+                log_error_errno(r, "Failed to add source to set: %m");
                 sd_event_source_unref(source);
                 return r;
         }
@@ -581,10 +563,8 @@ static int add_listen_socket(Context *context, int fd) {
         /* Set the watcher to oneshot in case other processes are also
          * watching to accept(). */
         r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
-        if (r < 0) {
-                log_error("Failed to enable oneshot mode: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable oneshot mode: %m");
 
         return 0;
 }
@@ -663,19 +643,19 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_default(&context.event);
         if (r < 0) {
-                log_error("Failed to allocate event loop: %s", strerror(-r));
+                log_error_errno(r, "Failed to allocate event loop: %m");
                 goto finish;
         }
 
         r = sd_resolve_default(&context.resolve);
         if (r < 0) {
-                log_error("Failed to allocate resolver: %s", strerror(-r));
+                log_error_errno(r, "Failed to allocate resolver: %m");
                 goto finish;
         }
 
         r = sd_resolve_attach_event(context.resolve, context.event, 0);
         if (r < 0) {
-                log_error("Failed to attach resolver: %s", strerror(-r));
+                log_error_errno(r, "Failed to attach resolver: %m");
                 goto finish;
         }
 
@@ -700,7 +680,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_loop(context.event);
         if (r < 0) {
-                log_error("Failed to run event loop: %s", strerror(-r));
+                log_error_errno(r, "Failed to run event loop: %m");
                 goto finish;
         }
 

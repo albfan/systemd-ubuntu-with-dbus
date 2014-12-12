@@ -37,7 +37,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
-#include "condition-util.h"
+#include "condition.h"
 #include "in-addr-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
@@ -106,6 +106,11 @@ struct Network {
 
         bool dhcp_server;
 
+        unsigned cost;
+
+        struct ether_addr *mac;
+        unsigned mtu;
+
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
 
@@ -145,12 +150,14 @@ struct Route {
 
         int family;
         unsigned char dst_prefixlen;
+        unsigned char src_prefixlen;
         unsigned char scope;
         uint32_t metrics;
         unsigned char protocol;  /* RTPROT_* */
 
         union in_addr_union in_addr;
         union in_addr_union dst_addr;
+        union in_addr_union src_addr;
         union in_addr_union prefsrc_addr;
 
         LIST_FIELDS(Route, routes);
@@ -196,6 +203,7 @@ int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
 int manager_rtnl_enumerate_links(Manager *m);
+int manager_rtnl_enumerate_addresses(Manager *m);
 
 int manager_rtnl_listen(Manager *m);
 int manager_udev_listen(Manager *m);
@@ -258,6 +266,17 @@ int config_parse_tunnel_address(const char *unit,
                                 const char *rvalue,
                                 void *data,
                                 void *userdata);
+
+int config_parse_vxlan_group_address(const char *unit,
+                                     const char *filename,
+                                     unsigned line,
+                                     const char *section,
+                                     unsigned section_line,
+                                     const char *lvalue,
+                                     int ltype,
+                                     const char *rvalue,
+                                     void *data,
+                                     void *userdata);
 
 /* gperf */
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);
@@ -333,20 +352,3 @@ int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, cons
 void address_pool_free(AddressPool *p);
 
 int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
-
-/* Macros which append INTERFACE= to the message */
-
-#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
-#define log_debug_link(link, ...)       log_full_link(LOG_DEBUG, link, ##__VA_ARGS__)
-#define log_info_link(link, ...)        log_full_link(LOG_INFO, link, ##__VA_ARGS__)
-#define log_notice_link(link, ...)      log_full_link(LOG_NOTICE, link, ##__VA_ARGS__)
-#define log_warning_link(link, ...)     log_full_link(LOG_WARNING, link, ##__VA_ARGS__)
-#define log_error_link(link, ...)       log_full_link(LOG_ERR, link, ##__VA_ARGS__)
-
-#define log_struct_link(level, link, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
-
-#define ADDRESS_FMT_VAL(address)            \
-        (address).s_addr & 0xFF,            \
-        ((address).s_addr >> 8) & 0xFF,     \
-        ((address).s_addr >> 16) & 0xFF,    \
-        (address).s_addr >> 24

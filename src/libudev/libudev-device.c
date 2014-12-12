@@ -534,10 +534,8 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         }
 
         f = fopen(dbfile, "re");
-        if (f == NULL) {
-                udev_dbg(udev_device->udev, "no db file to read %s: %m\n", dbfile);
-                return -errno;
-        }
+        if (f == NULL)
+                return log_debug_errno(errno, "no db file to read %s: %m", dbfile);
 
         /* devices with a database entry are initialized */
         udev_device->is_initialized = true;
@@ -577,7 +575,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         }
         fclose(f);
 
-        udev_dbg(udev_device->udev, "device %p filled with db file data\n", udev_device);
+        log_debug("device %p filled with db file data", udev_device);
         return 0;
 }
 
@@ -642,7 +640,6 @@ void udev_device_set_info_loaded(struct udev_device *device)
 struct udev_device *udev_device_new(struct udev *udev)
 {
         struct udev_device *udev_device;
-        struct udev_list_entry *list_entry;
 
         if (udev == NULL) {
                 errno = EINVAL;
@@ -662,11 +659,7 @@ struct udev_device *udev_device_new(struct udev *udev)
         udev_list_init(udev, &udev_device->sysattr_list, false);
         udev_list_init(udev, &udev_device->tags_list, true);
         udev_device->watch_handle = -1;
-        /* copy global properties */
-        udev_list_entry_foreach(list_entry, udev_get_properties_list_entry(udev))
-                udev_device_add_property(udev_device,
-                                         udev_list_entry_get_name(list_entry),
-                                         udev_list_entry_get_value(list_entry));
+
         return udev_device;
 }
 
@@ -704,7 +697,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
 
         /* path starts in sys */
         if (!startswith(syspath, "/sys")) {
-                udev_dbg(udev, "not in sys :%s\n", syspath);
+                log_debug("not in sys :%s", syspath);
                 errno = EINVAL;
                 return NULL;
         }
@@ -730,8 +723,13 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                         return NULL;
         } else {
                 /* everything else just needs to be a directory */
-                if (stat(path, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode))
+                if (stat(path, &statbuf) != 0)
                         return NULL;
+
+                if (!S_ISDIR(statbuf.st_mode)) {
+                        errno = EISDIR;
+                        return NULL;
+                }
         }
 
         udev_device = udev_device_new(udev);
@@ -739,7 +737,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                 return NULL;
 
         udev_device_set_syspath(udev_device, path);
-        udev_dbg(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
+        log_debug("device %p has devpath '%s'", udev_device, udev_device_get_devpath(udev_device));
 
         return udev_device;
 }
@@ -971,7 +969,7 @@ _public_ struct udev_device *udev_device_new_from_environment(struct udev *udev)
                 udev_device_add_property_from_string_parse(udev_device, environ[i]);
 
         if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
-                udev_dbg(udev, "missing values, invalid device\n");
+                log_debug("missing values, invalid device");
                 udev_device_unref(udev_device);
                 udev_device = NULL;
         }

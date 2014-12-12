@@ -106,8 +106,8 @@ static void session_grdev_fn(grdev_session *grdev, void *userdata, grdev_event *
 
                 r = display_new(&d, s, display);
                 if (r < 0) {
-                        log_error("Cannot create display '%s' on '%s': %s",
-                                  grdev_display_get_name(display), sysview_session_get_name(s->sysview), strerror(-r));
+                        log_error_errno(r, "Cannot create display '%s' on '%s': %m",
+                                        grdev_display_get_name(display), sysview_session_get_name(s->sysview));
                         break;
                 }
 
@@ -231,7 +231,7 @@ void session_dirty(Session *s) {
 
         r = sd_event_source_set_enabled(s->redraw_src, SD_EVENT_ONESHOT);
         if (r < 0)
-                log_error("Cannot enable redraw-source: %s", strerror(-r));
+                log_error_errno(r, "Cannot enable redraw-source: %m");
 }
 
 void session_add_device(Session *s, sysview_device *device) {

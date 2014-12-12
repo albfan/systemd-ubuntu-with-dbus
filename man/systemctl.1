@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMCTL" "1" "" "systemd 217" "systemctl"
+.TH "SYSTEMCTL" "1" "" "systemd 218" "systemctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -51,7 +51,9 @@ As a special case, if one of the arguments is
 .PP
 \fB\-\-state=\fR
 .RS 4
-The argument should be a comma\-separated list of unit LOAD, SUB, or ACTIVE states\&. When listing units, show only those in specified states\&.
+The argument should be a comma\-separated list of unit LOAD, SUB, or ACTIVE states\&. When listing units, show only those in specified states\&. Use
+\fB\-\-state=failed\fR
+to show only failed units\&.
 .RE
 .PP
 \fB\-p\fR, \fB\-\-property=\fR
@@ -79,31 +81,41 @@ When listing units, also show units of local containers\&. Units of local contai
 \fB\-\-reverse\fR
 .RS 4
 Show reverse dependencies between units with
-\fBlist\-dependencies\fR, i\&.e\&. units with dependencies of type
+\fBlist\-dependencies\fR, i\&.e\&. follow dependencies of type
+\fIWantedBy=\fR,
+\fIRequiredBy=\fR,
+\fIRequiredByOverrridable=\fR,
+\fIPartOf=\fR,
+\fIBoundBy=\fR, instead of
 \fIWants=\fR
-or
-\fIRequires=\fR
-on the given unit\&.
+and similar\&.
 .RE
 .PP
 \fB\-\-after\fR
 .RS 4
 With
-\fBlist\-dependencies\fR, show the units that are ordered before the specified unit\&. In other words, list the units that are in the
+\fBlist\-dependencies\fR, show the units that are ordered before the specified unit\&. In other words, recursively list units following the
 \fIAfter=\fR
-directive of the specified unit, have the specified unit in their
+dependency\&.
+.sp
+Note that any
+\fIAfter=\fR
+dependency is automatically mirrored to create a
 \fIBefore=\fR
-directive, or are otherwise implicit dependencies of the specified unit\&.
+dependency\&. Temporal dependencies may be specified explictly, but are also created implicitly for units which are
+\fIWantedBy=\fR
+targets (see
+\fBsystemd.target\fR(5)), and as a result of other directives (for example
+\fIRequiresMountsFor=\fR)\&. Both explicitly and implicitly introduced dependencies are shown with
+\fBlist\-dependencies\fR\&.
 .RE
 .PP
 \fB\-\-before\fR
 .RS 4
 With
-\fBlist\-dependencies\fR, show the units that are ordered after the specified unit\&. In other words, list the units that are in the
+\fBlist\-dependencies\fR, show the units that are ordered after the specified unit\&. In other words, recursively list units following the
 \fIBefore=\fR
-directive of the specified unit, have the specified unit in their
-\fIAfter=\fR
-directive, or otherwise depend on the specified unit\&.
+dependency\&.
 .RE
 .PP
 \fB\-l\fR, \fB\-\-full\fR
@@ -305,7 +317,8 @@ When used with
 .RS 4
 When used with
 \fBenable\fR,
-\fBdisable\fR, (and related commands), make changes only temporarily, so that they are lost on the next reboot\&. This will have the effect that changes are not made in subdirectories of
+\fBdisable\fR,
+\fBedit\fR, (and related commands), make changes only temporarily, so that they are lost on the next reboot\&. This will have the effect that changes are not made in subdirectories of
 /etc
 but in
 /run, with identical immediate effects, however, since the latter is lost on reboot, the changes are lost too\&.
@@ -414,7 +427,7 @@ Note: because the addresses might contains spaces, this output is not suitable f
 See also the options
 \fB\-\-show\-types\fR,
 \fB\-\-all\fR, and
-\fB\-\-failed\fR\&.
+\fB\-\-state=\fR\&.
 .RE
 .PP
 \fBlist\-timers \fR\fB[\fIPATTERN\fR\&.\&.\&.]\fR
@@ -425,7 +438,7 @@ List timer units ordered by the time they elapse next\&. If one or more
 See also the options
 \fB\-\-all\fR
 and
-\fB\-\-failed\fR\&.
+\fB\-\-state=\fR\&.
 .RE
 .PP
 \fBstart \fR\fB\fIPATTERN\fR\fR\fB\&.\&.\&.\fR
@@ -483,7 +496,9 @@ is equivalent to this command\&.
 .PP
 \fBisolate \fR\fB\fINAME\fR\fR
 .RS 4
-Start the unit specified on the command line and its dependencies and stop all others\&.
+Start the unit specified on the command line and its dependencies and stop all others\&. If a unit name with no extension is given, an extension of
+"\&.target"
+will be assumed\&.
 .sp
 This is similar to changing the runlevel in a traditional init system\&. The
 \fBisolate\fR
@@ -583,13 +598,28 @@ state of the specified units, or if no unit name is passed, reset the state of a
 state and its exit code and status is recorded for introspection by the administrator until the service is restarted or reset with this command\&.
 .RE
 .PP
-\fBlist\-dependencies \fR\fB\fINAME\fR\fR
+\fBlist\-dependencies\fR [\fINAME\fR]
 .RS 4
-Shows required and wanted units of the specified unit\&. If no unit is specified,
+Shows units required and wanted by the specified unit\&. This recursively lists units following the
+\fIRequires=\fR,
+\fIRequiresOverridable=\fR,
+\fIRequisite=\fR,
+\fIRequisiteOverridable=\fR,
+\fIWants=\fR,
+\fIBindsTo=\fR
+dependencies\&. If no unit is specified,
 default\&.target
-is implied\&. Target units are recursively expanded\&. When
+is implied\&.
+.sp
+By default, only target units are recursively expanded\&. When
 \fB\-\-all\fR
 is passed, all other units are recursively expanded as well\&.
+.sp
+Options
+\fB\-\-reverse\fR,
+\fB\-\-after\fR,
+\fB\-\-before\fR
+may be used to change what types of dependencies are shown\&.
 .RE
 .SS "Unit File Commands"
 .PP
@@ -683,11 +713,12 @@ l ^ ^
 l l l
 l ^ ^
 l l l
+l l l
 l l l.
 T{
 "enabled"
 T}:T{
-Enabled through a symlink in \&.wants directory (permanently or just in /run)
+Enabled through a symlink in \&.wants directory (permanently or just in /run)\&.
 T}:T{
 0
 T}
@@ -697,7 +728,7 @@ T}::
 T{
 "linked"
 T}:T{
-Made available through a symlink to the unit file (permanently or just in /run)
+Made available through a symlink to the unit file (permanently or just in /run)\&.
 T}:T{
 1
 T}
@@ -707,7 +738,7 @@ T}::
 T{
 "masked"
 T}:T{
-Disabled entirely (permanently or just in /run)
+Disabled entirely (permanently or just in /run)\&.
 T}:T{
 1
 T}
@@ -717,14 +748,21 @@ T}::
 T{
 "static"
 T}:T{
-Unit is not enabled, but has no provisions for enabling in [Install] section
+Unit file is not enabled, and has no provisions for enabling in the "[Install]" section\&.
+T}:T{
+0
+T}
+T{
+"indirect"
+T}:T{
+Unit file itself is not enabled, but it has a non\-empty \fIAlso=\fR setting in the "[Install]" section, listing other unit files that might be enabled\&.
 T}:T{
 0
 T}
 T{
 "disabled"
 T}:T{
-Unit is not enabled
+Unit file is not enabled\&.
 T}:T{
 1
 T}
@@ -824,6 +862,40 @@ link\&.
 Set the default target to boot into\&. Command links
 default\&.target
 to the given unit\&.
+.RE
+.PP
+\fBedit \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
+.RS 4
+Edit a drop\-in snippet or a whole replacement file if
+\fB\-\-full\fR
+is specified, to extend or override the specified unit\&.
+.sp
+Depending on whether
+\fB\-\-system\fR
+(the default),
+\fB\-\-user\fR, or
+\fB\-\-global\fR
+is specified, this creates a drop\-in file for each unit either for the system, for the calling user or for all futures logins of all users\&. Then, the editor (see the "Environment" section below) is invoked on temporary files which will be written to the real location if the editor exits successfully\&.
+.sp
+If
+\fB\-\-full\fR
+is specified, this will copy the original units instead of creating drop\-in files\&.
+.sp
+If
+\fB\-\-runtime\fR
+is specified, the changes will be made temporarily in
+/run
+and they will be lost on the next reboot\&.
+.sp
+If the temporary file is empty upon exit the modification of the related unit is canceled
+.sp
+After the units have been edited, systemd configuration is reloaded (in a way that is equivalent to
+\fBdaemon\-reload\fR)\&.
+.sp
+Note that this command cannot be used to remotely edit units and that you cannot temporarily edit units which are in
+/etc
+since they take precedence over
+/run\&.
 .RE
 .SS "Machine Commands"
 .PP
@@ -1099,7 +1171,7 @@ are equivalent, as are
 .RS 4
 .\}
 .nf
-# systemctl isolate snapshot\-11
+# systemctl isolate default
 .fi
 .if n \{\
 .RE
@@ -1111,7 +1183,7 @@ and
 .RS 4
 .\}
 .nf
-# systemctl isolate snapshot\-11\&.snapshot
+# systemctl isolate default\&.target
 .fi
 .if n \{\
 .RE
@@ -1199,6 +1271,23 @@ or
 On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "ENVIRONMENT"
 .PP
+\fI$SYSTEMD_EDITOR\fR
+.RS 4
+Editor to use when editing units; overrides
+\fI$EDITOR\fR
+and
+\fI$VISUAL\fR\&. If neither
+\fI$SYSTEMD_EDITOR\fR
+nor
+\fI$EDITOR\fR
+nor
+\fI$VISUAL\fR
+are present or if it is set to an empty string or if their execution failed, systemctl will try to execute well known editors in this order:
+\fBnano\fR(1),
+\fBvim\fR(1),
+\fBvi\fR(1)\&.
+.RE
+.PP
 \fI$SYSTEMD_PAGER\fR
 .RS 4
 Pager to use when
@@ -1226,7 +1315,8 @@ Override the default options passed to
 \fBsystemd.resource-management\fR(5),
 \fBsystemd.special\fR(7),
 \fBwall\fR(1),
-\fBsystemd.preset\fR(5)\fBglob\fR(7)
+\fBsystemd.preset\fR(5),
+\fBglob\fR(7)
 .SH "NOTES"
 .IP " 1." 4
 Preset

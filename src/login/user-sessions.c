@@ -44,7 +44,7 @@ int main(int argc, char*argv[]) {
                 int r = 0;
 
                 if (unlink("/run/nologin") < 0 && errno != ENOENT) {
-                        log_error("Failed to remove /run/nologin file: %m");
+                        log_error_errno(errno, "Failed to remove /run/nologin file: %m");
                         r = -errno;
                 }
 
@@ -55,7 +55,7 @@ int main(int argc, char*argv[]) {
                          * exist), don't complain */
 
                         if (errno != EROFS || access("/etc/nologin", F_OK) >= 0) {
-                                log_error("Failed to remove /etc/nologin file: %m");
+                                log_error_errno(errno, "Failed to remove /etc/nologin file: %m");
                                 return EXIT_FAILURE;
                         }
                 }
@@ -68,7 +68,7 @@ int main(int argc, char*argv[]) {
 
                 r = write_string_file_atomic("/run/nologin", "System is going down.");
                 if (r < 0) {
-                        log_error("Failed to create /run/nologin: %s", strerror(-r));
+                        log_error_errno(r, "Failed to create /run/nologin: %m");
                         return EXIT_FAILURE;
                 }
 

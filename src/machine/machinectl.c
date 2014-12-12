@@ -44,6 +44,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "ptyfwd.h"
+#include "event-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -413,10 +414,8 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
                                    path,
                                    map,
                                    &info);
-        if (r < 0) {
-                log_error("Could not get properties: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
 
         if (*new_line)
                 printf("\n");
@@ -444,7 +443,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
 
         r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_all);
         if (r < 0)
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(r, "Could not get properties: %m");
 
         return r;
 }
@@ -662,12 +661,14 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
         const char *path, *pty, *p;
         uint32_t leader;
         sigset_t mask;
-        int r;
+        int r, ret = 0;
 
         assert(bus);
         assert(args);
@@ -676,6 +677,14 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                 log_error("Login only supported on local machines.");
                 return -ENOTSUP;
         }
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        r = sd_bus_attach_event(bus, event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         r = sd_bus_call_method(
                         bus,
@@ -704,26 +713,20 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                         &error,
                         &reply2,
                         "u");
-        if (r < 0) {
-                log_error("Failed to retrieve PID of leader: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve PID of leader: %m");
 
         r = sd_bus_message_read(reply2, "u", &leader);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
-        if (master < 0) {
-                log_error("Failed to acquire pseudo tty: %s", strerror(-master));
-                return master;
-        }
+        if (master < 0)
+                return log_error_errno(master, "Failed to acquire pseudo tty: %m");
 
         pty = ptsname(master);
-        if (!pty) {
-                log_error("Failed to get pty name: %m");
-                return -errno;
-        }
+        if (!pty)
+                return log_error_errno(errno, "Failed to get pty name: %m");
 
         p = startswith(pty, "/dev/pts/");
         if (!p) {
@@ -732,19 +735,15 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         }
 
         r = sd_bus_open_system_container(&container_bus, args[1]);
-        if (r < 0) {
-                log_error("Failed to get container bus: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get container bus: %m");
 
         getty = strjoin("container-getty@", p, ".service", NULL);
         if (!getty)
                 return log_oom();
 
-        if (unlockpt(master) < 0) {
-                log_error("Failed to unlock tty: %m");
-                return -errno;
-        }
+        if (unlockpt(master) < 0)
+                return log_error_errno(errno, "Failed to unlock tty: %m");
 
         r = sd_bus_call_method(container_bus,
                                "org.freedesktop.systemd1",
@@ -766,17 +765,25 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         log_info("Connected to container %s. Press ^] three times within 1s to exit session.", args[1]);
 
-        r = process_pty(master, &mask, 0, 0);
-        if (r < 0) {
-                log_error("Failed to process pseudo tty: %s", strerror(-r));
-                return r;
-        }
+        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+
+        r = pty_forward_new(event, master, &forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        forward = pty_forward_free(forward);
 
         fputc('\n', stdout);
 
         log_info("Connection to container %s terminated.", args[1]);
 
-        return 0;
+        sd_event_get_exit_code(event, &ret);
+        return ret;
 }
 
 static void help(void) {
@@ -1002,7 +1009,7 @@ int main(int argc, char*argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

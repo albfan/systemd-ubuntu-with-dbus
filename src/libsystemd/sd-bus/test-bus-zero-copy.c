@@ -24,7 +24,7 @@
 
 #include "util.h"
 #include "log.h"
-#include "memfd.h"
+#include "memfd-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
         uint32_t u32;
         size_t i, l;
         char *s;
+        _cleanup_close_ int sfd = -1;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -107,7 +108,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
         assert_se(sz == STRING_SIZE);
 
-        r = sd_bus_message_append_string_memfd(m, f);
+        r = sd_bus_message_append_string_memfd(m, f, 0, (uint64_t) -1);
         assert_se(r >= 0);
 
         close(f);
@@ -124,7 +125,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
         assert_se(sz == SECOND_ARRAY);
 
-        r = sd_bus_message_append_array_memfd(m, 'y', f);
+        r = sd_bus_message_append_array_memfd(m, 'y', f, 0, (uint64_t) -1);
         assert_se(r >= 0);
 
         close(f);
@@ -135,10 +136,15 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append(m, "u", 4711);
         assert_se(r >= 0);
 
+        assert_se((sfd = memfd_new_and_map(NULL, 6, (void**) &p)) >= 0);
+        memcpy(p, "abcd\0", 6);
+        munmap(p, 6);
+        assert_se(sd_bus_message_append_string_memfd(m, sfd, 1, 4) >= 0);
+
         r = bus_message_seal(m, 55, 99*USEC_PER_SEC);
         assert_se(r >= 0);
 
-        bus_message_dump(m, stdout, true);
+        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         r = sd_bus_send(b, m, NULL);
         assert_se(r >= 0);
@@ -148,7 +154,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_process(a, &m);
         assert_se(r > 0);
 
-        bus_message_dump(m, stdout, true);
+        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
         sd_bus_message_rewind(m, true);
 
         r = sd_bus_message_enter_container(m, 'r', "aysay");
@@ -187,6 +193,10 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_read(m, "u", &u32);
         assert_se(r > 0);
         assert_se(u32 == 4711);
+
+        r = sd_bus_message_read(m, "s", &s);
+        assert_se(r > 0);
+        assert_se(streq_ptr(s, "bcd"));
 
         sd_bus_message_unref(m);
 

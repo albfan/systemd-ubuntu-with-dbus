@@ -137,7 +137,7 @@ static void service_unwatch_pid_file(Service *s) {
         if (!s->pid_file_pathspec)
                 return;
 
-        log_debug_unit(UNIT(s)->id, "Stopping watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
+        log_unit_debug(UNIT(s)->id, "Stopping watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
         path_spec_unwatch(s->pid_file_pathspec);
         path_spec_done(s->pid_file_pathspec);
         free(s->pid_file_pathspec);
@@ -167,7 +167,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         s->main_pid_known = true;
 
         if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
-                log_warning_unit(UNIT(s)->id, "%s: Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", UNIT(s)->id, pid);
+                log_unit_warning(UNIT(s)->id, "%s: Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", UNIT(s)->id, pid);
                 s->main_pid_alien = true;
         } else
                 s->main_pid_alien = false;
@@ -209,7 +209,7 @@ static void service_start_watchdog(Service *s) {
         if (s->watchdog_event_source) {
                 r = sd_event_source_set_time(s->watchdog_event_source, s->watchdog_timestamp.monotonic + s->watchdog_usec);
                 if (r < 0) {
-                        log_warning_unit(UNIT(s)->id, "%s failed to reset watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to reset watchdog timer: %m", UNIT(s)->id);
                         return;
                 }
 
@@ -222,7 +222,7 @@ static void service_start_watchdog(Service *s) {
                                 s->watchdog_timestamp.monotonic + s->watchdog_usec, 0,
                                 service_dispatch_watchdog, s);
                 if (r < 0) {
-                        log_warning_unit(UNIT(s)->id, "%s failed to add watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to add watchdog timer: %m", UNIT(s)->id);
                         return;
                 }
 
@@ -232,7 +232,7 @@ static void service_start_watchdog(Service *s) {
         }
 
         if (r < 0)
-                log_warning_unit(UNIT(s)->id, "%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                log_unit_warning_errno(UNIT(s)->id, r, "%s failed to install watchdog timer: %m", UNIT(s)->id);
 }
 
 static void service_reset_watchdog(Service *s) {
@@ -316,45 +316,45 @@ static int service_verify(Service *s) {
                 return 0;
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]) {
-                log_error_unit(UNIT(s)->id, "%s lacks both ExecStart= and ExecStop= setting. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s lacks both ExecStart= and ExecStop= setting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START]) {
-                log_error_unit(UNIT(s)->id, "%s has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START]) {
-                log_error_unit(UNIT(s)->id, "%s has no ExecStart= setting, which is only allowed for RemainAfterExit=yes services. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has no ExecStart= setting, which is only allowed for RemainAfterExit=yes services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_error_unit(UNIT(s)->id, "%s has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_ONESHOT && s->restart != SERVICE_RESTART_NO) {
-                log_error_unit(UNIT(s)->id, "%s has Restart= setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has Restart= setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status)) {
-                log_error_unit(UNIT(s)->id, "%s has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_DBUS && !s->bus_name) {
-                log_error_unit(UNIT(s)->id, "%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->bus_name && s->type != SERVICE_DBUS)
-                log_warning_unit(UNIT(s)->id, "%s has a D-Bus service name specified, but is not of type dbus. Ignoring.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s has a D-Bus service name specified, but is not of type dbus. Ignoring.", UNIT(s)->id);
 
         if (s->exec_context.pam_name && !(s->kill_context.kill_mode == KILL_CONTROL_GROUP || s->kill_context.kill_mode == KILL_MIXED)) {
-                log_error_unit(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -546,13 +546,6 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
 
-#ifdef HAVE_SYSV_COMPAT
-        if (s->sysv_start_priority >= 0)
-                fprintf(f,
-                        "%sSysVStartPriority: %i\n",
-                        prefix, s->sysv_start_priority);
-#endif
-
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
@@ -571,20 +564,20 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         r = read_one_line_file(s->pid_file, &k);
         if (r < 0) {
                 if (may_warn)
-                        log_info_unit(UNIT(s)->id, "PID file %s not readable (yet?) after %s.", s->pid_file, service_state_to_string(s->state));
+                        log_unit_info(UNIT(s)->id, "PID file %s not readable (yet?) after %s.", s->pid_file, service_state_to_string(s->state));
                 return r;
         }
 
         r = parse_pid(k, &pid);
         if (r < 0) {
                 if (may_warn)
-                        log_info_unit(UNIT(s)->id, "Failed to read PID from file %s: %s", s->pid_file, strerror(-r));
+                        log_unit_info_errno(UNIT(s)->id, r, "Failed to read PID from file %s: %m", s->pid_file);
                 return r;
         }
 
         if (!pid_is_alive(pid)) {
                 if (may_warn)
-                        log_info_unit(UNIT(s)->id, "PID "PID_FMT" read from file %s does not exist or is a zombie.", pid, s->pid_file);
+                        log_unit_info(UNIT(s)->id, "PID "PID_FMT" read from file %s does not exist or is a zombie.", pid, s->pid_file);
                 return -ESRCH;
         }
 
@@ -592,12 +585,12 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 if (pid == s->main_pid)
                         return 0;
 
-                log_debug_unit(UNIT(s)->id, "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid, pid);
+                log_unit_debug(UNIT(s)->id, "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid, pid);
 
                 service_unwatch_main_pid(s);
                 s->main_pid_known = false;
         } else
-                log_debug_unit(UNIT(s)->id, "Main PID loaded: "PID_FMT, pid);
+                log_unit_debug(UNIT(s)->id, "Main PID loaded: "PID_FMT, pid);
 
         r = service_set_main_pid(s, pid);
         if (r < 0)
@@ -606,7 +599,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0) {
                 /* FIXME: we need to do something here */
-                log_warning_unit(UNIT(s)->id, "Failed to watch PID "PID_FMT" from service %s", pid, UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "Failed to watch PID "PID_FMT" from service %s", pid, UNIT(s)->id);
                 return r;
         }
 
@@ -633,7 +626,7 @@ static int service_search_main_pid(Service *s) {
         if (pid <= 0)
                 return -ENOENT;
 
-        log_debug_unit(UNIT(s)->id, "Main PID guessed: "PID_FMT, pid);
+        log_unit_debug(UNIT(s)->id, "Main PID guessed: "PID_FMT, pid);
         r = service_set_main_pid(s, pid);
         if (r < 0)
                 return r;
@@ -641,7 +634,7 @@ static int service_search_main_pid(Service *s) {
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0) {
                 /* FIXME: we need to do something here */
-                log_warning_unit(UNIT(s)->id, "Failed to watch PID "PID_FMT" from service %s", pid, UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "Failed to watch PID "PID_FMT" from service %s", pid, UNIT(s)->id);
                 return r;
         }
 
@@ -710,7 +703,7 @@ static void service_set_state(Service *s, ServiceState state) {
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
         if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
-                unit_destroy_cgroup(UNIT(s));
+                unit_destroy_cgroup_if_empty(UNIT(s));
 
         /* For remain_after_exit services, let's see if we can "release" the
          * hold on the console, since unit_notify() only does that in case of
@@ -733,7 +726,7 @@ static void service_set_state(Service *s, ServiceState state) {
         }
 
         if (old_state != state)
-                log_debug_unit(UNIT(s)->id, "%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
+                log_unit_debug(UNIT(s)->id, "%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
         s->reload_result = SERVICE_SUCCESS;
@@ -1000,6 +993,7 @@ static int service_spawn(
         exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = path;
+        exec_params.cgroup_delegate = s->cgroup_context.delegate;
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
         exec_params.unit_id = UNIT(s)->id;
         exec_params.watchdog_usec = s->watchdog_usec;
@@ -1087,7 +1081,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
         if (s->result != SERVICE_SUCCESS) {
-                log_warning_unit(UNIT(s)->id, "%s failed.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s failed.", UNIT(s)->id);
                 failure_action(UNIT(s)->manager, s->failure_action, s->reboot_arg);
         }
 
@@ -1129,7 +1123,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run install restart timer: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run install restart timer: %m", UNIT(s)->id);
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
@@ -1166,7 +1160,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'stop-post' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'stop-post' task: %m", UNIT(s)->id);
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1212,7 +1206,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to kill processes: %m", UNIT(s)->id);
 
         if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL ||
             state == SERVICE_STOP_SIGABRT)
@@ -1267,7 +1261,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'stop' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'stop' task: %m", UNIT(s)->id);
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1329,7 +1323,7 @@ static void service_enter_start_post(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start-post' task: %m", UNIT(s)->id);
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1422,7 +1416,7 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'start' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start' task: %m", UNIT(s)->id);
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1460,7 +1454,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start-pre' task: %m", UNIT(s)->id);
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 }
 
@@ -1472,7 +1466,7 @@ static void service_enter_restart(Service *s) {
 
         if (UNIT(s)->job && UNIT(s)->job->type == JOB_STOP) {
                 /* Don't restart things if we are going down anyway */
-                log_info_unit(UNIT(s)->id, "Stop job pending for unit, delaying automatic restart.");
+                log_unit_info(UNIT(s)->id, "Stop job pending for unit, delaying automatic restart.");
 
                 r = service_arm_timer(s, s->restart_usec);
                 if (r < 0)
@@ -1493,11 +1487,11 @@ static void service_enter_restart(Service *s) {
          * it will be canceled as part of the service_stop() call that
          * is executed as part of JOB_RESTART. */
 
-        log_debug_unit(UNIT(s)->id, "%s scheduled restart job.", UNIT(s)->id);
+        log_unit_debug(UNIT(s)->id, "%s scheduled restart job.", UNIT(s)->id);
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to schedule restart job: %s", UNIT(s)->id, bus_error_message(&error, -r));
+        log_unit_warning(UNIT(s)->id, "%s failed to schedule restart job: %s", UNIT(s)->id, bus_error_message(&error, -r));
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
@@ -1540,7 +1534,7 @@ static void service_enter_reload(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'reload' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'reload' task: %m", UNIT(s)->id);
         s->reload_result = SERVICE_FAILURE_RESOURCES;
         service_enter_running(s, SERVICE_SUCCESS);
 }
@@ -1573,7 +1567,7 @@ static void service_run_next_control(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run next control task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run next control task: %m", UNIT(s)->id);
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
@@ -1617,7 +1611,7 @@ static void service_run_next_main(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run next main task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run next main task: %m", UNIT(s)->id);
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1627,7 +1621,7 @@ static int service_start_limit_test(Service *s) {
         if (ratelimit_test(&s->start_limit))
                 return 0;
 
-        log_warning_unit(UNIT(s)->id, "start request repeated too quickly for %s", UNIT(s)->id);
+        log_unit_warning(UNIT(s)->id, "start request repeated too quickly for %s", UNIT(s)->id);
 
         return failure_action(UNIT(s)->manager, s->start_limit_action, s->reboot_arg);
 }
@@ -1835,7 +1829,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 state = service_state_from_string(value);
                 if (state < 0)
-                        log_debug_unit(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u->id, "Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -1843,7 +1837,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 f = service_result_from_string(value);
                 if (f < 0)
-                        log_debug_unit(u->id, "Failed to parse result value %s", value);
+                        log_unit_debug(u->id, "Failed to parse result value %s", value);
                 else if (f != SERVICE_SUCCESS)
                         s->result = f;
 
@@ -1852,7 +1846,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 f = service_result_from_string(value);
                 if (f < 0)
-                        log_debug_unit(u->id, "Failed to parse reload result value %s", value);
+                        log_unit_debug(u->id, "Failed to parse reload result value %s", value);
                 else if (f != SERVICE_SUCCESS)
                         s->reload_result = f;
 
@@ -1860,14 +1854,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug_unit(u->id, "Failed to parse control-pid value %s", value);
+                        log_unit_debug(u->id, "Failed to parse control-pid value %s", value);
                 else
                         s->control_pid = pid;
         } else if (streq(key, "main-pid")) {
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug_unit(u->id, "Failed to parse main-pid value %s", value);
+                        log_unit_debug(u->id, "Failed to parse main-pid value %s", value);
                 else {
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
@@ -1877,7 +1871,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 b = parse_boolean(value);
                 if (b < 0)
-                        log_debug_unit(u->id, "Failed to parse main-pid-known value %s", value);
+                        log_unit_debug(u->id, "Failed to parse main-pid-known value %s", value);
                 else
                         s->main_pid_known = b;
         } else if (streq(key, "status-text")) {
@@ -1896,7 +1890,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 id = service_exec_command_from_string(value);
                 if (id < 0)
-                        log_debug_unit(u->id, "Failed to parse exec-command value %s", value);
+                        log_unit_debug(u->id, "Failed to parse exec-command value %s", value);
                 else {
                         s->control_command_id = id;
                         s->control_command = s->exec_command[id];
@@ -1905,7 +1899,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 int fd;
 
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse socket-fd value %s", value);
+                        log_unit_debug(u->id, "Failed to parse socket-fd value %s", value);
                 else {
                         asynchronous_close(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
@@ -1914,7 +1908,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 int fd;
 
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse endpoint-fd value %s", value);
+                        log_unit_debug(u->id, "Failed to parse endpoint-fd value %s", value);
                 else {
                         safe_close(s->bus_endpoint_fd);
                         s->bus_endpoint_fd = fdset_remove(fds, fd);
@@ -1923,21 +1917,21 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug_unit(u->id, "Failed to parse main-exec-status-pid value %s", value);
+                        log_unit_debug(u->id, "Failed to parse main-exec-status-pid value %s", value);
                 else
                         s->main_exec_status.pid = pid;
         } else if (streq(key, "main-exec-status-code")) {
                 int i;
 
                 if (safe_atoi(value, &i) < 0)
-                        log_debug_unit(u->id, "Failed to parse main-exec-status-code value %s", value);
+                        log_unit_debug(u->id, "Failed to parse main-exec-status-code value %s", value);
                 else
                         s->main_exec_status.code = i;
         } else if (streq(key, "main-exec-status-status")) {
                 int i;
 
                 if (safe_atoi(value, &i) < 0)
-                        log_debug_unit(u->id, "Failed to parse main-exec-status-status value %s", value);
+                        log_unit_debug(u->id, "Failed to parse main-exec-status-status value %s", value);
                 else
                         s->main_exec_status.status = i;
         } else if (streq(key, "main-exec-status-start"))
@@ -1951,11 +1945,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 b = parse_boolean(value);
                 if (b < 0)
-                        log_debug_unit(u->id, "Failed to parse forbid-restart value %s", value);
+                        log_unit_debug(u->id, "Failed to parse forbid-restart value %s", value);
                 else
                         s->forbid_restart = b;
         } else
-                log_debug_unit(u->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -2018,19 +2012,19 @@ static int service_retry_pid_file(Service *s) {
 static int service_watch_pid_file(Service *s) {
         int r;
 
-        log_debug_unit(UNIT(s)->id, "Setting watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
+        log_unit_debug(UNIT(s)->id, "Setting watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
 
         r = path_spec_watch(s->pid_file_pathspec, service_dispatch_io);
         if (r < 0)
                 goto fail;
 
         /* the pidfile might have appeared just before we set the watch */
-        log_debug_unit(UNIT(s)->id, "Trying to read %s's PID file %s in case it changed", UNIT(s)->id, s->pid_file_pathspec->path);
+        log_unit_debug(UNIT(s)->id, "Trying to read %s's PID file %s in case it changed", UNIT(s)->id, s->pid_file_pathspec->path);
         service_retry_pid_file(s);
 
         return 0;
 fail:
-        log_error_unit(UNIT(s)->id, "Failed to set a watch for %s's PID file %s: %s", UNIT(s)->id, s->pid_file_pathspec->path, strerror(-r));
+        log_unit_error_errno(UNIT(s)->id, r, "Failed to set a watch for %s's PID file %s: %m", UNIT(s)->id, s->pid_file_pathspec->path);
         service_unwatch_pid_file(s);
         return r;
 }
@@ -2078,7 +2072,7 @@ static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events,
         assert(s->pid_file_pathspec);
         assert(path_spec_owns_inotify_fd(s->pid_file_pathspec, fd));
 
-        log_debug_unit(UNIT(s)->id, "inotify event for %s", UNIT(s)->id);
+        log_unit_debug(UNIT(s)->id, "inotify event for %s", UNIT(s)->id);
 
         if (path_spec_fd_event(p, events) < 0)
                 goto fail;
@@ -2102,7 +2096,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
         assert(u);
 
-        log_debug_unit(u->id, "%s: cgroup is empty", u->id);
+        log_unit_debug(u->id, "%s: cgroup is empty", u->id);
 
         switch (s->state) {
 
@@ -2117,7 +2111,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 /* If we were hoping for the daemon to write its PID file,
                  * we can give up now. */
                 if (s->pid_file_pathspec) {
-                        log_warning_unit(u->id, "%s never wrote its PID file. Failing.", UNIT(s)->id);
+                        log_unit_warning(u->id, "%s never wrote its PID file. Failing.", UNIT(s)->id);
 
                         service_unwatch_pid_file(s);
                         if (s->state == SERVICE_START)
@@ -2204,16 +2198,16 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                log_struct_unit(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                           u->id,
-                           "MESSAGE=%s: main process exited, code=%s, status=%i/%s",
-                                  u->id, sigchld_code_to_string(code), status,
-                                  strna(code == CLD_EXITED
-                                        ? exit_status_to_string(status, EXIT_STATUS_FULL)
-                                        : signal_to_string(status)),
-                           "EXIT_CODE=%s", sigchld_code_to_string(code),
-                           "EXIT_STATUS=%i", status,
-                           NULL);
+                log_unit_struct(u->id,
+                                f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                                LOG_MESSAGE("%s: main process exited, code=%s, status=%i/%s",
+                                            u->id, sigchld_code_to_string(code), status,
+                                            strna(code == CLD_EXITED
+                                                  ? exit_status_to_string(status, EXIT_STATUS_FULL)
+                                                  : signal_to_string(status))),
+                                "EXIT_CODE=%s", sigchld_code_to_string(code),
+                                "EXIT_STATUS=%i", status,
+                                NULL);
 
                 if (f != SERVICE_SUCCESS)
                         s->result = f;
@@ -2225,7 +2219,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         /* There is another command to *
                          * execute, so let's do that. */
 
-                        log_debug_unit(u->id, "%s running next main command for state %s", u->id, service_state_to_string(s->state));
+                        log_unit_debug(u->id, "%s running next main command for state %s", u->id, service_state_to_string(s->state));
                         service_run_next_main(s);
 
                 } else {
@@ -2292,7 +2286,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                log_full_unit(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE, u->id,
+                log_unit_full(u->id,
+                              f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
                               "%s: control process exited, code=%s status=%i",
                               u->id, sigchld_code_to_string(code), status);
 
@@ -2311,7 +2306,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         /* There is another command to *
                          * execute, so let's do that. */
 
-                        log_debug_unit(u->id, "%s running next control command for state %s", u->id, service_state_to_string(s->state));
+                        log_unit_debug(u->id, "%s running next control command for state %s", u->id, service_state_to_string(s->state));
                         service_run_next_control(s);
 
                 } else {
@@ -2321,7 +2316,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         s->control_command = NULL;
                         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
-                        log_debug_unit(u->id, "%s got final SIGCHLD for state %s", u->id, service_state_to_string(s->state));
+                        log_unit_debug(u->id, "%s got final SIGCHLD for state %s", u->id, service_state_to_string(s->state));
 
                         switch (s->state) {
 
@@ -2450,38 +2445,38 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_START_PRE:
         case SERVICE_START:
-                log_warning_unit(UNIT(s)->id, "%s %s operation timed out. Terminating.", UNIT(s)->id, s->state == SERVICE_START ? "start" : "start-pre");
+                log_unit_warning(UNIT(s)->id, "%s %s operation timed out. Terminating.", UNIT(s)->id, s->state == SERVICE_START ? "start" : "start-pre");
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_START_POST:
-                log_warning_unit(UNIT(s)->id, "%s start-post operation timed out. Stopping.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s start-post operation timed out. Stopping.", UNIT(s)->id);
                 service_enter_stop(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_RELOAD:
-                log_warning_unit(UNIT(s)->id, "%s reload operation timed out. Stopping.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s reload operation timed out. Stopping.", UNIT(s)->id);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
         case SERVICE_STOP:
-                log_warning_unit(UNIT(s)->id, "%s stopping timed out. Terminating.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s stopping timed out. Terminating.", UNIT(s)->id);
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_STOP_SIGABRT:
-                log_warning_unit(UNIT(s)->id,
+                log_unit_warning(UNIT(s)->id,
                                  "%s stop-sigabrt timed out. Terminating.", UNIT(s)->id);
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, s->result);
                 break;
 
         case SERVICE_STOP_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(s)->id, "%s stop-sigterm timed out. Killing.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stop-sigterm timed out. Killing.", UNIT(s)->id);
                         service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(s)->id, "%s stop-sigterm timed out. Skipping SIGKILL.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stop-sigterm timed out. Skipping SIGKILL.", UNIT(s)->id);
                         service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
                 }
 
@@ -2492,33 +2487,33 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                  * Must be something we cannot kill, so let's just be
                  * weirded out and continue */
 
-                log_warning_unit(UNIT(s)->id, "%s still around after SIGKILL. Ignoring.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s still around after SIGKILL. Ignoring.", UNIT(s)->id);
                 service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_STOP_POST:
-                log_warning_unit(UNIT(s)->id, "%s stop-post timed out. Terminating.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s stop-post timed out. Terminating.", UNIT(s)->id);
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_FINAL_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(s)->id, "%s stop-final-sigterm timed out. Killing.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stop-final-sigterm timed out. Killing.", UNIT(s)->id);
                         service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(s)->id, "%s stop-final-sigterm timed out. Skipping SIGKILL. Entering failed mode.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stop-final-sigterm timed out. Skipping SIGKILL. Entering failed mode.", UNIT(s)->id);
                         service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, false);
                 }
 
                 break;
 
         case SERVICE_FINAL_SIGKILL:
-                log_warning_unit(UNIT(s)->id, "%s still around after final SIGKILL. Entering failed mode.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s still around after final SIGKILL. Entering failed mode.", UNIT(s)->id);
                 service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, true);
                 break;
 
         case SERVICE_AUTO_RESTART:
-                log_info_unit(UNIT(s)->id,
+                log_unit_info(UNIT(s)->id,
                               s->restart_usec > 0 ?
                               "%s holdoff time over, scheduling restart." :
                               "%s has no holdoff time, scheduling restart.",
@@ -2540,7 +2535,7 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         assert(s);
         assert(source == s->watchdog_event_source);
 
-        log_error_unit(UNIT(s)->id, "%s watchdog timeout (limit %s)!", UNIT(s)->id,
+        log_unit_error(UNIT(s)->id, "%s watchdog timeout (limit %s)!", UNIT(s)->id,
                        format_timespan(t, sizeof(t), s->watchdog_usec, 1));
 
         service_enter_signal(s, SERVICE_STOP_SIGABRT, SERVICE_FAILURE_WATCHDOG);
@@ -2557,19 +2552,19 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         assert(u);
 
         cc = strv_join(tags, ", ");
-        log_debug_unit(u->id, "%s: Got notification message from PID "PID_FMT" (%s)",
+        log_unit_debug(u->id, "%s: Got notification message from PID "PID_FMT" (%s)",
                        u->id, pid, isempty(cc) ? "n/a" : cc);
 
         if (s->notify_access == NOTIFY_NONE) {
-                log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception is disabled.", u->id, pid);
+                log_unit_warning(u->id, "%s: Got notification message from PID "PID_FMT", but reception is disabled.", u->id, pid);
                 return;
         }
 
         if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
                 if (s->main_pid != 0)
-                        log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, u->id, pid, s->main_pid);
+                        log_unit_warning(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, u->id, pid, s->main_pid);
                 else
-                        log_debug_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", u->id, pid);
+                        log_unit_debug(u->id, "%s: Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", u->id, pid);
                 return;
         }
 
@@ -2577,9 +2572,9 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         e = strv_find_startswith(tags, "MAINPID=");
         if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD)) {
                 if (parse_pid(e, &pid) < 0)
-                        log_warning_unit(u->id, "Failed to parse MAINPID= field in notification message: %s", e);
+                        log_unit_warning(u->id, "Failed to parse MAINPID= field in notification message: %s", e);
                 else {
-                        log_debug_unit(u->id, "%s: got MAINPID=%s", u->id, e);
+                        log_unit_debug(u->id, "%s: got MAINPID=%s", u->id, e);
 
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
@@ -2590,7 +2585,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         /* Interpret RELOADING= */
         if (strv_find(tags, "RELOADING=1")) {
 
-                log_debug_unit(u->id, "%s: got RELOADING=1", u->id);
+                log_unit_debug(u->id, "%s: got RELOADING=1", u->id);
                 s->notify_state = NOTIFY_RELOADING;
 
                 if (s->state == SERVICE_RUNNING)
@@ -2602,7 +2597,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         /* Interpret READY= */
         if (strv_find(tags, "READY=1")) {
 
-                log_debug_unit(u->id, "%s: got READY=1", u->id);
+                log_unit_debug(u->id, "%s: got READY=1", u->id);
                 s->notify_state = NOTIFY_READY;
 
                 /* Type=notify services inform us about completed
@@ -2621,7 +2616,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         /* Interpret STOPPING= */
         if (strv_find(tags, "STOPPING=1")) {
 
-                log_debug_unit(u->id, "%s: got STOPPING=1", u->id);
+                log_unit_debug(u->id, "%s: got STOPPING=1", u->id);
                 s->notify_state = NOTIFY_STOPPING;
 
                 if (s->state == SERVICE_RUNNING)
@@ -2637,9 +2632,9 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 
                 if (!isempty(e)) {
                         if (!utf8_is_valid(e))
-                                log_warning_unit(u->id, "Status message in notification is not UTF-8 clean.");
+                                log_unit_warning(u->id, "Status message in notification is not UTF-8 clean.");
                         else {
-                                log_debug_unit(u->id, "%s: got STATUS=%s", u->id, e);
+                                log_unit_debug(u->id, "%s: got STATUS=%s", u->id, e);
 
                                 t = strdup(e);
                                 if (!t)
@@ -2663,9 +2658,9 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 int status_errno;
 
                 if (safe_atoi(e, &status_errno) < 0 || status_errno < 0)
-                        log_warning_unit(u->id, "Failed to parse ERRNO= field in notification message: %s", e);
+                        log_unit_warning(u->id, "Failed to parse ERRNO= field in notification message: %s", e);
                 else {
-                        log_debug_unit(u->id, "%s: got ERRNO=%s", u->id, e);
+                        log_unit_debug(u->id, "%s: got ERRNO=%s", u->id, e);
 
                         if (s->status_errno != status_errno) {
                                 s->status_errno = status_errno;
@@ -2676,7 +2671,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 
         /* Interpret WATCHDOG= */
         if (strv_find(tags, "WATCHDOG=1")) {
-                log_debug_unit(u->id, "%s: got WATCHDOG=1", u->id);
+                log_unit_debug(u->id, "%s: got WATCHDOG=1", u->id);
                 service_reset_watchdog(s);
         }
 
@@ -2715,11 +2710,11 @@ static void service_bus_name_owner_change(
         assert(old_owner || new_owner);
 
         if (old_owner && new_owner)
-                log_debug_unit(u->id, "%s's D-Bus name %s changed owner from %s to %s", u->id, name, old_owner, new_owner);
+                log_unit_debug(u->id, "%s's D-Bus name %s changed owner from %s to %s", u->id, name, old_owner, new_owner);
         else if (old_owner)
-                log_debug_unit(u->id, "%s's D-Bus name %s no longer registered by %s", u->id, name, old_owner);
+                log_unit_debug(u->id, "%s's D-Bus name %s no longer registered by %s", u->id, name, old_owner);
         else
-                log_debug_unit(u->id, "%s's D-Bus name %s now registered by %s", u->id, name, new_owner);
+                log_unit_debug(u->id, "%s's D-Bus name %s now registered by %s", u->id, name, new_owner);
 
         s->bus_name_good = !!new_owner;
 
@@ -2748,7 +2743,7 @@ static void service_bus_name_owner_change(
                 if (r >= 0)
                         r = sd_bus_creds_get_pid(creds, &pid);
                 if (r >= 0) {
-                        log_debug_unit(u->id, "%s's D-Bus name %s is now owned by process %u", u->id, name, (unsigned) pid);
+                        log_unit_debug(u->id, "%s's D-Bus name %s is now owned by process %u", u->id, name, (unsigned) pid);
 
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);

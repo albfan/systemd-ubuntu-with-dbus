@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 217" "systemd.network"
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 218" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -126,6 +126,21 @@ Checks whether the system is running on a specific architecture\&. See
 in
 \fBsystemd.unit\fR(5)
 for details\&.
+.RE
+.SH "[LINK] SECTION OPTIONS"
+.PP
+The
+"[Link]"
+section accepts the following keys:
+.PP
+\fIMACAddress=\fR
+.RS 4
+The hardware address\&.
+.RE
+.PP
+\fIMTUBytes=\fR
+.RS 4
+The maximum transmission unit in bytes to set for the device\&. The usual suffixes K, M, G, are supported and are understood to the base of 1024\&.
 .RE
 .SH "[NETWORK] SECTION OPTIONS"
 .PP
@@ -278,12 +293,17 @@ sections to configure several routes\&.
 .RS 4
 As in the
 "[Network]"
-section\&. This key is mandatory\&.
+section\&.
 .RE
 .PP
 \fIDestination=\fR
 .RS 4
 The destination prefix of the route\&. Possibly followed by a slash and the prefixlength\&. If omitted, a full\-length host route is assumed\&.
+.RE
+.PP
+\fISource=\fR
+.RS 4
+The source prefix of the route\&. Possibly followed by a slash and the prefixlength\&. If omitted, a full\-length host route is assumed\&.
 .RE
 .PP
 \fIMetric=\fR
@@ -344,6 +364,16 @@ Request the server to use broadcast messages before the IP address has been conf
 \fIRouteMetric=\fR
 .RS 4
 Set the routing metric for routes specified by the DHCP server\&.
+.RE
+.SH "[BRIDGE] SECTION OPTIONS"
+.PP
+The
+"[Bridge]"
+section accepts the following keys\&.
+.PP
+\fICost=\fR
+.RS 4
+Each port in a bridge may have different speed\&. Cost is used to decide which link to use\&. Faster interfaces should have lower costs
 .RE
 .SH "EXAMPLE"
 .PP

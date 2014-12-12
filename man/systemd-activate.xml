@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -61,7 +61,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para><command>systemd-activate</command> can be used to
-    launch a socket activated daemon from the command-line for
+    launch a socket activated daemon from the command line for
     testing purposes. It can also be used to launch single instances
     of the daemon per connection (inetd-style).
     </para>

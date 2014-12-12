@@ -19,35 +19,16 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm214180570224"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm140180412205808"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
                 <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>
                 reads configuration files from the above directories
                 to configure
                 <a href="sysctl.html"><span class="citerefentry"><span class="refentrytitle">sysctl</span>(8)</span></a>
-                kernel parameters.</p></div><div class="refsect1"><a name="idm214180567216"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of
+                kernel parameters.</p></div><div class="refsect1"><a name="idm140180416018576"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of
                 variable assignments, separated by newlines. Empty
                 lines and lines whose first non-whitespace character
                 is "<code class="literal">#</code>" or "<code class="literal">;</code>" are
-                ignored.</p><p>Each configuration file shall be named in the
-                style of <code class="filename"><em class="replaceable"><code>program</code></em>.conf</code>.
-                Files in <code class="filename">/etc/</code> override files
-                with the same name in <code class="filename">/usr/lib/</code>
-                and <code class="filename">/run/</code>.  Files in
-                <code class="filename">/run/</code> override files with the same
-                name in <code class="filename">/usr/lib/</code>. Packages
-                should install their configuration files in
-                <code class="filename">/usr/lib/</code>. Files in
-                <code class="filename">/etc/</code> are reserved for the local
-                administrator, who may use this logic to override the
-                configuration files installed by vendor packages. All
-                configuration files are sorted by their filename in
-                lexicographic order, regardless of which of the
-                directories they reside in. If multiple files specify the
-                same variable name, the entry in the file with the
-                lexicographically latest name will be applied. It is
-                recommended to prefix all filenames with a two-digit
-                number and a dash, to simplify the ordering of the
-                files.</p><p>Note that either "<code class="literal">/</code>" or
+                ignored.</p><p>Note that either "<code class="literal">/</code>" or
                 "<code class="literal">.</code>" may be used as separators within
                 sysctl variable names. If the first separator is a
                 slash, remaining slashes and dots are left intact. If
@@ -63,12 +44,7 @@
                 "<code class="literal">net/ipv4/conf/enp3s0.200/forwarding</code>"
                 may be used to refer to
                 <code class="filename">/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</code>.
-                </p><p>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <code class="filename">/dev/null</code> in
-                <code class="filename">/etc/sysctl.d/</code> bearing the
-                same filename.</p><p>The settings configured with
+                </p><p>The settings configured with
                 <code class="filename">sysctl.d</code> files will be applied
                 early on boot. The network interface-specific options
                 will also be applied individually for each network
@@ -89,19 +65,39 @@
                 less efficient option is to add the module to
                 <a href="modules-load.d.html"><span class="citerefentry"><span class="refentrytitle">modules-load.d</span>(5)</span></a>, causing it to be loaded statically
                 before sysctl settings are applied (see
-                example below).</p></div><div class="refsect1"><a name="idm214184487664"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm214184486992"></a><p class="title"><b>Example 1. Set kernel YP domain name</b></p><div class="example-contents"><p><code class="filename">/etc/sysctl.d/domain-name.conf</code>:
-                        </p><pre class="programlisting">kernel.domainname=example.com</pre></div></div><br class="example-break"><div class="example"><a name="idm214184484416"></a><p class="title"><b>Example 2. Disable packet filter on bridged packets (method one)</b></p><div class="example-contents"><p><code class="filename">/etc/udev/rules.d/99-bridge.rules</code>:
+                example below).</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
+    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
+    <code class="filename">/usr/lib/</code>, in order of precedence.
+    Each configuration file in these configuration directories shall be named in
+    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
+    Files in <code class="filename">/etc/</code> override files with the same name in
+    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
+    <code class="filename">/run/</code> override files with the same name in
+    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
+    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
+    reserved for the local administrator, who may use this logic to override the
+    configuration files installed by vendor packages. All configuration files
+    are sorted by their filename in lexicographic order, regardless of which of
+    the directories they reside in. If multiple files specify the same option,
+    the entry in the file with the lexicographically latest name will take
+    precedence. It is recommended to prefix all filenames with a two-digit number
+    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
+    the vendor, the recommended way is to place a symlink to
+    <code class="filename">/dev/null</code> in the configuration directory in
+    <code class="filename">/etc/</code>, with the same filename as the vendor
+    configuration file.</p></div><div class="refsect1"><a name="idm140180416148912"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140180416148240"></a><p class="title"><b>Example 1. Set kernel YP domain name</b></p><div class="example-contents"><p><code class="filename">/etc/sysctl.d/domain-name.conf</code>:
+                        </p><pre class="programlisting">kernel.domainname=example.com</pre></div></div><br class="example-break"><div class="example"><a name="idm140180416145664"></a><p class="title"><b>Example 2. Disable packet filter on bridged packets (method one)</b></p><div class="example-contents"><p><code class="filename">/etc/udev/rules.d/99-bridge.rules</code>:
                         </p><pre class="programlisting">ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
 </pre><p><code class="filename">/etc/sysctl.d/bridge.conf</code>:
                         </p><pre class="programlisting">net.bridge.bridge-nf-call-ip6tables = 0
 net.bridge.bridge-nf-call-iptables = 0
 net.bridge.bridge-nf-call-arptables = 0
-</pre></div></div><br class="example-break"><div class="example"><a name="idm214184480064"></a><p class="title"><b>Example 3. Disable packet filter on bridged packets (method two)</b></p><div class="example-contents"><p><code class="filename">/etc/modules-load.d/bridge.conf</code>:
+</pre></div></div><br class="example-break"><div class="example"><a name="idm140180416141312"></a><p class="title"><b>Example 3. Disable packet filter on bridged packets (method two)</b></p><div class="example-contents"><p><code class="filename">/etc/modules-load.d/bridge.conf</code>:
                         </p><pre class="programlisting">bridge</pre><p><code class="filename">/etc/sysctl.d/bridge.conf</code>:
                         </p><pre class="programlisting">net.bridge.bridge-nf-call-ip6tables = 0
 net.bridge.bridge-nf-call-iptables = 0
 net.bridge.bridge-nf-call-arptables = 0
-</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214184475680"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140180416136928"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>,
                         <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,

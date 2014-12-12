@@ -216,7 +216,7 @@ finish:
                 if (temp_path)
                         unlink(temp_path);
 
-                log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
+                log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
         }
 
         return r;
@@ -259,8 +259,7 @@ int machine_load(Machine *m) {
                 if (r == -ENOENT)
                         return 0;
 
-                log_error("Failed to read %s: %s", m->state_file, strerror(-r));
-                return r;
+                return log_error_errno(r, "Failed to read %s: %m", m->state_file);
         }
 
         if (id)
@@ -377,10 +376,10 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_MACHINE_START),
+                   LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_START),
                    "NAME=%s", m->name,
                    "LEADER="PID_FMT, m->leader,
-                   "MESSAGE=New machine %s.", m->name,
+                   LOG_MESSAGE("New machine %s.", m->name),
                    NULL);
 
         if (!dual_timestamp_is_set(&m->timestamp))
@@ -426,10 +425,10 @@ int machine_stop(Machine *m) {
 
         if (m->started)
                 log_struct(LOG_INFO,
-                           MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
+                           LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
-                           "MESSAGE=Machine %s terminated.", m->name,
+                           LOG_MESSAGE("Machine %s terminated.", m->name),
                            NULL);
 
         /* Kill cgroup */

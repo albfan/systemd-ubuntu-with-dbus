@@ -250,7 +250,7 @@
                                 processes. Takes a space-separated
                                 list of CPU indices. This option may
                                 be specified more than once in which
-                                case the specificed CPU affinity masks
+                                case the specified CPU affinity masks
                                 are merged. If the empty string is
                                 assigned, the mask is reset, all
                                 assignments prior to this will have no
@@ -708,14 +708,95 @@
                                 <term><varname>LimitNICE=</varname></term>
                                 <term><varname>LimitRTPRIO=</varname></term>
                                 <term><varname>LimitRTTIME=</varname></term>
-                                <listitem><para>These settings control
-                                various resource limits for executed
-                                processes. See
+                                <listitem><para>These settings set both
+                                soft and hard limits of various resources for
+                                executed processes. See
                                 <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. Use the string
                                 <varname>infinity</varname> to
                                 configure no limit on a specific
                                 resource.</para></listitem>
+
+                                <table>
+                                        <title>Limit directives and their equivalent with ulimit</title>
+
+                                        <tgroup cols='2'>
+                                                <colspec colname='directive' />
+                                                <colspec colname='equivalent' />
+                                                <thead>
+                                                        <row>
+                                                                <entry>Directive</entry>
+                                                                <entry>ulimit equivalent</entry>
+                                                        </row>
+                                                </thead>
+                                                <tbody>
+                                                        <row>
+                                                                <entry>LimitCPU</entry>
+                                                                <entry>ulimit -t</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitFSIZE</entry>
+                                                                <entry>ulimit -f</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitDATA</entry>
+                                                                <entry>ulimit -d</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitSTACK</entry>
+                                                                <entry>ulimit -s</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitCORE</entry>
+                                                                <entry>ulimit -c</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitRSS</entry>
+                                                                <entry>ulimit -m</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitNOFILE</entry>
+                                                                <entry>ulimit -n</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitAS</entry>
+                                                                <entry>ulimit -v</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitNPROC</entry>
+                                                                <entry>ulimit -u</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitMEMLOCK</entry>
+                                                                <entry>ulimit -l</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitLOCKS</entry>
+                                                                <entry>ulimit -x</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitSIGPENDING</entry>
+                                                                <entry>ulimit -i</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitMSGQUEUE</entry>
+                                                                <entry>ulimit -q</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitNICE</entry>
+                                                                <entry>ulimit -e</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitRTPRIO</entry>
+                                                                <entry>ulimit -r</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitRTTIME</entry>
+                                                                <entry>No equivalent</entry>
+                                                        </row>
+                                                </tbody>
+                                        </tgroup>
+                                </table>
                         </varlistentry>
 
                         <varlistentry>
@@ -1115,7 +1196,7 @@
                                 process. If set, this will override
                                 the automated domain
                                 transition. However, the policy still
-                                needs to autorize the transition. This
+                                needs to authorize the transition. This
                                 directive is ignored if SELinux is
                                 disabled. If prefixed by
                                 <literal>-</literal>, all errors will
@@ -1135,6 +1216,35 @@
                                 enabled. If prefixed by <literal>-</literal>, all errors
                                 will be ignored.
                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SmackProcessLabel=</varname></term>
+
+                                <listitem><para>Takes a
+                                <option>SMACK64</option> security
+                                label as argument. The process
+                                executed by the unit will be started
+                                under this label and SMACK will decide
+                                whether the processes is allowed to
+                                run or not based on it. The process
+                                will continue to run under the label
+                                specified here unless the executable
+                                has its own
+                                <option>SMACK64EXEC</option> label, in
+                                which case the process will transition
+                                to run under that label. When not
+                                specified, the label that systemd is
+                                running under is used. This directive
+                                is ignored if SMACK is
+                                disabled.</para>
+
+                                <para>The value may be prefixed by
+                                <literal>-</literal>, in which case
+                                all errors will be ignored. An empty
+                                value may be specified to unset
+                                previous assignments.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1411,7 +1521,7 @@
                                 <term><varname>$PATH</varname></term>
 
                                 <listitem><para>Colon-separated list
-                                of directiories to use when launching
+                                of directories to use when launching
                                 executables. Systemd uses a fixed
                                 value of
                                 <filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename>:<filename>/sbin</filename>:<filename>/bin</filename>.

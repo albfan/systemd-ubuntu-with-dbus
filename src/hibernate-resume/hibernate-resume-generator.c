@@ -45,6 +45,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 static int process_resume(void) {
         _cleanup_free_ char *name = NULL, *lnk = NULL;
 
+        if (!arg_resume_dev)
+                return 0;
+
         name = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_dev, ".service");
         if (!name)
                 return log_oom();
@@ -54,10 +57,8 @@ static int process_resume(void) {
                 return log_oom();
 
         mkdir_parents_label(lnk, 0755);
-        if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-hibernate-resume@.service", lnk) < 0) {
-                log_error("Failed to create symlink %s: %m", lnk);
-                return -errno;
-        }
+        if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-hibernate-resume@.service", lnk) < 0)
+                return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         return 0;
 }
@@ -83,12 +84,11 @@ int main(int argc, char *argv[]) {
         if (!in_initrd())
                 return EXIT_SUCCESS;
 
-        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                return EXIT_FAILURE;
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        if (arg_resume_dev != NULL)
-                r = process_resume();
-
+        r = process_resume();
         free(arg_resume_dev);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

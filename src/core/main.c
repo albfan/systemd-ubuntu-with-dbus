@@ -75,9 +75,7 @@
 #include "selinux-setup.h"
 #include "ima-setup.h"
 #include "smack-setup.h"
-#ifdef HAVE_KMOD
 #include "kmod-setup.h"
-#endif
 
 static enum {
         ACTION_RUN,
@@ -133,7 +131,7 @@ noreturn static void crash(int sig) {
                 /* Pass this on immediately, if this is not PID 1 */
                 raise(sig);
         else if (!arg_dump_core)
-                log_error("Caught <%s>, not dumping core.", signal_to_string(sig));
+                log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 struct sigaction sa = {
                         .sa_handler = nop_handler,
@@ -146,7 +144,7 @@ noreturn static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
+                        log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
 
                 else if (pid == 0) {
                         struct rlimit rl = {};
@@ -177,11 +175,11 @@ noreturn static void crash(int sig) {
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
                         if (r < 0)
-                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
+                                log_emergency_errno(r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
                         else if (status.si_code != CLD_DUMPED)
-                                log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
+                                log_emergency("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
-                                log_error("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
+                                log_emergency("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
                 }
         }
 
@@ -203,19 +201,19 @@ noreturn static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Failed to fork off crash shell: %m");
+                        log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
                         make_console_stdio();
                         execl("/bin/sh", "/bin/sh", NULL);
 
-                        log_error("execl() failed: %m");
+                        log_emergency_errno(errno, "execl() failed: %m");
                         _exit(1);
                 }
 
                 log_info("Successfully spawned crash shell as pid "PID_FMT".", pid);
         }
 
-        log_info("Freezing execution.");
+        log_emergency("Freezing execution.");
         freeze();
 }
 
@@ -233,18 +231,14 @@ static int console_setup(void) {
         int r;
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (tty_fd < 0) {
-                log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
-                return tty_fd;
-        }
+        if (tty_fd < 0)
+                return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
 
         /* We don't want to force text mode.  plymouth may be showing
          * pictures already from initrd. */
         r = reset_terminal_fd(tty_fd, false);
-        if (r < 0) {
-                log_error("Failed to reset /dev/console: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset /dev/console: %m");
 
         return 0;
 }
@@ -356,7 +350,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         if (env)
                                 arg_default_environment = env;
                         else
-                                log_warning("Setting environment variable '%s' failed, ignoring: %s", value, strerror(ENOMEM));
+                                log_warning_errno(ENOMEM, "Setting environment variable '%s' failed, ignoring: %m", value);
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 
@@ -470,7 +464,7 @@ static int config_parse_cpu_affinity2(
 
         if (c) {
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
-                        log_warning_unit(unit, "Failed to set CPU affinity: %m");
+                        log_unit_warning(unit, "Failed to set CPU affinity: %m");
 
                 CPU_FREE(c);
         }
@@ -673,13 +667,12 @@ static int parse_config_file(void) {
                 {}
         };
 
-        const char *fn;
+        const char *fn, *conf_dirs_nulstr;
 
         fn = arg_running_as == SYSTEMD_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
-        config_parse(NULL, fn, NULL,
-                     "Manager\0",
-                     config_item_table_lookup, items,
-                     false, false, true, NULL);
+        conf_dirs_nulstr = arg_running_as == SYSTEMD_SYSTEM ? CONF_DIRS_NULSTR("systemd/system.conf") : CONF_DIRS_NULSTR("systemd/user.conf");
+        config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
+                          config_item_table_lookup, items, false, NULL);
 
         return 0;
 }
@@ -808,10 +801,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_UNIT:
 
                         r = set_default_unit(optarg);
-                        if (r < 0) {
-                                log_error("Failed to set default unit %s: %s", optarg, strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set default unit %s: %m", optarg);
 
                         break;
 
@@ -892,10 +883,8 @@ static int parse_argv(int argc, char *argv[]) {
                         fd_cloexec(fd, true);
 
                         f = fdopen(fd, "r");
-                        if (!f) {
-                                log_error("Failed to open serialization fd: %m");
-                                return -errno;
-                        }
+                        if (!f)
+                                return log_error_errno(errno, "Failed to open serialization fd: %m");
 
                         if (arg_serialization)
                                 fclose(arg_serialization);
@@ -992,7 +981,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 
         r = manager_open_serialization(m, &f);
         if (r < 0) {
-                log_error("Failed to create serialization file: %s", strerror(-r));
+                log_error_errno(r, "Failed to create serialization file: %m");
                 goto fail;
         }
 
@@ -1003,30 +992,30 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         fds = fdset_new();
         if (!fds) {
                 r = -ENOMEM;
-                log_error("Failed to allocate fd set: %s", strerror(-r));
+                log_error_errno(r, "Failed to allocate fd set: %m");
                 goto fail;
         }
 
         r = manager_serialize(m, f, fds, switching_root);
         if (r < 0) {
-                log_error("Failed to serialize state: %s", strerror(-r));
+                log_error_errno(r, "Failed to serialize state: %m");
                 goto fail;
         }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
-                log_error("Failed to rewind serialization fd: %m");
+                log_error_errno(errno, "Failed to rewind serialization fd: %m");
                 goto fail;
         }
 
         r = fd_cloexec(fileno(f), false);
         if (r < 0) {
-                log_error("Failed to disable O_CLOEXEC for serialization: %s", strerror(-r));
+                log_error_errno(r, "Failed to disable O_CLOEXEC for serialization: %m");
                 goto fail;
         }
 
         r = fdset_cloexec(fds, false);
         if (r < 0) {
-                log_error("Failed to disable O_CLOEXEC for serialization fds: %s", strerror(-r));
+                log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
                 goto fail;
         }
 
@@ -1053,10 +1042,8 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         /* Save the original RLIMIT_NOFILE so that we can reset it
          * later when transitioning from the initrd to the main
          * systemd or suchlike. */
-        if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0) {
-                log_error("Reading RLIMIT_NOFILE failed: %m");
-                return -errno;
-        }
+        if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0)
+                return log_error_errno(errno, "Reading RLIMIT_NOFILE failed: %m");
 
         /* Make sure forked processes get the default kernel setting */
         if (!arg_default_rlimit[RLIMIT_NOFILE]) {
@@ -1072,10 +1059,8 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         /* Bump up the resource limit for ourselves substantially */
         nl.rlim_cur = nl.rlim_max = 64*1024;
         r = setrlimit_closest(RLIMIT_NOFILE, &nl);
-        if (r < 0) {
-                log_error("Setting RLIMIT_NOFILE failed: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Setting RLIMIT_NOFILE failed: %m");
 
         return 0;
 }
@@ -1156,20 +1141,20 @@ static int enforce_syscall_archs(Set *archs) {
                 if (r == -EEXIST)
                         continue;
                 if (r < 0) {
-                        log_error("Failed to add architecture to seccomp: %s", strerror(-r));
+                        log_error_errno(r, "Failed to add architecture to seccomp: %m");
                         goto finish;
                 }
         }
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0) {
-                log_error("Failed to unset NO_NEW_PRIVS: %s", strerror(-r));
+                log_error_errno(r, "Failed to unset NO_NEW_PRIVS: %m");
                 goto finish;
         }
 
         r = seccomp_load(seccomp);
         if (r < 0)
-                log_error("Failed to add install architecture seccomp: %s", strerror(-r));
+                log_error_errno(r, "Failed to add install architecture seccomp: %m");
 
 finish:
         seccomp_release(seccomp);
@@ -1195,7 +1180,7 @@ static int status_welcome(void) {
         }
 
         if (r < 0 && r != -ENOENT)
-                log_warning("Failed to read os-release file: %s", strerror(-r));
+                log_warning_errno(r, "Failed to read os-release file: %m");
 
         return status_printf(NULL, false, false,
                              "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
@@ -1235,6 +1220,7 @@ int main(int argc, char *argv[]) {
         bool empty_etc = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         static struct rlimit saved_rlimit_nofile = { 0, 0 };
+        const char *error_message = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1243,7 +1229,7 @@ int main(int argc, char *argv[]) {
 
                 errno = -ENOENT;
                 execv(SYSTEMCTL_BINARY_PATH, argv);
-                log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+                log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
         }
 #endif
@@ -1293,17 +1279,23 @@ int main(int argc, char *argv[]) {
                 if (!skip_setup) {
                         mount_setup_early();
                         dual_timestamp_get(&security_start_timestamp);
-                        if (mac_selinux_setup(&loaded_policy) < 0)
+                        if (mac_selinux_setup(&loaded_policy) < 0) {
+                                error_message = "Failed to load SELinux policy";
                                 goto finish;
-                        if (ima_setup() < 0)
+                        } else if (ima_setup() < 0) {
+                                error_message = "Failed to load IMA policy";
                                 goto finish;
-                        if (mac_smack_setup(&loaded_policy) < 0)
+                        } else if (mac_smack_setup(&loaded_policy) < 0) {
+                                error_message = "Failed to load SMACK policy";
                                 goto finish;
+                        }
                         dual_timestamp_get(&security_finish_timestamp);
                 }
 
-                if (mac_selinux_init(NULL) < 0)
+                if (mac_selinux_init(NULL) < 0) {
+                        error_message = "Failed to initialize SELinux policy";
                         goto finish;
+                }
 
                 if (!skip_setup) {
                         if (clock_is_localtime() > 0) {
@@ -1319,7 +1311,7 @@ int main(int argc, char *argv[]) {
                                  */
                                 r = clock_set_timezone(&min);
                                 if (r < 0)
-                                        log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
+                                        log_error_errno(r, "Failed to apply local time delta, ignoring: %m");
                                 else
                                         log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
                         } else if (!in_initrd()) {
@@ -1378,20 +1370,30 @@ int main(int argc, char *argv[]) {
         /* Initialize default unit */
         r = set_default_unit(SPECIAL_DEFAULT_TARGET);
         if (r < 0) {
-                log_error("Failed to set default unit %s: %s", SPECIAL_DEFAULT_TARGET, strerror(-r));
+                log_emergency_errno(r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
+                error_message = "Failed to set default unit";
                 goto finish;
         }
 
         r = initialize_join_controllers();
-        if (r < 0)
+        if (r < 0) {
+                error_message = "Failed to initalize cgroup controllers";
                 goto finish;
+        }
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
         if (getpid() == 1) {
+
+                /* Load the kernel modules early, so that we kdbus.ko is loaded before kdbusfs shall be mounted */
+                if (!skip_setup)
+                        kmod_setup();
+
                 r = mount_setup(loaded_policy);
-                if (r < 0)
+                if (r < 0) {
+                        error_message = "Failed to mount API filesystems";
                         goto finish;
+                }
         }
 
         /* Reset all signal handlers. */
@@ -1399,19 +1401,25 @@ int main(int argc, char *argv[]) {
 
         ignore_signals(SIGNALS_IGNORE, -1);
 
-        if (parse_config_file() < 0)
+        if (parse_config_file() < 0) {
+                error_message = "Failed to parse config file";
                 goto finish;
+        }
 
-        if (arg_running_as == SYSTEMD_SYSTEM)
-                if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                        goto finish;
+        if (arg_running_as == SYSTEMD_SYSTEM) {
+                r = parse_proc_cmdline(parse_proc_cmdline_item);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
 
         /* Note that this also parses bits from the kernel command
          * line, including "debug". */
         log_parse_environment();
 
-        if (parse_argv(argc, argv) < 0)
+        if (parse_argv(argc, argv) < 0) {
+                error_message = "Failed to parse commandline arguments";
                 goto finish;
+        }
 
         if (arg_action == ACTION_TEST &&
             geteuid() == 0) {
@@ -1467,7 +1475,8 @@ int main(int argc, char *argv[]) {
         /* Remember open file descriptors for later deserialization */
         r = fdset_new_fill(&fds);
         if (r < 0) {
-                log_error("Failed to allocate fd set: %s", strerror(-r));
+                log_emergency_errno(r, "Failed to allocate fd set: %m");
+                error_message = "Failed to allocate fd set";
                 goto finish;
         } else
                 fdset_cloexec(fds, true);
@@ -1551,9 +1560,6 @@ int main(int argc, char *argv[]) {
                 if (arg_show_status > 0 || plymouth_running())
                         status_welcome();
 
-#ifdef HAVE_KMOD
-                kmod_setup();
-#endif
                 hostname_setup();
                 machine_id_setup(NULL);
                 loopback_setup();
@@ -1567,31 +1573,35 @@ int main(int argc, char *argv[]) {
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_error("Failed to adjust timer slack: %m");
+                        log_error_errno(errno, "Failed to adjust timer slack: %m");
 
         if (arg_capability_bounding_set_drop) {
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
                 if (r < 0) {
-                        log_error("Failed to drop capability bounding set of usermode helpers: %s", strerror(-r));
+                        log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                        error_message = "Failed to drop capability bounding set of usermode helpers";
                         goto finish;
                 }
                 r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
                 if (r < 0) {
-                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
+                        log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                        error_message = "Failed to drop capability bounding set";
                         goto finish;
                 }
         }
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
-                if (r < 0)
+                if (r < 0) {
+                        error_message = "Failed to set syscall architectures";
                         goto finish;
+                }
         }
 
         if (arg_running_as == SYSTEMD_USER) {
                 /* Become reaper of our children */
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
-                        log_warning("Failed to make us a subreaper: %m");
+                        log_warning_errno(errno, "Failed to make us a subreaper: %m");
                         if (errno == EINVAL)
                                 log_info("Perhaps the kernel version is too old (< 3.4?)");
                 }
@@ -1603,7 +1613,7 @@ int main(int argc, char *argv[]) {
                 if (empty_etc) {
                         r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_FULL, false, NULL, 0);
                         if (r < 0)
-                                log_warning("Failed to populate /etc with preset unit settings, ignoring: %s", strerror(-r));
+                                log_warning_errno(r, "Failed to populate /etc with preset unit settings, ignoring: %m");
                         else
                                 log_info("Populated /etc with preset unit settings.");
                 }
@@ -1611,7 +1621,8 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(arg_running_as, arg_action == ACTION_TEST, &m);
         if (r < 0) {
-                log_error("Failed to allocate manager object: %s", strerror(-r));
+                log_emergency_errno(r, "Failed to allocate manager object: %m");
+                error_message = "Failed to allocate manager object";
                 goto finish;
         }
 
@@ -1648,7 +1659,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_startup(m, arg_serialization, fds);
         if (r < 0)
-                log_error("Failed to fully start up daemon: %s", strerror(-r));
+                log_error_errno(r, "Failed to fully start up daemon: %m");
 
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
@@ -1671,7 +1682,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_error("Failed to load default target: %s", bus_error_message(&error, r));
                 else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
-                        log_error("Failed to load default target: %s", strerror(-target->load_error));
+                        log_error_errno(target->load_error, "Failed to load default target: %m");
                 else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
 
@@ -1680,13 +1691,16 @@ int main(int argc, char *argv[]) {
 
                         r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
                         if (r < 0) {
-                                log_error("Failed to load rescue target: %s", bus_error_message(&error, r));
+                                log_emergency("Failed to load rescue target: %s", bus_error_message(&error, r));
+                                error_message = "Failed to load rescue target";
                                 goto finish;
                         } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
-                                log_error("Failed to load rescue target: %s", strerror(-target->load_error));
+                                log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
+                                error_message = "Failed to load rescue target";
                                 goto finish;
                         } else if (target->load_state == UNIT_MASKED) {
-                                log_error("Rescue target masked.");
+                                log_emergency("Rescue target masked.");
+                                error_message = "Rescue target masked";
                                 goto finish;
                         }
                 }
@@ -1704,11 +1718,13 @@ int main(int argc, char *argv[]) {
 
                         r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
                         if (r < 0) {
-                                log_error("Failed to start default target: %s", bus_error_message(&error, r));
+                                log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
+                                error_message = "Failed to start default target";
                                 goto finish;
                         }
                 } else if (r < 0) {
-                        log_error("Failed to isolate default target: %s", bus_error_message(&error, r));
+                        log_emergency("Failed to isolate default target: %s", bus_error_message(&error, r));
+                        error_message = "Failed to isolate default target";
                         goto finish;
                 }
 
@@ -1730,7 +1746,8 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 r = manager_loop(m);
                 if (r < 0) {
-                        log_error("Failed to run mainloop: %s", strerror(-r));
+                        log_emergency_errno(r, "Failed to run main loop: %m");
+                        error_message = "Failed to run main loop";
                         goto finish;
                 }
 
@@ -1745,13 +1762,15 @@ int main(int argc, char *argv[]) {
                         log_info("Reloading.");
                         r = manager_reload(m);
                         if (r < 0)
-                                log_error("Failed to reload: %s", strerror(-r));
+                                log_error_errno(r, "Failed to reload: %m");
                         break;
 
                 case MANAGER_REEXECUTE:
 
-                        if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0)
+                        if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0) {
+                                error_message = "Failed to prepare for reexection";
                                 goto finish;
+                        }
 
                         reexecute = true;
                         log_notice("Reexecuting.");
@@ -1764,8 +1783,10 @@ int main(int argc, char *argv[]) {
                         m->switch_root = m->switch_root_init = NULL;
 
                         if (!switch_root_init)
-                                if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0)
+                                if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0) {
+                                        error_message = "Failed to prepare for reexection";
                                         goto finish;
+                                }
 
                         reexecute = true;
                         log_notice("Switching root.");
@@ -1797,10 +1818,7 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        if (m) {
-                manager_free(m);
-                m = NULL;
-        }
+        m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
                 free(arg_default_rlimit[j]);
@@ -1845,7 +1863,7 @@ finish:
                         /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                         r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
                         if (r < 0)
-                                log_error("Failed to switch root, trying to continue: %s", strerror(-r));
+                                log_error_errno(r, "Failed to switch root, trying to continue: %m");
                 }
 
                 args_size = MAX(6, argc+1);
@@ -1914,7 +1932,7 @@ finish:
                 if (switch_root_init) {
                         args[0] = switch_root_init;
                         execv(args[0], (char* const*) args);
-                        log_warning("Failed to execute configured init, trying fallback: %m");
+                        log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
                 }
 
                 args[0] = "/sbin/init";
@@ -1926,9 +1944,9 @@ finish:
                         args[0] = "/bin/sh";
                         args[1] = NULL;
                         execv(args[0], (char* const*) args);
-                        log_error("Failed to execute /bin/sh, giving up: %m");
+                        log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
                 } else
-                        log_warning("Failed to execute /sbin/init, giving up: %m");
+                        log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
         }
 
         if (arg_serialization) {
@@ -2009,12 +2027,17 @@ finish:
                         cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-                log_error("Failed to execute shutdown binary, %s: %m",
+                log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",
                           getpid() == 1 ? "freezing" : "quitting");
         }
 
-        if (getpid() == 1)
+        if (getpid() == 1) {
+                if (error_message)
+                        manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
+                                              ANSI_HIGHLIGHT_RED_ON "!!!!!!" ANSI_HIGHLIGHT_OFF,
+                                              "%s, freezing.", error_message);
                 freeze();
+        }
 
         return retval;
 }

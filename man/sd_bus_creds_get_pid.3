@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_CREDS_GET_PID" "3" "" "systemd 217" "sd_bus_creds_get_pid"
+.TH "SD_BUS_CREDS_GET_PID" "3" "" "systemd 218" "sd_bus_creds_get_pid"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_bus_creds_get_pid, sd_bus_creds_get_pid_starttime, sd_bus_creds_get_tid, sd_bus_creds_get_uid, sd_bus_creds_get_gid, sd_bus_creds_get_comm, sd_bus_creds_get_tid_comm, sd_bus_creds_get_exe, sd_bus_creds_get_cmdline, sd_bus_creds_get_cgroup, sd_bus_creds_get_unit, sd_bus_creds_get_user_unit, sd_bus_creds_get_slice, sd_bus_creds_get_session, sd_bus_creds_get_owner_uid, sd_bus_creds_has_effective_cap, sd_bus_creds_has_permitted_cap, sd_bus_creds_has_inheritable_cap, sd_bus_creds_has_bounding_cap, sd_bus_creds_get_selinux_context, sd_bus_creds_get_audit_session_id, sd_bus_creds_get_audit_login_uid, sd_bus_creds_get_unique_name, sd_bus_creds_get_well_known_names, sd_bus_creds_get_connection_name \- Retrieve fields from a credentials object
+sd_bus_creds_get_pid, sd_bus_creds_get_tid, sd_bus_creds_get_uid, sd_bus_creds_get_gid, sd_bus_creds_get_comm, sd_bus_creds_get_tid_comm, sd_bus_creds_get_exe, sd_bus_creds_get_cmdline, sd_bus_creds_get_cgroup, sd_bus_creds_get_unit, sd_bus_creds_get_user_unit, sd_bus_creds_get_slice, sd_bus_creds_get_session, sd_bus_creds_get_owner_uid, sd_bus_creds_has_effective_cap, sd_bus_creds_has_permitted_cap, sd_bus_creds_has_inheritable_cap, sd_bus_creds_has_bounding_cap, sd_bus_creds_get_selinux_context, sd_bus_creds_get_audit_session_id, sd_bus_creds_get_audit_login_uid, sd_bus_creds_get_unique_name, sd_bus_creds_get_well_known_names, sd_bus_creds_get_connection_name \- Retrieve fields from a credentials object
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -30,8 +30,6 @@ sd_bus_creds_get_pid, sd_bus_creds_get_pid_starttime, sd_bus_creds_get_tid, sd_b
 .ft
 .HP \w'int\ sd_bus_creds_get_pid('u
 .BI "int sd_bus_creds_get_pid(sd_bus_creds\ *" "c" ", pid_t\ *" "pid" ");"
-.HP \w'int\ sd_bus_creds_get_pid_starttime('u
-.BI "int sd_bus_creds_get_pid_starttime(sd_bus_creds\ *" "c" ", uint64_t\ *" "usec" ");"
 .HP \w'int\ sd_bus_creds_get_tid('u
 .BI "int sd_bus_creds_get_tid(sd_bus_creds\ *" "c" ", pid_t\ *" "tid" ");"
 .HP \w'int\ sd_bus_creds_get_pid('u
@@ -89,9 +87,6 @@ object\&. It may be created with
 \fBsd_bus_creds_get_pid()\fR
 will retrieve the PID (process identifier)\&.
 .PP
-\fBsd_bus_creds_get_pid_starttime()\fR
-will retrieve the time since the start of the epoch in microseconds since the process was started\&.
-.PP
 \fBsd_bus_creds_get_tid()\fR
 will retrieve the TID (thread identifier)\&.
 .PP
@@ -117,7 +112,7 @@ link, but with
 suffix removed)\&.
 .PP
 \fBsd_bus_creds_get_cmdline()\fR
-will retrieve an array of command\-line arguments (as stored in
+will retrieve an array of command line arguments (as stored in
 /proc/\fIpid\fR/cmdline)\&.
 .PP
 \fBsd_bus_creds_get_cgroup()\fR

@@ -31,6 +31,9 @@
 
 #include "util.h"
 #include "strv.h"
+#include "memfd-util.h"
+#include "cgroup-util.h"
+#include "fileio.h"
 
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -38,7 +41,6 @@
 #include "bus-bloom.h"
 #include "bus-util.h"
 #include "bus-label.h"
-#include "cgroup-util.h"
 
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
 
@@ -76,7 +78,7 @@ static void append_payload_vec(struct kdbus_item **d, const void *p, size_t sz) 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
 
-static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t sz) {
+static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t start, size_t sz) {
         assert(d);
         assert(memfd >= 0);
         assert(sz > 0);
@@ -85,6 +87,7 @@ static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t sz) {
         (*d)->size = offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd);
         (*d)->type = KDBUS_ITEM_PAYLOAD_MEMFD;
         (*d)->memfd.fd = memfd;
+        (*d)->memfd.start = start;
         (*d)->memfd.size = sz;
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -133,6 +136,32 @@ static void append_fds(struct kdbus_item **d, const int fds[], unsigned n_fds) {
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
 
+static void add_bloom_arg(void *data, size_t size, unsigned n_hash, unsigned i, const char *t) {
+        char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
+        char *e;
+
+        assert(data);
+        assert(size > 0);
+        assert(i < 64);
+        assert(t);
+
+        e = stpcpy(buf, "arg");
+        if (i < 10)
+                *(e++) = '0' + (char) i;
+        else {
+                *(e++) = '0' + (char) (i / 10);
+                *(e++) = '0' + (char) (i % 10);
+        }
+
+        *e = 0;
+        bloom_add_pair(data, size, n_hash, buf, t);
+
+        strcpy(e, "-dot-prefix");
+        bloom_add_prefixes(data, size, n_hash, buf, t, '.');
+        strcpy(e, "-slash-prefix");
+        bloom_add_prefixes(data, size, n_hash, buf, t, '/');
+}
+
 static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter *bloom) {
         void *data;
         unsigned i;
@@ -162,39 +191,42 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
                 return r;
 
         for (i = 0; i < 64; i++) {
+                const char *t, *contents;
                 char type;
-                const char *t;
-                char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
-                char *e;
 
-                r = sd_bus_message_peek_type(m, &type, NULL);
+                r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
                         return r;
 
-                if (type != SD_BUS_TYPE_STRING &&
-                    type != SD_BUS_TYPE_OBJECT_PATH &&
-                    type != SD_BUS_TYPE_SIGNATURE)
+                if (IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE)) {
+
+                        /* The bloom filter includes simple strings of any kind */
+                        r = sd_bus_message_read_basic(m, type, &t);
+                        if (r < 0)
+                                return r;
+
+                        add_bloom_arg(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
+                } if (type == SD_BUS_TYPE_ARRAY && STR_IN_SET(contents, "s", "o", "g")) {
+
+                        /* As well as array of simple strings of any kinds */
+                        r = sd_bus_message_enter_container(m, type, contents);
+                        if (r < 0)
+                                return r;
+
+                        while ((r = sd_bus_message_read_basic(m, contents[0], &t)) > 0)
+                                add_bloom_arg(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                } else
+                        /* Stop adding to bloom filter as soon as we
+                         * run into the first argument we cannot add
+                         * to it. */
                         break;
-
-                r = sd_bus_message_read_basic(m, type, &t);
-                if (r < 0)
-                        return r;
-
-                e = stpcpy(buf, "arg");
-                if (i < 10)
-                        *(e++) = '0' + (char) i;
-                else {
-                        *(e++) = '0' + (char) (i / 10);
-                        *(e++) = '0' + (char) (i % 10);
-                }
-
-                *e = 0;
-                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t);
-
-                strcpy(e, "-dot-prefix");
-                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t, '.');
-                strcpy(e, "-slash-prefix");
-                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t, '/');
         }
 
         return 0;
@@ -203,6 +235,7 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
 static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         struct bus_body_part *part;
         struct kdbus_item *d;
+        const char *destination;
         bool well_known;
         uint64_t unique;
         size_t sz, dl;
@@ -218,8 +251,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (m->kdbus)
                 return 0;
 
-        if (m->destination) {
-                r = bus_kernel_parse_unique_name(m->destination, &unique);
+        destination = m->destination ?: m->destination_ptr;
+
+        if (destination) {
+                r = bus_kernel_parse_unique_name(destination, &unique);
                 if (r < 0)
                         return r;
 
@@ -229,12 +264,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         sz = offsetof(struct kdbus_msg, items);
 
-        assert_cc(ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec)) ==
-                  ALIGN8(offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd)));
-
         /* Add in fixed header, fields header and payload */
-        sz += (1 + m->n_body_parts) *
-                ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
+        sz += (1 + m->n_body_parts) * ALIGN8(offsetof(struct kdbus_item, vec) +
+                                             MAX(sizeof(struct kdbus_vec),
+                                                 sizeof(struct kdbus_memfd)));
 
         /* Add space for bloom filter */
         sz += ALIGN8(offsetof(struct kdbus_item, bloom_filter) +
@@ -243,7 +276,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         /* Add in well-known destination header */
         if (well_known) {
-                dl = strlen(m->destination);
+                dl = strlen(destination);
                 sz += ALIGN8(offsetof(struct kdbus_item, str) + dl + 1);
         }
 
@@ -263,16 +296,23 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->kdbus->flags =
                 ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
                 ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
-        m->kdbus->dst_id =
-                well_known ? 0 :
-                m->destination ? unique : KDBUS_DST_ID_BROADCAST;
+
+        if (well_known)
+                /* verify_destination_id will usually be 0, which makes the kernel driver only look
+                 * at the provided well-known name. Otherwise, the kernel will make sure the provided
+                 * destination id matches the owner of the provided weel-known-name, and fail if they
+                 * differ. Currently, this is only needed for bus-proxyd. */
+                m->kdbus->dst_id = m->verify_destination_id;
+        else
+                m->kdbus->dst_id = destination ? unique : KDBUS_DST_ID_BROADCAST;
+
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
         m->kdbus->cookie = (uint64_t) m->header->serial;
         m->kdbus->priority = m->priority;
 
-        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) {
+        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 m->kdbus->cookie_reply = m->reply_cookie;
-        } else {
+        else {
                 struct timespec now;
 
                 assert_se(clock_gettime(CLOCK_MONOTONIC_COARSE, &now) == 0);
@@ -283,7 +323,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         d = m->kdbus->items;
 
         if (well_known)
-                append_destination(&d, m->destination, dl);
+                append_destination(&d, destination, dl);
 
         append_payload_vec(&d, m->header, BUS_MESSAGE_BODY_BEGIN(m));
 
@@ -298,11 +338,11 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                         continue;
                 }
 
-                if (part->memfd >= 0 && part->sealed && m->destination) {
+                if (part->memfd >= 0 && part->sealed && destination) {
                         /* Try to send a memfd, if the part is
                          * sealed and this is not a broadcast. Since we can only  */
 
-                        append_payload_memfd(&d, part->memfd, part->size);
+                        append_payload_memfd(&d, part->memfd, part->memfd_offset, part->size);
                         continue;
                 }
 
@@ -335,6 +375,15 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 fail:
         m->poisoned = true;
         return r;
+}
+
+static void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
+        m->creds.well_known_names_driver = true;
+        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
 }
 
 static void unset_memfds(struct sd_bus_message *m) {
@@ -372,7 +421,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_PAYLOAD_OFF:
                         if (!h) {
-                                h = (struct bus_header *)((uint8_t *)k + d->vec.offset);
+                                h = (struct bus_header *)((uint8_t *)bus->kdbus_buffer + d->vec.offset);
 
                                 if (!bus_header_is_complete(h, d->vec.size))
                                         return -EBADMSG;
@@ -464,11 +513,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                                 if (idx >= begin_body) {
                                         if (!part->is_zero)
-                                                part->data = (uint8_t *)k + d->vec.offset;
+                                                part->data = (uint8_t *)bus->kdbus_buffer + d->vec.offset;
                                         part->size = d->vec.size;
                                 } else {
                                         if (!part->is_zero)
-                                                part->data = (uint8_t *)k + d->vec.offset + (begin_body - idx);
+                                                part->data = (uint8_t *)bus->kdbus_buffer + d->vec.offset + (begin_body - idx);
                                         part->size = d->vec.size - (begin_body - idx);
                                 }
 
@@ -494,6 +543,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         }
 
                         part->memfd = d->memfd.fd;
+                        part->memfd_offset = d->memfd.start;
                         part->size = d->memfd.size;
                         part->sealed = true;
 
@@ -501,28 +551,70 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
                 }
 
-                case KDBUS_ITEM_CREDS:
-                        /* UID/GID/PID are always valid */
-                        m->creds.uid = (uid_t) d->creds.uid;
-                        m->creds.gid = (gid_t) d->creds.gid;
-                        m->creds.pid = (pid_t) d->creds.pid;
-                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID) & bus->creds_mask;
+                case KDBUS_ITEM_PIDS:
 
-                        /* The PID starttime/TID might be missing
-                         * however, when the data is faked by some
-                         * data bus proxy and it lacks that
-                         * information about the real client since
-                         * SO_PEERCRED is used for that */
+                        /* The PID/TID might be missing, when the data
+                         * is faked by some data bus proxy and it
+                         * lacks that information about the real
+                         * client since SO_PEERCRED is used for
+                         * that. */
 
-                        if (d->creds.starttime > 0) {
-                                m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
-                                m->creds.mask |= SD_BUS_CREDS_PID_STARTTIME & bus->creds_mask;
+                        if (d->pids.pid > 0) {
+                                m->creds.pid = (pid_t) d->pids.pid;
+                                m->creds.mask |= SD_BUS_CREDS_PID & bus->creds_mask;
                         }
 
-                        if (d->creds.tid > 0) {
-                                m->creds.tid = (pid_t) d->creds.tid;
+                        if (d->pids.tid > 0) {
+                                m->creds.tid = (pid_t) d->pids.tid;
                                 m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
                         }
+
+                        break;
+
+                case KDBUS_ITEM_CREDS:
+
+                        /* EUID/SUID/FSUID/EGID/SGID/FSGID might be missing too (see above). */
+
+                        if ((uid_t) d->creds.uid != UID_INVALID) {
+                                m->creds.uid = (uid_t) d->creds.uid;
+                                m->creds.mask |= SD_BUS_CREDS_UID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->creds.euid != UID_INVALID) {
+                                m->creds.euid = (uid_t) d->creds.euid;
+                                m->creds.mask |= SD_BUS_CREDS_EUID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->creds.suid != UID_INVALID) {
+                                m->creds.suid = (uid_t) d->creds.suid;
+                                m->creds.mask |= SD_BUS_CREDS_SUID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->creds.fsuid != UID_INVALID) {
+                                m->creds.fsuid = (uid_t) d->creds.fsuid;
+                                m->creds.mask |= SD_BUS_CREDS_FSUID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.gid != GID_INVALID) {
+                                m->creds.gid = (gid_t) d->creds.gid;
+                                m->creds.mask |= SD_BUS_CREDS_GID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.egid != GID_INVALID) {
+                                m->creds.egid = (gid_t) d->creds.egid;
+                                m->creds.mask |= SD_BUS_CREDS_EGID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.sgid != GID_INVALID) {
+                                m->creds.sgid = (gid_t) d->creds.sgid;
+                                m->creds.mask |= SD_BUS_CREDS_SGID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.fsgid != GID_INVALID) {
+                                m->creds.fsgid = (gid_t) d->creds.fsgid;
+                                m->creds.mask |= SD_BUS_CREDS_FSGID & bus->creds_mask;
+                        }
+
                         break;
 
                 case KDBUS_ITEM_TIMESTAMP:
@@ -569,9 +661,15 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
-                        m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
-                        m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
+                        if ((uint32_t) d->audit.sessionid != (uint32_t) -1) {
+                                m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
+                                m->creds.mask |= SD_BUS_CREDS_AUDIT_SESSION_ID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->audit.loginuid != UID_INVALID) {
+                                m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
+                                m->creds.mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID & bus->creds_mask;
+                        }
                         break;
 
                 case KDBUS_ITEM_CAPS:
@@ -581,24 +679,58 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_DST_NAME:
-                        if (!service_name_is_valid(d->str))
-                                return -EBADMSG;
+                        if (!service_name_is_valid(d->str)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
 
                         destination = d->str;
                         break;
 
-                case KDBUS_ITEM_NAME:
-                        if (!service_name_is_valid(d->name.name))
-                                return -EBADMSG;
-
-                        r = strv_extend(&m->creds.well_known_names, d->name.name);
-                        if (r < 0)
+                case KDBUS_ITEM_OWNED_NAME:
+                        if (!service_name_is_valid(d->name.name)) {
+                                r = -EBADMSG;
                                 goto fail;
+                        }
+
+                        if (bus->creds_mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
+                                char **wkn;
+                                size_t n;
+
+                                /* We just extend the array here, but
+                                 * do not allocate the strings inside
+                                 * of it, instead we just point to our
+                                 * buffer directly. */
+                                n = strv_length(m->creds.well_known_names);
+                                wkn = realloc(m->creds.well_known_names, (n + 2) * sizeof(char*));
+                                if (!wkn) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                wkn[n] = d->name.name;
+                                wkn[n+1] = NULL;
+                                m->creds.well_known_names = wkn;
+
+                                m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+                        }
                         break;
 
-                case KDBUS_ITEM_CONN_NAME:
-                        m->creds.conn_name = d->str;
-                        m->creds.mask |= SD_BUS_CREDS_CONNECTION_NAME & bus->creds_mask;
+                case KDBUS_ITEM_CONN_DESCRIPTION:
+                        m->creds.description = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_DESCRIPTION & bus->creds_mask;
+                        break;
+
+                case KDBUS_ITEM_AUXGROUPS:
+
+                        if (bus->creds_mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                                assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+
+                                m->creds.n_supplementary_gids = (d->size - offsetof(struct kdbus_item, data32)) / sizeof(uint32_t);
+                                m->creds.supplementary_gids = (gid_t*) d->data32;
+                                m->creds.mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
+                        }
+
                         break;
 
                 case KDBUS_ITEM_FDS:
@@ -610,13 +742,45 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 }
         }
 
+        /* If we requested the list of well-known names to be appended
+         * and the sender had none no item for it will be
+         * attached. However, this does *not* mean that we the kernel
+         * didn't want to provide this information to us. Hence, let's
+         * explicitly mark this information as available if it was
+         * requested. */
+        m->creds.mask |= bus->creds_mask & SD_BUS_CREDS_WELL_KNOWN_NAMES;
+
         r = bus_message_parse_fields(m);
         if (r < 0)
                 goto fail;
 
+        /* Refuse messages if kdbus and dbus1 cookie doesn't match up */
+        if ((uint64_t) m->header->serial != k->cookie) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Refuse messages where the reply flag doesn't match up */
+        if (!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) != !!(k->flags & KDBUS_MSG_FLAGS_EXPECT_REPLY)) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Refuse reply messages where the reply cookie doesn't match up */
+        if ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) && m->reply_cookie != k->cookie_reply) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Refuse messages where the autostart flag doesn't match up */
+        if (!(m->header->flags & BUS_MESSAGE_NO_AUTO_START) != !(k->flags & KDBUS_MSG_FLAGS_NO_AUTO_START)) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
         /* Override information from the user header with data from the kernel */
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
-                m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
+                bus_message_set_sender_driver(bus, m);
         else {
                 snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
                 m->sender = m->creds.unique_name = m->sender_buffer;
@@ -665,8 +829,8 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->use_memfd = 1;
 
-        if (b->connection_name) {
-                g = bus_label_escape(b->connection_name);
+        if (b->description) {
+                g = bus_label_escape(b->description);
                 if (!g)
                         return -ENOMEM;
 
@@ -699,8 +863,8 @@ int bus_kernel_take_fd(sd_bus *b) {
                         name = g;
                 }
 
-                b->connection_name = bus_label_unescape(name);
-                if (!b->connection_name)
+                b->description = bus_label_unescape(name);
+                if (!b->description)
                         return -ENOMEM;
         }
 
@@ -712,6 +876,9 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (b->fake_creds_valid)
                 sz += ALIGN8(offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds));
 
+        if (b->fake_pids_valid)
+                sz += ALIGN8(offsetof(struct kdbus_item, pids) + sizeof(struct kdbus_pids));
+
         if (b->fake_label) {
                 l = strlen(b->fake_label);
                 sz += ALIGN8(offsetof(struct kdbus_item, str) + l + 1);
@@ -720,13 +887,14 @@ int bus_kernel_take_fd(sd_bus *b) {
         hello = alloca0_align(sz, 8);
         hello->size = sz;
         hello->flags = b->hello_flags;
-        hello->attach_flags = b->attach_flags;
+        hello->attach_flags_send = _KDBUS_ATTACH_ANY;
+        hello->attach_flags_recv = b->attach_flags;
         hello->pool_size = KDBUS_POOL_SIZE;
 
         item = hello->items;
 
         item->size = offsetof(struct kdbus_item, str) + m + 1;
-        item->type = KDBUS_ITEM_CONN_NAME;
+        item->type = KDBUS_ITEM_CONN_DESCRIPTION;
         memcpy(item->str, name, m + 1);
         item = KDBUS_ITEM_NEXT(item);
 
@@ -734,6 +902,14 @@ int bus_kernel_take_fd(sd_bus *b) {
                 item->size = offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds);
                 item->type = KDBUS_ITEM_CREDS;
                 item->creds = b->fake_creds;
+
+                item = KDBUS_ITEM_NEXT(item);
+        }
+
+        if (b->fake_pids_valid) {
+                item->size = offsetof(struct kdbus_item, pids) + sizeof(struct kdbus_pids);
+                item->type = KDBUS_ITEM_PIDS;
+                item->pids = b->fake_pids;
 
                 item = KDBUS_ITEM_NEXT(item);
         }
@@ -802,25 +978,37 @@ int bus_kernel_connect(sd_bus *b) {
         return bus_kernel_take_fd(b);
 }
 
+int bus_kernel_cmd_free(sd_bus *bus, uint64_t offset) {
+        struct kdbus_cmd_free cmd = {
+                .flags = 0,
+                .offset = offset,
+        };
+        int r;
+
+        assert(bus);
+        assert(bus->is_kernel);
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
-        struct kdbus_cmd_free cmd;
         struct kdbus_item *d;
 
         assert(bus);
         assert(k);
 
-        cmd.flags = 0;
-        cmd.offset = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
-
         KDBUS_ITEM_FOREACH(d, k, items) {
-
                 if (d->type == KDBUS_ITEM_FDS)
                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
                 else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
                         safe_close(d->memfd.fd);
         }
 
-        (void) ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
+        bus_kernel_cmd_free(bus, (uint8_t*) k - (uint8_t*) bus->kdbus_buffer);
 }
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
@@ -908,7 +1096,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
 
                                 /* Anybody can send us invalid messages, let's just drop them. */
                                 if (r == -EBADMSG || r == -EPROTOTYPE)
-                                        log_debug("Ignoring invalid message: %s", strerror(-r));
+                                        log_debug_errno(r, "Ignoring invalid message: %m");
                                 else
                                         return r;
                         }
@@ -940,7 +1128,7 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
         if (r < 0)
                 return r;
 
-        m->sender = "org.freedesktop.DBus";
+        bus_message_set_sender_driver(bus, m);
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
@@ -1009,7 +1197,7 @@ static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *
         if (r < 0)
                 return r;
 
-        m->sender = "org.freedesktop.DBus";
+        bus_message_set_sender_driver(bus, m);
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
@@ -1078,6 +1266,11 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
                 if (errno == EAGAIN)
                         return 0;
 
+                if (errno == EOVERFLOW) {
+                        log_debug("%s: kdbus reports %" PRIu64 " dropped broadcast messages, ignoring.", strna(bus->description), (uint64_t) recv.dropped_msgs);
+                        return 0;
+                }
+
                 return -errno;
         }
 
@@ -1087,7 +1280,7 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
 
                 /* Anybody can send us invalid messages, let's just drop them. */
                 if (r == -EBADMSG || r == -EPROTOTYPE) {
-                        log_debug("Ignoring invalid message: %s", strerror(-r));
+                        log_debug_errno(r, "Ignoring invalid message: %m");
                         r = 0;
                 }
 
@@ -1118,20 +1311,13 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
         if (bus->n_memfd_cache <= 0) {
-                _cleanup_free_ char *g = NULL;
                 int r;
 
                 assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
-                assert(bus->connection_name);
-
-                g = bus_label_escape(bus->connection_name);
-                if (!g)
-                        return -ENOMEM;
-
-                r = memfd_create(g, MFD_ALLOW_SEALING);
+                r = memfd_new(bus->description);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
                 *address = NULL;
                 *mapped = 0;
@@ -1188,7 +1374,7 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
 
         /* If overly long, let's return a bit to the OS */
         if (mapped > max_mapped) {
-                assert_se(ftruncate(fd, max_mapped) >= 0);
+                assert_se(memfd_set_size(fd, max_mapped) >= 0);
                 assert_se(munmap((uint8_t*) address + max_mapped, PAGE_ALIGN(mapped - max_mapped)) >= 0);
                 c->mapped = c->allocated = max_mapped;
         } else {
@@ -1208,10 +1394,8 @@ void bus_kernel_flush_memfd(sd_bus *b) {
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].mapped);
 }
 
-int kdbus_translate_request_name_flags(uint64_t flags, uint64_t *kdbus_flags) {
+uint64_t request_name_flags_to_kdbus(uint64_t flags) {
         uint64_t f = 0;
-
-        assert(kdbus_flags);
 
         if (flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
                 f |= KDBUS_NAME_ALLOW_REPLACEMENT;
@@ -1222,17 +1406,18 @@ int kdbus_translate_request_name_flags(uint64_t flags, uint64_t *kdbus_flags) {
         if (flags & SD_BUS_NAME_QUEUE)
                 f |= KDBUS_NAME_QUEUE;
 
-        *kdbus_flags = f;
-        return 0;
+        return f;
 }
 
-int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
+uint64_t attach_flags_to_kdbus(uint64_t mask) {
         uint64_t m = 0;
 
-        assert(kdbus_mask);
-
-        if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))
+        if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                    SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID))
                 m |= KDBUS_ATTACH_CREDS;
+
+        if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID))
+                m |= KDBUS_ATTACH_PIDS;
 
         if (mask & SD_BUS_CREDS_COMM)
                 m |= KDBUS_ATTACH_PID_COMM;
@@ -1261,38 +1446,42 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         if (mask & SD_BUS_CREDS_WELL_KNOWN_NAMES)
                 m |= KDBUS_ATTACH_NAMES;
 
-        if (mask & SD_BUS_CREDS_CONNECTION_NAME)
-                m |= KDBUS_ATTACH_CONN_NAME;
+        if (mask & SD_BUS_CREDS_DESCRIPTION)
+                m |= KDBUS_ATTACH_CONN_DESCRIPTION;
 
-        *kdbus_mask = m;
-        return 0;
+        if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS)
+                m |= KDBUS_ATTACH_AUXGROUPS;
+
+        return m;
 }
 
 int bus_kernel_create_bus(const char *name, bool world, char **s) {
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
+        size_t l;
         int fd;
 
         assert(name);
         assert(s);
 
-        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open("/sys/fs/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
-                                    offsetof(struct kdbus_item, data64) + sizeof(uint64_t) +
-                                    offsetof(struct kdbus_item, str) +
-                                    DECIMAL_STR_MAX(uid_t) + 1 + strlen(name) + 1),
+        l = strlen(name);
+        make = alloca0_align(offsetof(struct kdbus_cmd_make, items) +
+                             ALIGN8(offsetof(struct kdbus_item, bloom_parameter) + sizeof(struct kdbus_bloom_parameter)) +
+                             ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)) +
+                             ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1),
                              8);
 
         make->size = offsetof(struct kdbus_cmd_make, items);
 
+        /* Set the bloom parameters */
         n = make->items;
         n->size = offsetof(struct kdbus_item, bloom_parameter) +
                   sizeof(struct kdbus_bloom_parameter);
         n->type = KDBUS_ITEM_BLOOM_PARAMETER;
-
         n->bloom_parameter.size = DEFAULT_BLOOM_SIZE;
         n->bloom_parameter.n_hash = DEFAULT_BLOOM_N_HASH;
 
@@ -1301,6 +1490,15 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
 
         make->size += ALIGN8(n->size);
 
+        /* The busses we create make no restrictions on what metadata
+         * peers can read from incoming messages. */
+        n = KDBUS_ITEM_NEXT(n);
+        n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;
+        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
+        n->data64[0] = _KDBUS_ATTACH_ANY;
+        make->size += ALIGN8(n->size);
+
+        /* Set the a good name */
         n = KDBUS_ITEM_NEXT(n);
         sprintf(n->str, UID_FMT "-%s", getuid(), name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
@@ -1317,7 +1515,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         if (s) {
                 char *p;
 
-                p = strjoin("/dev/kdbus/", n->str, "/bus", NULL);
+                p = strjoin("/sys/fs/kdbus/", n->str, "/bus", NULL);
                 if (!p) {
                         safe_close(fd);
                         return -ENOMEM;
@@ -1397,20 +1595,29 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
         int fd;
         size_t len;
 
-        len = strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1;
+        assert(bus);
+
+        len = strlen("/sys/fs/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1;
 
         if (path) {
-                p = malloc(len);
+                p = new(char, len);
                 if (!p)
                         return -ENOMEM;
-                *path = p;
         } else
-                p = alloca(len);
-        sprintf(p, "/dev/kdbus/" UID_FMT "-%s/bus", getuid(), bus);
+                p = newa(char, len);
+
+        sprintf(p, "/sys/fs/kdbus/" UID_FMT "-%s/bus", getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
+        if (fd < 0) {
+                if (path)
+                        free(p);
+
                 return -errno;
+        }
+
+        if (path)
+                *path = p;
 
         return fd;
 }
@@ -1419,25 +1626,25 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         _cleanup_free_ char *path = NULL;
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
-        size_t size;
+        const char *name;
         int fd;
 
         fd = bus_kernel_open_bus_fd(bus_name, &path);
         if (fd < 0)
                 return fd;
 
-        size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
-        size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(ep_name) + 1);
-
-        make = alloca0_align(size, 8);
-        make->size = size;
+        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items)) +
+                             ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + strlen(ep_name) + 1),
+                             8);
+        make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
         make->flags = KDBUS_MAKE_ACCESS_WORLD;
 
         n = make->items;
-
+        sprintf(n->str, UID_FMT "-%s", getuid(), ep_name);
+        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
         n->type = KDBUS_ITEM_MAKE_NAME;
-        n->size = offsetof(struct kdbus_item, str) + strlen(ep_name) + 1;
-        strcpy(n->str, ep_name);
+        make->size += ALIGN8(n->size);
+        name = n->str;
 
         if (ioctl(fd, KDBUS_CMD_ENDPOINT_MAKE, make) < 0) {
                 safe_close(fd);
@@ -1447,7 +1654,7 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         if (ep_path) {
                 char *p;
 
-                p = strjoin(dirname(path), "/", ep_name, NULL);
+                p = strjoin(dirname(path), "/", name, NULL);
                 if (!p) {
                         safe_close(fd);
                         return -ENOMEM;
@@ -1527,7 +1734,7 @@ int bus_kernel_make_starter(
         if (world_policy >= 0)
                 policy_cnt++;
 
-        size = ALIGN8(offsetof(struct kdbus_cmd_hello, items)) +
+        size = offsetof(struct kdbus_cmd_hello, items) +
                ALIGN8(offsetof(struct kdbus_item, str) + strlen(name) + 1) +
                policy_cnt * ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
 
@@ -1562,7 +1769,8 @@ int bus_kernel_make_starter(
                 (activating ? KDBUS_HELLO_ACTIVATOR : KDBUS_HELLO_POLICY_HOLDER) |
                 (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;
-        hello->attach_flags = _KDBUS_ATTACH_ALL;
+        hello->attach_flags_send = _KDBUS_ATTACH_ANY;
+        hello->attach_flags_recv = _KDBUS_ATTACH_ANY;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0)
                 return -errno;
@@ -1574,58 +1782,6 @@ int bus_kernel_make_starter(
 
         if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))
                 return -ENOTSUP;
-
-        return fd;
-}
-
-int bus_kernel_create_domain(const char *name, char **s) {
-        struct kdbus_cmd_make *make;
-        struct kdbus_item *n;
-        int fd;
-
-        assert(name);
-        assert(s);
-
-        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
-                                    offsetof(struct kdbus_item, str) +
-                                    strlen(name) + 1),
-                             8);
-
-        n = make->items;
-        strcpy(n->str, name);
-        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_ITEM_MAKE_NAME;
-
-        make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items) + n->size);
-        make->flags = KDBUS_MAKE_ACCESS_WORLD;
-
-        if (ioctl(fd, KDBUS_CMD_DOMAIN_MAKE, make) < 0) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        /* The higher 32bit of the flags field are considered
-         * 'incompatible flags'. Refuse them all for now. */
-        if (make->flags > 0xFFFFFFFFULL) {
-                safe_close(fd);
-                return -ENOTSUP;
-        }
-
-        if (s) {
-                char *p;
-
-                p = strappend("/dev/kdbus/domain/", name);
-                if (!p) {
-                        safe_close(fd);
-                        return -ENOMEM;
-                }
-
-                *s = p;
-        }
 
         return fd;
 }
@@ -1650,5 +1806,102 @@ int bus_kernel_drop_one(int fd) {
         if (ioctl(fd, KDBUS_CMD_MSG_RECV, &recv) < 0)
                 return -errno;
 
+        return 0;
+}
+
+int bus_kernel_realize_attach_flags(sd_bus *bus) {
+        struct kdbus_cmd_update *update;
+        struct kdbus_item *n;
+
+        assert(bus);
+        assert(bus->is_kernel);
+
+        update = alloca0_align(offsetof(struct kdbus_cmd_update, items) +
+                               ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)),
+                               8);
+
+        n = update->items;
+        n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;
+        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
+        n->data64[0] = bus->attach_flags;
+
+        update->size =
+                offsetof(struct kdbus_cmd_update, items) +
+                ALIGN8(n->size);
+
+        if (ioctl(bus->input_fd, KDBUS_CMD_CONN_UPDATE, update) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int bus_kernel_fix_attach_mask(void) {
+        _cleanup_free_ char *mask = NULL;
+        uint64_t m = (uint64_t) -1;
+        char buf[2+16+2];
+        int r;
+
+        /* By default we don't want any kdbus metadata fields to be
+         * suppressed, hence we reset the kernel mask for it to
+         * (uint64_t) -1. This is overridable via a kernel command
+         * line option, however. */
+
+        r = get_proc_cmdline_key("systemd.kdbus_attach_flags_mask=", &mask);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read kernel command line: %m");
+
+        if (mask) {
+                const char *p = mask;
+
+                if (startswith(p, "0x"))
+                        p += 2;
+
+                if (sscanf(p, "%" PRIx64, &m) != 1)
+                        log_warning("Couldn't parse systemd.kdbus_attach_flags_mask= kernel command line parameter.");
+        }
+
+        sprintf(buf, "0x%" PRIx64 "\n", m);
+        r = write_string_file("/sys/module/kdbus/parameters/attach_flags_mask", buf);
+        if (r < 0)
+                return log_full_errno(
+                                IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                                "Failed to write kdbus attach mask: %m");
+
+        return 0;
+}
+
+int bus_kernel_get_bus_name(sd_bus *bus, char **name) {
+        struct kdbus_cmd_info cmd = {
+                .size = sizeof(struct kdbus_cmd_info),
+        };
+        struct kdbus_info *info;
+        struct kdbus_item *item;
+        char *n = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(bus->is_kernel);
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
+        if (r < 0)
+                return -errno;
+
+        info = (struct kdbus_info*) ((uint8_t*) bus->kdbus_buffer + cmd.offset);
+
+        KDBUS_ITEM_FOREACH(item, info, items)
+                if (item->type == KDBUS_ITEM_MAKE_NAME) {
+                        r = free_and_strdup(&n, item->str);
+                        break;
+                }
+
+        bus_kernel_cmd_free(bus, cmd.offset);
+
+        if (r < 0)
+                return r;
+        if (!n)
+                return -EIO;
+
+        *name = n;
         return 0;
 }

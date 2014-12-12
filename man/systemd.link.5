@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.LINK" "5" "" "systemd 217" "systemd.link"
+.TH "SYSTEMD\&.LINK" "5" "" "systemd 218" "systemd.link"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -59,6 +59,11 @@ section matches, or if the section is empty\&. The following keys are accepted:
 \fIMACAddress=\fR
 .RS 4
 The hardware address\&.
+.RE
+.PP
+\fIOriginalName=\fR
+.RS 4
+The device name, as exposed by the udev property "INTERFACE"\&. May contain shell style globs\&. This can not be used to match on names that have already been changed from userspace\&. Caution is adviced when matching on kernel\-assigned names, as they are known to be unstable between reboots\&.
 .RE
 .PP
 \fIPath=\fR
@@ -163,7 +168,7 @@ An ordered, space\-separated list of policies by which the interface name should
 "NamePolicy"
 may be disabled by specifying
 "net\&.ifnames=0"
-on the kernel commandline\&. Each of the policies may fail, and the first successful one is used\&. The name is not set directly, but is exported to udev as the property
+on the kernel command line\&. Each of the policies may fail, and the first successful one is used\&. The name is not set directly, but is exported to udev as the property
 "ID_NET_NAME", which is, by default, used by a udev rule to set
 "NAME"\&. If the name has already been set by userspace, no renaming is performed\&. The available policies are:
 .PP

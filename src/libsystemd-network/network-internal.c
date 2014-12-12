@@ -98,38 +98,38 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_type,
                       const char *dev_name) {
 
-        if (match_host && !condition_test_host(match_host))
-                return 0;
+        if (match_host && !condition_test(match_host))
+                return false;
 
-        if (match_virt && !condition_test_virtualization(match_virt))
-                return 0;
+        if (match_virt && !condition_test(match_virt))
+                return false;
 
-        if (match_kernel && !condition_test_kernel_command_line(match_kernel))
-                return 0;
+        if (match_kernel && !condition_test(match_kernel))
+                return false;
 
-        if (match_arch && !condition_test_architecture(match_arch))
-                return 0;
+        if (match_arch && !condition_test(match_arch))
+                return false;
 
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
-                return 0;
+                return false;
 
         if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))
-                return 0;
+                return false;
 
         if (match_driver) {
                 if (dev_parent_driver && !streq(match_driver, dev_parent_driver))
-                        return 0;
+                        return false;
                 else if (!streq_ptr(match_driver, dev_driver))
-                        return 0;
+                        return false;
         }
 
         if (match_type && !streq_ptr(match_type, dev_type))
-                return 0;
+                return false;
 
         if (match_name && (!dev_name || fnmatch(match_name, dev_name, 0)))
-                return 0;
+                        return false;
 
-        return 1;
+        return true;
 }
 
 int config_parse_net_condition(const char *unit,
@@ -392,10 +392,12 @@ void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *route
 
         fprintf(f, "%s=", key);
 
-        for (i = 0; i < size; i++)
-                fprintf(f, "%s/%" PRIu8 ",%s%s", inet_ntoa(routes[i].dst_addr),
-                        routes[i].dst_prefixlen, inet_ntoa(routes[i].gw_addr),
+        for (i = 0; i < size; i++) {
+                fprintf(f, "%s/%" PRIu8, inet_ntoa(routes[i].dst_addr),
+                        routes[i].dst_prefixlen);
+                fprintf(f, ",%s%s", inet_ntoa(routes[i].gw_addr),
                         (i < (size - 1)) ? " ": "");
+        }
 
         fputs("\n", f);
 }

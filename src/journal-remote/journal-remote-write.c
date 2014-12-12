@@ -59,11 +59,9 @@ static int do_rotate(JournalFile **f, bool compress, bool seal) {
         int r = journal_file_rotate(f, compress, seal);
         if (r < 0) {
                 if (*f)
-                        log_error("Failed to rotate %s: %s", (*f)->path,
-                                  strerror(-r));
+                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error("Failed to create rotated journal: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Failed to create rotated journal: %m");
         }
 
         return r;
@@ -153,7 +151,7 @@ int writer_write(Writer *w,
                 return 1;
         }
 
-        log_debug("%s: Write failed, rotating: %s", w->journal->path, strerror(-r));
+        log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
         r = do_rotate(&w->journal, compress, seal);
         if (r < 0)
                 return r;

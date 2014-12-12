@@ -75,7 +75,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
+        /* "-" prevents getopt from permuting argv[] and moving the verb away
+         * from argv[1]. Our interface to initrd promises it'll be there. */
+        while ((c = getopt_long(argc, argv, "-", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_LOG_LEVEL:
@@ -113,6 +115,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case '\001':
+                        if (!arg_verb)
+                                arg_verb = optarg;
+                        else
+                                log_error("Excess arguments, ignoring");
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -120,28 +129,20 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option code.");
                 }
 
-        if (optind >= argc) {
+        if (!arg_verb) {
                 log_error("Verb argument missing.");
                 return -EINVAL;
         }
 
-        arg_verb = argv[optind];
-
-        if (optind + 1 < argc)
-                log_error("Excess arguments, ignoring");
         return 0;
 }
 
 static int switch_root_initramfs(void) {
-        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0) {
-                log_error("Failed to mount bind /run/initramfs on /run/initramfs: %m");
-                return -errno;
-        }
+        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0)
+                return log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
 
-        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0) {
-                log_error("Failed to make /run/initramfs private mount: %m");
-                return -errno;
-        }
+        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
+                return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
 
         /* switch_root with MS_BIND, because there might still be processes lurking around, which have open file desriptors.
          * /run/initramfs/shutdown will take care of these.
@@ -165,7 +166,7 @@ int main(int argc, char *argv[]) {
                 goto error;
 
         /* journald will die if not gone yet. The log target defaults
-         * to console, but may have been changed by commandline options. */
+         * to console, but may have been changed by command line options. */
 
         log_close_console(); /* force reopen of /dev/console */
         log_open();
@@ -235,7 +236,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all file systems unmounted, %d left.", r);
                         else
-                                log_error("Failed to unmount file systems: %s", strerror(-r));
+                                log_error_errno(r, "Failed to unmount file systems: %m");
                 }
 
                 if (need_swapoff) {
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all swaps deactivated, %d left.", r);
                         else
-                                log_error("Failed to deactivate swaps: %s", strerror(-r));
+                                log_error_errno(r, "Failed to deactivate swaps: %m");
                 }
 
                 if (need_loop_detach) {
@@ -259,7 +260,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all loop devices detached, %d left.", r);
                         else
-                                log_error("Failed to detach loop devices: %s", strerror(-r));
+                                log_error_errno(r, "Failed to detach loop devices: %m");
                 }
 
                 if (need_dm_detach) {
@@ -271,7 +272,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all DM devices detached, %d left.", r);
                         else
-                                log_error("Failed to detach DM devices: %s", strerror(-r));
+                                log_error_errno(r, "Failed to detach DM devices: %m");
                 }
 
                 if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
@@ -322,9 +323,9 @@ int main(int argc, char *argv[]) {
                                  "Returning to initrd...");
 
                         execv("/shutdown", argv);
-                        log_error("Failed to execute shutdown binary: %m");
+                        log_error_errno(errno, "Failed to execute shutdown binary: %m");
                 } else
-                        log_error("Failed to switch root to \"/run/initramfs\": %s", strerror(-r));
+                        log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
 
         }
 
@@ -354,7 +355,7 @@ int main(int argc, char *argv[]) {
 
                         pid = fork();
                         if (pid < 0)
-                                log_error("Failed to fork: %m");
+                                log_error_errno(errno, "Failed to fork: %m");
                         else if (pid == 0) {
 
                                 const char * const args[] = {
@@ -366,7 +367,7 @@ int main(int argc, char *argv[]) {
                                 execv(args[0], (char * const *) args);
                                 _exit(EXIT_FAILURE);
                         } else
-                                wait_for_terminate_and_warn("kexec", pid);
+                                wait_for_terminate_and_warn("kexec", pid, true);
                 }
 
                 cmd = RB_AUTOBOOT;
@@ -407,11 +408,11 @@ int main(int argc, char *argv[]) {
                 exit(0);
         }
 
-        log_error("Failed to invoke reboot(): %m");
+        log_error_errno(errno, "Failed to invoke reboot(): %m");
         r = -errno;
 
   error:
-        log_error("Critical error while doing system shutdown: %s", strerror(-r));
+        log_emergency_errno(r, "Critical error while doing system shutdown: %m");
 
         freeze();
 }

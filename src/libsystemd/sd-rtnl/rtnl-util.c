@@ -122,6 +122,17 @@ int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message
         return 0;
 }
 
+bool rtnl_message_type_is_neigh(uint16_t type) {
+        switch (type) {
+                case RTM_NEWNEIGH:
+                case RTM_GETNEIGH:
+                case RTM_DELNEIGH:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
 bool rtnl_message_type_is_route(uint16_t type) {
         switch (type) {
                 case RTM_NEWROUTE:
@@ -157,11 +168,9 @@ bool rtnl_message_type_is_addr(uint16_t type) {
 }
 
 int rtnl_log_parse_error(int r) {
-        log_error("Failed to parse netlink message: %s", strerror(-r));
-        return r;
+        return log_error_errno(r, "Failed to parse netlink message: %m");
 }
 
 int rtnl_log_create_error(int r) {
-        log_error("Failed to create netlink message: %s", strerror(-r));
-        return r;
+        return log_error_errno(r, "Failed to create netlink message: %m");
 }

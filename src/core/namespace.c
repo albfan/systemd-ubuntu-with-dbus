@@ -145,7 +145,7 @@ static int mount_dev(BindMount *m) {
                 "/dev/tty\0";
 
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
-        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
+        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -157,14 +157,14 @@ static int mount_dev(BindMount *m) {
                 return -errno;
 
         dev = strappenda(temporary_mount, "/dev");
-        mkdir(dev, 0755);
+        (void)mkdir(dev, 0755);
         if (mount("tmpfs", dev, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755") < 0) {
                 r = -errno;
                 goto fail;
         }
 
         devpts = strappenda(temporary_mount, "/dev/pts");
-        mkdir(devpts, 0755);
+        (void)mkdir(devpts, 0755);
         if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
                 r = -errno;
                 goto fail;
@@ -174,7 +174,7 @@ static int mount_dev(BindMount *m) {
         symlink("pts/ptmx", devptmx);
 
         devshm = strappenda(temporary_mount, "/dev/shm");
-        mkdir(devshm, 01777);
+        (void)mkdir(devshm, 01777);
         r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0) {
                 r = -errno;
@@ -182,15 +182,11 @@ static int mount_dev(BindMount *m) {
         }
 
         devmqueue = strappenda(temporary_mount, "/dev/mqueue");
-        mkdir(devmqueue, 0755);
+        (void)mkdir(devmqueue, 0755);
         mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
-        devkdbus = strappenda(temporary_mount, "/dev/kdbus");
-        mkdir(devkdbus, 0755);
-        mount("/dev/kdbus", devkdbus, NULL, MS_BIND, NULL);
-
         devhugepages = strappenda(temporary_mount, "/dev/hugepages");
-        mkdir(devhugepages, 0755);
+        (void)mkdir(devhugepages, 0755);
         mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strappenda(temporary_mount, "/dev/log");
@@ -254,9 +250,6 @@ fail:
         if (devshm)
                 umount(devshm);
 
-        if (devkdbus)
-                umount(devkdbus);
-
         if (devhugepages)
                 umount(devhugepages);
 
@@ -283,13 +276,11 @@ static int mount_kdbus(BindMount *m) {
 
         u = umask(0000);
 
-        if (!mkdtemp(temporary_mount)) {
-                log_error("Failed create temp dir: %m");
-                return -errno;
-        }
+        if (!mkdtemp(temporary_mount))
+                return log_error_errno(errno, "Failed create temp dir: %m");
 
         root = strappenda(temporary_mount, "/kdbus");
-        mkdir(root, 0755);
+        (void)mkdir(root, 0755);
         if (mount("tmpfs", root, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=777") < 0) {
                 r = -errno;
                 goto fail;
@@ -298,21 +289,21 @@ static int mount_kdbus(BindMount *m) {
         /* create a new /dev/null dev node copy so we have some fodder to
          * bind-mount the custom endpoint over. */
         if (stat("/dev/null", &st) < 0) {
-                log_error("Failed to stat /dev/null: %m");
+                log_error_errno(errno, "Failed to stat /dev/null: %m");
                 r = -errno;
                 goto fail;
         }
 
         busnode = strappenda(root, "/bus");
         if (mknod(busnode, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
-                log_error("mknod() for %s failed: %m", busnode);
+                log_error_errno(errno, "mknod() for %s failed: %m", busnode);
                 r = -errno;
                 goto fail;
         }
 
         r = mount(m->path, busnode, "bind", MS_BIND, NULL);
         if (r < 0) {
-                log_error("bind mount of %s failed: %m", m->path);
+                log_error_errno(errno, "bind mount of %s failed: %m", m->path);
                 r = -errno;
                 goto fail;
         }
@@ -324,7 +315,7 @@ static int mount_kdbus(BindMount *m) {
         }
 
         if (mount(root, basepath, NULL, MS_MOVE, NULL) < 0) {
-                log_error("bind mount of %s failed: %m", basepath);
+                log_error_errno(errno, "bind mount of %s failed: %m", basepath);
                 r = -errno;
                 goto fail;
         }

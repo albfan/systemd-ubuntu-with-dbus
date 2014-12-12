@@ -112,7 +112,7 @@
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
-size_t page_size(void);
+size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
@@ -245,6 +245,9 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         return safe_atolli(s, (long long int*) ret_i);
 }
 
+int safe_atou16(const char *s, uint16_t *ret);
+int safe_atoi16(const char *s, int16_t *ret);
+
 const char* split(const char **state, size_t *l, const char *separator, bool quoted);
 
 #define FOREACH_WORD(word, length, s, state)                            \
@@ -260,7 +263,6 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
         for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
-int get_starttime_of_pid(pid_t pid, unsigned long long *st);
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
@@ -270,6 +272,7 @@ char **replace_env_argv(char **argv, char **env);
 
 int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
+int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
 
@@ -291,6 +294,9 @@ int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
 int get_process_gid(pid_t pid, gid_t *gid);
 int get_process_capeff(pid_t pid, char **capeff);
+int get_process_cwd(pid_t pid, char **cwd);
+int get_process_root(pid_t pid, char **root);
+int get_process_environ(pid_t pid, char **environ);
 
 char hexchar(int x) _const_;
 int unhexchar(char c) _const_;
@@ -321,6 +327,7 @@ int make_console_stdio(void);
 
 int dev_urandom(void *p, size_t n);
 void random_bytes(void *p, size_t n);
+void initialize_srand(void);
 
 static inline uint64_t random_u64(void) {
         uint64_t u;
@@ -418,7 +425,7 @@ int sigaction_many(const struct sigaction *sa, ...);
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
-ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
+int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
 bool is_device_path(const char *path);
 
@@ -445,6 +452,8 @@ int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
+
+int is_fd_on_temporary_fs(int fd);
 
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev);
 int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev);
@@ -505,7 +514,7 @@ char *unquote(const char *s, const char *quotes);
 char *normalize_env_assignment(const char *s);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
-int wait_for_terminate_and_warn(const char *name, pid_t pid);
+int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
 
 noreturn void freeze(void);
 
@@ -580,8 +589,6 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
 }
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
-
-int file_is_priv_sticky(const char *p);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
@@ -793,6 +800,15 @@ static inline void _reset_errno_(int *saved_errno) {
 
 #define PROTECT_ERRNO _cleanup_(_reset_errno_) __attribute__((unused)) int _saved_errno_ = errno
 
+static inline int negative_errno(void) {
+        /* This helper should be used to shut up gcc if you know 'errno' is
+         * negative. Instead of "return -errno;", use "return negative_errno();"
+         * It will suppress bogus gcc warnings in case it assumes 'errno' might
+         * be 0 and thus the caller's error-handling might not be triggered. */
+        assert_return(errno > 0, -EINVAL);
+        return -errno;
+}
+
 struct _umask_struct_ {
         mode_t mask;
         bool quit;
@@ -827,6 +843,21 @@ static inline int log2i(int x) {
         assert(x > 0);
 
         return __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1;
+}
+
+static inline unsigned log2u(unsigned x) {
+        assert(x > 0);
+
+        return sizeof(unsigned) * 8 - __builtin_clz(x) - 1;
+}
+
+static inline unsigned log2u_round_up(unsigned x) {
+        assert(x > 0);
+
+        if (x == 1)
+                return 0;
+
+        return log2u(x - 1) + 1;
 }
 
 static inline bool logind_running(void) {
@@ -942,6 +973,7 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size,
 
 int proc_cmdline(char **ret);
 int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
+int get_proc_cmdline_key(const char *parameter, char **value);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
@@ -993,9 +1025,16 @@ int take_password_lock(const char *root);
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 
-int unquote_first_word(const char **p, char **ret);
+int unquote_first_word(const char **p, char **ret, bool relax);
 int unquote_many_words(const char **p, ...) _sentinel_;
 
 int free_and_strdup(char **p, const char *s);
 
 int sethostname_idempotent(const char *s);
+
+#define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
+
+#define FOREACH_INOTIFY_EVENT(e, buffer, sz) \
+        for ((e) = (struct inotify_event*) (buffer);    \
+             (uint8_t*) (e) < (uint8_t*) (buffer) + (sz); \
+             (e) = (struct inotify_event*) ((uint8_t*) (e) + sizeof(struct inotify_event) + (e)->len))

@@ -90,7 +90,14 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->llmnr = LLMNR_SUPPORT_YES;
 
         r = config_parse(NULL, filename, file,
-                         "Match\0Network\0Address\0Route\0DHCP\0DHCPv4\0",
+                         "Match\0"
+                         "Link\0"
+                         "Network\0"
+                         "Address\0"
+                         "Route\0"
+                         "DHCP\0"
+                         "DHCPv4\0"
+                         "Bridge\0",
                          config_item_perf_lookup, network_network_gperf_lookup,
                          false, false, true, network);
         if (r < 0)
@@ -131,10 +138,8 @@ int network_load(Manager *manager) {
                 network_free(network);
 
         r = conf_files_list_strv(&files, ".network", NULL, network_dirs);
-        if (r < 0) {
-                log_error("Failed to enumerate network files: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate network files: %m");
 
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = network_load_one(manager, *f);
@@ -164,6 +169,8 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+
+        free(network->mac);
 
         strv_free(network->ntp);
         strv_free(network->dns);
@@ -219,8 +226,22 @@ int network_get(Manager *manager, struct udev_device *device,
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
                                      ifname)) {
-                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname,
-                                  network->filename);
+                        if (network->match_name) {
+                                const char *attr;
+                                uint8_t name_assign_type = NET_NAME_UNKNOWN;
+
+                                attr = udev_device_get_sysattr_value(device, "name_assign_type");
+                                if (attr)
+                                        (void)safe_atou8(attr, &name_assign_type);
+
+                                if (name_assign_type == NET_NAME_ENUM)
+                                        log_warning("%-*s: found matching network '%s', based on potentially unpredictable ifname",
+                                                    IFNAMSIZ, ifname, network->filename);
+                                else
+                                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+                        } else
+                                log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+
                         *ret = network;
                         return 0;
                 }

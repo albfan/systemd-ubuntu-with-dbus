@@ -28,7 +28,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "cgroup-util.h"
-#include "memfd.h"
+#include "memfd-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -69,13 +69,13 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
                         bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped, part->allocated);
                 else {
                         if (part->mapped > 0)
-                                assert_se(munmap(part->data, part->mapped) == 0);
+                                assert_se(munmap(part->mmap_begin, part->mapped) == 0);
 
                         safe_close(part->memfd);
                 }
 
         } else if (part->munmap_this)
-                munmap(part->data, part->mapped);
+                munmap(part->mmap_begin, part->mapped);
         else if (part->free_this)
                 free(part->data);
 
@@ -147,6 +147,11 @@ static void message_free(sd_bus_message *m) {
 
         if (m->iovec != m->iovec_fixed)
                 free(m->iovec);
+
+        if (m->destination_ptr) {
+                free(m->destination_ptr);
+                m->destination_ptr = NULL;
+        }
 
         message_reset_containers(m);
         free(m->root_container.signature);
@@ -415,10 +420,20 @@ int bus_message_from_header(
         m->n_fds = n_fds;
 
         if (ucred) {
-                m->creds.uid = ucred->uid;
                 m->creds.pid = ucred->pid;
+                m->creds.uid = ucred->uid;
                 m->creds.gid = ucred->gid;
-                m->creds.mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID;
+
+                /* Due to namespace translations some data might be
+                 * missing from this ucred record. */
+                if (m->creds.pid > 0)
+                        m->creds.mask |= SD_BUS_CREDS_PID;
+
+                if (m->creds.uid != UID_INVALID)
+                        m->creds.mask |= SD_BUS_CREDS_UID;
+
+                if (m->creds.gid != GID_INVALID)
+                        m->creds.mask |= SD_BUS_CREDS_GID;
         }
 
         if (label) {
@@ -1097,10 +1112,10 @@ static int part_make_space(
                         uint64_t new_allocated;
 
                         new_allocated = PAGE_ALIGN(sz > 0 ? 2 * sz : 1);
-                        r = ftruncate(part->memfd, new_allocated);
+                        r = memfd_set_size(part->memfd, new_allocated);
                         if (r < 0) {
                                 m->poisoned = true;
-                                return -errno;
+                                return r;
                         }
 
                         part->allocated = new_allocated;
@@ -1113,15 +1128,16 @@ static int part_make_space(
                         if (part->mapped <= 0)
                                 n = mmap(NULL, psz, PROT_READ|PROT_WRITE, MAP_SHARED, part->memfd, 0);
                         else
-                                n = mremap(part->data, part->mapped, psz, MREMAP_MAYMOVE);
+                                n = mremap(part->mmap_begin, part->mapped, psz, MREMAP_MAYMOVE);
 
                         if (n == MAP_FAILED) {
                                 m->poisoned = true;
                                 return -errno;
                         }
 
+                        part->mmap_begin = part->data = n;
                         part->mapped = psz;
-                        part->data = n;
+                        part->memfd_offset = 0;
                 }
 
                 part->munmap_this = true;
@@ -2048,6 +2064,7 @@ static int bus_message_close_variant(sd_bus_message *m, struct bus_container *c)
 
         assert(m);
         assert(c);
+        assert(c->signature);
 
         if (!BUS_MESSAGE_IS_GVARIANT(m))
                 return 0;
@@ -2487,10 +2504,11 @@ _public_ int sd_bus_message_append_array_space(
         return 0;
 }
 
-_public_ int sd_bus_message_append_array(sd_bus_message *m,
-                                         char type,
-                                         const void *ptr,
-                                         size_t size) {
+_public_ int sd_bus_message_append_array(
+                sd_bus_message *m,
+                char type,
+                const void *ptr,
+                size_t size) {
         int r;
         void *p;
 
@@ -2546,26 +2564,26 @@ _public_ int sd_bus_message_append_array_iovec(
         return 0;
 }
 
-_public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
-                                               char type,
-                                               int memfd) {
+_public_ int sd_bus_message_append_array_memfd(
+                sd_bus_message *m,
+                char type,
+                int memfd,
+                uint64_t offset,
+                uint64_t size) {
+
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         ssize_t align, sz;
-        uint64_t size;
+        uint64_t real_size;
         void *a;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (memfd < 0)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (!bus_type_is_trivial(type))
-                return -EINVAL;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(memfd >= 0, -EINVAL);
+        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(size > 0, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
 
         r = memfd_set_sealed(memfd);
         if (r < 0)
@@ -2575,15 +2593,23 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &real_size);
         if (r < 0)
                 return r;
+
+        if (offset == 0 && size == (uint64_t) -1)
+                size = real_size;
+        else if (offset + size > real_size)
+                return -EMSGSIZE;
 
         align = bus_type_get_alignment(type);
         sz = bus_type_get_size(type);
 
         assert_se(align > 0);
         assert_se(sz > 0);
+
+        if (offset % align != 0)
+                return -EINVAL;
 
         if (size % sz != 0)
                 return -EINVAL;
@@ -2604,6 +2630,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
                 return -ENOMEM;
 
         part->memfd = copy_fd;
+        part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
         copy_fd = -1;
@@ -2614,16 +2641,22 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         return sd_bus_message_close_container(m);
 }
 
-_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
+_public_ int sd_bus_message_append_string_memfd(
+                sd_bus_message *m,
+                int memfd,
+                uint64_t offset,
+                uint64_t size) {
+
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         struct bus_container *c;
-        uint64_t size;
+        uint64_t real_size;
         void *a;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(memfd >= 0, -EINVAL);
+        assert_return(size > 0, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
@@ -2635,9 +2668,14 @@ _public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &real_size);
         if (r < 0)
                 return r;
+
+        if (offset == 0 && size == (uint64_t) -1)
+                size = real_size;
+        else if (offset + size > real_size)
+                return -EMSGSIZE;
 
         /* We require this to be NUL terminated */
         if (size == 0)
@@ -2679,6 +2717,7 @@ _public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
                 return -ENOMEM;
 
         part->memfd = copy_fd;
+        part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
         copy_fd = -1;
@@ -2820,11 +2859,12 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
                                 /* Then, sync up real memfd size */
                                 sz = part->size;
-                                if (ftruncate(part->memfd, sz) < 0)
-                                        return -errno;
+                                r = memfd_set_size(part->memfd, sz);
+                                if (r < 0)
+                                        return r;
 
                                 /* Finally, try to seal */
-                                if (fcntl(part->memfd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE) >= 0)
+                                if (memfd_set_sealed(part->memfd) >= 0)
                                         part->sealed = true;
                         }
         }
@@ -2841,7 +2881,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
 int bus_body_part_map(struct bus_body_part *part) {
         void *p;
-        size_t psz;
+        size_t psz, shift;
 
         assert_se(part);
 
@@ -2858,10 +2898,11 @@ int bus_body_part_map(struct bus_body_part *part) {
                 return 0;
         }
 
-        psz = PAGE_ALIGN(part->size);
+        shift = part->memfd_offset - ((part->memfd_offset / page_size()) * page_size());
+        psz = PAGE_ALIGN(part->size + shift);
 
         if (part->memfd >= 0)
-                p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, 0);
+                p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, part->memfd_offset - shift);
         else if (part->is_zero)
                 p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         else
@@ -2871,7 +2912,8 @@ int bus_body_part_map(struct bus_body_part *part) {
                 return -errno;
 
         part->mapped = psz;
-        part->data = p;
+        part->mmap_begin = p;
+        part->data = (uint8_t*) p + shift;
         part->munmap_this = true;
 
         return 0;
@@ -2884,14 +2926,15 @@ void bus_body_part_unmap(struct bus_body_part *part) {
         if (part->memfd < 0)
                 return;
 
-        if (!part->data)
+        if (!part->mmap_begin)
                 return;
 
         if (!part->munmap_this)
                 return;
 
-        assert_se(munmap(part->data, part->mapped) == 0);
+        assert_se(munmap(part->mmap_begin, part->mapped) == 0);
 
+        part->mmap_begin = NULL;
         part->data = NULL;
         part->mapped = 0;
         part->munmap_this = false;
@@ -4434,12 +4477,31 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
 
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
-        assert_return(types, -EINVAL);
 
-        if (isempty(types))
-                return 0;
+        /* If types is NULL, read exactly one element */
+        if (!types) {
+                struct bus_container *c;
+                size_t l;
+
+                if (message_end_of_signature(m))
+                        return -ENXIO;
+
+                if (message_end_of_array(m, m->rindex))
+                        return 0;
+
+                c = message_get_container(m);
+
+                r = signature_element_length(c->signature + c->index, &l);
+                if (r < 0)
+                        return r;
+
+                types = strndupa(c->signature + c->index, l);
+        }
 
         switch (*types) {
+
+        case 0: /* Nothing to drop */
+                return 0;
 
         case SD_BUS_TYPE_BYTE:
         case SD_BUS_TYPE_BOOLEAN:
@@ -5154,11 +5216,18 @@ int bus_message_parse_fields(sd_bus_message *m) {
         case SD_BUS_MESSAGE_SIGNAL:
                 if (!m->path || !m->interface || !m->member)
                         return -EBADMSG;
+
+                if (m->reply_cookie != 0)
+                        return -EBADMSG;
+
                 break;
 
         case SD_BUS_MESSAGE_METHOD_CALL:
 
                 if (!m->path || !m->member)
+                        return -EBADMSG;
+
+                if (m->reply_cookie != 0)
                         return -EBADMSG;
 
                 break;
@@ -5291,35 +5360,57 @@ _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
         return 1;
 }
 
-const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
-        int r;
-        const char *t = NULL;
+int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str, char ***strv) {
+        const char *contents;
         unsigned j;
+        char type;
+        int r;
 
         assert(m);
+        assert(str);
+        assert(strv);
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0)
-                return NULL;
+                return r;
 
-        for (j = 0; j <= i; j++) {
-                char type;
-
-                r = sd_bus_message_peek_type(m, &type, NULL);
+        for (j = 0;; j++) {
+                r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
-                        return NULL;
+                        return r;
+                if (r == 0)
+                        return -ENXIO;
 
-                if (type != SD_BUS_TYPE_STRING &&
-                    type != SD_BUS_TYPE_OBJECT_PATH &&
-                    type != SD_BUS_TYPE_SIGNATURE)
-                        return NULL;
+                /* Don't match against arguments after the first one we don't understand */
+                if (!IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE) &&
+                    !(type == SD_BUS_TYPE_ARRAY && STR_IN_SET(contents, "s", "o", "g")))
+                        return -ENXIO;
 
-                r = sd_bus_message_read_basic(m, type, &t);
+                if (j >= i)
+                        break;
+
+                r = sd_bus_message_skip(m, NULL);
                 if (r < 0)
-                        return NULL;
+                        return r;
         }
 
-        return t;
+        if (type == SD_BUS_TYPE_ARRAY) {
+
+                r = sd_bus_message_read_strv(m, strv);
+                if (r < 0)
+                        return r;
+
+                *str = NULL;
+
+        } else {
+                r = sd_bus_message_read_basic(m, type, str);
+                if (r < 0)
+                        return r;
+
+                *strv = NULL;
+        }
+
+        return 0;
 }
 
 bool bus_header_is_complete(struct bus_header *h, size_t size) {
@@ -5372,6 +5463,18 @@ _public_ const char* sd_bus_message_get_signature(sd_bus_message *m, int complet
 
         c = complete ? &m->root_container : message_get_container(m);
         return strempty(c->signature);
+}
+
+_public_ int sd_bus_message_is_empty(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+
+        return isempty(m->root_container.signature);
+}
+
+_public_ int sd_bus_message_has_signature(sd_bus_message *m, const char *signature) {
+        assert_return(m, -EINVAL);
+
+        return streq(strempty(m->root_container.signature), strempty(signature));
 }
 
 _public_ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {

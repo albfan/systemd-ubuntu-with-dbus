@@ -136,7 +136,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         }
 
         if (!exists) {
-                log_error("Failed to add watch on any of the components of %s: %m",
+                log_error_errno(errno, "Failed to add watch on any of the components of %s: %m",
                           s->path);
                 r = -errno; /* either EACCESS or ENOENT */
                 goto fail;
@@ -157,10 +157,9 @@ void path_spec_unwatch(PathSpec *s) {
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {
-        _cleanup_free_ uint8_t *buf = NULL;
+        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
         struct inotify_event *e;
-        ssize_t k;
-        int l;
+        ssize_t l;
         int r = 0;
 
         if (revents != EPOLLIN) {
@@ -168,37 +167,18 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return -EINVAL;
         }
 
-        if (ioctl(s->inotify_fd, FIONREAD, &l) < 0) {
-                log_error("FIONREAD failed: %m");
-                return -errno;
+        l = read(s->inotify_fd, buffer, sizeof(buffer));
+        if (l < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to read inotify event: %m");
         }
 
-        assert(l > 0);
-
-        buf = malloc(l);
-        if (!buf)
-                return log_oom();
-
-        k = read(s->inotify_fd, buf, l);
-        if (k < 0) {
-                log_error("Failed to read inotify event: %m");
-                return -errno;
-        }
-
-        e = (struct inotify_event*) buf;
-
-        while (k > 0) {
-                size_t step;
-
+        FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 if ((s->type == PATH_CHANGED || s->type == PATH_MODIFIED) &&
                     s->primary_wd == e->wd)
                         r = 1;
-
-                step = sizeof(struct inotify_event) + e->len;
-                assert(step <= (size_t) k);
-
-                e = (struct inotify_event*) ((uint8_t*) e + step);
-                k -= step;
         }
 
         return r;
@@ -250,7 +230,7 @@ static void path_spec_mkdir(PathSpec *s, mode_t mode) {
 
         r = mkdir_p_label(s->path, mode);
         if (r < 0)
-                log_warning("mkdir(%s) failed: %s", s->path, strerror(-r));
+                log_warning_errno(r, "mkdir(%s) failed: %m", s->path);
 }
 
 static void path_spec_dump(PathSpec *s, FILE *f, const char *prefix) {
@@ -320,7 +300,7 @@ static int path_verify(Path *p) {
                 return 0;
 
         if (!p->specs) {
-                log_error_unit(UNIT(p)->id,
+                log_unit_error(UNIT(p)->id,
                                "%s lacks path setting. Refusing.", UNIT(p)->id);
                 return -EINVAL;
         }
@@ -562,8 +542,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s",
-                    UNIT(p)->id, strerror(-r));
+        log_warning_errno(r, "%s failed to enter waiting state: %m", UNIT(p)->id);
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
@@ -724,7 +703,7 @@ static void path_trigger_notify(Unit *u, Unit *other) {
 
         if (p->state == PATH_RUNNING &&
             UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
-                log_debug_unit(UNIT(p)->id,
+                log_unit_debug(UNIT(p)->id,
                                "%s got notified about unit deactivation.",
                                UNIT(p)->id);
 

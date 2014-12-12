@@ -26,6 +26,7 @@
 #include "sd-rtnl.h"
 #include "networkd-netdev-vxlan.h"
 #include "networkd-link.h"
+#include "conf-parser.h"
 #include "missing.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
@@ -41,7 +42,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if (v->id <= VXLAN_VID_MAX) {
                 r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_ID, v->id);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_ID attribute: %s",
                                          strerror(-r));
                         return r;
@@ -50,7 +51,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->group.in);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_GROUP attribute: %s",
                                  strerror(-r));
                 return r;
@@ -58,7 +59,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_LINK attribute: %s",
                                  strerror(-r));
                 return r;
@@ -67,7 +68,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if(v->ttl) {
                 r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_TTL attribute: %s",
                                          strerror(-r));
                         return r;
@@ -77,7 +78,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if(v->tos) {
                 r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_TOS attribute: %s",
                                          strerror(-r));
                         return r;
@@ -86,13 +87,93 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_LEARNING, v->learning);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_LEARNING attribute: %s",
                                  strerror(-r));
                 return r;
         }
 
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_RSC, v->route_short_circuit);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_RSC attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_PROXY, v->arp_proxy);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_PROXY attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_L2MISS, v->l2miss);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_L2MISS attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_L3MISS, v->l3miss);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_L3MISS attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        if(v->fdb_ageing) {
+                r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
+                if (r < 0) {
+                        log_netdev_error(netdev,
+                                         "Could not append IFLA_VXLAN_AGEING attribute: %s",
+                                         strerror(-r));
+                        return r;
+                }
+        }
+
         return r;
+}
+
+int config_parse_vxlan_group_address(const char *unit,
+                                     const char *filename,
+                                     unsigned line,
+                                     const char *section,
+                                     unsigned section_line,
+                                     const char *lvalue,
+                                     int ltype,
+                                     const char *rvalue,
+                                     void *data,
+                                     void *userdata) {
+        VxLan *v = userdata;
+        union in_addr_union *addr = data, buffer;
+        int r, f;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = in_addr_from_string_auto(rvalue, &f, &buffer);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "vxlan multicast group address is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if(v->family != AF_UNSPEC && v->family != f) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "vxlan multicast group incompatible, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        v->family = f;
+        *addr = buffer;
+
+        return 0;
 }
 
 static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {

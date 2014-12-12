@@ -521,7 +521,7 @@ int bus_open_system_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_set_address(bus, KERNEL_SYSTEM_BUS_PATH);
+        r = sd_bus_set_address(bus, KERNEL_SYSTEM_BUS_ADDRESS);
         if (r < 0)
                 return r;
 
@@ -574,7 +574,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&bus->address, KERNEL_USER_BUS_FMT, getuid()) < 0)
+        if (asprintf(&bus->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid()) < 0)
                 return -ENOMEM;
 
         bus->bus_client = true;
@@ -640,8 +640,15 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                 if (r < 0)
                         return r;
 
-                if (all || !isempty(s))
-                        printf("%s=%s\n", name, s);
+                if (all || !isempty(s)) {
+                        _cleanup_free_ char *escaped = NULL;
+
+                        escaped = xescape(s, "\n");
+                        if (!escaped)
+                                return -ENOMEM;
+
+                        printf("%s=%s\n", name, escaped);
+                }
 
                 return 1;
         }
@@ -732,10 +739,16 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                                 return r;
 
                         while((r = sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) > 0) {
+                                _cleanup_free_ char *escaped = NULL;
+
                                 if (first)
                                         printf("%s=", name);
 
-                                printf("%s%s", first ? "" : " ", str);
+                                escaped = xescape(str, "\n ");
+                                if (!escaped)
+                                        return -ENOMEM;
+
+                                printf("%s%s", first ? "" : " ", escaped);
 
                                 first = false;
                         }
@@ -1250,13 +1263,11 @@ int bus_property_get_ulong(
 #endif
 
 int bus_log_parse_error(int r) {
-        log_error("Failed to parse bus message: %s", strerror(-r));
-        return r;
+        return log_error_errno(r, "Failed to parse bus message: %m");
 }
 
 int bus_log_create_error(int r) {
-        log_error("Failed to create bus message: %s", strerror(-r));
-        return r;
+        return log_error_errno(r, "Failed to create bus message: %m");
 }
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
@@ -1361,7 +1372,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         if (STR_IN_SET(field,
                        "CPUAccounting", "MemoryAccounting", "BlockIOAccounting",
-                       "SendSIGHUP", "SendSIGKILL")) {
+                       "SendSIGHUP", "SendSIGKILL",
+                       "WakeSystem")) {
 
                 r = parse_boolean(eq);
                 if (r < 0) {
@@ -1521,6 +1533,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "i", sig);
+
+        } else if (streq(field, "AccuracySec")) {
+                usec_t u;
+
+                r = parse_sec(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", u);
 
         } else {
                 log_error("Unknown assignment %s.", assignment);

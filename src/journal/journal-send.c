@@ -32,6 +32,7 @@
 #include "sd-journal.h"
 #include "util.h"
 #include "socket-util.h"
+#include "memfd-util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 
@@ -198,7 +199,7 @@ finish:
 
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         PROTECT_ERRNO;
-        int fd;
+        int fd, r;
         _cleanup_close_ int buffer_fd = -1;
         struct iovec *w;
         uint64_t *l;
@@ -218,6 +219,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         } control;
         struct cmsghdr *cmsg;
         bool have_syslog_identifier = false;
+        bool seal = true;
 
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
@@ -304,20 +306,35 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (errno != EMSGSIZE && errno != ENOBUFS)
                 return -errno;
 
-        /* Message doesn't fit... Let's dump the data in a temporary
-         * file and just pass a file descriptor of it to the other
-         * side.
+        /* Message doesn't fit... Let's dump the data in a memfd or
+         * temporary file and just pass a file descriptor of it to the
+         * other side.
          *
-         * We use /dev/shm instead of /tmp here, since we want this to
-         * be a tmpfs, and one that is available from early boot on
-         * and where unprivileged users can create files. */
-        buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
-        if (buffer_fd < 0)
-                return buffer_fd;
+         * For the temporary files we use /dev/shm instead of /tmp
+         * here, since we want this to be a tmpfs, and one that is
+         * available from early boot on and where unprivileged users
+         * can create files. */
+        buffer_fd = memfd_new(NULL);
+        if (buffer_fd < 0) {
+                if (buffer_fd == -ENOSYS) {
+                        buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
+                        if (buffer_fd < 0)
+                                return buffer_fd;
+
+                        seal = false;
+                } else
+                        return buffer_fd;
+        }
 
         n = writev(buffer_fd, w, j);
         if (n < 0)
                 return -errno;
+
+        if (seal) {
+                r = memfd_set_sealed(buffer_fd);
+                if (r < 0)
+                        return r;
+        }
 
         mh.msg_iov = NULL;
         mh.msg_iovlen = 0;
@@ -436,12 +453,9 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         header[l++] = '0';
         header[l++] = '\n';
 
-        r = (int) loop_write(fd, header, l, false);
+        r = loop_write(fd, header, l, false);
         if (r < 0)
                 return r;
-
-        if ((size_t) r != l)
-                return -errno;
 
         r = fd;
         fd = -1;

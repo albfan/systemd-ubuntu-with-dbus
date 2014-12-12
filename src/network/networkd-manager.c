@@ -36,6 +36,9 @@
 
 #include "sd-rtnl.h"
 
+/* use 8 MB for receive socket kernel queue. */
+#define RCVBUF_SIZE    (8*1024*1024)
+
 const char* const network_dirs[] = {
         "/etc/systemd/network",
         "/run/systemd/network",
@@ -95,6 +98,10 @@ int manager_new(Manager **ret) {
 
         r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
                          RTNLGRP_IPV6_IFADDR);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
         if (r < 0)
                 return r;
 
@@ -229,22 +236,33 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         assert(message);
         assert(m);
 
+        if (sd_rtnl_message_is_error(message)) {
+                r = sd_rtnl_message_get_errno(message);
+                if (r < 0)
+                        log_warning_errno(r, "rtnl: could not receive link: %m");
+
+                return 0;
+        }
+
         r = sd_rtnl_message_get_type(message, &type);
         if (r < 0) {
-                log_warning("rtnl: could not get message type");
+                log_warning_errno(r, "rtnl: could not get message type: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0 || ifindex <= 0) {
-                log_warning("rtnl: received link message without valid ifindex");
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);
                 return 0;
         } else
                 link_get(m, ifindex, &link);
 
         r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
-        if (r < 0 || !name) {
-                log_warning("rtnl: received link message without valid ifname");
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: received link message without ifname: %m");
                 return 0;
         } else
                 netdev_get(m, name, &netdev);
@@ -255,8 +273,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_debug("could not add new link: %s",
-                                           strerror(-r));
+                                log_debug_errno(r, "could not add new link: %m");
                                 return 0;
                         }
                 }
@@ -265,7 +282,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_debug("could not set ifindex on netdev");
+                                log_debug_errno(r, "could not set ifindex on netdev: %m");
                                 return 0;
                         }
                 }
@@ -292,7 +309,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
 int manager_rtnl_enumerate_links(Manager *m) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         sd_rtnl_message *link;
-        int r, k;
+        int r;
 
         assert(m);
         assert(m->rtnl);
@@ -310,16 +327,40 @@ int manager_rtnl_enumerate_links(Manager *m) {
                 return r;
 
         for (link = reply; link; link = sd_rtnl_message_next(link)) {
-                uint16_t type;
-
-                k = sd_rtnl_message_get_type(link, &type);
-                if (k < 0)
-                        return k;
-
-                if (type != RTM_NEWLINK)
-                        continue;
+                int k;
 
                 k = manager_rtnl_process_link(m->rtnl, link, m);
+                if (k < 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+int manager_rtnl_enumerate_addresses(Manager *m) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        sd_rtnl_message *addr;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (addr = reply; addr; addr = sd_rtnl_message_next(addr)) {
+                int k;
+
+                k = link_rtnl_process_address(m->rtnl, addr, m);
                 if (k < 0)
                         r = k;
         }
@@ -349,10 +390,8 @@ int manager_udev_listen(Manager *m) {
         assert(m->udev_monitor);
 
         r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
-        if (r < 0) {
-                log_error("Could not add udev monitor filter: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not add udev monitor filter: %m");
 
         r = udev_monitor_enable_receiving(m->udev_monitor);
         if (r < 0) {
@@ -368,7 +407,7 @@ int manager_udev_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_name(m->udev_event_source, "networkd-udev");
+        r = sd_event_source_set_description(m->udev_event_source, "networkd-udev");
         if (r < 0)
                 return r;
 
@@ -590,7 +629,7 @@ int manager_save(Manager *m) {
         return 0;
 
 fail:
-        log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+        log_error_errno(r, "Failed to save network state to %s: %m", m->state_file);
         unlink(m->state_file);
         unlink(temp_path);
         return r;

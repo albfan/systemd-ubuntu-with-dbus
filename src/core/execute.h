@@ -142,6 +142,9 @@ struct ExecContext {
         bool apparmor_profile_ignore;
         char *apparmor_profile;
 
+        bool smack_process_label_ignore;
+        char *smack_process_label;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
@@ -207,6 +210,7 @@ struct ExecParameters {
         bool selinux_context_net;
         CGroupControllerMask cgroup_supported;
         const char *cgroup_path;
+        bool cgroup_delegate;
         const char *runtime_prefix;
         const char *unit_id;
         usec_t watchdog_usec;
@@ -244,6 +248,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_r
 int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l);
 
 bool exec_context_may_touch_console(ExecContext *c);
+bool exec_context_maintains_privileges(ExecContext *c);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);

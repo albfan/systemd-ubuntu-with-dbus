@@ -154,7 +154,7 @@ int seat_save(Seat *s) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save seat data %s: %s", s->state_file, strerror(-r));
+                log_error_errno(r, "Failed to save seat data %s: %m", s->state_file);
 
         return r;
 }
@@ -201,7 +201,7 @@ int seat_preallocate_vts(Seat *s) {
 
                 q = vt_allocate(i);
                 if (q < 0) {
-                        log_error("Failed to preallocate VT %i: %s", i, strerror(-q));
+                        log_error_errno(q, "Failed to preallocate VT %i: %m", i);
                         r = q;
                 }
         }
@@ -221,7 +221,7 @@ int seat_apply_acls(Seat *s, Session *old_active) {
                             !!s->active, s->active ? s->active->user->uid : 0);
 
         if (r < 0)
-                log_error("Failed to apply ACLs: %s", strerror(-r));
+                log_error_errno(r, "Failed to apply ACLs: %m");
 
         return r;
 }
@@ -400,9 +400,9 @@ int seat_start(Seat *s) {
                 return 0;
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_SEAT_START),
+                   LOG_MESSAGE_ID(SD_MESSAGE_SEAT_START),
                    "SEAT_ID=%s", s->id,
-                   "MESSAGE=New seat %s.", s->id,
+                   LOG_MESSAGE("New seat %s.", s->id),
                    NULL);
 
         /* Initialize VT magic stuff */
@@ -428,9 +428,9 @@ int seat_stop(Seat *s, bool force) {
 
         if (s->started)
                 log_struct(LOG_INFO,
-                           MESSAGE_ID(SD_MESSAGE_SEAT_STOP),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SEAT_STOP),
                            "SEAT_ID=%s", s->id,
-                           "MESSAGE=Removed seat %s.", s->id,
+                           LOG_MESSAGE("Removed seat %s.", s->id),
                            NULL);
 
         seat_stop_sessions(s, force);

@@ -46,35 +46,47 @@ typedef struct {
         int _need_free;
 } sd_bus_error;
 
+typedef struct {
+        const char* name;
+        int code;
+} sd_bus_error_map;
+
 /* Flags */
 
 enum {
-        SD_BUS_CREDS_PID              = 1ULL << 0,
-        SD_BUS_CREDS_PID_STARTTIME    = 1ULL << 1,
-        SD_BUS_CREDS_TID              = 1ULL << 2,
-        SD_BUS_CREDS_UID              = 1ULL << 3,
-        SD_BUS_CREDS_GID              = 1ULL << 4,
-        SD_BUS_CREDS_COMM             = 1ULL << 5,
-        SD_BUS_CREDS_TID_COMM         = 1ULL << 6,
-        SD_BUS_CREDS_EXE              = 1ULL << 7,
-        SD_BUS_CREDS_CMDLINE          = 1ULL << 8,
-        SD_BUS_CREDS_CGROUP           = 1ULL << 9,
-        SD_BUS_CREDS_UNIT             = 1ULL << 10,
-        SD_BUS_CREDS_USER_UNIT        = 1ULL << 11,
-        SD_BUS_CREDS_SLICE            = 1ULL << 12,
-        SD_BUS_CREDS_SESSION          = 1ULL << 13,
-        SD_BUS_CREDS_OWNER_UID        = 1ULL << 14,
-        SD_BUS_CREDS_EFFECTIVE_CAPS   = 1ULL << 15,
-        SD_BUS_CREDS_PERMITTED_CAPS   = 1ULL << 16,
-        SD_BUS_CREDS_INHERITABLE_CAPS = 1ULL << 17,
-        SD_BUS_CREDS_BOUNDING_CAPS    = 1ULL << 18,
-        SD_BUS_CREDS_SELINUX_CONTEXT  = 1ULL << 19,
-        SD_BUS_CREDS_AUDIT_SESSION_ID = 1ULL << 20,
-        SD_BUS_CREDS_AUDIT_LOGIN_UID  = 1ULL << 21,
-        SD_BUS_CREDS_UNIQUE_NAME      = 1ULL << 22,
-        SD_BUS_CREDS_WELL_KNOWN_NAMES = 1ULL << 23,
-        SD_BUS_CREDS_CONNECTION_NAME  = 1ULL << 24,
-        _SD_BUS_CREDS_ALL             = (1ULL << 25) -1,
+        SD_BUS_CREDS_PID                = 1ULL << 0,
+        SD_BUS_CREDS_TID                = 1ULL << 1,
+        SD_BUS_CREDS_UID                = 1ULL << 2,
+        SD_BUS_CREDS_EUID               = 1ULL << 3,
+        SD_BUS_CREDS_SUID               = 1ULL << 4,
+        SD_BUS_CREDS_FSUID              = 1ULL << 5,
+        SD_BUS_CREDS_GID                = 1ULL << 6,
+        SD_BUS_CREDS_EGID               = 1ULL << 7,
+        SD_BUS_CREDS_SGID               = 1ULL << 8,
+        SD_BUS_CREDS_FSGID              = 1ULL << 9,
+        SD_BUS_CREDS_SUPPLEMENTARY_GIDS = 1ULL << 10,
+        SD_BUS_CREDS_COMM               = 1ULL << 11,
+        SD_BUS_CREDS_TID_COMM           = 1ULL << 12,
+        SD_BUS_CREDS_EXE                = 1ULL << 13,
+        SD_BUS_CREDS_CMDLINE            = 1ULL << 14,
+        SD_BUS_CREDS_CGROUP             = 1ULL << 15,
+        SD_BUS_CREDS_UNIT               = 1ULL << 16,
+        SD_BUS_CREDS_USER_UNIT          = 1ULL << 17,
+        SD_BUS_CREDS_SLICE              = 1ULL << 18,
+        SD_BUS_CREDS_SESSION            = 1ULL << 19,
+        SD_BUS_CREDS_OWNER_UID          = 1ULL << 20,
+        SD_BUS_CREDS_EFFECTIVE_CAPS     = 1ULL << 21,
+        SD_BUS_CREDS_PERMITTED_CAPS     = 1ULL << 22,
+        SD_BUS_CREDS_INHERITABLE_CAPS   = 1ULL << 23,
+        SD_BUS_CREDS_BOUNDING_CAPS      = 1ULL << 24,
+        SD_BUS_CREDS_SELINUX_CONTEXT    = 1ULL << 25,
+        SD_BUS_CREDS_AUDIT_SESSION_ID   = 1ULL << 26,
+        SD_BUS_CREDS_AUDIT_LOGIN_UID    = 1ULL << 27,
+        SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 28,
+        SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 29,
+        SD_BUS_CREDS_DESCRIPTION        = 1ULL << 30,
+        SD_BUS_CREDS_AUGMENT            = 1ULL << 63, /* special flag, if on sd-bus will augment creds struct, in a potentially race-full way. */
+        _SD_BUS_CREDS_ALL               = (1ULL << 32) -1,
 };
 
 enum {
@@ -108,18 +120,29 @@ int sd_bus_open_system_remote(sd_bus **ret, const char *host);
 int sd_bus_open_system_container(sd_bus **ret, const char *machine);
 
 int sd_bus_new(sd_bus **ret);
+
 int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
+int sd_bus_get_address(sd_bus *bus, const char **address);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
-int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
+int sd_bus_is_bus_client(sd_bus *bus);
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t bus_id);
+int sd_bus_is_server(sd_bus *bus);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
+int sd_bus_is_anonymous(sd_bus *bus);
 int sd_bus_set_trusted(sd_bus *bus, int b);
-int sd_bus_set_name(sd_bus *bus, const char *name);
+int sd_bus_is_trusted(sd_bus *bus);
 int sd_bus_set_monitor(sd_bus *bus, int b);
+int sd_bus_is_monitor(sd_bus *bus);
+int sd_bus_set_description(sd_bus *bus, const char *description);
+int sd_bus_get_description(sd_bus *bus, const char **description);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
-int sd_bus_negotiate_creds(sd_bus *bus, uint64_t creds_mask);
+int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
+int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *creds_mask);
+
 int sd_bus_start(sd_bus *ret);
 
 int sd_bus_try_close(sd_bus *bus);
@@ -129,11 +152,11 @@ sd_bus *sd_bus_ref(sd_bus *bus);
 sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
-int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
-int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
-int sd_bus_get_name(sd_bus *bus, const char **name);
+
+int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id);
+int sd_bus_get_scope(sd_bus *bus, const char **scope);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
+int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
@@ -147,6 +170,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
+
 sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus);
 sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
 sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus);
@@ -171,9 +195,10 @@ sd_bus_slot* sd_bus_slot_ref(sd_bus_slot *slot);
 sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot);
 
 sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot);
-
 void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
+int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
+int sd_bus_slot_get_description(sd_bus_slot *slot, char **description);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
 sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);
@@ -220,6 +245,8 @@ sd_bus_creds *sd_bus_message_get_creds(sd_bus_message *m); /* do not unref the r
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_error(sd_bus_message *m, const char *name);
+int sd_bus_message_is_empty(sd_bus_message *m);
+int sd_bus_message_has_signature(sd_bus_message *m, const char *signature);
 
 int sd_bus_message_set_expect_reply(sd_bus_message *m, int b);
 int sd_bus_message_set_auto_start(sd_bus_message *m, int b);
@@ -233,10 +260,10 @@ int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
 int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
 int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr);
 int sd_bus_message_append_array_iovec(sd_bus_message *m, char type, const struct iovec *iov, unsigned n);
-int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, int memfd);
+int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, int memfd, uint64_t offset, uint64_t size);
 int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s);
 int sd_bus_message_append_string_iovec(sd_bus_message *m, const struct iovec *iov, unsigned n);
-int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd);
+int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd, uint64_t offset, uint64_t size);
 int sd_bus_message_append_strv(sd_bus_message *m, char **l);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
@@ -299,10 +326,16 @@ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c);
 uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c);
 
 int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid);
-int sd_bus_creds_get_pid_starttime(sd_bus_creds *c, uint64_t *usec);
 int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid);
 int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid);
+int sd_bus_creds_get_euid(sd_bus_creds *c, uid_t *euid);
+int sd_bus_creds_get_suid(sd_bus_creds *c, uid_t *suid);
+int sd_bus_creds_get_fsuid(sd_bus_creds *c, uid_t *fsuid);
 int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid);
+int sd_bus_creds_get_egid(sd_bus_creds *c, gid_t *egid);
+int sd_bus_creds_get_sgid(sd_bus_creds *c, gid_t *sgid);
+int sd_bus_creds_get_fsgid(sd_bus_creds *c, gid_t *fsgid);
+int sd_bus_creds_get_supplementary_gids(sd_bus_creds *c, const gid_t **gids);
 int sd_bus_creds_get_comm(sd_bus_creds *c, const char **comm);
 int sd_bus_creds_get_tid_comm(sd_bus_creds *c, const char **comm);
 int sd_bus_creds_get_exe(sd_bus_creds *c, const char **exe);
@@ -322,7 +355,7 @@ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid);
 int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *loginuid);
 int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
 int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
-int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **name);
+int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 
 /* Error structures */
 
@@ -339,6 +372,19 @@ int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+
+#define SD_BUS_ERROR_MAP(_name, _code)          \
+        {                                       \
+                .name = _name,                  \
+                .code = _code,                  \
+        }
+#define SD_BUS_ERROR_MAP_END                    \
+        {                                       \
+                .name = NULL,                   \
+                .code = - 'x',                  \
+        }
+
+int sd_bus_error_add_map(const sd_bus_error_map *map);
 
 /* Auxiliary macros */
 

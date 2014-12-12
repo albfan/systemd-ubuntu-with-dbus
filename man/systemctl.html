@@ -19,21 +19,22 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemctl — Control the systemd system and service manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemctl</code>  [OPTIONS...]  COMMAND  [NAME...]</p></div></div><div class="refsect1"><a name="idm214185151824"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemctl</strong></span> may be used to introspect and
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemctl — Control the systemd system and service manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemctl</code>  [OPTIONS...]  COMMAND  [NAME...]</p></div></div><div class="refsect1"><a name="idm140128984173728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemctl</strong></span> may be used to introspect and
     control the state of the "<code class="literal">systemd</code>" system and
     service manager. Please refer to
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
     for an introduction into the basic concepts and functionality this
-    tool manages.</p></div><div class="refsect1"><a name="idm214185148480"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-t"><span class="term"><code class="option">-t</code>, </span><span class="term"><code class="option">--type=</code></span><a class="headerlink" title="Permalink to this term" href="#-t">¶</a></dt><dd><p>The argument should be a comma-separated list of unit
+    tool manages.</p></div><div class="refsect1"><a name="idm140128984243056"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-t"><span class="term"><code class="option">-t</code>, </span><span class="term"><code class="option">--type=</code></span><a class="headerlink" title="Permalink to this term" href="#-t">¶</a></dt><dd><p>The argument should be a comma-separated list of unit
           types such as <code class="option">service</code> and
           <code class="option">socket</code>.
           </p><p>If one of the arguments is a unit type, when listing
           units, limit display to certain unit types. Otherwise, units
           of all types will be shown.</p><p>As a special case, if one of the arguments is
           <code class="option">help</code>, a list of allowed values will be
-          printed and the program will exit.</p></dd><dt id="--state="><span class="term"><code class="option">--state=</code></span><a class="headerlink" title="Permalink to this term" href="#--state=">¶</a></dt><dd><p>The argument should be a comma-separated list of unit LOAD,
-        SUB, or ACTIVE states. When listing units, show only those
-        in specified states.</p></dd><dt id="-p"><span class="term"><code class="option">-p</code>, </span><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#-p">¶</a></dt><dd><p>When showing unit/job/manager properties with the
+          printed and the program will exit.</p></dd><dt id="--state="><span class="term"><code class="option">--state=</code></span><a class="headerlink" title="Permalink to this term" href="#--state=">¶</a></dt><dd><p>The argument should be a comma-separated list of unit
+        LOAD, SUB, or ACTIVE states. When listing units, show only
+        those in specified states. Use <code class="option">--state=failed</code>
+        to show only failed units.</p></dd><dt id="-p"><span class="term"><code class="option">-p</code>, </span><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#-p">¶</a></dt><dd><p>When showing unit/job/manager properties with the
           <span class="command"><strong>show</strong></span> command, limit display to certain
           properties as specified as argument. If not specified, all
           set properties are shown. The argument should be a
@@ -47,20 +48,29 @@
           containers. Units of local containers will be prefixed with
           the container name, separated by a single colon character
           ("<code class="literal">:</code>").</p></dd><dt id="--reverse"><span class="term"><code class="option">--reverse</code></span><a class="headerlink" title="Permalink to this term" href="#--reverse">¶</a></dt><dd><p>Show reverse dependencies between units with
-          <span class="command"><strong>list-dependencies</strong></span>, i.e. units with
-          dependencies of type <code class="varname">Wants=</code> or
-          <code class="varname">Requires=</code> on the given unit.
+          <span class="command"><strong>list-dependencies</strong></span>, i.e. follow
+          dependencies of type <code class="varname">WantedBy=</code>,
+          <code class="varname">RequiredBy=</code>,
+          <code class="varname">RequiredByOverrridable=</code>,
+          <code class="varname">PartOf=</code>, <code class="varname">BoundBy=</code>,
+          instead of <code class="varname">Wants=</code> and similar.
           </p></dd><dt id="--after"><span class="term"><code class="option">--after</code></span><a class="headerlink" title="Permalink to this term" href="#--after">¶</a></dt><dd><p>With <span class="command"><strong>list-dependencies</strong></span>, show the
           units that are ordered before the specified unit. In other
-          words, list the units that are in the <code class="varname">After=</code>
-          directive of the specified unit, have the specified unit in
-          their <code class="varname">Before=</code> directive, or are otherwise
-          implicit dependencies of the specified unit.</p></dd><dt id="--before"><span class="term"><code class="option">--before</code></span><a class="headerlink" title="Permalink to this term" href="#--before">¶</a></dt><dd><p>With <span class="command"><strong>list-dependencies</strong></span>, show the
+          words, recursively list units following the
+          <code class="varname">After=</code> dependency.</p><p>Note that any <code class="varname">After=</code> dependency is
+          automatically mirrored to create a
+          <code class="varname">Before=</code> dependency. Temporal dependencies
+          may be specified explictly, but are also created implicitly
+          for units which are <code class="varname">WantedBy=</code> targets
+          (see
+          <a href="systemd.target.html"><span class="citerefentry"><span class="refentrytitle">systemd.target</span>(5)</span></a>),
+          and as a result of other directives (for example
+          <code class="varname">RequiresMountsFor=</code>). Both explicitly
+          and implicitly introduced dependencies are shown with
+          <span class="command"><strong>list-dependencies</strong></span>.</p></dd><dt id="--before"><span class="term"><code class="option">--before</code></span><a class="headerlink" title="Permalink to this term" href="#--before">¶</a></dt><dd><p>With <span class="command"><strong>list-dependencies</strong></span>, show the
           units that are ordered after the specified unit. In other
-          words, list the units that are in the <code class="varname">Before=</code>
-          directive of the specified unit, have the specified unit in
-          their <code class="varname">After=</code> directive, or otherwise depend
-          on the specified unit.</p></dd><dt id="-l"><span class="term"><code class="option">-l</code>, </span><span class="term"><code class="option">--full</code></span><a class="headerlink" title="Permalink to this term" href="#-l">¶</a></dt><dd><p>Do not ellipsize unit names, process tree entries,
+          words, recursively list units following the
+          <code class="varname">Before=</code> dependency.</p></dd><dt id="-l"><span class="term"><code class="option">-l</code>, </span><span class="term"><code class="option">--full</code></span><a class="headerlink" title="Permalink to this term" href="#-l">¶</a></dt><dd><p>Do not ellipsize unit names, process tree entries,
           journal output, or truncate unit descriptions in the output
           of <span class="command"><strong>status</strong></span>, <span class="command"><strong>list-units</strong></span>,
           <span class="command"><strong>list-jobs</strong></span>, and
@@ -192,7 +202,7 @@
           <span class="command"><strong>enable</strong></span>/<span class="command"><strong>disable</strong></span>/<span class="command"><strong>is-enabled</strong></span>
           (and related commands), use alternative root path when
           looking for unit files.</p></dd><dt id="--runtime"><span class="term"><code class="option">--runtime</code></span><a class="headerlink" title="Permalink to this term" href="#--runtime">¶</a></dt><dd><p>When used with <span class="command"><strong>enable</strong></span>,
-          <span class="command"><strong>disable</strong></span>,
+          <span class="command"><strong>disable</strong></span>, <span class="command"><strong>edit</strong></span>,
           (and related commands), make changes only temporarily, so
           that they are lost on the next reboot. This will have the
           effect that changes are not made in subdirectories of
@@ -225,7 +235,7 @@
       <span class="command"><strong>machinectl -H
       <em class="replaceable"><code>HOST</code></em></strong></span>.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
       container name to connect to.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm214183987104"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="refsect2"><a name="idm214183986080"></a><h3 id="Unit Commands">Unit Commands<a class="headerlink" title="Permalink to this headline" href="#Unit%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-units PATTERN..."><span class="term"><span class="command"><strong>list-units [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-units%20PATTERN...">¶</a></dt><dd><p>List known units (subject to limitations specified
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm140128979497200"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="refsect2"><a name="idm140128979496176"></a><h3 id="Unit Commands">Unit Commands<a class="headerlink" title="Permalink to this headline" href="#Unit%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-units PATTERN..."><span class="term"><span class="command"><strong>list-units [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-units%20PATTERN...">¶</a></dt><dd><p>List known units (subject to limitations specified
             with <code class="option">-t</code>). If one or more
             <em class="replaceable"><code>PATTERN</code></em>s are specified, only
             units matching one of them are shown.</p><p>This is the default command.</p></dd><dt id="list-sockets PATTERN..."><span class="term"><span class="command"><strong>list-sockets [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-sockets%20PATTERN...">¶</a></dt><dd><p>List socket units ordered by listening address.
@@ -243,11 +253,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             Note: because the addresses might contains spaces, this output
             is not suitable for programmatic consumption.
             </p><p>See also the options <code class="option">--show-types</code>,
-            <code class="option">--all</code>, and <code class="option">--failed</code>.</p></dd><dt id="list-timers PATTERN..."><span class="term"><span class="command"><strong>list-timers [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-timers%20PATTERN...">¶</a></dt><dd><p>List timer units ordered by the time they elapse
+            <code class="option">--all</code>, and <code class="option">--state=</code>.</p></dd><dt id="list-timers PATTERN..."><span class="term"><span class="command"><strong>list-timers [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-timers%20PATTERN...">¶</a></dt><dd><p>List timer units ordered by the time they elapse
             next. If one or more <em class="replaceable"><code>PATTERN</code></em>s
             are specified, only units matching one of them are shown.
             </p><p>See also the options <code class="option">--all</code> and
-            <code class="option">--failed</code>.</p></dd><dt id="start PATTERN..."><span class="term"><span class="command"><strong>start <em class="replaceable"><code>PATTERN</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#start%20PATTERN...">¶</a></dt><dd><p>Start (activate) one or more units specified on the
+            <code class="option">--state=</code>.</p></dd><dt id="start PATTERN..."><span class="term"><span class="command"><strong>start <em class="replaceable"><code>PATTERN</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#start%20PATTERN...">¶</a></dt><dd><p>Start (activate) one or more units specified on the
             command line.</p><p>Note that glob patterns operate on a list of currently
             loaded units. Units which are not active and are not in a
             failed state usually are not loaded, and would not be
@@ -279,7 +289,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             running. Note that, for compatibility with SysV init scripts,
             <span class="command"><strong>force-reload</strong></span> is equivalent to this
             command.</p></dd><dt id="isolate NAME"><span class="term"><span class="command"><strong>isolate <em class="replaceable"><code>NAME</code></em></strong></span></span><a class="headerlink" title="Permalink to this term" href="#isolate%20NAME">¶</a></dt><dd><p>Start the unit specified on the command line and its
-            dependencies and stop all others.</p><p>This is similar to changing the runlevel in a
+            dependencies and stop all others. If a unit name with no
+            extension is given, an extension of
+            "<code class="literal">.target</code>" will be assumed.</p><p>This is similar to changing the runlevel in a
             traditional init system. The <span class="command"><strong>isolate</strong></span>
             command will immediately stop processes that are not enabled
             in the new unit, possibly including the graphical
@@ -353,12 +365,26 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             out), it will automatically enter the
             "<code class="literal">failed</code>" state and its exit code and status
             is recorded for introspection by the administrator until the
-            service is restarted or reset with this command.</p></dd><dt id="list-dependencies NAME"><span class="term"><span class="command"><strong>list-dependencies <em class="replaceable"><code>NAME</code></em></strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-dependencies%20NAME">¶</a></dt><dd><p>Shows required and wanted units of the specified
-            unit. If no unit is specified,
-            <code class="filename">default.target</code> is implied. Target units
-            are recursively expanded.  When <code class="option">--all</code> is
-            passed, all other units are recursively expanded as
-            well.</p></dd></dl></div></div><div class="refsect2"><a name="idm214183901456"></a><h3 id="Unit File Commands">Unit File Commands<a class="headerlink" title="Permalink to this headline" href="#Unit%20File%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-unit-files PATTERN..."><span class="term"><span class="command"><strong>list-unit-files [<span class="optional"><em class="replaceable"><code>PATTERN...</code></em></span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-unit-files%20PATTERN...">¶</a></dt><dd><p>List installed unit files. If one or more
+            service is restarted or reset with this command.</p></dd><dt id="
+            list-dependencies
+            NAME
+          "><span class="term">
+            <span class="command"><strong>list-dependencies</strong></span>
+            [<span class="optional"><em class="replaceable"><code>NAME</code></em></span>]
+          </span><a class="headerlink" title="Permalink to this term" href="#%0A%20%20%20%20%20%20%20%20%20%20%20%20list-dependencies%0A%20%20%20%20%20%20%20%20%20%20%20%20NAME%0A%20%20%20%20%20%20%20%20%20%20">¶</a></dt><dd><p>Shows units required and wanted by the specified
+            unit. This recursively lists units following the
+            <code class="varname">Requires=</code>,
+            <code class="varname">RequiresOverridable=</code>,
+            <code class="varname">Requisite=</code>,
+            <code class="varname">RequisiteOverridable=</code>,
+            <code class="varname">Wants=</code>, <code class="varname">BindsTo=</code>
+            dependencies. If no unit is specified,
+            <code class="filename">default.target</code> is implied.</p><p>By default, only target units are recursively
+            expanded. When <code class="option">--all</code> is passed, all other
+            units are recursively expanded as well.</p><p>Options <code class="option">--reverse</code>,
+            <code class="option">--after</code>, <code class="option">--before</code>
+            may be used to change what types of dependencies
+            are shown.</p></dd></dl></div></div><div class="refsect2"><a name="idm140128979405504"></a><h3 id="Unit File Commands">Unit File Commands<a class="headerlink" title="Permalink to this headline" href="#Unit%20File%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-unit-files PATTERN..."><span class="term"><span class="command"><strong>list-unit-files [<span class="optional"><em class="replaceable"><code>PATTERN...</code></em></span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-unit-files%20PATTERN...">¶</a></dt><dd><p>List installed unit files. If one or more
             <em class="replaceable"><code>PATTERN</code></em>s are specified, only
             units whose filename (just the last component of the path)
             matches one of them are shown.</p></dd><dt id="enable NAME..."><span class="term"><span class="command"><strong>enable <em class="replaceable"><code>NAME</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#enable%20NAME...">¶</a></dt><dd><p>Enable one or more unit files or unit file instances,
@@ -423,11 +449,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             exit code of 0 if at least one is enabled, non-zero
             otherwise. Prints the current enable status (see table).
             To suppress this output, use <code class="option">--quiet</code>.
-            </p><div class="table"><a name="idm214183873200"></a><p class="title"><b>Table 1. 
+            </p><div class="table"><a name="idm140128979376704"></a><p class="title"><b>Table 1. 
                 <span class="command">is-enabled</span> output
               </b></p><div class="table-contents"><table summary="
                 is-enabled output
-              " border="1"><colgroup><col><col><col></colgroup><thead><tr><th>Printed string</th><th>Meaning</th><th>Return value</th></tr></thead><tbody><tr><td>"<code class="literal">enabled</code>"</td><td rowspan="2">Enabled through a symlink in <code class="filename">.wants</code> directory (permanently or just in <code class="filename">/run</code>)</td><td rowspan="2">0</td></tr><tr><td>"<code class="literal">enabled-runtime</code>"</td></tr><tr><td>"<code class="literal">linked</code>"</td><td rowspan="2">Made available through a symlink to the unit file (permanently or just in <code class="filename">/run</code>)</td><td rowspan="2">1</td></tr><tr><td>"<code class="literal">linked-runtime</code>"</td></tr><tr><td>"<code class="literal">masked</code>"</td><td rowspan="2">Disabled entirely (permanently or just in <code class="filename">/run</code>)</td><td rowspan="2">1</td></tr><tr><td>"<code class="literal">masked-runtime</code>"</td></tr><tr><td>"<code class="literal">static</code>"</td><td>Unit is not enabled, but has no provisions for enabling in [Install] section</td><td>0</td></tr><tr><td>"<code class="literal">disabled</code>"</td><td>Unit is not enabled</td><td>1</td></tr></tbody></table></div></div><br class="table-break"></dd><dt id="reenable NAME..."><span class="term"><span class="command"><strong>reenable <em class="replaceable"><code>NAME</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#reenable%20NAME...">¶</a></dt><dd><p>Reenable one or more unit files, as specified on the
+              " border="1"><colgroup><col><col><col></colgroup><thead><tr><th>Printed string</th><th>Meaning</th><th>Return value</th></tr></thead><tbody><tr><td>"<code class="literal">enabled</code>"</td><td rowspan="2">Enabled through a symlink in <code class="filename">.wants</code> directory (permanently or just in <code class="filename">/run</code>).</td><td rowspan="2">0</td></tr><tr><td>"<code class="literal">enabled-runtime</code>"</td></tr><tr><td>"<code class="literal">linked</code>"</td><td rowspan="2">Made available through a symlink to the unit file (permanently or just in <code class="filename">/run</code>).</td><td rowspan="2">1</td></tr><tr><td>"<code class="literal">linked-runtime</code>"</td></tr><tr><td>"<code class="literal">masked</code>"</td><td rowspan="2">Disabled entirely (permanently or just in <code class="filename">/run</code>).</td><td rowspan="2">1</td></tr><tr><td>"<code class="literal">masked-runtime</code>"</td></tr><tr><td>"<code class="literal">static</code>"</td><td>Unit file is not enabled, and has no provisions for enabling in the "<code class="literal">[Install]</code>" section.</td><td>0</td></tr><tr><td>"<code class="literal">indirect</code>"</td><td>Unit file itself is not enabled, but it has a non-empty <code class="varname">Also=</code> setting in the "<code class="literal">[Install]</code>" section, listing other unit files that might be enabled.</td><td>0</td></tr><tr><td>"<code class="literal">disabled</code>"</td><td>Unit file is not enabled.</td><td>1</td></tr></tbody></table></div></div><br class="table-break"></dd><dt id="reenable NAME..."><span class="term"><span class="command"><strong>reenable <em class="replaceable"><code>NAME</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#reenable%20NAME...">¶</a></dt><dd><p>Reenable one or more unit files, as specified on the
             command line. This is a combination of
             <span class="command"><strong>disable</strong></span> and <span class="command"><strong>enable</strong></span> and
             is useful to reset the symlinks a unit is enabled with to
@@ -472,15 +498,32 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <span class="command"><strong>start</strong></span> and other commands although it
             is not installed directly in the unit search path.</p></dd><dt id="get-default"><span class="term"><span class="command"><strong>get-default</strong></span></span><a class="headerlink" title="Permalink to this term" href="#get-default">¶</a></dt><dd><p>Get the default target specified
             via <code class="filename">default.target</code> link.</p></dd><dt id="set-default NAME"><span class="term"><span class="command"><strong>set-default <em class="replaceable"><code>NAME</code></em></strong></span></span><a class="headerlink" title="Permalink to this term" href="#set-default%20NAME">¶</a></dt><dd><p>Set the default target to boot into. Command links
-            <code class="filename">default.target</code> to the given unit.</p></dd></dl></div></div><div class="refsect2"><a name="idm214183811792"></a><h3 id="Machine Commands">Machine Commands<a class="headerlink" title="Permalink to this headline" href="#Machine%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-machines PATTERN..."><span class="term"><span class="command"><strong>list-machines [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-machines%20PATTERN...">¶</a></dt><dd><p>List the host and all running local containers with
+            <code class="filename">default.target</code> to the given unit.</p></dd><dt id="edit NAME..."><span class="term"><span class="command"><strong>edit <em class="replaceable"><code>NAME</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#edit%20NAME...">¶</a></dt><dd><p>Edit a drop-in snippet or a whole replacement file if
+            <code class="option">--full</code> is specified, to extend or override the
+            specified unit.</p><p>Depending on whether <code class="option">--system</code> (the default),
+            <code class="option">--user</code>, or <code class="option">--global</code> is specified,
+            this creates a drop-in file for each unit either for the system,
+            for the calling user or for all futures logins of all users. Then,
+            the editor (see the "Environment" section below) is invoked on
+            temporary files which will be written to the real location if the
+            editor exits successfully.</p><p>If <code class="option">--full</code> is specified, this will copy the
+            original units instead of creating drop-in files.</p><p>If <code class="option">--runtime</code> is specified, the changes will
+            be made temporarily in <code class="filename">/run</code> and they will be
+            lost on the next reboot.</p><p>If the temporary file is empty upon exit the modification of
+            the related unit is canceled</p><p>After the units have been edited, systemd configuration is
+            reloaded (in a way that is equivalent to <span class="command"><strong>daemon-reload</strong></span>).
+            </p><p>Note that this command cannot be used to remotely edit units
+            and that you cannot temporarily edit units which are in
+            <code class="filename">/etc</code> since they take precedence over
+            <code class="filename">/run</code>.</p></dd></dl></div></div><div class="refsect2"><a name="idm140128979301088"></a><h3 id="Machine Commands">Machine Commands<a class="headerlink" title="Permalink to this headline" href="#Machine%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-machines PATTERN..."><span class="term"><span class="command"><strong>list-machines [<span class="optional"><em class="replaceable"><code>PATTERN</code></em>...</span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-machines%20PATTERN...">¶</a></dt><dd><p>List the host and all running local containers with
             their state. If one or more
             <em class="replaceable"><code>PATTERN</code></em>s are specified, only
             containers matching one of them are shown.
-            </p></dd></dl></div></div><div class="refsect2"><a name="idm214183807600"></a><h3 id="Job Commands">Job Commands<a class="headerlink" title="Permalink to this headline" href="#Job%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-jobs PATTERN..."><span class="term"><span class="command"><strong>list-jobs [<span class="optional"><em class="replaceable"><code>PATTERN...</code></em></span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-jobs%20PATTERN...">¶</a></dt><dd><p>List jobs that are in progress. If one or more
+            </p></dd></dl></div></div><div class="refsect2"><a name="idm140128979296896"></a><h3 id="Job Commands">Job Commands<a class="headerlink" title="Permalink to this headline" href="#Job%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-jobs PATTERN..."><span class="term"><span class="command"><strong>list-jobs [<span class="optional"><em class="replaceable"><code>PATTERN...</code></em></span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-jobs%20PATTERN...">¶</a></dt><dd><p>List jobs that are in progress. If one or more
             <em class="replaceable"><code>PATTERN</code></em>s are specified, only
             jobs for units matching one of them are shown.</p></dd><dt id="cancel JOB..."><span class="term"><span class="command"><strong>cancel <em class="replaceable"><code>JOB</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#cancel%20JOB...">¶</a></dt><dd><p>Cancel one or more jobs specified on the command line
             by their numeric job IDs. If no job ID is specified, cancel
-            all pending jobs.</p></dd></dl></div></div><div class="refsect2"><a name="idm214183801136"></a><h3 id="Snapshot Commands">Snapshot Commands<a class="headerlink" title="Permalink to this headline" href="#Snapshot%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="snapshot NAME"><span class="term"><span class="command"><strong>snapshot [<span class="optional"><em class="replaceable"><code>NAME</code></em></span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#snapshot%20NAME">¶</a></dt><dd><p>Create a snapshot. If a snapshot name is specified,
+            all pending jobs.</p></dd></dl></div></div><div class="refsect2"><a name="idm140128979290432"></a><h3 id="Snapshot Commands">Snapshot Commands<a class="headerlink" title="Permalink to this headline" href="#Snapshot%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="snapshot NAME"><span class="term"><span class="command"><strong>snapshot [<span class="optional"><em class="replaceable"><code>NAME</code></em></span>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#snapshot%20NAME">¶</a></dt><dd><p>Create a snapshot. If a snapshot name is specified,
             the new snapshot will be named after it. If none is
             specified, an automatic snapshot name is generated. In
             either case, the snapshot name used is printed to standard
@@ -495,7 +538,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             which units are running or are stopped, they do not
             save/restore any other state. Snapshots are dynamic and lost
             on reboot.</p></dd><dt id="delete PATTERN..."><span class="term"><span class="command"><strong>delete <em class="replaceable"><code>PATTERN</code></em>...</strong></span></span><a class="headerlink" title="Permalink to this term" href="#delete%20PATTERN...">¶</a></dt><dd><p>Remove a snapshot previously created with
-            <span class="command"><strong>snapshot</strong></span>.</p></dd></dl></div></div><div class="refsect2"><a name="idm214183792144"></a><h3 id="Environment Commands">Environment Commands<a class="headerlink" title="Permalink to this headline" href="#Environment%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="show-environment"><span class="term"><span class="command"><strong>show-environment</strong></span></span><a class="headerlink" title="Permalink to this term" href="#show-environment">¶</a></dt><dd><p>Dump the systemd manager environment block. The
+            <span class="command"><strong>snapshot</strong></span>.</p></dd></dl></div></div><div class="refsect2"><a name="idm140128979281440"></a><h3 id="Environment Commands">Environment Commands<a class="headerlink" title="Permalink to this headline" href="#Environment%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="show-environment"><span class="term"><span class="command"><strong>show-environment</strong></span></span><a class="headerlink" title="Permalink to this term" href="#show-environment">¶</a></dt><dd><p>Dump the systemd manager environment block. The
             environment block will be dumped in straight-forward form
             suitable for sourcing into a shell script. This environment
             block will be passed to all processes the manager
@@ -510,7 +553,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             imported. Otherwise, a list of one or more environment
             variable names should be passed, whose client-side values
             are then imported into the manager's environment
-            block.</p></dd></dl></div></div><div class="refsect2"><a name="idm214183781088"></a><h3 id="Manager Lifecycle Commands">Manager Lifecycle Commands<a class="headerlink" title="Permalink to this headline" href="#Manager%20Lifecycle%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="daemon-reload"><span class="term"><span class="command"><strong>daemon-reload</strong></span></span><a class="headerlink" title="Permalink to this term" href="#daemon-reload">¶</a></dt><dd><p>Reload systemd manager configuration. This will reload
+            block.</p></dd></dl></div></div><div class="refsect2"><a name="idm140128979270384"></a><h3 id="Manager Lifecycle Commands">Manager Lifecycle Commands<a class="headerlink" title="Permalink to this headline" href="#Manager%20Lifecycle%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="daemon-reload"><span class="term"><span class="command"><strong>daemon-reload</strong></span></span><a class="headerlink" title="Permalink to this term" href="#daemon-reload">¶</a></dt><dd><p>Reload systemd manager configuration. This will reload
             all unit files and recreate the entire dependency
             tree. While the daemon is being reloaded, all sockets systemd
             listens on behalf of user configuration will stay
@@ -522,13 +565,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             helpful as a heavy-weight <span class="command"><strong>daemon-reload</strong></span>.
             While the daemon is being reexecuted, all sockets systemd listening
             on behalf of user configuration will stay accessible.
-            </p></dd></dl></div></div><div class="refsect2"><a name="idm214183773648"></a><h3 id="System Commands">System Commands<a class="headerlink" title="Permalink to this headline" href="#System%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="is-system-running"><span class="term"><span class="command"><strong>is-system-running</strong></span></span><a class="headerlink" title="Permalink to this term" href="#is-system-running">¶</a></dt><dd><p>Checks whether the system is operational. This
+            </p></dd></dl></div></div><div class="refsect2"><a name="idm140128979262944"></a><h3 id="System Commands">System Commands<a class="headerlink" title="Permalink to this headline" href="#System%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="is-system-running"><span class="term"><span class="command"><strong>is-system-running</strong></span></span><a class="headerlink" title="Permalink to this term" href="#is-system-running">¶</a></dt><dd><p>Checks whether the system is operational. This
             returns success when the system is fully up and running,
             meaning not in startup, shutdown or maintenance
             mode. Failure is returned otherwise. In addition, the
             current state is printed in a short string to standard
             output, see table below. Use <code class="option">--quiet</code> to
-            suppress this output.</p><div class="table"><a name="idm214183770352"></a><p class="title"><b>Table 2. Manager Operational States</b></p><div class="table-contents"><table summary="Manager Operational States" border="1"><colgroup><col class="name"><col class="description"></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><code class="varname">initializing</code></td><td><p>Early bootup, before
+            suppress this output.</p><div class="table"><a name="idm140128979259648"></a><p class="title"><b>Table 2. Manager Operational States</b></p><div class="table-contents"><table summary="Manager Operational States" border="1"><colgroup><col class="name"><col class="description"></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><code class="varname">initializing</code></td><td><p>Early bootup, before
                     <code class="filename">basic.target</code> is reached
                     or the <code class="varname">maintenance</code> state entered.
                     </p></td></tr><tr><td><code class="varname">starting</code></td><td><p>Late bootup, before the job queue
@@ -605,7 +648,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             equal to the empty string, the state of the initrd's system
             manager process is passed to the main system manager, which
             allows later introspection of the state of the services
-            involved in the initrd boot.</p></dd></dl></div></div><div class="refsect2"><a name="idm214183713808"></a><h3 id="Parameter Syntax">Parameter Syntax<a class="headerlink" title="Permalink to this headline" href="#Parameter%20Syntax">¶</a></h3><p>Unit commands listed above take either a single unit name
+            involved in the initrd boot.</p></dd></dl></div></div><div class="refsect2"><a name="idm140128979203104"></a><h3 id="Parameter Syntax">Parameter Syntax<a class="headerlink" title="Permalink to this headline" href="#Parameter%20Syntax">¶</a></h3><p>Unit commands listed above take either a single unit name
       (designated as <em class="replaceable"><code>NAME</code></em>), or multiple
       unit specifications (designated as
       <em class="replaceable"><code>PATTERN</code></em>...). In the first case, the
@@ -617,9 +660,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       </p><pre class="programlisting"># systemctl start sshd</pre><p> and
       </p><pre class="programlisting"># systemctl start sshd.service</pre><p>
       are equivalent, as are
-      </p><pre class="programlisting"># systemctl isolate snapshot-11</pre><p>
+      </p><pre class="programlisting"># systemctl isolate default</pre><p>
       and
-      </p><pre class="programlisting"># systemctl isolate snapshot-11.snapshot</pre><p>
+      </p><pre class="programlisting"># systemctl isolate default.target</pre><p>
       Note that (absolute) paths to device nodes are automatically
       converted to device unit names, and other (absolute) paths to
       mount unit names.
@@ -649,8 +692,17 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       </p><pre class="programlisting"># systemctl enable foo.service</pre><p>
       or
       </p><pre class="programlisting"># systemctl link /path/to/foo.service</pre><p>
-      </p></div></div><div class="refsect1"><a name="idm214183698816"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-    code otherwise.</p></div><div class="refsect1"><a name="idm214170172736"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+      </p></div></div><div class="refsect1"><a name="idm140128979188112"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm140128979186880"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_EDITOR"><span class="term"><code class="varname">$SYSTEMD_EDITOR</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_EDITOR">¶</a></dt><dd><p>Editor to use when editing units; overrides
+        <code class="varname">$EDITOR</code> and <code class="varname">$VISUAL</code>. If neither
+        <code class="varname">$SYSTEMD_EDITOR</code> nor <code class="varname">$EDITOR</code> nor
+        <code class="varname">$VISUAL</code> are present or if it is set to an empty
+        string or if their execution failed, systemctl will try to execute well
+        known editors in this order:
+        <a href="nano.html"><span class="citerefentry"><span class="refentrytitle">nano</span>(1)</span></a>,
+        <a href="vim.html"><span class="citerefentry"><span class="refentrytitle">vim</span>(1)</span></a>,
+        <a href="vi.html"><span class="citerefentry"><span class="refentrytitle">vi</span>(1)</span></a>.
+        </p></dd></dl></div><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
                         <code class="option">--no-pager</code> is not given;
                         overrides <code class="varname">$PAGER</code>.  Setting
                         this to an empty string or the value
@@ -658,7 +710,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                         <code class="option">--no-pager</code>.</p></dd><dt id="$SYSTEMD_LESS"><span class="term"><code class="varname">$SYSTEMD_LESS</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LESS">¶</a></dt><dd><p>Override the default
                         options passed to
                         <span class="command"><strong>less</strong></span>
-                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm214183697088"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        ("<code class="literal">FRSXMK</code>").</p></dd></div><div class="refsect1"><a name="idm140128979178208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemadm.html"><span class="citerefentry"><span class="refentrytitle">systemadm</span>(1)</span></a>,
       <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,
@@ -667,6 +719,6 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <a href="systemd.resource-management.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-management</span>(5)</span></a>,
       <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/wall.1.html"><span class="citerefentry"><span class="refentrytitle">wall</span>(1)</span></a>,
-      <a href="systemd.preset.html"><span class="citerefentry"><span class="refentrytitle">systemd.preset</span>(5)</span></a>
+      <a href="systemd.preset.html"><span class="citerefentry"><span class="refentrytitle">systemd.preset</span>(5)</span></a>,
       <a href="glob.html"><span class="citerefentry"><span class="refentrytitle">glob</span>(7)</span></a>
     </p></div></div></body></html>

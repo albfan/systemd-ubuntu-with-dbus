@@ -141,16 +141,14 @@ static int manager_sysview_session_add(Manager *m, sysview_event *event) {
         int r;
 
         r = sysview_session_take_control(session);
-        if (r < 0) {
-                log_error("Cannot request session control on '%s': %s",
-                          sysview_session_get_name(session), strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot request session control on '%s': %m",
+                                       sysview_session_get_name(session));
 
         r = session_new(&s, m, session);
         if (r < 0) {
-                log_error("Cannot create session on '%s': %s",
-                          sysview_session_get_name(session), strerror(-r));
+                log_error_errno(r, "Cannot create session on '%s': %m",
+                                sysview_session_get_name(session));
                 sysview_session_release_control(session);
                 return r;
         }
@@ -226,8 +224,8 @@ static int manager_sysview_session_control(Manager *m, sysview_event *event) {
                 return 0;
 
         if (error < 0) {
-                log_error("Cannot take session control on '%s': %s",
-                          sysview_session_get_name(session), strerror(-error));
+                log_error_errno(error, "Cannot take session control on '%s': %m",
+                                sysview_session_get_name(session));
                 session_free(s);
                 sysview_session_set_userdata(session, NULL);
                 return -error;

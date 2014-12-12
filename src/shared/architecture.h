@@ -30,7 +30,7 @@
  * focus on general family, and distuignish word width and
  * endianness. */
 
-typedef enum Architecture {
+enum {
         ARCHITECTURE_X86 = 0,
         ARCHITECTURE_X86_64,
         ARCHITECTURE_PPC,
@@ -60,9 +60,9 @@ typedef enum Architecture {
         ARCHITECTURE_CRIS,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -1
-} Architecture;
+};
 
-Architecture uname_architecture(void);
+int uname_architecture(void);
 
 /*
  * LIB_ARCH_TUPLE should resolve to the local library path
@@ -133,7 +133,7 @@ Architecture uname_architecture(void);
 #  else
 #    define native_architecture() ARCHITECTURE_MIPS_LE
 #    define LIB_ARCH_TUPLE "mipsel-linux-gnu"
-#endif
+#  endif
 #elif defined(__alpha__)
 #  define native_architecture() ARCHITECTURE_ALPHA
 #  define LIB_ARCH_TUPLE "alpha-linux-gnu"
@@ -185,8 +185,8 @@ Architecture uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_CRIS
 #  error "Missing LIB_ARCH_TUPLE for CRIS"
 #else
-#error "Please register your architecture here!"
+#  error "Please register your architecture here!"
 #endif
 
-const char *architecture_to_string(Architecture a) _const_;
-Architecture architecture_from_string(const char *s) _pure_;
+const char *architecture_to_string(int a) _const_;
+int architecture_from_string(const char *s) _pure_;

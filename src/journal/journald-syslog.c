@@ -35,7 +35,7 @@
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
 
-static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
+static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, const struct ucred *ucred, const struct timeval *tv) {
 
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -106,10 +106,10 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
         }
 
         if (errno != ENOENT)
-                log_debug("Failed to forward syslog message: %m");
+                log_debug_errno(errno, "Failed to forward syslog message: %m");
 }
 
-static void forward_syslog_raw(Server *s, int priority, const char *buffer, struct ucred *ucred, struct timeval *tv) {
+static void forward_syslog_raw(Server *s, int priority, const char *buffer, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec;
 
         assert(s);
@@ -122,7 +122,7 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, stru
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
 }
 
-void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv) {
+void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec[5];
         char header_priority[6], header_time[64], header_pid[16];
         int n = 0;
@@ -351,16 +351,18 @@ static void syslog_skip_date(char **buf) {
 void server_process_syslog_message(
         Server *s,
         const char *buf,
-        struct ucred *ucred,
-        struct timeval *tv,
+        const struct ucred *ucred,
+        const struct timeval *tv,
         const char *label,
         size_t label_len) {
 
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
+        char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
+             syslog_facility[sizeof("SYSLOG_FACILITY") + DECIMAL_STR_MAX(int)];
+        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 6];
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
-        char *identifier = NULL, *pid = NULL;
+        _cleanup_free_ char *identifier = NULL, *pid = NULL;
         const char *orig;
 
         assert(s);
@@ -386,42 +388,36 @@ void server_process_syslog_message(
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_priority);
+        sprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
+        IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
-        if (priority & LOG_FACMASK)
-                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        if (priority & LOG_FACMASK) {
+                sprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        }
 
         if (identifier) {
-                syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
+                syslog_identifier = strappenda("SYSLOG_IDENTIFIER=", identifier);
                 if (syslog_identifier)
                         IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         if (pid) {
-                syslog_pid = strappend("SYSLOG_PID=", pid);
+                syslog_pid = strappenda("SYSLOG_PID=", pid);
                 if (syslog_pid)
                         IOVEC_SET_STRING(iovec[n++], syslog_pid);
         }
 
-        message = strappend("MESSAGE=", buf);
+        message = strappenda("MESSAGE=", buf);
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
         server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority, 0);
-
-        free(message);
-        free(identifier);
-        free(pid);
-        free(syslog_priority);
-        free(syslog_facility);
-        free(syslog_identifier);
-        free(syslog_pid);
 }
 
 int server_open_syslog_socket(Server *s) {
-        int one, r;
+        static const int one = 1;
+        int r;
 
         assert(s);
 
@@ -432,51 +428,38 @@ int server_open_syslog_socket(Server *s) {
                 };
 
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->syslog_fd < 0) {
-                        log_error("socket() failed: %m");
-                        return -errno;
-                }
+                if (s->syslog_fd < 0)
+                        return log_error_errno(errno, "socket() failed: %m");
 
                 unlink(sa.un.sun_path);
 
                 r = bind(s->syslog_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error("bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 chmod(sa.un.sun_path, 0666);
         } else
                 fd_nonblock(s->syslog_fd, 1);
 
-        one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_PASSCRED failed: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
-                one = 1;
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
-                        log_warning("SO_PASSSEC failed: %m");
+                        log_warning_errno(errno, "SO_PASSSEC failed: %m");
         }
 #endif
 
-        one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_TIMESTAMP failed: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 
         r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, process_datagram, s);
-        if (r < 0) {
-                log_error("Failed to add syslog server fd to event loop: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add syslog server fd to event loop: %m");
 
         return 0;
 }

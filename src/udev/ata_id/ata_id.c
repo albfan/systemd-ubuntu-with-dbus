@@ -405,14 +405,6 @@ out:
         return ret;
 }
 
-_printf_(6,0)
-static void log_fn(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
-        log_metav(priority, file, line, fn, format, args);
-}
-
 int main(int argc, char *argv[])
 {
         struct udev *udev;
@@ -441,8 +433,6 @@ int main(int argc, char *argv[])
         udev = udev_new();
         if (udev == NULL)
                 goto exit;
-
-        udev_set_log_fn(udev, log_fn);
 
         while (1) {
                 int option;
@@ -504,7 +494,7 @@ int main(int argc, char *argv[])
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m", node);
+                        log_debug_errno(errno, "HDIO_GET_IDENTITY failed for '%s': %m", node);
                         rc = 2;
                         goto close;
                 }

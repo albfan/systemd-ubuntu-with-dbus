@@ -45,6 +45,8 @@
 #include "def.h"
 #include "capability.h"
 #include "bus-policy.h"
+#include "bus-control.h"
+#include "smack-util.h"
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;
@@ -61,7 +63,7 @@ static int help(void) {
                "     --configuration=PATH Configuration file or directory\n"
                "     --machine=MACHINE    Connect to specified machine\n"
                "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
-               "                          (default: " DEFAULT_SYSTEM_BUS_PATH ")\n",
+               "                          (default: " DEFAULT_SYSTEM_BUS_ADDRESS ")\n",
                program_invocation_short_name);
 
         return 0;
@@ -166,7 +168,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_address) {
-                arg_address = strdup(DEFAULT_SYSTEM_BUS_PATH);
+                arg_address = strdup(DEFAULT_SYSTEM_BUS_ADDRESS);
                 if (!arg_address)
                         return log_oom();
         }
@@ -309,48 +311,6 @@ static int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         return sd_bus_send(b, n, NULL);
 }
 
-static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m) {
-        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
-        int r;
-
-        assert(a);
-        assert(b);
-        assert(m);
-
-        if (!a->is_kernel)
-                return 0;
-
-        if (!sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "GetAll"))
-                return 0;
-
-        if (!streq_ptr(m->path, "/org/gnome/DisplayManager/Slave"))
-                return 0;
-
-        r = sd_bus_message_new_method_errorf(m, &n, SD_BUS_ERROR_ACCESS_DENIED, "gdm, you are stupid");
-        if (r < 0)
-                return r;
-
-        r = bus_message_append_sender(n, "org.freedesktop.DBus");
-        if (r < 0) {
-                log_error("Failed to append sender to gdm reply: %s", strerror(-r));
-                return r;
-        }
-
-        r = bus_seal_synthetic_message(b, n);
-        if (r < 0) {
-                log_error("Failed to seal gdm reply: %s", strerror(-r));
-                return r;
-        }
-
-        r = sd_bus_send(b, n, NULL);
-        if (r < 0) {
-                log_error("Failed to send gdm reply: %s", strerror(-r));
-                return r;
-        }
-
-        return 1;
-}
-
 static int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
         int r;
 
@@ -452,8 +412,6 @@ static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bu
         assert(name);
         assert(_creds);
 
-        assert_return(service_name_is_valid(name), -EINVAL);
-
         r = sd_bus_get_name_creds(bus, name, mask, &c);
         if (r == -ESRCH || r == -ENXIO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", name);
@@ -484,30 +442,7 @@ static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, s
         return get_creds_by_name(bus, name, mask, _creds, error);
 }
 
-static int peer_is_privileged(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        uid_t uid;
-        int r;
-
-        r = get_creds_by_message(bus, m, SD_BUS_CREDS_UID, &creds, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_has_effective_cap(creds, CAP_SYS_ADMIN);
-        if (r > 0)
-                return true;
-
-        if (uid == getuid())
-                return true;
-
-        return false;
-}
-
-static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
+static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred, Set *owned_names) {
         int r;
 
         assert(a);
@@ -520,14 +455,12 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         if (!streq_ptr(sd_bus_message_get_destination(m), "org.freedesktop.DBus"))
                 return 0;
 
+        /* The "Hello()" call is is handled in process_hello() */
+
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                if (0 && !isempty(sd_bus_message_get_signature(m, true))) {
-                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
-
-                        return synthetic_reply_method_errno(m, r, &error);
-                }
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 return synthetic_reply_method_return(m, "s",
                         "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" "
@@ -617,6 +550,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
                 const char *match;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "s", &match);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
@@ -629,6 +565,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RemoveMatch")) {
                 const char *match;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "s", &match);
                 if (r < 0)
@@ -646,6 +585,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
@@ -655,6 +597,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, &error);
                 if (r < 0)
@@ -666,6 +611,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
@@ -676,7 +624,10 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 sd_id128_t server_id;
                 char buf[SD_ID128_STRING_MAX];
 
-                r = sd_bus_get_server_id(a, &server_id);
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
+                r = sd_bus_get_bus_id(a, &server_id);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -686,6 +637,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 const char *name;
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "s", &name);
                 if (r < 0)
@@ -700,10 +654,11 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
                 return synthetic_reply_method_return(m, "s", creds->unique_name);
 
-        /* "Hello" is handled in process_hello() */
-
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListActivatableNames")) {
                 _cleanup_strv_free_ char **names = NULL;
+
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_list_names(a, NULL, &names);
                 if (r < 0)
@@ -716,6 +671,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListNames")) {
                 _cleanup_strv_free_ char **names = NULL;
+
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_list_names(a, &names, NULL);
                 if (r < 0)
@@ -733,19 +691,18 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
                 struct kdbus_cmd_name_list cmd = {};
                 struct kdbus_name_list *name_list;
-                struct kdbus_cmd_free cmd_free;
                 struct kdbus_name_info *name;
                 _cleanup_strv_free_ char **owners = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
                 int err = 0;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "s", &arg0);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
-
-                if (!service_name_is_valid(arg0))
-                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 r = sd_bus_get_name_creds(a, arg0, 0, NULL);
                 if (r == -ESRCH || r == -ENXIO) {
@@ -768,8 +725,8 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         char *n;
 
                         KDBUS_ITEM_FOREACH(item, name, items)
-                                if (item->type == KDBUS_ITEM_NAME)
-                                        entry_name = item->str;
+                                if (item->type == KDBUS_ITEM_OWNED_NAME)
+                                        entry_name = item->name.name;
 
                         if (!streq_ptr(entry_name, arg0))
                                 continue;
@@ -786,10 +743,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         }
                 }
 
-                cmd_free.flags = 0;
-                cmd_free.offset = cmd.offset;
-
-                r = ioctl(a->input_fd, KDBUS_CMD_FREE, &cmd_free);
+                r = bus_kernel_cmd_free(a, cmd.offset);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -801,12 +755,12 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "NameHasOwner")) {
                 const char *name;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "s", &name);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
-
-                if (!service_name_is_valid(name))
-                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 if (streq(name, "org.freedesktop.DBus"))
                         return synthetic_reply_method_return(m, "b", true);
@@ -820,12 +774,12 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReleaseName")) {
                 const char *name;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "s", &name);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
-
-                if (!service_name_is_valid(name))
-                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 r = sd_bus_release_name(a, name);
                 if (r < 0) {
@@ -837,10 +791,15 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         return synthetic_reply_method_errno(m, r, NULL);
                 }
 
+                set_remove(owned_names, (char*) name);
+
                 return synthetic_reply_method_return(m, "u", BUS_NAME_RELEASED);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReloadConfig")) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_error_setf(&error, SD_BUS_ERROR_NOT_SUPPORTED, "%s() is not supported", sd_bus_message_get_member(m));
 
@@ -849,13 +808,18 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName")) {
                 const char *name;
                 uint32_t flags, param;
+                bool in_queue;
+
+                if (!sd_bus_message_has_signature(m, "su"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (!service_name_is_valid(name))
-                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+                if (policy && !policy_check_own(policy, ucred->uid, ucred->gid, name))
+                        return synthetic_reply_method_errno(m, -EPERM, NULL);
+
                 if ((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
@@ -867,16 +831,25 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (!(flags & BUS_NAME_DO_NOT_QUEUE))
                         param |= SD_BUS_NAME_QUEUE;
 
+                r = set_put_strdup(owned_names, name);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
                 r = sd_bus_request_name(a, name, param);
                 if (r < 0) {
-                        if (r == -EEXIST)
-                                return synthetic_reply_method_return(m, "u", BUS_NAME_EXISTS);
                         if (r == -EALREADY)
                                 return synthetic_reply_method_return(m, "u", BUS_NAME_ALREADY_OWNER);
+
+                        set_remove(owned_names, (char*) name);
+
+                        if (r == -EEXIST)
+                                return synthetic_reply_method_return(m, "u", BUS_NAME_EXISTS);
                         return synthetic_reply_method_errno(m, r, NULL);
                 }
 
-                if (r == 0)
+                in_queue = (r == 0);
+
+                if (in_queue)
                         return synthetic_reply_method_return(m, "u", BUS_NAME_IN_QUEUE);
 
                 return synthetic_reply_method_return(m, "u", BUS_NAME_PRIMARY_OWNER);
@@ -886,12 +859,13 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 const char *name;
                 uint32_t flags;
 
+                if (!sd_bus_message_has_signature(m, "su"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (!service_name_is_valid(name))
-                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
                 if (flags != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
@@ -921,8 +895,8 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
                 _cleanup_strv_free_ char **args = NULL;
 
-                if (!peer_is_privileged(a, m))
-                        return synthetic_reply_method_errno(m, -EPERM, NULL);
+                if (!sd_bus_message_has_signature(m, "a{ss}"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
                 if (r < 0)
@@ -986,6 +960,166 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         }
 }
 
+static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *policy, const struct ucred *our_ucred, Set *owned_names) {
+        int r;
+
+        assert(from);
+        assert(to);
+        assert(m);
+
+        if (!policy)
+                return 0;
+
+        if (from->is_kernel) {
+                uid_t sender_uid = UID_INVALID;
+                gid_t sender_gid = GID_INVALID;
+                char **sender_names = NULL;
+                bool granted = false;
+
+                /* Driver messages are always OK */
+                if (streq_ptr(m->sender, "org.freedesktop.DBus"))
+                        return 0;
+
+                /* The message came from the kernel, and is sent to our legacy client. */
+                r = sd_bus_creds_get_well_known_names(&m->creds, &sender_names);
+                if (r < 0)
+                        return r;
+
+                (void) sd_bus_creds_get_uid(&m->creds, &sender_uid);
+                (void) sd_bus_creds_get_gid(&m->creds, &sender_gid);
+
+                /* First check whether the sender can send the message to our name */
+                if (set_isempty(owned_names)) {
+                        if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, NULL, m->path, m->interface, m->member))
+                                granted = true;
+                } else {
+                        Iterator i;
+                        char *n;
+
+                        SET_FOREACH(n, owned_names, i)
+                                if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, n, m->path, m->interface, m->member)) {
+                                        granted = true;
+                                        break;
+                                }
+                }
+
+                if (granted) {
+                        /* Then check whether us (the recipient) can recieve from the sender's name */
+                        if (strv_isempty(sender_names)) {
+                                if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
+                                        return 0;
+                        } else {
+                                char **n;
+
+                                STRV_FOREACH(n, sender_names) {
+                                        if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member))
+                                                return 0;
+                                }
+                        }
+                }
+
+                /* Return an error back to the caller */
+                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_ACCESS_DENIED, "Access prohibited by XML receiver policy.");
+
+                /* Return 1, indicating that the message shall not be processed any further */
+                return 1;
+        }
+
+        if (to->is_kernel) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *destination_creds = NULL;
+                uid_t destination_uid = UID_INVALID;
+                gid_t destination_gid = GID_INVALID;
+                const char *destination_unique = NULL;
+                char **destination_names = NULL;
+                bool granted = false;
+
+                /* Driver messages are always OK */
+                if (streq_ptr(m->destination, "org.freedesktop.DBus"))
+                        return 0;
+
+                /* The message came from the legacy client, and is sent to kdbus. */
+                if (m->destination) {
+                        r = bus_get_name_creds_kdbus(to, m->destination,
+                                                     SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME|
+                                                     SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID,
+                                                     true, &destination_creds);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_creds_get_unique_name(destination_creds, &destination_unique);
+                        if (r < 0)
+                                return r;
+
+                        (void) sd_bus_creds_get_uid(destination_creds, &destination_uid);
+                        (void) sd_bus_creds_get_gid(destination_creds, &destination_gid);
+                }
+
+                /* First check if we (the sender) can send to this name */
+                if (strv_isempty(destination_names)) {
+                        if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
+                                granted = true;
+                } else {
+                        char **n;
+
+                        STRV_FOREACH(n, destination_names) {
+                                if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member)) {
+
+                                        /* If we made a receiver decision,
+                                           then remember which name's policy
+                                           we used, and to which unique ID it
+                                           mapped when we made the
+                                           decision. Then, let's pass this to
+                                           the kernel when sending the
+                                           message, so that it refuses the
+                                           operation should the name and
+                                           unique ID not map to each other
+                                           anymore. */
+
+                                        r = free_and_strdup(&m->destination_ptr, *n);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = bus_kernel_parse_unique_name(destination_unique, &m->verify_destination_id);
+                                        if (r < 0)
+                                                break;
+
+                                        granted = true;
+                                        break;
+                                }
+                        }
+                }
+
+                /* Then check if the recipient can receive from our name */
+                if (granted) {
+                        if (set_isempty(owned_names)) {
+                                if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, NULL, m->path, m->interface, m->member))
+                                        return 0;
+                        } else {
+                                Iterator i;
+                                char *n;
+
+                                SET_FOREACH(n, owned_names, i)
+                                        if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, n, m->path, m->interface, m->member))
+                                                return 0;
+                        }
+                }
+
+                /* Return an error back to the caller */
+                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_ACCESS_DENIED, "Access prohibited by XML sender policy.");
+
+                /* Return 1, indicating that the message shall not be processed any further */
+                return 1;
+        }
+
+        return 0;
+}
+
 static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hello) {
         _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
         bool is_hello;
@@ -1024,34 +1158,24 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
                 return 0;
 
         r = sd_bus_message_new_method_return(m, &n);
-        if (r < 0) {
-                log_error("Failed to generate HELLO reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate HELLO reply: %m");
 
         r = sd_bus_message_append(n, "s", a->unique_name);
-        if (r < 0) {
-                log_error("Failed to append unique name to HELLO reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append unique name to HELLO reply: %m");
 
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
-        if (r < 0) {
-                log_error("Failed to append sender to HELLO reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append sender to HELLO reply: %m");
 
         r = bus_seal_synthetic_message(b, n);
-        if (r < 0) {
-                log_error("Failed to seal HELLO reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to seal HELLO reply: %m");
 
         r = sd_bus_send(b, n, NULL);
-        if (r < 0) {
-                log_error("Failed to send HELLO reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to send HELLO reply: %m");
 
         n = sd_bus_message_unref(n);
         r = sd_bus_message_new_signal(
@@ -1060,34 +1184,24 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "NameAcquired");
-        if (r < 0) {
-                log_error("Failed to allocate initial NameAcquired message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate initial NameAcquired message: %m");
 
         r = sd_bus_message_append(n, "s", a->unique_name);
-        if (r < 0) {
-                log_error("Failed to append unique name to NameAcquired message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append unique name to NameAcquired message: %m");
 
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
-        if (r < 0) {
-                log_error("Failed to append sender to NameAcquired message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append sender to NameAcquired message: %m");
 
         r = bus_seal_synthetic_message(b, n);
-        if (r < 0) {
-                log_error("Failed to seal NameAcquired message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to seal NameAcquired message: %m");
 
         r = sd_bus_send(b, n, NULL);
-        if (r < 0) {
-                log_error("Failed to send NameAcquired message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to send NameAcquired message: %m");
 
         return 1;
 }
@@ -1122,6 +1236,23 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
         return 0;
 }
 
+static int mac_smack_apply_label_and_drop_cap_mac_admin(pid_t its_pid, const char *new_label) {
+#ifdef HAVE_SMACK
+        int r = 0, k;
+
+        if (!mac_smack_use())
+                return 0;
+
+        if (new_label && its_pid > 0)
+                r = mac_smack_apply_pid(its_pid, new_label);
+
+        k = drop_capability(CAP_MAC_ADMIN);
+        return r < 0 ? r : k;
+#else
+        return 0;
+#endif
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_bus_close_unref_ sd_bus *a = NULL, *b = NULL;
@@ -1131,7 +1262,8 @@ int main(int argc, char *argv[]) {
         bool is_unix;
         struct ucred ucred = {};
         _cleanup_free_ char *peersec = NULL;
-        Policy policy = {};
+        Policy policy_buffer = {}, *policy = NULL;
+        _cleanup_set_free_free_ Set *owned_names = NULL;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -1140,14 +1272,6 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
-
-        r = policy_load(&policy, arg_configuration);
-        if (r < 0) {
-                log_error("Failed to load policy: %s", strerror(-r));
-                goto finish;
-        }
-
-        /* policy_dump(&policy); */
 
         r = sd_listen_fds(0);
         if (r == 0) {
@@ -1168,6 +1292,10 @@ int main(int argc, char *argv[]) {
         if (is_unix) {
                 (void) getpeercred(in_fd, &ucred);
                 (void) getpeersec(in_fd, &peersec);
+
+                r = mac_smack_apply_label_and_drop_cap_mac_admin(getpid(), peersec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set SMACK label (%s) and drop CAP_MAC_ADMIN: %m", peersec);
         }
 
         if (arg_drop_privileges) {
@@ -1177,7 +1305,7 @@ int main(int argc, char *argv[]) {
 
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL);
                 if (r < 0) {
-                        log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                        log_error_errno(r, "Cannot resolve user name %s: %m", user);
                         goto finish;
                 }
 
@@ -1186,34 +1314,54 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        r = sd_bus_new(&a);
-        if (r < 0) {
-                log_error("Failed to allocate bus: %s", strerror(-r));
+        owned_names = set_new(&string_hash_ops);
+        if (!owned_names) {
+                log_oom();
                 goto finish;
         }
 
-        r = sd_bus_set_name(a, "sd-proxy");
+        r = sd_bus_new(&a);
         if (r < 0) {
-                log_error("Failed to set bus name: %s", strerror(-r));
+                log_error_errno(r, "Failed to allocate bus: %m");
+                goto finish;
+        }
+
+        r = sd_bus_set_description(a, "sd-proxy");
+        if (r < 0) {
+                log_error_errno(r, "Failed to set bus name: %m");
                 goto finish;
         }
 
         r = sd_bus_set_address(a, arg_address);
         if (r < 0) {
-                log_error("Failed to set address to connect to: %s", strerror(-r));
+                log_error_errno(r, "Failed to set address to connect to: %m");
                 goto finish;
         }
 
         r = sd_bus_negotiate_fds(a, is_unix);
         if (r < 0) {
-                log_error("Failed to set FD negotiation: %s", strerror(-r));
+                log_error_errno(r, "Failed to set FD negotiation: %m");
+                goto finish;
+        }
+
+        r = sd_bus_negotiate_creds(a, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
+        if (r < 0) {
+                log_error_errno(r, "Failed to set credential negotiation: %m");
                 goto finish;
         }
 
         if (ucred.pid > 0) {
-                a->fake_creds.pid = ucred.pid;
+                a->fake_pids.pid = ucred.pid;
+                a->fake_pids_valid = true;
+
                 a->fake_creds.uid = ucred.uid;
+                a->fake_creds.euid = UID_INVALID;
+                a->fake_creds.suid = UID_INVALID;
+                a->fake_creds.fsuid = UID_INVALID;
                 a->fake_creds.gid = ucred.gid;
+                a->fake_creds.egid = GID_INVALID;
+                a->fake_creds.sgid = GID_INVALID;
+                a->fake_creds.fsgid = GID_INVALID;
                 a->fake_creds_valid = true;
         }
 
@@ -1226,43 +1374,97 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_start(a);
         if (r < 0) {
-                log_error("Failed to start bus client: %s", strerror(-r));
+                log_error_errno(r, "Failed to start bus client: %m");
                 goto finish;
         }
 
-        r = sd_bus_get_server_id(a, &server_id);
+        r = sd_bus_get_bus_id(a, &server_id);
         if (r < 0) {
-                log_error("Failed to get server ID: %s", strerror(-r));
+                log_error_errno(r, "Failed to get server ID: %m");
                 goto finish;
+        }
+
+        if (a->is_kernel) {
+                if (!arg_configuration) {
+                        const char *scope;
+
+                        r = sd_bus_get_scope(a, &scope);
+                        if (r < 0) {
+                                log_error_errno(r, "Couldn't determine bus scope: %m");
+                                goto finish;
+                        }
+
+                        if (streq(scope, "system"))
+                                arg_configuration = strv_new(
+                                                "/etc/dbus-1/system.conf",
+                                                "/etc/dbus-1/system.d/",
+                                                "/etc/dbus-1/system-local.conf",
+                                                NULL);
+                        else if (streq(scope, "user"))
+                                arg_configuration = strv_new(
+                                                "/etc/dbus-1/session.conf",
+                                                "/etc/dbus-1/session.d/",
+                                                "/etc/dbus-1/session-local.conf",
+                                                NULL);
+                        else {
+                                log_error("Unknown scope %s, don't know which policy to load. Refusing.", scope);
+                                goto finish;
+                        }
+
+                        if (!arg_configuration) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                }
+
+                r = policy_load(&policy_buffer, arg_configuration);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to load policy: %m");
+                        goto finish;
+                }
+
+                policy = &policy_buffer;
+                /* policy_dump(policy); */
+
+                if (!policy_check_hello(policy, ucred.uid, ucred.gid)) {
+                        r = log_error_errno(EPERM, "Policy denied connection.");
+                        goto finish;
+                }
         }
 
         r = sd_bus_new(&b);
         if (r < 0) {
-                log_error("Failed to allocate bus: %s", strerror(-r));
+                log_error_errno(r, "Failed to allocate bus: %m");
                 goto finish;
         }
 
         r = sd_bus_set_fd(b, in_fd, out_fd);
         if (r < 0) {
-                log_error("Failed to set fds: %s", strerror(-r));
+                log_error_errno(r, "Failed to set fds: %m");
                 goto finish;
         }
 
         r = sd_bus_set_server(b, 1, server_id);
         if (r < 0) {
-                log_error("Failed to set server mode: %s", strerror(-r));
+                log_error_errno(r, "Failed to set server mode: %m");
                 goto finish;
         }
 
         r = sd_bus_negotiate_fds(b, is_unix);
         if (r < 0) {
-                log_error("Failed to set FD negotiation: %s", strerror(-r));
+                log_error_errno(r, "Failed to set FD negotiation: %m");
+                goto finish;
+        }
+
+        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
+        if (r < 0) {
+                log_error_errno(r, "Failed to set credential negotiation: %m");
                 goto finish;
         }
 
         r = sd_bus_set_anonymous(b, true);
         if (r < 0) {
-                log_error("Failed to set anonymous authentication: %s", strerror(-r));
+                log_error_errno(r, "Failed to set anonymous authentication: %m");
                 goto finish;
         }
 
@@ -1270,13 +1472,13 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_start(b);
         if (r < 0) {
-                log_error("Failed to start bus client: %s", strerror(-r));
+                log_error_errno(r, "Failed to start bus client: %m");
                 goto finish;
         }
 
         r = rename_service(a, b);
         if (r < 0)
-                log_debug("Failed to rename process: %s", strerror(-r));
+                log_debug_errno(r, "Failed to rename process: %m");
 
         if (a->is_kernel) {
                 _cleanup_free_ char *match = NULL;
@@ -1284,7 +1486,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_get_unique_name(a, &unique);
                 if (r < 0) {
-                        log_error("Failed to get unique name: %s", strerror(-r));
+                        log_error_errno(r, "Failed to get unique name: %m");
                         goto finish;
                 }
 
@@ -1304,7 +1506,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0) {
-                        log_error("Failed to add match for NameLost: %s", strerror(-r));
+                        log_error_errno(r, "Failed to add match for NameLost: %m");
                         goto finish;
                 }
 
@@ -1325,7 +1527,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0) {
-                        log_error("Failed to add match for NameAcquired: %s", strerror(-r));
+                        log_error_errno(r, "Failed to add match for NameAcquired: %m");
                         goto finish;
                 }
         }
@@ -1339,18 +1541,22 @@ int main(int argc, char *argv[]) {
                 int k;
 
                 if (got_hello) {
+                        /* Read messages from bus, to pass them on to our client */
+
                         r = sd_bus_process(a, &m);
                         if (r < 0) {
                                 /* treat 'connection reset by peer' as clean exit condition */
                                 if (r == -ECONNRESET)
                                         r = 0;
                                 else
-                                        log_error("Failed to process bus a: %s", strerror(-r));
+                                        log_error_errno(r, "Failed to process bus a: %m");
 
                                 goto finish;
                         }
 
                         if (m) {
+                                bool processed = false;
+
                                 /* We officially got EOF, let's quit */
                                 if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
                                         r = 0;
@@ -1360,22 +1566,37 @@ int main(int argc, char *argv[]) {
                                 k = synthesize_name_acquired(a, b, m);
                                 if (k < 0) {
                                         r = k;
-                                        log_error("Failed to synthesize message: %s", strerror(-r));
+                                        log_error_errno(r, "Failed to synthesize message: %m");
                                         goto finish;
                                 }
 
                                 patch_sender(a, m);
 
-                                k = sd_bus_send(b, m, NULL);
-                                if (k < 0) {
-                                        if (k == -ECONNRESET)
-                                                r = 0;
-                                        else {
+                                if (policy) {
+                                        k = process_policy(a, b, m, policy, &ucred, owned_names);
+                                        if (k < 0) {
                                                 r = k;
-                                                log_error("Failed to send message: %s", strerror(-r));
+                                                log_error_errno(r, "Failed to process policy: %m");
+                                                goto finish;
+                                        } else if (k > 0) {
+                                                r = 1;
+                                                processed = true;
                                         }
+                                }
 
-                                        goto finish;
+                                if (!processed) {
+                                        k = sd_bus_send(b, m, NULL);
+                                        if (k < 0) {
+                                                if (k == -ECONNRESET)
+                                                        r = 0;
+                                                else {
+                                                        r = k;
+                                                        log_error_errno(r, "Failed to send message to client: %m");
+                                                }
+
+                                                goto finish;
+                                        } else
+                                                r = 1;
                                 }
                         }
 
@@ -1383,18 +1604,21 @@ int main(int argc, char *argv[]) {
                                 continue;
                 }
 
+                /* Read messages from our client, to pass them on to the bus */
                 r = sd_bus_process(b, &m);
                 if (r < 0) {
                         /* treat 'connection reset by peer' as clean exit condition */
                         if (r == -ECONNRESET)
                                 r = 0;
                         else
-                                log_error("Failed to process bus b: %s", strerror(-r));
+                                log_error_errno(r, "Failed to process bus b: %m");
 
                         goto finish;
                 }
 
                 if (m) {
+                        bool processed = false;
+
                         /* We officially got EOF, let's quit */
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
                                 r = 0;
@@ -1404,40 +1628,57 @@ int main(int argc, char *argv[]) {
                         k = process_hello(a, b, m, &got_hello);
                         if (k < 0) {
                                 r = k;
-                                log_error("Failed to process HELLO: %s", strerror(-r));
+                                log_error_errno(r, "Failed to process HELLO: %m");
                                 goto finish;
+                        } else if (k > 0) {
+                                processed = true;
+                                r = 1;
                         }
 
-                        if (k > 0)
-                                r = k;
-                        else {
-                                k = process_policy(a, b, m);
+                        if (!processed) {
+                                k = process_driver(a, b, m, policy, &ucred, owned_names);
                                 if (k < 0) {
                                         r = k;
-                                        log_error("Failed to process policy: %s", strerror(-r));
+                                        log_error_errno(r, "Failed to process driver calls: %m");
                                         goto finish;
+                                } else if (k > 0) {
+                                        processed = true;
+                                        r = 1;
                                 }
 
-                                k = process_driver(a, b, m);
-                                if (k < 0) {
-                                        r = k;
-                                        log_error("Failed to process driver calls: %s", strerror(-r));
-                                        goto finish;
-                                }
+                                if (!processed) {
 
-                                if (k > 0)
-                                        r = k;
-                                else {
-                                        k = sd_bus_send(a, m, NULL);
-                                        if (k < 0) {
-                                                if (k == -ECONNRESET)
-                                                        r = 0;
-                                                else {
-                                                        r = k;
-                                                        log_error("Failed to send message: %s", strerror(-r));
+                                        for (;;) {
+                                                if (policy) {
+                                                        k = process_policy(b, a, m, policy, &ucred, owned_names);
+                                                        if (k < 0) {
+                                                                r = k;
+                                                                log_error_errno(r, "Failed to process policy: %m");
+                                                                goto finish;
+                                                        } else if (k > 0) {
+                                                                processed = true;
+                                                                r = 1;
+                                                                break;
+                                                        }
                                                 }
 
-                                                goto finish;
+                                                k = sd_bus_send(a, m, NULL);
+                                                if (k < 0) {
+                                                        if (k == -EREMCHG)
+                                                                /* The name database changed since the policy check, hence let's check again */
+                                                                continue;
+                                                        else if (k == -ECONNRESET)
+                                                                r = 0;
+                                                        else {
+                                                                r = k;
+                                                                log_error_errno(r, "Failed to send message to bus: %m");
+                                                        }
+
+                                                        goto finish;
+                                                } else
+                                                        r = 1;
+
+                                                break;
                                         }
                                 }
                         }
@@ -1448,31 +1689,31 @@ int main(int argc, char *argv[]) {
 
                 fd = sd_bus_get_fd(a);
                 if (fd < 0) {
-                        log_error("Failed to get fd: %s", strerror(-r));
+                        log_error_errno(r, "Failed to get fd: %m");
                         goto finish;
                 }
 
                 events_a = sd_bus_get_events(a);
                 if (events_a < 0) {
-                        log_error("Failed to get events mask: %s", strerror(-r));
+                        log_error_errno(r, "Failed to get events mask: %m");
                         goto finish;
                 }
 
                 r = sd_bus_get_timeout(a, &timeout_a);
                 if (r < 0) {
-                        log_error("Failed to get timeout: %s", strerror(-r));
+                        log_error_errno(r, "Failed to get timeout: %m");
                         goto finish;
                 }
 
                 events_b = sd_bus_get_events(b);
                 if (events_b < 0) {
-                        log_error("Failed to get events mask: %s", strerror(-r));
+                        log_error_errno(r, "Failed to get events mask: %m");
                         goto finish;
                 }
 
                 r = sd_bus_get_timeout(b, &timeout_b);
                 if (r < 0) {
-                        log_error("Failed to get timeout: %s", strerror(-r));
+                        log_error_errno(r, "Failed to get timeout: %m");
                         goto finish;
                 }
 
@@ -1502,7 +1743,7 @@ int main(int argc, char *argv[]) {
 
                 r = ppoll(pollfd, 3, ts, NULL);
                 if (r < 0) {
-                        log_error("ppoll() failed: %m");
+                        log_error_errno(errno, "ppoll() failed: %m");
                         goto finish;
                 }
         }
@@ -1512,7 +1753,7 @@ finish:
                   "STOPPING=1\n"
                   "STATUS=Shutting down.");
 
-        policy_free(&policy);
+        policy_free(&policy_buffer);
         strv_free(arg_configuration);
         free(arg_address);
 

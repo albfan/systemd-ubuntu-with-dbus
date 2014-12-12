@@ -142,6 +142,7 @@ struct sd_bus_slot {
         void *userdata;
         BusSlotType type:5;
         bool floating:1;
+        char *description;
 
         LIST_FIELDS(sd_bus_slot, slots);
 
@@ -205,6 +206,7 @@ struct sd_bus {
         bool nodes_modified:1;
         bool trusted:1;
         bool fake_creds_valid:1;
+        bool fake_pids_valid:1;
         bool manual_peer_interface:1;
         bool is_system:1;
         bool is_user:1;
@@ -305,11 +307,12 @@ struct sd_bus {
         pid_t tid;
 
         struct kdbus_creds fake_creds;
+        struct kdbus_pids fake_pids;
         char *fake_label;
 
         char *cgroup_root;
 
-        char *connection_name;
+        char *description;
 
         size_t bloom_size;
         unsigned bloom_n_hash;
@@ -339,6 +342,7 @@ struct sd_bus {
 
 bool interface_name_is_valid(const char *p) _pure_;
 bool service_name_is_valid(const char *p) _pure_;
+char* service_name_startswith(const char *a, const char *b);
 bool member_name_is_valid(const char *p) _pure_;
 bool object_path_is_valid(const char *p) _pure_;
 char *object_path_startswith(const char *a, const char *b) _pure_;

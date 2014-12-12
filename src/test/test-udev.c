@@ -35,10 +35,6 @@
 #include "udev.h"
 #include "udev-util.h"
 
-void udev_main_log(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args) {}
-
 static int fake_filesystems(void) {
         static const struct fakefs {
                 const char *src;
@@ -153,8 +149,14 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        udev_event_execute_rules(event, 3 * USEC_PER_SEC, USEC_PER_SEC, rules, &sigmask_orig);
-        udev_event_execute_run(event, 3 * USEC_PER_SEC, USEC_PER_SEC, NULL);
+        udev_event_execute_rules(event,
+                                 3 * USEC_PER_SEC, USEC_PER_SEC,
+                                 NULL,
+                                 rules,
+                                 &sigmask_orig);
+        udev_event_execute_run(event,
+                               3 * USEC_PER_SEC, USEC_PER_SEC,
+                               NULL);
 out:
         if (event != NULL && event->fd_signal >= 0)
                 close(event->fd_signal);

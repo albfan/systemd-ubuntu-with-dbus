@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.EXEC" "5" "" "systemd 217" "systemd.exec"
+.TH "SYSTEMD\&.EXEC" "5" "" "systemd 218" "systemd.exec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -127,7 +127,7 @@ for details\&. Defaults to false\&.
 .PP
 \fICPUAffinity=\fR
 .RS 4
-Controls the CPU affinity of the executed processes\&. Takes a space\-separated list of CPU indices\&. This option may be specified more than once in which case the specificed CPU affinity masks are merged\&. If the empty string is assigned, the mask is reset, all assignments prior to this will have no effect\&. See
+Controls the CPU affinity of the executed processes\&. Takes a space\-separated list of CPU indices\&. This option may be specified more than once in which case the specified CPU affinity masks are merged\&. If the empty string is assigned, the mask is reset, all assignments prior to this will have no effect\&. See
 \fBsched_setaffinity\fR(2)
 for details\&.
 .RE
@@ -420,11 +420,124 @@ for more information\&. Note that in contrast to most other time span definition
 .PP
 \fILimitCPU=\fR, \fILimitFSIZE=\fR, \fILimitDATA=\fR, \fILimitSTACK=\fR, \fILimitCORE=\fR, \fILimitRSS=\fR, \fILimitNOFILE=\fR, \fILimitAS=\fR, \fILimitNPROC=\fR, \fILimitMEMLOCK=\fR, \fILimitLOCKS=\fR, \fILimitSIGPENDING=\fR, \fILimitMSGQUEUE=\fR, \fILimitNICE=\fR, \fILimitRTPRIO=\fR, \fILimitRTTIME=\fR
 .RS 4
-These settings control various resource limits for executed processes\&. See
+These settings set both soft and hard limits of various resources for executed processes\&. See
 \fBsetrlimit\fR(2)
 for details\&. Use the string
 \fIinfinity\fR
 to configure no limit on a specific resource\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&1.\ \&Limit directives and their equivalent with ulimit
+.TS
+allbox tab(:);
+lB lB.
+T{
+Directive
+T}:T{
+ulimit equivalent
+T}
+.T&
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l.
+T{
+LimitCPU
+T}:T{
+ulimit \-t
+T}
+T{
+LimitFSIZE
+T}:T{
+ulimit \-f
+T}
+T{
+LimitDATA
+T}:T{
+ulimit \-d
+T}
+T{
+LimitSTACK
+T}:T{
+ulimit \-s
+T}
+T{
+LimitCORE
+T}:T{
+ulimit \-c
+T}
+T{
+LimitRSS
+T}:T{
+ulimit \-m
+T}
+T{
+LimitNOFILE
+T}:T{
+ulimit \-n
+T}
+T{
+LimitAS
+T}:T{
+ulimit \-v
+T}
+T{
+LimitNPROC
+T}:T{
+ulimit \-u
+T}
+T{
+LimitMEMLOCK
+T}:T{
+ulimit \-l
+T}
+T{
+LimitLOCKS
+T}:T{
+ulimit \-x
+T}
+T{
+LimitSIGPENDING
+T}:T{
+ulimit \-i
+T}
+T{
+LimitMSGQUEUE
+T}:T{
+ulimit \-q
+T}
+T{
+LimitNICE
+T}:T{
+ulimit \-e
+T}
+T{
+LimitRTPRIO
+T}:T{
+ulimit \-r
+T}
+T{
+LimitRTTIME
+T}:T{
+No equivalent
+T}
+.TE
+.sp 1
 .RE
 .PP
 \fIPAMName=\fR
@@ -605,7 +718,7 @@ implementations where utmp/wtmp entries must be created and cleared before and a
 .PP
 \fISELinuxContext=\fR
 .RS 4
-Set the SELinux security context of the executed process\&. If set, this will override the automated domain transition\&. However, the policy still needs to autorize the transition\&. This directive is ignored if SELinux is disabled\&. If prefixed by
+Set the SELinux security context of the executed process\&. If set, this will override the automated domain transition\&. However, the policy still needs to authorize the transition\&. This directive is ignored if SELinux is disabled\&. If prefixed by
 "\-", all errors will be ignored\&. See
 \fBsetexeccon\fR(3)
 for details\&.
@@ -615,6 +728,18 @@ for details\&.
 .RS 4
 Takes a profile name as argument\&. The process executed by the unit will switch to this profile when started\&. Profiles must already be loaded in the kernel, or the unit will fail\&. This result in a non operation if AppArmor is not enabled\&. If prefixed by
 "\-", all errors will be ignored\&.
+.RE
+.PP
+\fISmackProcessLabel=\fR
+.RS 4
+Takes a
+\fBSMACK64\fR
+security label as argument\&. The process executed by the unit will be started under this label and SMACK will decide whether the processes is allowed to run or not based on it\&. The process will continue to run under the label specified here unless the executable has its own
+\fBSMACK64EXEC\fR
+label, in which case the process will transition to run under that label\&. When not specified, the label that systemd is running under is used\&. This directive is ignored if SMACK is disabled\&.
+.sp
+The value may be prefixed by
+"\-", in which case all errors will be ignored\&. An empty value may be specified to unset previous assignments\&.
 .RE
 .PP
 \fIIgnoreSIGPIPE=\fR
@@ -741,7 +866,7 @@ Processes started by the system are executed in a clean environment in which sel
 .PP
 \fI$PATH\fR
 .RS 4
-Colon\-separated list of directiories to use when launching executables\&. Systemd uses a fixed value of
+Colon\-separated list of directories to use when launching executables\&. Systemd uses a fixed value of
 /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\&.
 .RE
 .PP

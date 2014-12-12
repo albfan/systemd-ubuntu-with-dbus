@@ -48,9 +48,10 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                 {}
         };
 
-        config_parse(NULL, PKGSYSCONFDIR "/sleep.conf", NULL,
-                     "Sleep\0",
-                     config_item_table_lookup, items, false, false, true, NULL);
+        config_parse_many(PKGSYSCONFDIR "/sleep.conf",
+                          CONF_DIRS_NULSTR("systemd/sleep.conf"),
+                          "Sleep\0", config_item_table_lookup, items,
+                          false, NULL);
 
         if (streq(verb, "suspend")) {
                 /* empty by default */
@@ -227,14 +228,14 @@ static bool enough_memory_for_hibernation(void) {
 
         r = get_status_field("/proc/meminfo", "\nActive(anon):", &active);
         if (r < 0) {
-                log_error("Failed to retrieve Active(anon) from /proc/meminfo: %s", strerror(-r));
+                log_error_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
                 return false;
         }
 
         r = safe_atollu(active, &act);
         if (r < 0) {
-                log_error("Failed to parse Active(anon) from /proc/meminfo: %s: %s",
-                          active, strerror(-r));
+                log_error_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m",
+                                active);
                 return false;
         }
 

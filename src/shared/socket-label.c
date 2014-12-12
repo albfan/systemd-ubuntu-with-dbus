@@ -93,13 +93,13 @@ int socket_address_listen(
                 if (free_bind) {
                         one = 1;
                         if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
-                                log_warning("IP_FREEBIND failed: %m");
+                                log_warning_errno(errno, "IP_FREEBIND failed: %m");
                 }
 
                 if (transparent) {
                         one = 1;
                         if (setsockopt(fd, IPPROTO_IP, IP_TRANSPARENT, &one, sizeof(one)) < 0)
-                                log_warning("IP_TRANSPARENT failed: %m");
+                                log_warning_errno(errno, "IP_TRANSPARENT failed: %m");
                 }
         }
 
@@ -161,13 +161,11 @@ int make_socket_fd(int log_level, const char* address, int flags) {
                 _cleanup_free_ char *p = NULL;
 
                 r = socket_address_print(&a, &p);
-                if (r < 0) {
-                        log_error("socket_address_print(): %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "socket_address_print(): %m");
 
                 if (fd < 0)
-                        log_error("Failed to listen on %s: %s", p, strerror(-fd));
+                        log_error_errno(fd, "Failed to listen on %s: %m", p);
                 else
                         log_full(log_level, "Listening on %s", p);
         }

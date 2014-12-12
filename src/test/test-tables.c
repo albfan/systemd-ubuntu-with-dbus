@@ -48,6 +48,7 @@
 #include "link-config.h"
 #include "bus-policy.h"
 #include "journald-server.h"
+#include "locale-util.h"
 
 #include "test-tables.h"
 
@@ -60,6 +61,8 @@ int main(int argc, char **argv) {
         test_table(busname_state, BUSNAME_STATE);
         test_table(cgroup_device_policy, CGROUP_DEVICE_POLICY);
         test_table(condition_type, CONDITION_TYPE);
+        test_table(assert_type, CONDITION_TYPE);
+        test_table(condition_result, CONDITION_RESULT);
         test_table(device_state, DEVICE_STATE);
         test_table(exec_input, EXEC_INPUT);
         test_table(exec_output, EXEC_OUTPUT);
@@ -116,6 +119,7 @@ int main(int argc, char **argv) {
         test_table(unit_file_state, UNIT_FILE_STATE);
         test_table(unit_load_state, UNIT_LOAD_STATE);
         test_table(unit_type, UNIT_TYPE);
+        test_table(locale_variable, VARIABLE_LC);
 
         test_table_sparse(object_compressed, OBJECT_COMPRESSED);
 

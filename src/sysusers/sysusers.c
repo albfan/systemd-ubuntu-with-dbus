@@ -67,15 +67,7 @@ typedef struct Item {
 
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/sysusers.d\0"
-        "/run/sysusers.d\0"
-        "/usr/local/lib/sysusers.d\0"
-        "/usr/lib/sysusers.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/sysusers.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysusers");
 
 static Hashmap *users = NULL, *groups = NULL;
 static Hashmap *todo_uids = NULL, *todo_gids = NULL;
@@ -84,7 +76,7 @@ static Hashmap *members = NULL;
 static Hashmap *database_uid = NULL, *database_user = NULL;
 static Hashmap *database_gid = NULL, *database_group = NULL;
 
-static uid_t search_uid = (uid_t) -1;
+static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
@@ -234,14 +226,15 @@ static int make_backup(const char *target, const char *x) {
 
         /* Copy over the access mask */
         if (fchmod(fileno(dst), st.st_mode & 07777) < 0)
-                log_warning("Failed to change mode on %s: %m", backup);
+                log_warning_errno(errno, "Failed to change mode on %s: %m", backup);
 
         if (fchown(fileno(dst), st.st_uid, st.st_gid)< 0)
-                log_warning("Failed to change ownership of %s: %m", backup);
+                log_warning_errno(errno, "Failed to change ownership of %s: %m", backup);
 
         ts[0] = st.st_atim;
         ts[1] = st.st_mtim;
-        futimens(fileno(dst), ts);
+        if (futimens(fileno(dst), ts) < 0)
+                log_warning_errno(errno, "Failed to fix access and modification time of %s: %m", backup);
 
         if (rename(temp, backup) < 0)
                 goto fail;
@@ -353,6 +346,21 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         return 0;
 }
 
+static int sync_rights(FILE *from, FILE *to) {
+        struct stat st;
+
+        if (fstat(fileno(from), &st) < 0)
+                return -errno;
+
+        if (fchmod(fileno(to), st.st_mode & 07777) < 0)
+                return -errno;
+
+        if (fchown(fileno(to), st.st_uid, st.st_gid) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static int write_files(void) {
 
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
@@ -372,14 +380,13 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(group), 0644) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(group_path, "re");
                 if (original) {
                         struct group *gr;
+
+                        r = sync_rights(original, group);
+                        if (r < 0)
+                                goto finish;
 
                         errno = 0;
                         while ((gr = fgetgrent(original))) {
@@ -418,6 +425,9 @@ static int write_files(void) {
                 } else if (errno != ENOENT) {
                         r = -errno;
                         goto finish;
+                } else if (fchmod(fileno(group), 0644) < 0) {
+                        r = -errno;
+                        goto finish;
                 }
 
                 HASHMAP_FOREACH(i, todo_gids, iterator) {
@@ -449,14 +459,13 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(gshadow), 0000) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(gshadow_path, "re");
                 if (original) {
                         struct sgrp *sg;
+
+                        r = sync_rights(original, gshadow);
+                        if (r < 0)
+                                goto finish;
 
                         errno = 0;
                         while ((sg = fgetsgent(original))) {
@@ -481,6 +490,9 @@ static int write_files(void) {
                         }
 
                 } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                } else if (fchmod(fileno(gshadow), 0000) < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -513,14 +525,13 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(passwd), 0644) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(passwd_path, "re");
                 if (original) {
                         struct passwd *pw;
+
+                        r = sync_rights(original, passwd);
+                        if (r < 0)
+                                goto finish;
 
                         errno = 0;
                         while ((pw = fgetpwent(original))) {
@@ -550,6 +561,9 @@ static int write_files(void) {
                         }
 
                 } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                } else if (fchmod(fileno(passwd), 0644) < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -596,14 +610,13 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(shadow), 0000) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(shadow_path, "re");
                 if (original) {
                         struct spwd *sp;
+
+                        r = sync_rights(original, shadow);
+                        if (r < 0)
+                                goto finish;
 
                         errno = 0;
                         while ((sp = fgetspent(original))) {
@@ -627,6 +640,9 @@ static int write_files(void) {
                                 goto finish;
                         }
                 } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                } else if (fchmod(fileno(shadow), 0000) < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -882,10 +898,8 @@ static int add_user(Item *i) {
                         i->description = strdup(p->pw_gecos);
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error("Failed to check if user %s already exists: %m", i->name);
-                        return -errno;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
 
                 /* And shadow too, just to be sure */
                 errno = 0;
@@ -894,19 +908,15 @@ static int add_user(Item *i) {
                         log_error("User %s already exists in shadow database, but not in user database.", i->name);
                         return -EBADMSG;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error("Failed to check if user %s already exists in shadow database: %m", i->name);
-                        return -errno;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return log_error_errno(errno, "Failed to check if user %s already exists in shadow database: %m", i->name);
         }
 
         /* Try to use the suggested numeric uid */
         if (i->uid_set) {
                 r = uid_is_ok(i->uid, i->name);
-                if (r < 0) {
-                        log_error("Failed to verify uid " UID_FMT ": %s", i->uid, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                 if (r == 0) {
                         log_debug("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
                         i->uid_set = false;
@@ -923,10 +933,9 @@ static int add_user(Item *i) {
                                 log_debug("User ID " UID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = uid_is_ok(c, i->name);
-                                if (r < 0) {
-                                        log_error("Failed to verify uid " UID_FMT ": %s", i->uid, strerror(-r));
-                                        return r;
-                                } else if (r > 0) {
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                else if (r > 0) {
                                         i->uid = c;
                                         i->uid_set = true;
                                 } else
@@ -938,10 +947,8 @@ static int add_user(Item *i) {
         /* Otherwise try to reuse the group ID */
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name);
-                if (r < 0) {
-                        log_error("Failed to verify uid " UID_FMT ": %s", i->uid, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                 if (r > 0) {
                         i->uid = (uid_t) i->gid;
                         i->uid_set = true;
@@ -958,10 +965,9 @@ static int add_user(Item *i) {
                         }
 
                         r = uid_is_ok(search_uid, i->name);
-                        if (r < 0) {
-                                log_error("Failed to verify uid " UID_FMT ": %s", i->uid, strerror(-r));
-                                return r;
-                        } else if (r > 0)
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        else if (r > 0)
                                 break;
                 }
 
@@ -1046,19 +1052,15 @@ static int add_group(Item *i) {
                         i->gid_set = true;
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error("Failed to check if group %s already exists: %m", i->name);
-                        return -errno;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
         }
 
         /* Try to use the suggested numeric gid */
         if (i->gid_set) {
                 r = gid_is_ok(i->gid);
-                if (r < 0) {
-                        log_error("Failed to verify gid " GID_FMT ": %s", i->gid, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                 if (r == 0) {
                         log_debug("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
                         i->gid_set = false;
@@ -1068,10 +1070,8 @@ static int add_group(Item *i) {
         /* Try to reuse the numeric uid, if there's one */
         if (!i->gid_set && i->uid_set) {
                 r = gid_is_ok((gid_t) i->uid);
-                if (r < 0) {
-                        log_error("Failed to verify gid " GID_FMT ": %s", i->gid, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                 if (r > 0) {
                         i->gid = (gid_t) i->uid;
                         i->gid_set = true;
@@ -1088,10 +1088,9 @@ static int add_group(Item *i) {
                                 log_debug("Group ID " GID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = gid_is_ok(c);
-                                if (r < 0) {
-                                        log_error("Failed to verify gid " GID_FMT ": %s", i->gid, strerror(-r));
-                                        return r;
-                                } else if (r > 0) {
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                else if (r > 0) {
                                         i->gid = c;
                                         i->gid_set = true;
                                 } else
@@ -1111,10 +1110,9 @@ static int add_group(Item *i) {
                         }
 
                         r = gid_is_ok(search_uid);
-                        if (r < 0) {
-                                log_error("Failed to verify gid " GID_FMT ": %s", i->gid, strerror(-r));
-                                return r;
-                        } else if (r > 0)
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        else if (r > 0)
                                 break;
                 }
 
@@ -1705,8 +1703,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
 
-                        log_error("Failed to open '%s', ignoring: %s", fn, strerror(-r));
-                        return r;
+                        return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
                 }
 
                 f = rf;
@@ -1728,7 +1725,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         if (ferror(f)) {
-                log_error("Failed to read from file %s: %m", fn);
+                log_error_errno(errno, "Failed to read from file %s: %m", fn);
                 if (r == 0)
                         r = -EIO;
         }
@@ -1837,7 +1834,7 @@ int main(int argc, char *argv[]) {
 
         r = mac_selinux_init(NULL);
         if (r < 0) {
-                log_error("SELinux setup failed: %s", strerror(-r));
+                log_error_errno(r, "SELinux setup failed: %m");
                 goto finish;
         }
 
@@ -1855,7 +1852,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", arg_root, conf_file_dirs);
                 if (r < 0) {
-                        log_error("Failed to enumerate sysusers.d files: %s", strerror(-r));
+                        log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
                         goto finish;
                 }
 
@@ -1881,19 +1878,19 @@ int main(int argc, char *argv[]) {
 
         lock = take_password_lock(arg_root);
         if (lock < 0) {
-                log_error("Failed to take lock: %s", strerror(-lock));
+                log_error_errno(lock, "Failed to take lock: %m");
                 goto finish;
         }
 
         r = load_user_database();
         if (r < 0) {
-                log_error("Failed to load user database: %s", strerror(-r));
+                log_error_errno(r, "Failed to load user database: %m");
                 goto finish;
         }
 
         r = load_group_database();
         if (r < 0) {
-                log_error("Failed to read group database: %s", strerror(-r));
+                log_error_errno(r, "Failed to read group database: %m");
                 goto finish;
         }
 
@@ -1905,7 +1902,7 @@ int main(int argc, char *argv[]) {
 
         r = write_files();
         if (r < 0)
-                log_error("Failed to write files: %s", strerror(-r));
+                log_error_errno(r, "Failed to write files: %m");
 
 finish:
         while ((i = hashmap_steal_first(groups)))

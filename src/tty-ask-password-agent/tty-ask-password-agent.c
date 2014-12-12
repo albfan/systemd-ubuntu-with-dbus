@@ -90,10 +90,8 @@ static int ask_password_plymouth(
                 return -errno;
 
         r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
-        if (r < 0) {
-                log_error("Failed to connect to Plymouth: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to connect to Plymouth: %m");
 
         if (accept_cached) {
                 packet = strdup("c");
@@ -105,9 +103,9 @@ static int ask_password_plymouth(
         if (!packet)
                 return log_oom();
 
-        k = loop_write(fd, packet, n + 1, true);
-        if (k != n + 1)
-                return k < 0 ? (int) k : -EIO;
+        r = loop_write(fd, packet, n + 1, true);
+        if (r < 0)
+                return r;
 
         pollfd[POLL_SOCKET].fd = fd;
         pollfd[POLL_SOCKET].events = POLLIN;
@@ -167,9 +165,9 @@ static int ask_password_plymouth(
                                 if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
                                         return -ENOMEM;
 
-                                k = loop_write(fd, packet, n+1, true);
-                                if (k != n + 1)
-                                        return k < 0 ? (int) k : -EIO;
+                                r = loop_write(fd, packet, n+1, true);
+                                if (r < 0)
+                                        return r;
 
                                 accept_cached = false;
                                 p = 0;
@@ -338,16 +336,12 @@ static int parse_password(const char *filename, char **wall) {
                         /* If the query went away, that's OK */
                         return 0;
 
-                if (r < 0) {
-                        log_error("Failed to query password: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query password: %m");
 
                 socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-                if (socket_fd < 0) {
-                        log_error("socket(): %m");
-                        return -errno;
-                }
+                if (socket_fd < 0)
+                        return log_error_errno(errno, "socket(): %m");
 
                 sa.un.sun_family = AF_UNIX;
                 strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
@@ -355,7 +349,7 @@ static int parse_password(const char *filename, char **wall) {
                 r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa,
                            offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
                 if (r < 0) {
-                        log_error("Failed to send: %m");
+                        log_error_errno(errno, "Failed to send: %m");
                         return r;
                 }
         }
@@ -430,7 +424,7 @@ static int show_passwords(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("opendir(/run/systemd/ask-password): %m");
+                log_error_errno(errno, "opendir(/run/systemd/ask-password): %m");
                 return -errno;
         }
 
@@ -504,7 +498,7 @@ static int watch_passwords(void) {
         for (;;) {
                 r = show_passwords();
                 if (r < 0)
-                        log_error("Failed to show password: %s", strerror(-r));
+                        log_error_errno(r, "Failed to show password: %m");
 
                 if (poll(pollfd, _FD_MAX, -1) < 0) {
                         if (errno == EINTR)
@@ -642,7 +636,7 @@ int main(int argc, char *argv[]) {
                 r = show_passwords();
 
         if (r < 0)
-                log_error("Error: %s", strerror(-r));
+                log_error_errno(r, "Error: %m");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

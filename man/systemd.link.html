@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd.link"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.link — Network device configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>link</code></em>.link</code></p></div><div class="refsect1"><a name="idm214194408656"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Network link configuration is performed by the <span class="command"><strong>net_setup_link</strong></span>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemd.link"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.link — Network device configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>link</code></em>.link</code></p></div><div class="refsect1"><a name="idm139762131302864"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Network link configuration is performed by the <span class="command"><strong>net_setup_link</strong></span>
                 udev builtin.</p><p>The link files are read from the files located in the
                 system network directory <code class="filename">/usr/lib/systemd/network</code>,
                 the volatile runtime network directory <code class="filename">/run/systemd/network</code>,
@@ -37,11 +37,17 @@
                 determines if a given link file may be applied to a given device; and a
                 "<code class="literal">[Link]</code>" section specifying how the device should be
                 configured. The first (in lexical order) of the link files that matches
-                a given device is applied.</p></div><div class="refsect1"><a name="idm214194396848"></a><h2 id="[Match] Section Options">[Match] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMatch%5D%20Section%20Options">¶</a></h2><p>A link file is said to match a device if each of the entries in the
+                a given device is applied.</p></div><div class="refsect1"><a name="idm139762131291056"></a><h2 id="[Match] Section Options">[Match] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMatch%5D%20Section%20Options">¶</a></h2><p>A link file is said to match a device if each of the entries in the
                 "<code class="literal">[Match]</code>" section matches, or if the section is empty.
-                The following keys are accepted:</p><div class="variablelist"><dl class="variablelist"><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The hardware address.</p></dd><dt id="Path="><span class="term"><code class="varname">Path=</code></span><a class="headerlink" title="Permalink to this term" href="#Path=">¶</a></dt><dd><p>The persistent path, as exposed by the
-                                udev property "<code class="literal">ID_PATH</code>". May
-                                contain shell style globs.</p></dd><dt id="Driver="><span class="term"><code class="varname">Driver=</code></span><a class="headerlink" title="Permalink to this term" href="#Driver=">¶</a></dt><dd><p>The driver currently bound to the device,
+                The following keys are accepted:</p><div class="variablelist"><dl class="variablelist"><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The hardware address.</p></dd><dt id="OriginalName="><span class="term"><code class="varname">OriginalName=</code></span><a class="headerlink" title="Permalink to this term" href="#OriginalName=">¶</a></dt><dd><p>The device name, as exposed by the udev
+                                        property "INTERFACE". May contain shell style
+                                        globs. This can not be used to match on names
+                                        that have already been changed from userspace.
+                                        Caution is adviced when matching on
+                                        kernel-assigned names, as they are known to
+                                        be unstable between reboots.</p></dd><dt id="Path="><span class="term"><code class="varname">Path=</code></span><a class="headerlink" title="Permalink to this term" href="#Path=">¶</a></dt><dd><p>The persistent path, as exposed by the
+                                        udev property "<code class="literal">ID_PATH</code>". May
+                                        contain shell style globs.</p></dd><dt id="Driver="><span class="term"><code class="varname">Driver=</code></span><a class="headerlink" title="Permalink to this term" href="#Driver=">¶</a></dt><dd><p>The driver currently bound to the device,
                                         as exposed by the udev property "<code class="literal">DRIVER</code>"
                                         of its parent device, or if that is not set, the
                                         driver as exposed by "<code class="literal">ethtool -i</code>"
@@ -63,7 +69,7 @@
                                         specific architecture. See
                                         "<code class="literal">ConditionArchitecture=</code>" in
                                         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
-                                        for details.</p></dd></dl></div></div><div class="refsect1"><a name="idm214198314768"></a><h2 id="[Link] Section Options">[Link] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BLink%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Link]</code>" section accepts the following
+                                        for details.</p></dd></dl></div></div><div class="refsect1"><a name="idm139762135155792"></a><h2 id="[Link] Section Options">[Link] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BLink%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Link]</code>" section accepts the following
                 keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Description="><span class="term"><code class="varname">Description=</code></span><a class="headerlink" title="Permalink to this term" href="#Description=">¶</a></dt><dd><p>A description of the device.</p></dd><dt id="Alias="><span class="term"><code class="varname">Alias=</code></span><a class="headerlink" title="Permalink to this term" href="#Alias=">¶</a></dt><dd><p>The "<code class="literal">ifalias</code>" is set to
                                         this value.</p></dd><dt id="MACAddressPolicy="><span class="term"><code class="varname">MACAddressPolicy=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddressPolicy=">¶</a></dt><dd><p>The policy by which the MAC address
                                         should be set. The available policies are:
@@ -84,7 +90,7 @@
                                         be set. "<code class="literal">NamePolicy</code>" may be
                                         disabled by specifying
                                         "<code class="literal">net.ifnames=0</code>" on the kernel
-                                        commandline. Each of the policies may fail, and
+                                        command line. Each of the policies may fail, and
                                         the first successful one is used. The name is
                                         not set directly, but is exported to udev as
                                         the property "<code class="literal">ID_NET_NAME</code>",
@@ -121,7 +127,7 @@
                                         The accepted values are "<code class="literal">half</code>"
                                         and "<code class="literal">full</code>".</p></dd><dt id="WakeOnLan="><span class="term"><code class="varname">WakeOnLan=</code></span><a class="headerlink" title="Permalink to this term" href="#WakeOnLan=">¶</a></dt><dd><p>The Wake-on-LAN policy to set for the
                                         device. The supported values are:</p><div class="variablelist"><dl class="variablelist"><dt id="phy"><span class="term">"<code class="literal">phy</code>"</span><a class="headerlink" title="Permalink to this term" href="#phy">¶</a></dt><dd><p>Wake on PHY activity.</p></dd><dt id="magic"><span class="term">"<code class="literal">magic</code>"</span><a class="headerlink" title="Permalink to this term" href="#magic">¶</a></dt><dd><p>Wake on receipt of a magic packet.
-                                                                </p></dd><dt id="off"><span class="term">"<code class="literal">off</code>"</span><a class="headerlink" title="Permalink to this term" href="#off">¶</a></dt><dd><p>Never wake.</p></dd></dl></div></dd></dl></div></div><div class="refsect1"><a name="idm214193295888"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm214193295248"></a><p class="title"><b>Example 1. /etc/systemd/network/wireless.link</b></p><div class="example-contents"><pre class="programlisting">[Match]
+                                                                </p></dd><dt id="off"><span class="term">"<code class="literal">off</code>"</span><a class="headerlink" title="Permalink to this term" href="#off">¶</a></dt><dd><p>Never wake.</p></dd></dl></div></dd></dl></div></div><div class="refsect1"><a name="idm139762130186592"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm139762130185952"></a><p class="title"><b>Example 1. /etc/systemd/network/wireless.link</b></p><div class="example-contents"><pre class="programlisting">[Match]
 MACAddress=12:34:56:78:9a:bc
 Driver=brcmsmac
 Path=pci-0000:02:00.0-*
@@ -135,7 +141,7 @@ Name=wireless0
 MTUBytes=1450
 BitsPerSecond=10M
 WakeOnLan=magic
-MACAddress=cb:a9:87:65:43:21</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214193293472"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+MACAddress=cb:a9:87:65:43:21</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139762130184176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd-udevd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-udevd.service</span>(8)</span></a>,
                         <a href="udevadm.html"><span class="citerefentry"><span class="refentrytitle">udevadm</span>(8)</span></a>
                 </p></div></div></body></html>

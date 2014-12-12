@@ -71,7 +71,6 @@ int bus_kernel_make_starter(int fd, const char *name, bool activating, bool acce
 
 int bus_kernel_create_bus(const char *name, bool world, char **s);
 int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char **path);
-int bus_kernel_create_domain(const char *name, char **s);
 
 int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep);
 
@@ -82,9 +81,17 @@ void bus_kernel_flush_memfd(sd_bus *bus);
 
 int bus_kernel_parse_unique_name(const char *s, uint64_t *id);
 
-int kdbus_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
-int kdbus_translate_attach_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
+uint64_t request_name_flags_to_kdbus(uint64_t sd_bus_flags);
+uint64_t attach_flags_to_kdbus(uint64_t sd_bus_flags);
 
 int bus_kernel_try_close(sd_bus *bus);
 
 int bus_kernel_drop_one(int fd);
+
+int bus_kernel_realize_attach_flags(sd_bus *bus);
+
+int bus_kernel_fix_attach_mask(void);
+
+int bus_kernel_get_bus_name(sd_bus *bus, char **name);
+
+int bus_kernel_cmd_free(sd_bus *bus, uint64_t offset);
