@@ -7,7 +7,7 @@ Subject: Add support for rcS.d init scripts to the sysv-generator
  1 file changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 6e4cdd6..96ee15d 100644
+index 45c8b4e..2e01aba 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -41,6 +41,7 @@
@@ -43,7 +43,7 @@ index 6e4cdd6..96ee15d 100644
          int sysv_start_priority;
          char *pid_file;
          char **before;
-@@ -155,6 +163,8 @@ static int generate_unit_file(SysvStub *s) {
+@@ -154,6 +162,8 @@ static int generate_unit_file(SysvStub *s) {
                  "Description=%s\n",
                  s->path, s->description);
  
@@ -52,7 +52,7 @@ index 6e4cdd6..96ee15d 100644
          if (!isempty(before))
                  fprintf(f, "Before=%s\n", before);
          if (!isempty(after))
-@@ -168,11 +178,12 @@ static int generate_unit_file(SysvStub *s) {
+@@ -167,11 +177,12 @@ static int generate_unit_file(SysvStub *s) {
                  "\n[Service]\n"
                  "Type=forking\n"
                  "Restart=no\n"
@@ -65,8 +65,8 @@ index 6e4cdd6..96ee15d 100644
 +                s->sysinit ? "0" : "5min",
                  yes_no(!s->pid_file));
  
-         if (s->sysv_start_priority > 0)
-@@ -669,6 +680,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
+         if (s->pid_file)
+@@ -665,6 +676,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
                  if (s->has_lsb && other->has_lsb)
                          continue;
  
@@ -78,7 +78,7 @@ index 6e4cdd6..96ee15d 100644
                  if (other->sysv_start_priority < s->sysv_start_priority) {
                          r = strv_extend(&s->after, other->name);
                          if (r < 0)
-@@ -816,8 +832,12 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
+@@ -812,8 +828,12 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                  }
  
                                  if (de->d_name[0] == 'S')  {

@@ -18,10 +18,10 @@ conf.d snippet.
  4 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 5538b96..046609e 100644
+index 4edcc00..6f770e2 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
-@@ -395,8 +395,8 @@
+@@ -402,8 +402,8 @@
                                  forwarding to syslog is enabled but no
                                  syslog daemon is running, the
                                  respective option has no effect. By
@@ -32,7 +32,7 @@ index 5538b96..046609e 100644
                                  overridden at boot time with the
                                  kernel command line options
                                  <literal>systemd.journald.forward_to_syslog=</literal>,
-@@ -405,9 +405,9 @@
+@@ -412,9 +412,9 @@
                                  and
                                  <literal>systemd.journald.forward_to_wall=</literal>.
                                  When forwarding to the console, the
@@ -46,10 +46,10 @@ index 5538b96..046609e 100644
  
                          <varlistentry>
 diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
-index 08b143b..50e5013 100644
+index 80c9736..9a48222 100644
 --- a/src/journal/journald-server.c
 +++ b/src/journal/journald-server.c
-@@ -1462,6 +1462,7 @@ int server_init(Server *s) {
+@@ -1472,6 +1472,7 @@ int server_init(Server *s) {
          s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
          s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
  
@@ -58,12 +58,12 @@ index 08b143b..50e5013 100644
  
          s->max_file_usec = DEFAULT_MAX_FILE_USEC;
 diff --git a/src/journal/journald-syslog.c b/src/journal/journald-syslog.c
-index 79c07ff..e768d57 100644
+index cc44d45..e18bec3 100644
 --- a/src/journal/journald-syslog.c
 +++ b/src/journal/journald-syslog.c
 @@ -37,14 +37,14 @@
  
- static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
+ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, const struct ucred *ucred, const struct timeval *tv) {
  
 -        static const union sockaddr_union sa = {
 +        union sockaddr_union sa = {
@@ -78,7 +78,7 @@ index 79c07ff..e768d57 100644
                  .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
                                 + strlen("/run/systemd/journal/syslog"),
          };
-@@ -426,7 +426,7 @@ int server_open_syslog_socket(Server *s) {
+@@ -422,7 +422,7 @@ int server_open_syslog_socket(Server *s) {
          assert(s);
  
          if (s->syslog_fd < 0) {
@@ -88,10 +88,10 @@ index 79c07ff..e768d57 100644
                          .un.sun_path = "/run/systemd/journal/dev-log",
                  };
 diff --git a/src/journal/journald.conf b/src/journal/journald.conf
-index 2073f1b..cded4a9 100644
+index 29bdf8f..5f99ee4 100644
 --- a/src/journal/journald.conf
 +++ b/src/journal/journald.conf
-@@ -23,7 +23,7 @@
+@@ -26,7 +26,7 @@
  #RuntimeMaxFileSize=
  #MaxRetentionSec=
  #MaxFileSec=1month

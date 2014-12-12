@@ -9,10 +9,10 @@ for the patch.  Closes: #624599.
  1 file changed, 25 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 47e23ba..929c07a 100644
+index 6382400..acef626 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -1187,6 +1187,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+@@ -1147,6 +1147,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
  int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
          int r;
          Transaction *tr;
@@ -21,9 +21,9 @@ index 47e23ba..929c07a 100644
  
          assert(m);
          assert(type < _JOB_TYPE_MAX);
-@@ -1198,6 +1200,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
-                 return -EINVAL;
-         }
+@@ -1156,6 +1158,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
+         if (mode == JOB_ISOLATE && type != JOB_START)
+                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
  
 +        if (type == JOB_RELOAD || type == JOB_RELOAD_OR_START || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 +                HASHMAP_FOREACH(j, m->jobs, i) {
@@ -48,6 +48,6 @@ index 47e23ba..929c07a 100644
 +                }
 +        }
 +
-         if (mode == JOB_ISOLATE && !unit->allow_isolate) {
-                 sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
-                 return -EPERM;
+         if (mode == JOB_ISOLATE && !unit->allow_isolate)
+                 return sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+ 

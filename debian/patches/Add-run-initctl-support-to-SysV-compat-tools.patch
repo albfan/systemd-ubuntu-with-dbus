@@ -11,10 +11,10 @@ as PID 1.
  1 file changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index e55d65e..be2eee2 100644
+index 98be4d0..dba9e91 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -6717,19 +6717,24 @@ static int talk_initctl(void) {
+@@ -7261,18 +7261,23 @@ static int talk_initctl(void) {
  
          request.runlevel = rl;
  
@@ -30,18 +30,17 @@ index e55d65e..be2eee2 100644
 +                        if (errno == ENOENT)
 +                                return 0;
  
--                log_error("Failed to open "INIT_FIFO": %m");
+-                log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
 -                return -errno;
-+                        log_error("Failed to open initctl FIFO: %m");
++                        log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
 +                        return -errno;
 +                }
          }
  
-         errno = 0;
-         r = loop_write(fd, &request, sizeof(request), false) != sizeof(request);
-         if (r) {
--                log_error("Failed to write to "INIT_FIFO": %m");
-+                log_error("Failed to write to initctl FIFO: %m");
-                 return errno > 0 ? -errno : -EIO;
-         }
+         r = loop_write(fd, &request, sizeof(request), false);
+         if (r < 0)
+-                return log_error_errno(r, "Failed to write to "INIT_FIFO": %m");
++                return log_error_errno(r, "Failed to write to initctl FIFO: %m");
  
+         return 1;
+ }

@@ -17,11 +17,11 @@ Closes: #762146
  3 files changed, 16 insertions(+), 2 deletions(-)
 
 diff --git a/src/libsystemd/sd-bus/bus-internal.c b/src/libsystemd/sd-bus/bus-internal.c
-index 0bea8ca..2c1b69e 100644
+index 91b288c..a0741be 100644
 --- a/src/libsystemd/sd-bus/bus-internal.c
 +++ b/src/libsystemd/sd-bus/bus-internal.c
-@@ -166,6 +166,19 @@ bool service_name_is_valid(const char *p) {
-         return true;
+@@ -186,6 +186,19 @@ char* service_name_startswith(const char *a, const char *b) {
+         return NULL;
  }
  
 +bool sender_name_is_valid(const char *p) {
@@ -41,22 +41,22 @@ index 0bea8ca..2c1b69e 100644
          const char *q;
  
 diff --git a/src/libsystemd/sd-bus/bus-internal.h b/src/libsystemd/sd-bus/bus-internal.h
-index 57247d7..dd3c316 100644
+index 977b340..85dcc88 100644
 --- a/src/libsystemd/sd-bus/bus-internal.h
 +++ b/src/libsystemd/sd-bus/bus-internal.h
-@@ -339,6 +339,7 @@ struct sd_bus {
- 
+@@ -343,6 +343,7 @@ struct sd_bus {
  bool interface_name_is_valid(const char *p) _pure_;
  bool service_name_is_valid(const char *p) _pure_;
+ char* service_name_startswith(const char *a, const char *b);
 +bool sender_name_is_valid(const char *p) _pure_;
  bool member_name_is_valid(const char *p) _pure_;
  bool object_path_is_valid(const char *p) _pure_;
  char *object_path_startswith(const char *a, const char *b) _pure_;
 diff --git a/src/libsystemd/sd-bus/bus-message.c b/src/libsystemd/sd-bus/bus-message.c
-index 1362a60..57dd132 100644
+index 06d8d77..fb55c50 100644
 --- a/src/libsystemd/sd-bus/bus-message.c
 +++ b/src/libsystemd/sd-bus/bus-message.c
-@@ -5056,7 +5056,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
+@@ -5118,7 +5118,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                          if (!streq(signature, "s"))
                                  return -EBADMSG;
  
@@ -65,7 +65,7 @@ index 1362a60..57dd132 100644
                          break;
  
                  case BUS_MESSAGE_HEADER_SENDER:
-@@ -5067,7 +5067,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
+@@ -5129,7 +5129,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                          if (!streq(signature, "s"))
                                  return -EBADMSG;
  

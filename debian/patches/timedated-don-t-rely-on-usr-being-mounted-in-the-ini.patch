@@ -18,7 +18,7 @@ Closes: #726256
  1 file changed, 93 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 3a55d65..74a926f 100644
+index 84b5259..8b9afdf 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -23,6 +23,9 @@
@@ -31,15 +31,15 @@ index 3a55d65..74a926f 100644
  
  #include "sd-id128.h"
  #include "sd-messages.h"
-@@ -40,6 +43,7 @@
- #include "bus-util.h"
- #include "bus-errors.h"
+@@ -41,6 +44,7 @@
+ #include "bus-error.h"
+ #include "bus-common-errors.h"
  #include "event-util.h"
 +#include "copy.h"
  
  #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
  #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
-@@ -59,6 +63,94 @@ static void context_free(Context *c) {
+@@ -65,6 +69,94 @@ static void context_free(Context *c) {
          bus_verify_polkit_async_registry_free(c->polkit_registry);
  }
  
@@ -134,7 +134,7 @@ index 3a55d65..74a926f 100644
  static int context_read_data(Context *c) {
          _cleanup_free_ char *t = NULL;
          int r;
-@@ -127,7 +219,7 @@ static int context_write_data_timezone(Context *c) {
+@@ -133,7 +225,7 @@ static int context_write_data_timezone(Context *c) {
          if (!p)
                  return log_oom();
  

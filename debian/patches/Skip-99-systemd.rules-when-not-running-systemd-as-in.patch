@@ -10,7 +10,7 @@ used with SysVinit or upstart scripts, too.
  1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
-index e30d9a8..78d2760 100644
+index b66d727..8e1896d 100644
 --- a/rules/99-systemd.rules.in
 +++ b/rules/99-systemd.rules.in
 @@ -7,6 +7,12 @@
@@ -37,8 +37,8 @@ index e30d9a8..78d2760 100644
  
  # Pull in rfkill save/restore for all rfkill devices
  
--SUBSYSTEM=="rfkill", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
-+SUBSYSTEM=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
+-SUBSYSTEM=="rfkill", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/rfkill/devices/%k", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
++SUBSYSTEM=="rfkill", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/rfkill/devices/%k", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
  
  # Asynchronously mount file systems implemented by these modules as
  # soon as they are loaded.

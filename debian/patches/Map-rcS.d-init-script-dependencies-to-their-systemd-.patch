@@ -7,10 +7,10 @@ Subject: Map rcS.d init script dependencies to their systemd equivalent.
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index ebd8076..b1c6a36 100644
+index ad7db47..91623e2 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
-@@ -247,8 +247,15 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -243,8 +243,15 @@ static int sysv_translate_facility(const char *name, const char *filename, char
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
                  "remote_fs",            SPECIAL_REMOTE_FS_TARGET,

@@ -13,15 +13,15 @@ Closes: #751392
  1 file changed, 2 insertions(+)
 
 diff --git a/src/core/mount-setup.c b/src/core/mount-setup.c
-index cda25ed..28dc4a0 100644
+index 342f552..6823bd8 100644
 --- a/src/core/mount-setup.c
 +++ b/src/core/mount-setup.c
 @@ -96,6 +96,8 @@ static const MountPoint mount_table[] = {
  #endif
-         { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-+        { "tmpfs",      "/run/lock",                 "tmpfs",      "mode=1777,size=5242880", MS_NOSUID|MS_NODEV|MS_NOEXEC,
-+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-         { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-         { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
+         { "tmpfs",       "/run",                      "tmpfs",      "mode=755",                MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
++        { "tmpfs",       "/run/lock",                 "tmpfs",      "mode=1777,size=5242880",  MS_NOSUID|MS_NODEV|MS_NOEXEC,
++          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+         { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755",                MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
