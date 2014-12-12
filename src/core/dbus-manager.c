@@ -39,7 +39,7 @@
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
 #include "dbus-execute.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 
 static int property_get_version(
                 sd_bus *bus,
@@ -615,6 +615,92 @@ static int method_set_unit_properties(sd_bus *bus, sd_bus_message *message, void
         return bus_unit_method_set_properties(bus, message, u, error);
 }
 
+static int transient_unit_from_message(
+                Manager *m,
+                sd_bus_message *message,
+                const char *name,
+                Unit **unit,
+                sd_bus_error *error) {
+
+        Unit *u;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(name);
+
+        r = manager_load_unit(m, name, NULL, error, &u);
+        if (r < 0)
+                return r;
+
+        if (u->load_state != UNIT_NOT_FOUND ||
+            set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
+
+        /* OK, the unit failed to load and is unreferenced, now let's
+         * fill in the transient data instead */
+        r = unit_make_transient(u);
+        if (r < 0)
+                return r;
+
+        /* Set our properties */
+        r = bus_unit_set_properties(u, message, UNIT_RUNTIME, false, error);
+        if (r < 0)
+                return r;
+
+        *unit = u;
+
+        return 0;
+}
+
+static int transient_aux_units_from_message(
+                Manager *m,
+                sd_bus_message *message,
+                sd_bus_error *error) {
+
+        Unit *u;
+        char *name = NULL;
+        int r;
+
+        assert(m);
+        assert(message);
+
+        r = sd_bus_message_enter_container(message, 'a', "(sa(sv))");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_enter_container(message, 'r', "sa(sv)")) > 0) {
+                if (r <= 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "s", &name);
+                if (r < 0)
+                        return r;
+
+                r = transient_unit_from_message(m, message, name, &u, error);
+                if (r < 0 && r != -EEXIST)
+                        return r;
+
+                if (r != -EEXIST) {
+                        r = unit_load(u);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *smode;
         Manager *m = userdata;
@@ -652,21 +738,11 @@ static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, error, &u);
+        r = transient_unit_from_message(m, message, name, &u, error);
         if (r < 0)
                 return r;
 
-        if (u->load_state != UNIT_NOT_FOUND || set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
-
-        /* OK, the unit failed to load and is unreferenced, now let's
-         * fill in the transient data instead */
-        r = unit_make_transient(u);
-        if (r < 0)
-                return r;
-
-        /* Set our properties */
-        r = bus_unit_set_properties(u, message, UNIT_RUNTIME, false, error);
+        r = transient_aux_units_from_message(m, message, error);
         if (r < 0)
                 return r;
 
@@ -1514,7 +1590,7 @@ static int reply_unit_file_changes_and_free(
         if (n_changes > 0) {
                 r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
                 if (r < 0)
-                        log_debug("Failed to send UnitFilesChanged signal: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
         }
 
         r = sd_bus_message_new_method_return(message, &reply);
@@ -1884,8 +1960,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.unit_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", bus_property_get_usec, property_set_runtime_watchdog, offsetof(Manager, runtime_watchdog), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, shutdown_watchdog), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", bus_property_get_usec, property_set_runtime_watchdog, offsetof(Manager, runtime_watchdog), 0),
+        SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, shutdown_watchdog), 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
         SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
 
@@ -1998,7 +2074,7 @@ void bus_manager_send_finished(
                                 total_usec
                         });
         if (r < 0)
-                log_debug("Failed to send finished signal: %s", strerror(-r));
+                log_debug_errno(r, "Failed to send finished signal: %m");
 }
 
 static int send_reloading(sd_bus *bus, void *userdata) {
@@ -2025,6 +2101,6 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 
         r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
-                log_debug("Failed to send reloading signal: %s", strerror(-r));
+                log_debug_errno(r, "Failed to send reloading signal: %m");
 
 }

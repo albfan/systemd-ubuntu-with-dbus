@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.UNIT" "5" "" "systemd 217" "systemd.unit"
+.TH "SYSTEMD\&.UNIT" "5" "" "systemd 218" "systemd.unit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -555,7 +555,7 @@ configures an optional reboot string to pass to the
 system call\&.
 .RE
 .PP
-\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionNeedsUpdate=\fR, \fIConditionFirstBoot=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionNull=\fR
+\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionNeedsUpdate=\fR, \fIConditionFirstBoot=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR
 .RS 4
 Before starting a unit verify that the specified condition is true\&. If it is not true, the starting of the unit will be skipped, however all ordering dependencies of it are still respected\&. A failing condition will not result in the unit being moved into a failure state\&. The condition is checked at the time the queued start job is to be executed\&.
 .sp
@@ -634,9 +634,10 @@ may be used to check whether a specific kernel command line option is set (or if
 may be used to check whether the given security module is enabled on the system\&. Currently the recognized values values are
 \fIselinux\fR,
 \fIapparmor\fR,
-\fIima\fR
+\fIima\fR,
+\fIsmack\fR
 and
-\fIsmack\fR\&. The test may be negated by prepending an exclamation mark\&.
+\fIaudit\fR\&. The test may be negated by prepending an exclamation mark\&.
 .sp
 \fIConditionCapability=\fR
 may be used to check whether the given capability exists in the capability bounding set of the service manager (i\&.e\&. this does not check whether capability is actually available in the permitted or effective sets, see
@@ -720,13 +721,15 @@ is similar to
 \fIConditionPathExists=\fR
 but verifies whether a certain path exists, is a regular file and marked executable\&.
 .sp
-Finally,
-\fIConditionNull=\fR
-may be used to add a constant condition check value to the unit\&. It takes a boolean argument\&. If set to
-\fIfalse\fR, the condition will always fail, otherwise succeed\&.
-.sp
 If multiple conditions are specified, the unit will be executed if all of them apply (i\&.e\&. a logical AND is applied)\&. Condition checks can be prefixed with a pipe symbol (|) in which case a condition becomes a triggering condition\&. If at least one triggering condition is defined for a unit, then the unit will be executed if at least one of the triggering conditions apply and all of the non\-triggering conditions\&. If you prefix an argument with the pipe symbol and an exclamation mark, the pipe symbol must be passed first, the exclamation second\&. Except for
 \fIConditionPathIsSymbolicLink=\fR, all path checks follow symlinks\&. If any of these options is assigned the empty string, the list of conditions is reset completely, all previous condition settings (of any kind) will have no effect\&.
+.RE
+.PP
+\fIAssertArchitecture=\fR, \fIAssertVirtualization=\fR, \fIAssertHost=\fR, \fIAssertKernelCommandLine=\fR, \fIAssertSecurity=\fR, \fIAssertCapability=\fR, \fIAssertACPower=\fR, \fIAssertNeedsUpdate=\fR, \fIAssertFirstBoot=\fR, \fIAssertPathExists=\fR, \fIAssertPathExistsGlob=\fR, \fIAssertPathIsDirectory=\fR, \fIAssertPathIsSymbolicLink=\fR, \fIAssertPathIsMountPoint=\fR, \fIAssertPathIsReadWrite=\fR, \fIAssertDirectoryNotEmpty=\fR, \fIAssertFileNotEmpty=\fR, \fIAssertFileIsExecutable=\fR
+.RS 4
+Similar to the
+\fIConditionArchitecture=\fR,
+\fIConditionVirtualization=\fR, \&.\&.\&. condition settings described above these settings add assertion checks to the start\-up of the unit\&. However, unlike the conditions settings any assertion setting that is not met results in failure of the start job it was triggered by\&.
 .RE
 .PP
 \fISourcePath=\fR

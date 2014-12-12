@@ -73,7 +73,9 @@ struct udev_rules;
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
-int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec,
+int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
+                              usec_t timeout_usec, usec_t timeout_warn_usec,
+                              struct udev_list *properties_list,
                               const sigset_t *sigmask);
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
@@ -88,8 +90,11 @@ int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_warn_usec,
                      const char *cmd, char **envp, const sigset_t *sigmask,
                      char *result, size_t ressize);
-void udev_event_execute_rules(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec,
-                              struct udev_rules *rules, const sigset_t *sigset);
+void udev_event_execute_rules(struct udev_event *event,
+                              usec_t timeout_usec, usec_t timeout_warn_usec,
+                              struct udev_list *properties_list,
+                              struct udev_rules *rules,
+                              const sigset_t *sigset);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec, const sigset_t *sigset);
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
 
@@ -196,11 +201,6 @@ bool udev_builtin_validate(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
 int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
-
-/* udev logging */
-void udev_main_log(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args) _printf_(6, 0);
 
 /* udevadm commands */
 struct udevadm_cmd {

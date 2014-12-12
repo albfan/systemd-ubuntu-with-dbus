@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 217" "systemd-nspawn"
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 218" "systemd-nspawn"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -225,13 +225,19 @@ Specify one or more additional capabilities to drop for the container\&. This al
 Control whether the container\*(Aqs journal shall be made visible to the host system\&. If enabled, allows viewing the container\*(Aqs journal files from the host (but not vice versa)\&. Takes one of
 "no",
 "host",
+"try\-host",
 "guest",
+"try\-guest",
 "auto"\&. If
 "no", the journal is not linked\&. If
 "host", the journal files are stored on the host file system (beneath
 /var/log/journal/\fImachine\-id\fR) and the subdirectory is bind\-mounted into the container at the same location\&. If
 "guest", the journal files are stored on the guest file system (beneath
-/var/log/journal/\fImachine\-id\fR) and the subdirectory is symlinked into the host at the same location\&. If
+/var/log/journal/\fImachine\-id\fR) and the subdirectory is symlinked into the host at the same location\&.
+"try\-host"
+and
+"try\-guest"
+do the same but do not fail if the host does not have persistant journalling enabled\&. If
 "auto"
 (the default), and the right subdirectory of
 /var/log/journal
@@ -247,7 +253,7 @@ is used\&.
 \fB\-j\fR
 .RS 4
 Equivalent to
-\fB\-\-link\-journal=guest\fR\&.
+\fB\-\-link\-journal=try\-guest\fR\&.
 .RE
 .PP
 \fB\-\-read\-only\fR

@@ -233,7 +233,7 @@ int mac_selinux_get_our_label(char **label) {
         return r;
 }
 
-int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, char **label) {
+int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label) {
         int r = -EOPNOTSUPP;
 
 #ifdef HAVE_SELINUX
@@ -257,11 +257,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, char **label
         if (r < 0)
                 return -errno;
 
-        r = getexeccon(&fcon);
-        if (r < 0)
-                return -errno;
-
-        if (!fcon) {
+        if (!exec_label) {
                 /* If there is no context set for next exec let's use context
                    of target executable */
                 r = getfilecon(exe, &fcon);
@@ -332,9 +328,13 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
                 r = selabel_lookup_raw(label_hnd, &filecon, newpath, mode);
         }
 
-        if (r < 0 && errno != ENOENT)
+        /* No context specified by the policy? Proceed without setting it. */
+        if (r < 0 && errno == ENOENT)
+                return 0;
+
+        if (r < 0)
                 r = -errno;
-        else if (r == 0) {
+        else {
                 r = setfscreatecon(filecon);
                 if (r < 0) {
                         log_enforcing("Failed to set SELinux security context %s for %s: %m", filecon, path);

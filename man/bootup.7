@@ -1,5 +1,5 @@
 '\" t
-.TH "BOOTUP" "7" "" "systemd 217" "bootup"
+.TH "BOOTUP" "7" "" "systemd 218" "bootup"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -81,7 +81,7 @@ local\-fs\-pre\&.target
          v                  v                  |                    v              \fIrescue\&.target\fR
    timers\&.target      paths\&.target             |             sockets\&.target
          |                  |                  |                    |
-         \e__________________|_________________ | ___________________/
+         v                  |_________________ | ___________________/
                                               \e|/
                                                v
                                          basic\&.target
@@ -112,6 +112,11 @@ kernel command line option (see
 \fBsystemd\fR(1)) or by symlinking
 default\&.target
 to them\&.
+.PP
+timers\&.target
+is pulled\-in by
+basic\&.target
+asynchronously\&. This allows timers units to depend on services which become only available later in boot\&.
 .SH "BOOTUP IN THE INITIAL RAM DISK (INITRD)"
 .PP
 The initial RAM disk implementation (initrd) can be set up using systemd as well\&. In this case, boot up inside the initrd follows the following structure\&.

@@ -92,16 +92,10 @@ int loopback_setup(void) {
 
         r = start_loopback(rtnl);
         if (r == -EPERM) {
-                if (check_loopback() < 0) {
-                        log_warning("Failed to configure loopback device: %s",
-                                    strerror(EPERM));
-                        return -EPERM;
-                }
-        } else if (r < 0) {
-                log_warning("Failed to configure loopback device: %s",
-                            strerror(-r));
-                return r;
-        }
+                if (check_loopback() < 0)
+                        return log_warning_errno(EPERM, "Failed to configure loopback device: %m");
+        } else if (r < 0)
+                return log_warning_errno(r, "Failed to configure loopback device: %m");
 
 
         return 0;

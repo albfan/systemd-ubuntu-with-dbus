@@ -180,6 +180,30 @@
         </refsect1>
 
         <refsect1>
+                <title>[Link] Section Options</title>
+
+                <para> The <literal>[Link]</literal> section accepts the following keys:</para>
+
+                <variablelist class='network-directives'>
+                        <varlistentry>
+                                <term><varname>MACAddress=</varname></term>
+                                <listitem>
+                                        <para>The hardware address.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>MTUBytes=</varname></term>
+                                <listitem>
+                                        <para>The maximum transmission unit in bytes to
+                                        set for the device. The usual suffixes K, M, G,
+                                        are supported and are understood to the base of
+                                        1024.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>[Network] Section Options</title>
 
                         <para>The <literal>[Network]</literal> section accepts the following keys:</para>
@@ -405,13 +429,20 @@
                                 <varlistentry>
                                         <term><varname>Gateway=</varname></term>
                                         <listitem>
-                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
+                                                <para>As in the <literal>[Network]</literal> section.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>Destination=</varname></term>
                                         <listitem>
                                                 <para>The destination prefix of the route. Possibly followed by a slash and the
+                                                prefixlength. If omitted, a full-length host route is assumed.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Source=</varname></term>
+                                        <listitem>
+                                                <para>The source prefix of the route. Possibly followed by a slash and the
                                                 prefixlength. If omitted, a full-length host route is assumed.</para>
                                         </listitem>
                                 </varlistentry>
@@ -502,6 +533,19 @@
                                 </varlistentry>
                        </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Bridge] Section Options</title>
+                        <para>The <literal>[Bridge]</literal> section accepts the following keys.</para>
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Cost=</varname></term>
+                                        <listitem>
+                                          <para>Each port in a bridge may have different speed. Cost is used to decide which link to use. Faster interfaces should have lower costs</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
         </refsect1>
 
         <refsect1>

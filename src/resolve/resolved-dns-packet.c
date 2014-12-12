@@ -22,6 +22,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "strv.h"
+#include "unaligned.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-packet.h"
 
@@ -311,8 +312,7 @@ int dns_packet_append_uint16(DnsPacket *p, uint16_t v, size_t *start) {
         if (r < 0)
                 return r;
 
-        ((uint8_t*) d)[0] = (uint8_t) (v >> 8);
-        ((uint8_t*) d)[1] = (uint8_t) v;
+        unaligned_write_be16(d, v);
 
         return 0;
 }
@@ -327,10 +327,7 @@ int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start) {
         if (r < 0)
                 return r;
 
-        ((uint8_t*) d)[0] = (uint8_t) (v >> 24);
-        ((uint8_t*) d)[1] = (uint8_t) (v >> 16);
-        ((uint8_t*) d)[2] = (uint8_t) (v >> 8);
-        ((uint8_t*) d)[3] = (uint8_t) v;
+        unaligned_write_be32(d, v);
 
         return 0;
 }
@@ -550,10 +547,19 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         case DNS_TYPE_TXT: {
                 char **s;
 
-                STRV_FOREACH(s, rr->txt.strings) {
-                        r = dns_packet_append_string(p, *s, NULL);
+                if (strv_isempty(rr->txt.strings)) {
+                        /* RFC 6763, section 6.1 suggests to generate
+                         * single empty string for an empty array. */
+
+                        r = dns_packet_append_string(p, "", NULL);
                         if (r < 0)
                                 goto fail;
+                } else {
+                        STRV_FOREACH(s, rr->txt.strings) {
+                                r = dns_packet_append_string(p, *s, NULL);
+                                if (r < 0)
+                                        goto fail;
+                        }
                 }
 
                 r = 0;
@@ -793,8 +799,8 @@ int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = (((uint16_t) ((uint8_t*) d)[0]) << 8) |
-                ((uint16_t) ((uint8_t*) d)[1]);
+        *ret = unaligned_read_be16(d);
+
         return 0;
 }
 
@@ -808,10 +814,7 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = (((uint32_t) ((uint8_t*) d)[0]) << 24) |
-               (((uint32_t) ((uint8_t*) d)[1]) << 16) |
-               (((uint32_t) ((uint8_t*) d)[2]) << 8) |
-                ((uint32_t) ((uint8_t*) d)[3]);
+        *ret = unaligned_read_be32(d);
 
         return 0;
 }
@@ -866,7 +869,7 @@ fail:
 
 int dns_packet_read_name(DnsPacket *p, char **_ret,
                          bool allow_compression, size_t *start) {
-        size_t saved_rindex, after_rindex = 0;
+        size_t saved_rindex, after_rindex = 0, jump_barrier;
         _cleanup_free_ char *ret = NULL;
         size_t n = 0, allocated = 0;
         bool first = true;
@@ -876,6 +879,7 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
         assert(_ret);
 
         saved_rindex = p->rindex;
+        jump_barrier = p->rindex;
 
         for (;;) {
                 uint8_t c, d;
@@ -922,7 +926,7 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
                                 goto fail;
 
                         ptr = (uint16_t) (c & ~0xc0) << 8 | (uint16_t) d;
-                        if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= saved_rindex) {
+                        if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier) {
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -930,9 +934,13 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
                         if (after_rindex == 0)
                                 after_rindex = p->rindex;
 
+                        /* Jumps are limited to a "prior occurence" (RFC-1035 4.1.4) */
+                        jump_barrier = ptr;
                         p->rindex = ptr;
-                } else
+                } else {
+                        r = -EBADMSG;
                         goto fail;
+                }
         }
 
         if (!GREEDY_REALLOC(ret, allocated, n + 1)) {
@@ -1112,22 +1120,31 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
-        case DNS_TYPE_TXT: {
-                char *s;
+        case DNS_TYPE_TXT:
+                if (rdlength <= 0) {
+                        /* RFC 6763, section 6.1 suggests to treat
+                         * empty TXT RRs as equivalent to a TXT record
+                         * with a single empty string. */
 
-                while (p->rindex < offset + rdlength) {
-                        r = dns_packet_read_string(p, &s, NULL);
+                        r = strv_extend(&rr->txt.strings, "");
                         if (r < 0)
                                 goto fail;
+                } else {
+                        while (p->rindex < offset + rdlength) {
+                                char *s;
 
-                        r = strv_consume(&rr->txt.strings, s);
-                        if (r < 0)
-                                goto fail;
+                                r = dns_packet_read_string(p, &s, NULL);
+                                if (r < 0)
+                                        goto fail;
+
+                                r = strv_consume(&rr->txt.strings, s);
+                                if (r < 0)
+                                        goto fail;
+                        }
                 }
 
                 r = 0;
                 break;
-        }
 
         case DNS_TYPE_A:
                 r = dns_packet_read_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);

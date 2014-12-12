@@ -22,11 +22,10 @@
 #pragma once
 
 #include "ethtool-util.h"
-
-#include "condition-util.h"
-#include "libudev.h"
+#include "condition.h"
 #include "util.h"
 #include "list.h"
+#include "libudev.h"
 
 typedef struct link_config_ctx link_config_ctx;
 typedef struct link_config link_config;
@@ -56,6 +55,7 @@ struct link_config {
         char *match_path;
         char *match_driver;
         char *match_type;
+        char *match_name;
         Condition *match_host;
         Condition *match_virt;
         Condition *match_kernel;

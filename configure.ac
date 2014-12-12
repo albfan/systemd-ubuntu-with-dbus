@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [217],
+        [218],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -89,6 +89,8 @@ AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
+
+AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap], [$PATH:/usr/sbin:/sbin])
 
 AC_PATH_PROG([KILL], [kill], [/usr/bin/kill], [$PATH:/usr/sbin:/sbin])
 
@@ -308,7 +310,7 @@ LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN],
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, LO_FLAGS_PARTSCAN],
                [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
@@ -316,6 +318,7 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN]
 #include <fcntl.h>
 #include <sched.h>
 #include <linux/loop.h>
+#include <linux/random.h>
 ]])
 
 AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
@@ -325,7 +328,8 @@ AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
                 IFLA_VLAN_PROTOCOL,
                 IFLA_VXLAN_LOCAL6,
                 IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
-                IFLA_BRIDGE_VLAN_INFO],
+                IFLA_BRIDGE_VLAN_INFO,
+                IFLA_BRPORT_UNICAST_FLOOD],
 [], [], [[
 #include <inttypes.h>
 #include <netinet/in.h>
@@ -413,6 +417,18 @@ fi
 AM_CONDITIONAL(HAVE_KMOD, [test "$have_kmod" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_xkbcommon=no
+AC_ARG_ENABLE(xkbcommon, AS_HELP_STRING([--disable-xkbcommon], [disable xkbcommon keymap support]))
+if test "x$enable_xkbcommon" != "xno"; then
+        PKG_CHECK_MODULES(XKBCOMMON, [ xkbcommon >= 0.3.0 ],
+                [AC_DEFINE(HAVE_XKBCOMMON, 1, [Define if libxkbcommon is available]) have_xkbcommon=yes], have_xkbcommon=no)
+        if test "x$have_xkbcommon" = xno -a "x$enable_xkbcommon" = xyes; then
+                AC_MSG_ERROR([*** xkbcommon support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_XKBCOMMON, [test "$have_xkbcommon" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_blkid=no
 AC_ARG_ENABLE(blkid, AS_HELP_STRING([--disable-blkid], [disable blkid support]))
 if test "x$enable_blkid" != "xno"; then
@@ -423,6 +439,15 @@ if test "x$enable_blkid" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_libmount=no
+PKG_CHECK_MODULES(MOUNT, [ mount >= 2.20 ],
+        [AC_DEFINE(HAVE_LIBMOUNT, 1, [Define if libmount is available]) have_libmount=yes], have_libmount=no)
+if test "x$have_libmount" = xno; then
+        AC_MSG_ERROR([*** libmount support required but libraries not found])
+fi
+AM_CONDITIONAL(HAVE_LIBMOUNT, [test "$have_libmount" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_seccomp=no
@@ -650,6 +675,8 @@ AS_HELP_STRING([--with-smack-run-label=STRING],
 if test "x${have_smack}" = xyes ; then
         AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
 fi
+
+AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],
@@ -961,6 +988,7 @@ have_timesyncd=no
 AC_ARG_ENABLE(timesyncd, AS_HELP_STRING([--disable-timesyncd], [disable timesync daemon]))
 if test "x$enable_timesyncd" != "xno"; then
         have_timesyncd=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_TIMESYNCD"
 fi
 AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
 
@@ -1050,6 +1078,7 @@ AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd])
 AS_IF([test "x$enable_networkd" != "xno"], [
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
         have_networkd=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_NETWORKD"
 ])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
@@ -1066,7 +1095,7 @@ AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 have_terminal=no
 AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
 if test "x$enable_terminal" = "xyes"; then
-        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.4 libdrm >= 2.4], [have_terminal=yes])
+        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.5 libdrm >= 2.4], [have_terminal=yes])
         AS_IF([test "x$have_terminal" != xyes -a "x$enable_terminal" = xyes],
               [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
               [test "x$have_terminal" = xyes],
@@ -1298,6 +1327,13 @@ AC_ARG_ENABLE(tests,
        enable_tests=$enableval, enable_tests=yes)
 AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
 
+AC_ARG_ENABLE(hashmap-debug,
+       [AC_HELP_STRING([--enable-hashmap-debug], [enable hashmap debugging])],
+       enable_hashmap_debug=$enableval, enable_hashmap_debug=no)
+AS_IF([test x$enable_hashmap_debug = xyes], [
+        AC_DEFINE(ENABLE_HASHMAP_DEBUG, 1, [Define if hashmap debugging is to be enabled])
+])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -1365,7 +1401,9 @@ AC_MSG_RESULT([
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
         kmod:                    ${have_kmod}
+        xkbcommon:               ${have_xkbcommon}
         blkid:                   ${have_blkid}
+        libmount:                ${have_libmount}
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}

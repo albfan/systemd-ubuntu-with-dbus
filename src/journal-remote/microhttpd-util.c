@@ -41,7 +41,7 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         f = strappenda("microhttpd: ", fmt);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_metav(LOG_INFO, NULL, 0, NULL, f, ap);
+        log_internalv(LOG_INFO, 0, NULL, 0, NULL, f, ap);
         REENABLE_WARNING;
 }
 
@@ -126,11 +126,10 @@ void log_func_gnutls(int level, const char *message) {
 
         if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
                 if (gnutls_log_map[level].enabled)
-                        log_meta(gnutls_log_map[level].level, NULL, 0, NULL,
-                                 "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
+                        log_internal(gnutls_log_map[level].level, 0, NULL, 0, NULL, "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
         } else {
                 log_debug("Received GNUTLS message with unknown level %d.", level);
-                log_meta(LOG_DEBUG, NULL, 0, NULL, "gnutls: %s", message);
+                log_internal(LOG_DEBUG, 0, NULL, 0, NULL, "gnutls: %s", message);
         }
 }
 
@@ -171,17 +170,13 @@ static int verify_cert_authorized(gnutls_session_t session) {
         int r;
 
         r = gnutls_certificate_verify_peers2(session, &status);
-        if (r < 0) {
-                log_error("gnutls_certificate_verify_peers2 failed: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "gnutls_certificate_verify_peers2 failed: %m");
 
         type = gnutls_certificate_type_get(session);
         r = gnutls_certificate_verification_status_print(status, type, &out, 0);
-        if (r < 0) {
-                log_error("gnutls_certificate_verification_status_print failed: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
 
         log_info("Certificate status: %s", out.data);
 

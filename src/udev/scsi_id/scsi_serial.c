@@ -361,7 +361,7 @@ resend:
                         dev_scsi->use_sg = 3;
                         goto resend;
                 }
-                log_debug("%s: ioctl failed: %m", dev_scsi->kernel);
+                log_debug_errno(errno, "%s: ioctl failed: %m", dev_scsi->kernel);
                 goto error;
         }
 
@@ -819,12 +819,12 @@ int scsi_std_inquiry(struct udev *udev,
 
         fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
         if (fd < 0) {
-                log_debug("scsi_id: cannot open %s: %m", devname);
+                log_debug_errno(errno, "scsi_id: cannot open %s: %m", devname);
                 return 1;
         }
 
         if (fstat(fd, &statbuf) < 0) {
-                log_debug("scsi_id: cannot stat %s: %m", devname);
+                log_debug_errno(errno, "scsi_id: cannot stat %s: %m", devname);
                 err = 2;
                 goto out;
         }
@@ -861,7 +861,7 @@ int scsi_get_serial(struct udev *udev,
         int retval;
 
         memzero(dev_scsi->serial, len);
-        srand((unsigned int)getpid());
+        initialize_srand();
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 

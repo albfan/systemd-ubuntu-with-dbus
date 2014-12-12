@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm214175910640"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm140420950668304"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.socket</code>" encodes information about
                 an IPC or network socket or a file system FIFO
                 controlled and supervised by systemd, for socket-based
@@ -97,7 +97,7 @@
                 <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>-style
                 socket passing (i.e. sockets passed in via standard input and
                 output, using <code class="varname">StandardInput=socket</code>
-                in the service file).</p></div><div class="refsect1"><a name="idm214179835824"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section,
+                in the service file).</p></div><div class="refsect1"><a name="idm140420954543920"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section,
                 which carries information about the socket or FIFO it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -604,7 +604,7 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm214174704688"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm140420949461120"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

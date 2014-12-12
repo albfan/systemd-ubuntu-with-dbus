@@ -1,5 +1,5 @@
 '\" t
-.TH "RESOLVED\&.CONF" "5" "" "systemd 217" "resolved.conf"
+.TH "RESOLVED\&.CONF" "5" "" "systemd 218" "resolved.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,14 +20,48 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-resolved.conf \- Network Name Resolution configuration file
+resolved.conf, resolved.conf.d \- Network Name Resolution configuration files
 .SH "SYNOPSIS"
 .PP
 /etc/systemd/resolved\&.conf
+.PP
+/etc/systemd/resolved\&.conf\&.d/*\&.conf
+.PP
+/run/systemd/resolved\&.conf\&.d/*\&.conf
+.PP
+/usr/lib/systemd/resolved\&.conf\&.d/*\&.conf
 .SH "DESCRIPTION"
 .PP
-When starting, systemd\-resolved will read the configuration file
-resolved\&.conf\&. This configuration file controls local DNS and LLMNR name resolving\&.
+These configuration files control local DNS and LLMNR name resolving\&.
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
+.PP
+Configuration files are read from directories in
+/etc/,
+/run/, and
+/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
+\fIfilename\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/run/
+and
+/usr/lib/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&.
+.PP
+Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
+.SH "CONFIGURATION FILE"
+.PP
+Configuration is also read from a single configuration file in
+/etc/\&. This file is read before any of the configuration directories, and has the lowest precedence; entries in a file in any configuration directory override entries in the single configuration file\&.
 .SH "OPTIONS"
 .PP
 \fIDNS=\fR

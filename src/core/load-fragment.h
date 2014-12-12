@@ -94,6 +94,7 @@ int config_parse_job_mode_isolate(const char *unit, const char *filename, unsign
 int config_parse_exec_selinux_context(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_personality(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_exec_apparmor_profile(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_exec_smack_process_label(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_address_families(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_runtime_directory(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_set_status(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
@@ -106,3 +107,9 @@ int config_parse_protect_system(const char* unit, const char *filename, unsigned
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, unsigned length);
 extern const char load_fragment_gperf_nulstr[];
+
+typedef enum Disabled {
+        DISABLED_CONFIGURATION,
+        DISABLED_LEGACY,
+        DISABLED_EXPERIMENTAL,
+} Disabled;

@@ -85,29 +85,32 @@ static void test_path(void) {
         }
 }
 
-static void test_find_binary(const char *self) {
+static void test_find_binary(const char *self, bool local) {
         char *p;
 
-        assert_se(find_binary("/bin/sh", &p) == 0);
+        assert_se(find_binary("/bin/sh", local, &p) == 0);
         puts(p);
         assert_se(streq(p, "/bin/sh"));
         free(p);
 
-        assert_se(find_binary(self, &p) == 0);
+        assert_se(find_binary(self, local, &p) == 0);
         puts(p);
         assert_se(endswith(p, "/test-path-util"));
         assert_se(path_is_absolute(p));
         free(p);
 
-        assert_se(find_binary("sh", &p) == 0);
+        assert_se(find_binary("sh", local, &p) == 0);
         puts(p);
         assert_se(endswith(p, "/sh"));
         assert_se(path_is_absolute(p));
         free(p);
 
-        assert_se(find_binary("xxxx-xxxx", &p) == -ENOENT);
+        assert_se(find_binary("xxxx-xxxx", local, &p) == -ENOENT);
 
-        assert_se(find_binary("/some/dir/xxxx-xxxx", &p) == -ENOENT);
+        assert_se(find_binary("/some/dir/xxxx-xxxx", local, &p) ==
+                  (local ? -ENOENT : 0));
+        if (!local)
+                free(p);
 }
 
 static void test_prefixes(void) {
@@ -242,13 +245,35 @@ static void test_strv_resolve(void) {
         assert_se(rm_rf_dangerous(tmp_dir, false, true, false) == 0);
 }
 
+static void test_path_startswith(void) {
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "////"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo//bar/////barfoo///"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo////"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar///barfoo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo////bar/barfoo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "////foo/bar/barfoo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo"));
+
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa/"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", ""));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/bar/foo"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/f/b/b/"));
+}
+
 int main(int argc, char **argv) {
         test_path();
-        test_find_binary(argv[0]);
+        test_find_binary(argv[0], true);
+        test_find_binary(argv[0], false);
         test_prefixes();
         test_path_join();
         test_fsck_exists();
         test_make_relative();
         test_strv_resolve();
+        test_path_startswith();
+
         return 0;
 }

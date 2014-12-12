@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSCTL\&.D" "5" "" "systemd 217" "sysctl.d"
+.TH "SYSCTL\&.D" "5" "" "systemd 218" "sysctl.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,20 +43,6 @@ or
 ";"
 are ignored\&.
 .PP
-Each configuration file shall be named in the style of
-\fIprogram\fR\&.conf\&. Files in
-/etc/
-override files with the same name in
-/usr/lib/
-and
-/run/\&. Files in
-/run/
-override files with the same name in
-/usr/lib/\&. Packages should install their configuration files in
-/usr/lib/\&. Files in
-/etc/
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same variable name, the entry in the file with the lexicographically latest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
-.PP
 Note that either
 "/"
 or
@@ -75,12 +61,6 @@ or
 may be used to refer to
 /proc/sys/net/ipv4/conf/enp3s0\&.200/forwarding\&.
 .PP
-If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
-/dev/null
-in
-/etc/sysctl\&.d/
-bearing the same filename\&.
-.PP
 The settings configured with
 sysctl\&.d
 files will be applied early on boot\&. The network interface\-specific options will also be applied individually for each network interface as it shows up in the system\&. (More specifically,
@@ -96,6 +76,31 @@ which runs during early boot will not configure such parameters if they become a
 \fBudev\fR(7)
 rule to set those parameters when they become available\&. Alternatively, a slightly simpler and less efficient option is to add the module to
 \fBmodules-load.d\fR(5), causing it to be loaded statically before sysctl settings are applied (see example below)\&.
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
+.PP
+Configuration files are read from directories in
+/etc/,
+/run/, and
+/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
+\fIfilename\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/run/
+and
+/usr/lib/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&.
+.PP
+Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
 .SH "EXAMPLES"
 .PP
 \fBExample\ \&1.\ \&Set kernel YP domain name\fR

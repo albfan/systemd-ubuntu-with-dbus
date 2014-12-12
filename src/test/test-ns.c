@@ -65,12 +65,12 @@ int main(int argc, char *argv[]) {
                             PROTECT_SYSTEM_NO,
                             0);
         if (r < 0) {
-                log_error("Failed to setup namespace: %s", strerror(-r));
+                log_error_errno(r, "Failed to setup namespace: %m");
                 return 1;
         }
 
         execl("/bin/sh", "/bin/sh", NULL);
-        log_error("execl(): %m");
+        log_error_errno(errno, "execl(): %m");
 
         return 1;
 }

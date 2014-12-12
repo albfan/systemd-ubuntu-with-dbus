@@ -36,7 +36,7 @@
 static const char* arg_what = "idle:sleep:shutdown";
 static const char* arg_who = NULL;
 static const char* arg_why = "Unknown reason";
-static const char* arg_mode = "block";
+static const char* arg_mode = NULL;
 
 static enum {
         ACTION_INHIBIT,
@@ -96,6 +96,9 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
+
+                if (arg_mode && !streq(mode, arg_mode))
+                        continue;
 
                 get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
@@ -205,7 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_action == ACTION_INHIBIT && argc == 1)
+        if (arg_action == ACTION_INHIBIT && optind == argc)
                 arg_action = ACTION_LIST;
 
         else if (arg_action == ACTION_INHIBIT && optind >= argc) {
@@ -232,7 +235,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_default_system(&bus);
         if (r < 0) {
-                log_error("Failed to connect to bus: %s", strerror(-r));
+                log_error_errno(r, "Failed to connect to bus: %m");
                 return EXIT_FAILURE;
         }
 
@@ -252,6 +255,9 @@ int main(int argc, char *argv[]) {
                 if (!arg_who)
                         arg_who = w = strv_join(argv + optind, " ");
 
+                if (!arg_mode)
+                        arg_mode = "block";
+
                 fd = inhibit(bus, &error);
                 if (fd < 0) {
                         log_error("Failed to inhibit: %s", bus_error_message(&error, -r));
@@ -260,7 +266,7 @@ int main(int argc, char *argv[]) {
 
                 pid = fork();
                 if (pid < 0) {
-                        log_error("Failed to fork: %m");
+                        log_error_errno(errno, "Failed to fork: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -270,11 +276,11 @@ int main(int argc, char *argv[]) {
                         close_all_fds(NULL, 0);
 
                         execvp(argv[optind], argv + optind);
-                        log_error("Failed to execute %s: %m", argv[optind]);
+                        log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_warn(argv[optind], pid);
+                r = wait_for_terminate_and_warn(argv[optind], pid, true);
                 return r < 0 ? EXIT_FAILURE : r;
         }
 

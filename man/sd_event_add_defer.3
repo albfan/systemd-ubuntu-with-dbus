@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_EVENT_ADD_DEFER" "3" "" "systemd 217" "sd_event_add_defer"
+.TH "SD_EVENT_ADD_DEFER" "3" "" "systemd 218" "sd_event_add_defer"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -48,7 +48,7 @@ pointer, which may be chosen freely by the caller\&.
 \fBsd_event_add_defer()\fR
 adds a new event source that will "fire" the next time the event loop is run\&. By default, the handler will be called once (\fBSD_EVENT_ONESHOT\fR)\&.
 .PP
-\fBsd_event_add_defer()\fR
+\fBsd_event_add_post()\fR
 adds a new event source that will "fire" if any event handlers are invoked whenever the event loop is run\&. By default, the source is enabled permanently (\fBSD_EVENT_ON\fR)\&.
 .PP
 \fBsd_event_add_exit()\fR

@@ -87,8 +87,8 @@ static size_t output_callback(char *buf,
         if (nmemb && !u->answer) {
                 u->answer = strndup(buf, size*nmemb);
                 if (!u->answer)
-                        log_warning("Failed to store server answer (%zu bytes): %s",
-                                    size*nmemb, strerror(ENOMEM));
+                        log_warning_errno(ENOMEM, "Failed to store server answer (%zu bytes): %m",
+                                          size*nmemb);
         }
 
         return size * nmemb;
@@ -103,18 +103,14 @@ static int check_cursor_updating(Uploader *u) {
                 return 0;
 
         r = mkdir_parents(u->state_file, 0755);
-        if (r < 0) {
-                log_error("Cannot create parent directory of state file %s: %s",
-                          u->state_file, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot create parent directory of state file %s: %m",
+                                       u->state_file);
 
         r = fopen_temporary(u->state_file, &f, &temp_path);
-        if (r < 0) {
-                log_error("Cannot save state to %s: %s",
-                          u->state_file, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot save state to %s: %m",
+                                       u->state_file);
         unlink(temp_path);
 
         return 0;
@@ -147,7 +143,7 @@ static int update_cursor_state(Uploader *u) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save state %s: %s", u->state_file, strerror(-r));
+                log_error_errno(r, "Failed to save state %s: %m", u->state_file);
 
         return r;
 }
@@ -164,11 +160,10 @@ static int load_cursor_state(Uploader *u) {
 
         if (r == -ENOENT)
                 log_debug("State file %s is not present.", u->state_file);
-        else if (r < 0) {
-                log_error("Failed to read state file %s: %s",
-                          u->state_file, strerror(-r));
-                return r;
-        } else
+        else if (r < 0)
+                return log_error_errno(r, "Failed to read state file %s: %m",
+                                       u->state_file);
+        else
                 log_debug("Last cursor was %s", u->last_cursor);
 
         return 0;
@@ -313,7 +308,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
                 close_fd_input(u);
                 return 0;
         } else {
-                log_error("Aborting transfer after read error on input: %m.");
+                log_error_errno(errno, "Aborting transfer after read error on input: %m.");
                 return CURL_READFUNC_ABORT;
         }
 }
@@ -362,10 +357,8 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
                 fd = STDIN_FILENO;
         else {
                 fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0) {
-                        log_error("Failed to open %s: %m", filename);
-                        return -errno;
-                }
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", filename);
         }
 
         u->input = fd;
@@ -374,10 +367,8 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
                 r = sd_event_add_io(u->events, &u->input_event,
                                     fd, EPOLLIN, dispatch_fd_input, u);
                 if (r < 0) {
-                        if (r != -EPERM || arg_follow > 0) {
-                                log_error("Failed to register input event: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r != -EPERM || arg_follow > 0)
+                                return log_error_errno(r, "Failed to register input event: %m");
 
                         /* Normal files should just be consumed without polling. */
                         r = start_upload(u, fd_input_callback, u);
@@ -458,16 +449,12 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         u->state_file = state_file;
 
         r = sd_event_default(&u->events);
-        if (r < 0) {
-                log_error("sd_event_default failed: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "sd_event_default failed: %m");
 
         r = setup_signals(u);
-        if (r < 0) {
-                log_error("Failed to set up signals: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up signals: %m");
 
         return load_cursor_state(u);
 }
@@ -545,10 +532,10 @@ static int parse_config(void) {
                 { "Upload",  "TrustedCertificateFile", config_parse_path,   0, &arg_trust  },
                 {}};
 
-        return config_parse(NULL, PKGSYSCONFDIR "/journal-upload.conf", NULL,
-                            "Upload\0",
-                            config_item_table_lookup, items,
-                            false, false, true, NULL);
+        return config_parse_many(PKGSYSCONFDIR "/journal-upload.conf",
+                                 CONF_DIRS_NULSTR("systemd/journal-upload.conf"),
+                                 "Upload\0", config_item_table_lookup, items,
+                                 false, NULL);
 }
 
 static void help(void) {
@@ -701,10 +688,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg);
-                        if (r < 0) {
-                                log_error("Failed to add paths: %s", strerror(-r));
-                                return r;
-                        };
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
                 case ARG_CURSOR:
@@ -786,9 +771,8 @@ static int open_journal(sd_journal **j) {
         else
                 r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0)
-                log_error("Failed to open %s: %s",
-                          arg_directory ? arg_directory : arg_file ? "files" : "journal",
-                          strerror(-r));
+                log_error_errno(r, "Failed to open %s: %m",
+                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
         return r;
 }
 
@@ -869,7 +853,7 @@ int main(int argc, char **argv) {
 
                 r = sd_event_run(u.events, u.timeout);
                 if (r < 0) {
-                        log_error("Failed to run event loop: %s", strerror(-r));
+                        log_error_errno(r, "Failed to run event loop: %m");
                         break;
                 }
         }

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 217" "systemd.resource-control"
+.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 218" "systemd.resource-control"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -235,6 +235,13 @@ that is named after the template name\&.
 This option may be used to arrange systemd units in a hierarchy of slices each of which might have resource settings applied\&.
 .sp
 For units of type slice, the only accepted value for this setting is the parent slice\&. Since the name of a slice unit implies the parent slice, it is hence redundant to ever set this parameter directly for slice units\&.
+.RE
+.PP
+\fIDelegate=\fR
+.RS 4
+Turns on delegation of further resource control partitioning to processes of the unit\&. For unpriviliged services (i\&.e\&. those using the
+\fIUser=\fR
+setting) this allows processes to create a subhierarchy beneath its control group path\&. For priviliged services and scopes this ensures the processes will have all control group controllers enabled\&.
 .RE
 .SH "SEE ALSO"
 .PP

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-UDEVD\&.SERVICE" "8" "" "systemd 217" "systemd-udevd.service"
+.TH "SYSTEMD\-UDEVD\&.SERVICE" "8" "" "systemd 218" "systemd-udevd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ listens to kernel uevents\&. For every event, systemd\-udevd executes matching i
 \fBudev\fR(7)\&.
 .PP
 The behavior of the daemon can be configured using
-\fBudev.conf\fR(5), its command\-line options, environment variables, and on the kernel command\-line, or changed dynamically with
+\fBudev.conf\fR(5), its command line options, environment variables, and on the kernel command line, or changed dynamically with
 \fBudevadm control\fR\&.
 .SH "OPTIONS"
 .PP
@@ -86,12 +86,6 @@ Print a short help text and exit\&.
 .RS 4
 Print a short version string and exit\&.
 .RE
-.SH "ENVIRONMENT"
-.PP
-\fI$UDEV_LOG=\fR
-.RS 4
-Set the logging priority\&.
-.RE
 .SH "KERNEL COMMAND LINE"
 .PP
 Parameters starting with "rd\&." will be read when
@@ -100,7 +94,7 @@ is used in an initrd\&.
 .PP
 \fIudev\&.log\-priority=\fR, \fIrd\&.udev\&.log\-priority=\fR
 .RS 4
-Set the logging priority\&.
+Set the log level\&.
 .RE
 .PP
 \fIudev\&.children\-max=\fR, \fIrd\&.udev\&.children\-max=\fR

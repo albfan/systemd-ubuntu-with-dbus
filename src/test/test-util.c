@@ -35,6 +35,7 @@
 #include "def.h"
 #include "fileio.h"
 #include "conf-parser.h"
+#include "virt.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -490,13 +491,14 @@ static void test_u64log2(void) {
 
 static void test_get_process_comm(void) {
         struct stat st;
-        _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
-        unsigned long long b;
+        _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL, *cwd = NULL, *root = NULL;
+        _cleanup_free_ char *env = NULL;
         pid_t e;
         uid_t u;
         gid_t g;
         dev_t h;
         int r;
+        pid_t me;
 
         if (stat("/proc/1/comm", &st) == 0) {
                 assert_se(get_process_comm(1, &a) >= 0);
@@ -504,9 +506,6 @@ static void test_get_process_comm(void) {
         } else {
                 log_warning("/proc/1/comm does not exist.");
         }
-
-        assert_se(get_starttime_of_pid(1, &b) >= 0);
-        log_info("pid1 starttime: '%llu'", b);
 
         assert_se(get_process_cmdline(1, 0, true, &c) >= 0);
         log_info("pid1 cmdline: '%s'", c);
@@ -532,7 +531,22 @@ static void test_get_process_comm(void) {
         log_info("pid1 gid: "GID_FMT, g);
         assert_se(g == 0);
 
-        assert_se(get_ctty_devnr(1, &h) == -ENOENT);
+        me = getpid();
+
+        r = get_process_cwd(me, &cwd);
+        assert_se(r >= 0 || r == -EACCES);
+        log_info("pid1 cwd: '%s'", cwd);
+
+        r = get_process_root(me, &root);
+        assert_se(r >= 0 || r == -EACCES);
+        log_info("pid1 root: '%s'", root);
+
+        r = get_process_environ(me, &env);
+        assert_se(r >= 0 || r == -EACCES);
+        log_info("self strlen(environ): '%zd'", strlen(env));
+
+        if (!detect_container(NULL))
+                assert_se(get_ctty_devnr(1, &h) == -ENOENT);
 
         getenv_for_pid(1, "PATH", &i);
         log_info("pid1 $PATH: '%s'", strna(i));
@@ -1173,51 +1187,61 @@ static void test_unquote_first_word(void) {
         char *t;
 
         p = original = "foobar waldo";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 7);
 
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
         assert_se(p == original + 12);
 
-        assert_se(unquote_first_word(&p, &t) == 0);
+        assert_se(unquote_first_word(&p, &t, false) == 0);
         assert_se(!t);
         assert_se(p == original + 12);
 
         p = original = "\"foobar\" \'waldo\'";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 9);
 
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
         assert_se(p == original + 16);
 
-        assert_se(unquote_first_word(&p, &t) == 0);
+        assert_se(unquote_first_word(&p, &t, false) == 0);
         assert_se(!t);
         assert_se(p == original + 16);
 
         p = original = "\"";
-        assert_se(unquote_first_word(&p, &t) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
         assert_se(p == original + 1);
 
         p = original = "\'";
-        assert_se(unquote_first_word(&p, &t) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
         assert_se(p == original + 1);
 
+        p = original = "\'fooo";
+        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\'fooo";
+        assert_se(unquote_first_word(&p, &t, true) > 0);
+        assert_se(streq(t, "fooo"));
+        free(t);
+        assert_se(p == original + 5);
+
         p = original = "yay\'foo\'bar";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "yayfoobar"));
         free(t);
         assert_se(p == original + 11);
 
         p = original = "   foobar   ";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 12);
@@ -1275,6 +1299,17 @@ static void test_unquote_many_words(void) {
         assert_se(p == original+15);
         assert_se(streq_ptr(a, "foobar"));
         free(a);
+}
+
+static int parse_item(const char *key, const char *value) {
+        assert_se(key);
+
+        log_info("kernel cmdline option <%s> = <%s>", key, strna(value));
+        return 0;
+}
+
+static void test_parse_proc_cmdline(void) {
+        assert_se(parse_proc_cmdline(parse_item) >= 0);
 }
 
 int main(int argc, char *argv[]) {
@@ -1348,6 +1383,7 @@ int main(int argc, char *argv[]) {
         test_execute_directory();
         test_unquote_first_word();
         test_unquote_many_words();
+        test_parse_proc_cmdline();
 
         return 0;
 }

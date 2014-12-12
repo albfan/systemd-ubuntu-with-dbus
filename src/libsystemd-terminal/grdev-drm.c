@@ -468,9 +468,11 @@ static int grdrm_plane_resync(grdrm_plane *plane) {
                         if (r == -ENOENT) {
                                 card->async_hotplug = true;
                                 r = 0;
-                                log_debug("grdrm: %s: plane %u removed during resync", card->base.name, plane->object.id);
+                                log_debug("grdrm: %s: plane %u removed during resync",
+                                          card->base.name, plane->object.id);
                         } else {
-                                log_debug("grdrm: %s: cannot retrieve plane %u: %m", card->base.name, plane->object.id);
+                                log_debug_errno(errno, "grdrm: %s: cannot retrieve plane %u: %m",
+                                                card->base.name, plane->object.id);
                         }
 
                         return r;
@@ -625,9 +627,11 @@ static int grdrm_connector_resync(grdrm_connector *connector) {
                         if (r == -ENOENT) {
                                 card->async_hotplug = true;
                                 r = 0;
-                                log_debug("grdrm: %s: connector %u removed during resync", card->base.name, connector->object.id);
+                                log_debug("grdrm: %s: connector %u removed during resync",
+                                          card->base.name, connector->object.id);
                         } else {
-                                log_debug("grdrm: %s: cannot retrieve connector %u: %m", card->base.name, connector->object.id);
+                                log_debug_errno(errno, "grdrm: %s: cannot retrieve connector %u: %m",
+                                                card->base.name, connector->object.id);
                         }
 
                         return r;
@@ -783,9 +787,11 @@ static int grdrm_encoder_resync(grdrm_encoder *encoder) {
                 if (r == -ENOENT) {
                         card->async_hotplug = true;
                         r = 0;
-                        log_debug("grdrm: %s: encoder %u removed during resync", card->base.name, encoder->object.id);
+                        log_debug("grdrm: %s: encoder %u removed during resync",
+                                  card->base.name, encoder->object.id);
                 } else {
-                        log_debug("grdrm: %s: cannot retrieve encoder %u: %m", card->base.name, encoder->object.id);
+                        log_debug_errno(errno, "grdrm: %s: cannot retrieve encoder %u: %m",
+                                        card->base.name, encoder->object.id);
                 }
 
                 return r;
@@ -916,9 +922,11 @@ static int grdrm_crtc_resync(grdrm_crtc *crtc) {
                 if (r == -ENOENT) {
                         card->async_hotplug = true;
                         r = 0;
-                        log_debug("grdrm: %s: crtc %u removed during resync", card->base.name, crtc->object.id);
+                        log_debug("grdrm: %s: crtc %u removed during resync",
+                                  card->base.name, crtc->object.id);
                 } else {
-                        log_debug("grdrm: %s: cannot retrieve crtc %u: %m", card->base.name, crtc->object.id);
+                        log_debug_errno(errno, "grdrm: %s: cannot retrieve crtc %u: %m",
+                                        card->base.name, crtc->object.id);
                 }
 
                 return r;
@@ -1119,8 +1127,8 @@ static void grdrm_crtc_commit_deep(grdrm_crtc *crtc, grdev_fb *basefb) {
         r = ioctl(card->fd, DRM_IOCTL_MODE_SETCRTC, &set_crtc);
         if (r < 0) {
                 r = -errno;
-                log_debug("grdrm: %s: cannot set crtc %" PRIu32 ": %m",
-                          card->base.name, crtc->object.id);
+                log_debug_errno(errno, "grdrm: %s: cannot set crtc %" PRIu32 ": %m",
+                                card->base.name, crtc->object.id);
 
                 grdrm_card_async(card, r);
                 return;
@@ -1188,8 +1196,8 @@ static int grdrm_crtc_commit_flip(grdrm_crtc *crtc, grdev_fb *basefb) {
                  * possible to see whether cards support page-flipping, so
                  * avoid logging on each frame. */
                 if (r != -EINVAL)
-                        log_debug("grdrm: %s: cannot schedule page-flip on crtc %" PRIu32 ": %m",
-                                  card->base.name, crtc->object.id);
+                        log_debug_errno(errno, "grdrm: %s: cannot schedule page-flip on crtc %" PRIu32 ": %m",
+                                        card->base.name, crtc->object.id);
 
                 if (grdrm_card_async(card, r))
                         return r;
@@ -1241,8 +1249,8 @@ static void grdrm_crtc_commit(grdrm_crtc *crtc) {
                         r = ioctl(card->fd, DRM_IOCTL_MODE_SETCRTC, &set_crtc);
                         if (r < 0) {
                                 r = -errno;
-                                log_debug("grdrm: %s: cannot shutdown crtc %" PRIu32 ": %m",
-                                          card->base.name, crtc->object.id);
+                                log_debug_errno(errno, "grdrm: %s: cannot shutdown crtc %" PRIu32 ": %m",
+                                                card->base.name, crtc->object.id);
 
                                 grdrm_card_async(card, r);
                                 return;
@@ -1298,8 +1306,8 @@ static void grdrm_crtc_restore(grdrm_crtc *crtc) {
         r = ioctl(card->fd, DRM_IOCTL_MODE_SETCRTC, &set_crtc);
         if (r < 0) {
                 r = -errno;
-                log_debug("grdrm: %s: cannot restore crtc %" PRIu32 ": %m",
-                          card->base.name, crtc->object.id);
+                log_debug_errno(errno, "grdrm: %s: cannot restore crtc %" PRIu32 ": %m",
+                                card->base.name, crtc->object.id);
 
                 grdrm_card_async(card, r);
                 return;
@@ -1393,9 +1401,9 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         r = ioctl(card->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb);
         if (r < 0) {
-                r = -errno;
-                log_debug("grdrm: %s: cannot create dumb buffer %" PRIu32 "x%" PRIu32": %m",
-                          card->base.name, fb->base.width, fb->base.height);
+                r = negative_errno();
+                log_debug_errno(errno, "grdrm: %s: cannot create dumb buffer %" PRIu32 "x%" PRIu32": %m",
+                                card->base.name, fb->base.width, fb->base.height);
                 return r;
         }
 
@@ -1407,17 +1415,17 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         r = ioctl(card->fd, DRM_IOCTL_MODE_MAP_DUMB, &map_dumb);
         if (r < 0) {
-                r = -errno;
-                log_debug("grdrm: %s: cannot map dumb buffer %" PRIu32 "x%" PRIu32": %m",
-                          card->base.name, fb->base.width, fb->base.height);
+                r = negative_errno();
+                log_debug_errno(errno, "grdrm: %s: cannot map dumb buffer %" PRIu32 "x%" PRIu32": %m",
+                                card->base.name, fb->base.width, fb->base.height);
                 return r;
         }
 
         fb->base.maps[0] = mmap(0, fb->sizes[0], PROT_WRITE, MAP_SHARED, card->fd, map_dumb.offset);
         if (fb->base.maps[0] == MAP_FAILED) {
-                r = -errno;
-                log_debug("grdrm: %s: cannot memory-map dumb buffer %" PRIu32 "x%" PRIu32": %m",
-                          card->base.name, fb->base.width, fb->base.height);
+                r = negative_errno();
+                log_debug_errno(errno, "grdrm: %s: cannot memory-map dumb buffer %" PRIu32 "x%" PRIu32": %m",
+                                card->base.name, fb->base.width, fb->base.height);
                 return r;
         }
 
@@ -1433,9 +1441,9 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         r = ioctl(card->fd, DRM_IOCTL_MODE_ADDFB2, &add_fb);
         if (r < 0) {
-                r = -errno;
-                log_debug("grdrm: %s: cannot add framebuffer %" PRIu32 "x%" PRIu32": %m",
-                          card->base.name, fb->base.width, fb->base.height);
+                r = negative_errno();
+                log_debug_errno(errno, "grdrm: %s: cannot add framebuffer %" PRIu32 "x%" PRIu32": %m",
+                                card->base.name, fb->base.width, fb->base.height);
                 return r;
         }
 
@@ -1461,8 +1469,8 @@ grdrm_fb *grdrm_fb_free(grdrm_fb *fb) {
         if (fb->id > 0 && fb->card->fd >= 0) {
                 r = ioctl(fb->card->fd, DRM_IOCTL_MODE_RMFB, fb->id);
                 if (r < 0)
-                        log_debug("grdrm: %s: cannot delete framebuffer %" PRIu32 ": %m",
-                                  fb->card->base.name, fb->id);
+                        log_debug_errno(errno, "grdrm: %s: cannot delete framebuffer %" PRIu32 ": %m",
+                                        fb->card->base.name, fb->id);
         }
 
         for (i = 0; i < ELEMENTSOF(fb->handles); ++i) {
@@ -1475,8 +1483,8 @@ grdrm_fb *grdrm_fb_free(grdrm_fb *fb) {
                         destroy_dumb.handle = fb->handles[i];
                         r = ioctl(fb->card->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb);
                         if (r < 0)
-                                log_debug("grdrm: %s: cannot destroy dumb-buffer %" PRIu32 ": %m",
-                                          fb->card->base.name, fb->handles[i]);
+                                log_debug_errno(errno, "grdrm: %s: cannot destroy dumb-buffer %" PRIu32 ": %m",
+                                                fb->card->base.name, fb->handles[i]);
                 }
         }
 
@@ -1777,7 +1785,8 @@ static int grdrm_card_resync(grdrm_card *card) {
                 r = ioctl(card->fd, DRM_IOCTL_MODE_GETRESOURCES, &res);
                 if (r < 0) {
                         r = -errno;
-                        log_debug("grdrm: %s: cannot retrieve drm resources: %m", card->base.name);
+                        log_debug_errno(errno, "grdrm: %s: cannot retrieve drm resources: %m",
+                                        card->base.name);
                         return r;
                 }
 
@@ -1788,7 +1797,8 @@ static int grdrm_card_resync(grdrm_card *card) {
                 r = ioctl(card->fd, DRM_IOCTL_MODE_GETPLANERESOURCES, &pres);
                 if (r < 0) {
                         r = -errno;
-                        log_debug("grdrm: %s: cannot retrieve drm plane-resources: %m", card->base.name);
+                        log_debug_errno(errno, "grdrm: %s: cannot retrieve drm plane-resources: %m",
+                                        card->base.name);
                         return r;
                 }
 
@@ -1799,7 +1809,8 @@ static int grdrm_card_resync(grdrm_card *card) {
 
                         n = ALIGN_POWER2(max);
                         if (!n || n > UINT16_MAX) {
-                                log_debug("grdrm: %s: excessive DRM resource limit: %" PRIu32, card->base.name, max);
+                                log_debug("grdrm: %s: excessive DRM resource limit: %" PRIu32,
+                                          card->base.name, max);
                                 return -ERANGE;
                         }
 
@@ -2186,8 +2197,8 @@ static void grdrm_card_hotplug(grdrm_card *card) {
         card->ready = false;
         r = grdrm_card_resync(card);
         if (r < 0) {
-                log_debug("grdrm: %s/%s: cannot re-sync card: %s",
-                          card->base.session->name, card->base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot re-sync card: %m",
+                                card->base.session->name, card->base.name);
                 return;
         }
 
@@ -2228,7 +2239,8 @@ static int grdrm_card_io_fn(sd_event_source *s, int fd, uint32_t revents, void *
                         if (errno == EAGAIN || errno == EINTR)
                                 return 0;
 
-                        log_debug("grdrm: %s/%s: read error: %m", card->base.session->name, card->base.name);
+                        log_debug_errno(errno, "grdrm: %s/%s: read error: %m",
+                                        card->base.session->name, card->base.name);
                         grdrm_card_close(card);
                         return 0;
                 }
@@ -2237,7 +2249,8 @@ static int grdrm_card_io_fn(sd_event_source *s, int fd, uint32_t revents, void *
                         event = (void*)buf;
 
                         if (len < sizeof(*event) || len < event->length) {
-                                log_debug("grdrm: %s/%s: truncated event", card->base.session->name, card->base.name);
+                                log_debug("grdrm: %s/%s: truncated event",
+                                          card->base.session->name, card->base.name);
                                 break;
                         }
 
@@ -2245,7 +2258,8 @@ static int grdrm_card_io_fn(sd_event_source *s, int fd, uint32_t revents, void *
                         case DRM_EVENT_FLIP_COMPLETE:
                                 vblank = (void*)event;
                                 if (event->length < sizeof(*vblank)) {
-                                        log_debug("grdrm: %s/%s: truncated vblank event", card->base.session->name, card->base.name);
+                                        log_debug("grdrm: %s/%s: truncated vblank event",
+                                                  card->base.session->name, card->base.name);
                                         break;
                                 }
 
@@ -2415,8 +2429,8 @@ static int grdrm_card_open(grdrm_card *card, int dev_fd) {
         r = ioctl(card->fd, DRM_IOCTL_GET_CAP, &cap);
         card->cap_dumb = r >= 0 && cap.value;
         if (r < 0)
-                log_debug("grdrm: %s/%s: cannot retrieve DUMB_BUFFER capability: %s",
-                          card->base.session->name, card->base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot retrieve DUMB_BUFFER capability: %m",
+                                card->base.session->name, card->base.name);
         else if (!card->cap_dumb)
                 log_debug("grdrm: %s/%s: DUMB_BUFFER capability not supported",
                           card->base.session->name, card->base.name);
@@ -2427,8 +2441,8 @@ static int grdrm_card_open(grdrm_card *card, int dev_fd) {
         r = ioctl(card->fd, DRM_IOCTL_GET_CAP, &cap);
         card->cap_monotonic = r >= 0 && cap.value;
         if (r < 0)
-                log_debug("grdrm: %s/%s: cannot retrieve TIMESTAMP_MONOTONIC capability: %s",
-                          card->base.session->name, card->base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot retrieve TIMESTAMP_MONOTONIC capability: %m",
+                                card->base.session->name, card->base.name);
         else if (!card->cap_monotonic)
                 log_debug("grdrm: %s/%s: TIMESTAMP_MONOTONIC is disabled globally, fix this NOW!",
                           card->base.session->name, card->base.name);
@@ -2498,8 +2512,8 @@ static void unmanaged_card_enable(grdev_card *basecard) {
                 fd = open(cu->devnode, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                 if (fd < 0) {
                         /* not fatal; simply ignore the device */
-                        log_debug("grdrm: %s/%s: cannot open node %s: %m",
-                                  basecard->session->name, basecard->name, cu->devnode);
+                        log_debug_errno(errno, "grdrm: %s/%s: cannot open node %s: %m",
+                                        basecard->session->name, basecard->name, cu->devnode);
                         return;
                 }
 
@@ -2507,16 +2521,16 @@ static void unmanaged_card_enable(grdev_card *basecard) {
 
                 r = grdrm_card_open(&cu->card, fd);
                 if (r < 0) {
-                        log_debug("grdrm: %s/%s: cannot open: %s",
-                                  basecard->session->name, basecard->name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                        basecard->session->name, basecard->name);
                         return;
                 }
         }
 
         r = ioctl(cu->card.fd, DRM_IOCTL_SET_MASTER, 0);
         if (r < 0) {
-                log_debug("grdrm: %s/%s: cannot acquire DRM-Master: %m",
-                          basecard->session->name, basecard->name);
+                log_debug_errno(errno, "grdrm: %s/%s: cannot acquire DRM-Master: %m",
+                                basecard->session->name, basecard->name);
                 return;
         }
 
@@ -2566,8 +2580,8 @@ static int unmanaged_card_new(grdev_card **out, grdev_session *session, struct u
         fd = open(cu->devnode, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
         if (fd < 0) {
                 /* not fatal; allow uaccess based control on activation */
-                log_debug("grdrm: %s/%s: cannot open node %s: %m",
-                          basecard->session->name, basecard->name, cu->devnode);
+                log_debug_errno(errno, "grdrm: %s/%s: cannot open node %s: %m",
+                                basecard->session->name, basecard->name, cu->devnode);
         } else {
                 /* We might get DRM-Master implicitly on open(); drop it immediately
                  * so we acquire it only once we're actually enabled. We don't
@@ -2575,13 +2589,13 @@ static int unmanaged_card_new(grdev_card **out, grdev_session *session, struct u
                  * weird errors, anyway. */
                 r = ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
                 if (r < 0 && errno != EACCES && errno != EINVAL)
-                        log_debug("grdrm: %s/%s: cannot drop DRM-Master: %m",
-                                  basecard->session->name, basecard->name);
+                        log_debug_errno(errno, "grdrm: %s/%s: cannot drop DRM-Master: %m",
+                                        basecard->session->name, basecard->name);
 
                 r = grdrm_card_open(&cu->card, fd);
                 if (r < 0)
-                        log_debug("grdrm: %s/%s: cannot open: %s",
-                                  basecard->session->name, basecard->name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                        basecard->session->name, basecard->name);
         }
 
         if (out)
@@ -2724,8 +2738,8 @@ static int managed_card_pause_device_fn(sd_bus *bus,
                 }
 
                 if (r < 0)
-                        log_debug("grdrm: %s/%s: cannot send PauseDeviceComplete: %s",
-                                  session->name, cm->card.base.name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot send PauseDeviceComplete: %m",
+                                        session->name, cm->card.base.name);
         }
 
         return 0;
@@ -2771,15 +2785,15 @@ static int managed_card_resume_device_fn(sd_bus *bus,
                  * and our code works fine this way. */
                 fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
                 if (fd < 0) {
-                        log_debug("grdrm: %s/%s: cannot duplicate fd: %m",
-                                  session->name, cm->card.base.name);
+                        log_debug_errno(errno, "grdrm: %s/%s: cannot duplicate fd: %m",
+                                        session->name, cm->card.base.name);
                         return 0;
                 }
 
                 r = grdrm_card_open(&cm->card, fd);
                 if (r < 0) {
-                        log_debug("grdrm: %s/%s: cannot open: %s",
-                                  session->name, cm->card.base.name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                        session->name, cm->card.base.name);
                         return 0;
                 }
         }
@@ -2863,15 +2877,15 @@ static int managed_card_take_device_fn(sd_bus *bus,
 
         fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (fd < 0) {
-                log_debug("grdrm: %s/%s: cannot duplicate fd: %m",
-                          session->name, cm->card.base.name);
+                log_debug_errno(errno, "grdrm: %s/%s: cannot duplicate fd: %m",
+                                session->name, cm->card.base.name);
                 return 0;
         }
 
         r = grdrm_card_open(&cm->card, fd);
         if (r < 0) {
-                log_debug("grdrm: %s/%s: cannot open: %s",
-                          session->name, cm->card.base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                session->name, cm->card.base.name);
                 return 0;
         }
 
@@ -2912,8 +2926,8 @@ static void managed_card_take_device(managed_card *cm) {
         return;
 
 error:
-        log_debug("grdrm: %s/%s: cannot send TakeDevice request: %s",
-                  session->name, cm->card.base.name, strerror(-r));
+        log_debug_errno(r, "grdrm: %s/%s: cannot send TakeDevice request: %m",
+                        session->name, cm->card.base.name);
 }
 
 static void managed_card_release_device(managed_card *cm) {
@@ -2955,8 +2969,8 @@ static void managed_card_release_device(managed_card *cm) {
         }
 
         if (r < 0 && r != -ENOTCONN)
-                log_debug("grdrm: %s/%s: cannot send ReleaseDevice: %s",
-                          session->name, cm->card.base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot send ReleaseDevice: %m",
+                                session->name, cm->card.base.name);
 }
 
 static int managed_card_new(grdev_card **out, grdev_session *session, struct udev_device *ud) {

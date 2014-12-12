@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 
         r = get_user_creds(&user, &uid, &gid, NULL, NULL);
         if (r < 0) {
-                log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                log_error_errno(r, "Cannot resolve user name %s: %m", user);
                 goto out;
         }
 
@@ -54,18 +54,15 @@ int main(int argc, char *argv[]) {
          * watches in. */
         r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid);
         if (r < 0)
-                log_error("Could not create runtime directory: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not create runtime directory: %m");
 
         r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid);
         if (r < 0)
-                log_error("Could not create runtime directory 'links': %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not create runtime directory 'links': %m");
 
         r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid);
         if (r < 0)
-                log_error("Could not create runtime directory 'leases': %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not create runtime directory 'leases': %m");
 
         r = drop_privileges(uid, gid,
                             (1ULL << CAP_NET_ADMIN) |
@@ -79,37 +76,43 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(&m);
         if (r < 0) {
-                log_error("Could not create manager: %s", strerror(-r));
+                log_error_errno(r, "Could not create manager: %m");
                 goto out;
         }
 
         r = manager_udev_listen(m);
         if (r < 0) {
-                log_error("Could not connect to udev: %s", strerror(-r));
+                log_error_errno(r, "Could not connect to udev: %m");
                 goto out;
         }
 
         r = manager_rtnl_listen(m);
         if (r < 0) {
-                log_error("Could not connect to rtnl: %s", strerror(-r));
+                log_error_errno(r, "Could not connect to rtnl: %m");
                 goto out;
         }
 
         r = manager_bus_listen(m);
         if (r < 0) {
-                log_error("Could not connect to system bus: %s", strerror(-r));
+                log_error_errno(r, "Could not connect to system bus: %m");
                 goto out;
         }
 
         r = manager_load_config(m);
         if (r < 0) {
-                log_error("Could not load configuration files: %s", strerror(-r));
+                log_error_errno(r, "Could not load configuration files: %m");
                 goto out;
         }
 
         r = manager_rtnl_enumerate_links(m);
         if (r < 0) {
-                log_error("Could not enumerate links: %s", strerror(-r));
+                log_error_errno(r, "Could not enumerate links: %m");
+                goto out;
+        }
+
+        r = manager_rtnl_enumerate_addresses(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not enumerate links: %m");
                 goto out;
         }
 
@@ -119,7 +122,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_loop(m->event);
         if (r < 0) {
-                log_error("Event loop failed: %s", strerror(-r));
+                log_error_errno(r, "Event loop failed: %m");
                 goto out;
         }
 

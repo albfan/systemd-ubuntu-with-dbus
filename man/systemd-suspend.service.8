@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-SUSPEND\&.SERVICE" "8" "" "systemd 217" "systemd-suspend.service"
+.TH "SYSTEMD\-SUSPEND\&.SERVICE" "8" "" "systemd 218" "systemd-suspend.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -75,7 +75,10 @@ into
 /sys/power/state, to trigger the actual system suspend\&. What exactly is written where can be configured in the
 "[Sleep]"
 section of
-/etc/systemd/sleep\&.conf\&. See
+/etc/systemd/sleep\&.conf
+or a
+sleep\&.conf\&.d
+file\&. See
 \fBsystemd-sleep.conf\fR(5)\&.
 .SH "OPTIONS"
 .PP

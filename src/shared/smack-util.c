@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "path-util.h"
+#include "fileio.h"
 #include "smack-util.h"
 
 #define SMACK_FLOOR_LABEL "_"
@@ -123,14 +124,38 @@ int mac_smack_apply_ip_in_fd(int fd, const char *label) {
         return r;
 }
 
-int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
+int mac_smack_apply_pid(pid_t pid, const char *label) {
+
+#ifdef HAVE_SMACK
+        const char *p;
+#endif
         int r = 0;
+
+        assert(label);
+
+#ifdef HAVE_SMACK
+        if (!mac_smack_use())
+                return 0;
+
+        p = procfs_file_alloca(pid, "attr/current");
+        r = write_string_file(p, label);
+        if (r < 0)
+                return r;
+#endif
+
+        return r;
+}
+
+int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 
 #ifdef HAVE_SMACK
         struct stat st;
+#endif
+        int r = 0;
 
         assert(path);
 
+#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
@@ -174,8 +199,7 @@ int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 if (ignore_erofs && errno == EROFS)
                         return 0;
 
-                log_debug("Unable to fix SMACK label of %s: %m", path);
-                r = -errno;
+                r = log_debug_errno(errno, "Unable to fix SMACK label of %s: %m", path);
         }
 #endif
 

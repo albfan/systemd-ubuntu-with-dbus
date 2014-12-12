@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 217" "systemd-bootchart"
+.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 218" "systemd-bootchart"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -26,7 +26,7 @@ systemd-bootchart \- Boot performance graphing tool
 \fBsystemd\-bootchart\fR
 is a tool, usually run at system startup, that collects the CPU load, disk load, memory usage, as well as per\-process information from a running system\&. Collected results are output as an SVG graph\&. Normally, systemd\-bootchart is invoked by the kernel by passing
 \fBinit=\fR\fB/usr/lib/systemd/systemd\-bootchart\fR
-on the kernel commandline\&. systemd\-bootchart will then fork the real init off to resume normal system startup, while monitoring and logging startup information in the background\&.
+on the kernel command line\&. systemd\-bootchart will then fork the real init off to resume normal system startup, while monitoring and logging startup information in the background\&.
 .PP
 After collecting a certain amount of data (usually 15\-30 seconds, default 20 s) the logging stops and a graph is generated from the logged information\&. This graph contains vital clues as to which resources are being used, in which order, and where possible problems exist in the startup sequence of the system\&. It is essentially a more detailed version of the
 \fBsystemd\-analyze plot\fR
@@ -63,7 +63,7 @@ will invoke
 .RS 4
 One can execute
 \fBsystemd\-bootchart\fR
-as normal application from the commandline\&. In this mode it is highly recommended to pass the
+as normal application from the command line\&. In this mode it is highly recommended to pass the
 \fB\-r\fR
 flag in order to not graph the time elapsed since boot and before systemd\-bootchart was started, as it may result in extremely large graphs\&. The time elapsed since boot might also include any time that the system was suspended\&.
 .RE

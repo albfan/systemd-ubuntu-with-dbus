@@ -132,6 +132,8 @@ struct ntp_msg {
 
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
+static int manager_listen_setup(Manager *m);
+static void manager_listen_stop(Manager *m);
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
@@ -184,6 +186,10 @@ static int manager_send_request(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
+        r = manager_listen_setup(m);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to setup connection socket: %m");
+
         /*
          * Set transmit timestamp, remember it; the server will send that back
          * as the origin timestamp and we have an indication that this is the
@@ -204,7 +210,7 @@ static int manager_send_request(Manager *m) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
         } else {
-                log_debug("Sending NTP request to %s (%s) failed: %m", strna(pretty), m->current_server_name->string);
+                log_debug_errno(errno, "Sending NTP request to %s (%s) failed: %m", strna(pretty), m->current_server_name->string);
                 return manager_connect(m);
         }
 
@@ -216,10 +222,8 @@ static int manager_send_request(Manager *m) {
                 m->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         r = manager_arm_timer(m, m->retry_interval);
-        if (r < 0) {
-                log_error("Failed to rearm timer: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearm timer: %m");
 
         m->missed_replies++;
         if (m->missed_replies > NTP_MAX_MISSED_REPLIES) {
@@ -229,10 +233,8 @@ static int manager_send_request(Manager *m) {
                                 clock_boottime_or_monotonic(),
                                 now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
                                 manager_timeout, m);
-                if (r < 0) {
-                        log_error("Failed to arm timeout timer: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to arm timeout timer: %m");
         }
 
         return 0;
@@ -250,7 +252,6 @@ static int manager_arm_timer(Manager *m, usec_t next) {
         int r;
 
         assert(m);
-        assert(m->event_receive);
 
         if (next == 0) {
                 m->event_timer = sd_event_source_unref(m->event_timer);
@@ -309,21 +310,15 @@ static int manager_clock_watch_setup(Manager *m) {
         safe_close(m->clock_watch_fd);
 
         m->clock_watch_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
-        if (m->clock_watch_fd < 0) {
-                log_error("Failed to create timerfd: %m");
-                return -errno;
-        }
+        if (m->clock_watch_fd < 0)
+                return log_error_errno(errno, "Failed to create timerfd: %m");
 
-        if (timerfd_settime(m->clock_watch_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
-                log_error("Failed to set up timerfd: %m");
-                return -errno;
-        }
+        if (timerfd_settime(m->clock_watch_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
+                return log_error_errno(errno, "Failed to set up timerfd: %m");
 
         r = sd_event_add_io(m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
-        if (r < 0) {
-                log_error("Failed to create clock watch event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create clock watch event source: %m");
 
         return 0;
 }
@@ -345,7 +340,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 4;
                 tmx.maxerror = 0;
                 tmx.esterror = 0;
-                log_debug("  adjust (slew): %+.3f sec\n", offset);
+                log_debug("  adjust (slew): %+.3f sec", offset);
         } else {
                 tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET;
 
@@ -360,7 +355,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 }
 
                 m->jumped = true;
-                log_debug("  adjust (jump): %+.3f sec\n", offset);
+                log_debug("  adjust (jump): %+.3f sec", offset);
         }
 
         /*
@@ -610,6 +605,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->pending = false;
         m->retry_interval = 0;
 
+        /* Stop listening */
+        manager_listen_stop(m);
+
         /* announce leap seconds */
         if (NTP_FIELD_LEAP(ntpmsg.field) & NTP_LEAP_PLUSSEC)
                 leap_sec = 1;
@@ -678,7 +676,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
-                        log_error("Failed to call clock_adjtime(): %m");
+                        log_error_errno(errno, "Failed to call clock_adjtime(): %m");
         }
 
         log_info("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
@@ -686,10 +684,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                  spike ? " (ignored)" : "");
 
         r = manager_arm_timer(m, m->poll_interval_usec);
-        if (r < 0) {
-                log_error("Failed to rearm timer: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearm timer: %m");
 
         return 0;
 }
@@ -702,7 +698,9 @@ static int manager_listen_setup(Manager *m) {
 
         assert(m);
 
-        assert(m->server_socket < 0);
+        if (m->server_socket >= 0)
+                return 0;
+
         assert(!m->event_receive);
         assert(m->current_server_address);
 
@@ -725,6 +723,13 @@ static int manager_listen_setup(Manager *m) {
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
 
+static void manager_listen_stop(Manager *m) {
+        assert(m);
+
+        m->event_receive = sd_event_source_unref(m->event_receive);
+        m->server_socket = safe_close(m->server_socket);
+}
+
 static int manager_begin(Manager *m) {
         _cleanup_free_ char *pretty = NULL;
         int r;
@@ -740,12 +745,6 @@ static int manager_begin(Manager *m) {
         server_address_pretty(m->current_server_address, &pretty);
         log_info("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
         sd_notifyf(false, "STATUS=Using Time Server %s (%s).", strna(pretty), m->current_server_name->string);
-
-        r = manager_listen_setup(m);
-        if (r < 0) {
-                log_warning("Failed to setup connection socket: %s", strerror(-r));
-                return r;
-        }
 
         r = manager_clock_watch_setup(m);
         if (r < 0)
@@ -820,10 +819,8 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 }
 
                 r = server_address_new(m->current_server_name, &a, (const union sockaddr_union*) ai->ai_addr, ai->ai_addrlen);
-                if (r < 0) {
-                        log_error("Failed to add server address: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add server address: %m");
 
                 server_address_pretty(a, &pretty);
                 log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
@@ -861,10 +858,8 @@ int manager_connect(Manager *m) {
                 log_debug("Slowing down attempts to contact servers.");
 
                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
-                if (r < 0) {
-                        log_error("Failed to create retry timer: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create retry timer: %m");
 
                 return 0;
         }
@@ -917,10 +912,8 @@ int manager_connect(Manager *m) {
                         if (restart && !m->exhausted_servers && m->poll_interval_usec) {
                                 log_debug("Waiting after exhausting servers.");
                                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + m->poll_interval_usec, 0, manager_retry_connect, m);
-                                if (r < 0) {
-                                        log_error("Failed to create retry timer: %s", strerror(-r));
-                                        return r;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create retry timer: %m");
 
                                 m->exhausted_servers = true;
 
@@ -946,10 +939,8 @@ int manager_connect(Manager *m) {
                 log_debug("Resolving %s...", m->current_server_name->string);
 
                 r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
-                if (r < 0) {
-                        log_error("Failed to create resolver: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create resolver: %m");
 
                 return 1;
         }
@@ -968,8 +959,7 @@ void manager_disconnect(Manager *m) {
 
         m->event_timer = sd_event_source_unref(m->event_timer);
 
-        m->event_receive = sd_event_source_unref(m->event_receive);
-        m->server_socket = safe_close(m->server_socket);
+        manager_listen_stop(m);
 
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
         m->clock_watch_fd = safe_close(m->clock_watch_fd);

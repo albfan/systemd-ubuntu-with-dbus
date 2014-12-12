@@ -1,5 +1,5 @@
 '\" t
-.TH "BINFMT\&.D" "5" "" "systemd 217" "binfmt.d"
+.TH "BINFMT\&.D" "5" "" "systemd 218" "binfmt.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -40,26 +40,31 @@ Each file contains a list of binfmt_misc kernel binary format rules\&. Consult
 for more information on registration of additional binary formats and how to write rules\&.
 .PP
 Empty lines and lines beginning with ; and # are ignored\&. Note that this means you may not use ; and # as delimiter in binary format rules\&.
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
 .PP
-Each configuration file shall be named in the style of
-\fIprogram\fR\&.conf\&. Files in
+Configuration files are read from directories in
+/etc/,
+/run/, and
+/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
+\fIfilename\fR\&.conf\&. Files in
 /etc/
 override files with the same name in
-/usr/lib/
+/run/
 and
-/run/\&. Files in
+/usr/lib/\&. Files in
 /run/
 override files with the same name in
-/usr/lib/\&. Packages should install their configuration files in
-/usr/lib/, files in
+/usr/lib/\&.
+.PP
+Packages should install their configuration files in
+/usr/lib/\&. Files in
 /etc/
-are reserved for the local administrator, who may use this logic to override the configuration files installed from vendor packages\&. All files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same binary type name, the entry in the file with the lexicographically latest name will be applied\&.
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
 .PP
 If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
-in
-/etc/binfmt\&.d/
-bearing the same filename\&.
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/binfmt.d/wine.conf example:\fR

@@ -141,10 +141,8 @@ static int generate(char id[34], const char *root) {
 
         /* If that didn't work, generate a random machine id */
         r = sd_id128_randomize(&buf);
-        if (r < 0) {
-                log_error("Failed to open /dev/urandom: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /dev/urandom: %m");
 
         for (p = buf.bytes, q = id; p < buf.bytes + sizeof(buf); p++, q += 2) {
                 q[0] = hexchar(*p >> 4);
@@ -159,10 +157,120 @@ static int generate(char id[34], const char *root) {
         return 0;
 }
 
+static int get_valid_machine_id(int fd, char id[34]) {
+        char id_to_validate[34];
+
+        assert(fd >= 0);
+        assert(id);
+
+        if (loop_read(fd, id_to_validate, 33, false) == 33 && id_to_validate[32] == '\n') {
+                id_to_validate[32] = 0;
+
+                if (id128_is_valid(id_to_validate)) {
+                        memcpy(id, id_to_validate, 32);
+                        id[32] = '\n';
+                        id[33] = 0;
+                        return 0;
+                }
+        }
+
+        return -EINVAL;
+}
+
+static int write_machine_id(int fd, char id[34]) {
+        assert(fd >= 0);
+        assert(id);
+        lseek(fd, 0, SEEK_SET);
+
+        if (loop_write(fd, id, 33, false) == 0)
+                return 0;
+
+        return -errno;
+}
+
+int machine_id_commit(const char *root) {
+        _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
+        const char *etc_machine_id;
+        char id[34]; /* 32 + \n + \0 */
+        int r;
+
+        if (isempty(root))
+                etc_machine_id = "/etc/machine-id";
+        else {
+                char *x;
+
+                x = strappenda(root, "/etc/machine-id");
+                etc_machine_id = path_kill_slashes(x);
+        }
+
+        r = path_is_mount_point(etc_machine_id, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine wether %s is a mount point: %m", etc_machine_id);
+        if (r == 0) {
+                log_debug("%s is is not a mount point. Nothing to do.", etc_machine_id);
+                return 0;
+        }
+
+        /* Read existing machine-id */
+        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+
+        r = get_valid_machine_id(fd, id);
+        if (r < 0)
+                return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
+
+        r = is_fd_on_temporary_fs(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
+        if (r == 0) {
+                log_error("%s is not on a temporary file system.", etc_machine_id);
+                return -EROFS;
+        }
+
+        fd = safe_close(fd);
+
+        /* Store current mount namespace */
+        r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Can't fetch current mount namespace: %m");
+
+        /* Switch to a new mount namespace, isolate ourself and unmount etc_machine_id in our new namespace */
+        if (unshare(CLONE_NEWNS) < 0)
+                return log_error_errno(errno, "Failed to enter new namespace: %m");
+
+        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
+                return log_error_errno(errno, "Couldn't make-rslave / mountpoint in our private namespace: %m");
+
+        if (umount(etc_machine_id) < 0)
+                return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
+
+        /* Update a persistent version of etc_machine_id */
+        fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open for writing %s. This is mandatory to get a persistent machine-id: %m", etc_machine_id);
+
+        r = write_machine_id(fd, id);
+        if (r < 0)
+                return log_error_errno(r, "Cannot write %s: %m", etc_machine_id);
+
+        fd = safe_close(fd);
+
+        /* Return to initial namespace and proceed a lazy tmpfs unmount */
+        r = namespace_enter(-1, initial_mntns_fd, -1, -1);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
+
+        if (umount2(etc_machine_id, MNT_DETACH) < 0)
+                return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+
+        return 0;
+}
+
 int machine_id_setup(const char *root) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
-        bool writable = false;
+        bool writable = true;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
         int r;
@@ -171,11 +279,13 @@ int machine_id_setup(const char *root) {
                 etc_machine_id = "/etc/machine-id";
                 run_machine_id = "/run/machine-id";
         } else {
-                etc_machine_id = strappenda(root, "/etc/machine-id");
-                path_kill_slashes((char*) etc_machine_id);
+                char *x;
 
-                run_machine_id = strappenda(root, "/run/machine-id");
-                path_kill_slashes((char*) run_machine_id);
+                x = strappenda(root, "/etc/machine-id");
+                etc_machine_id = path_kill_slashes(x);
+
+                x = strappenda(root, "/run/machine-id");
+                run_machine_id = path_kill_slashes(x);
         }
 
         RUN_WITH_UMASK(0000) {
@@ -186,12 +296,19 @@ int machine_id_setup(const char *root) {
 
                 mkdir_parents(etc_machine_id, 0755);
                 fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
-                if (fd >= 0)
-                        writable = true;
-                else {
+                if (fd < 0) {
+                        int old_errno = errno;
+
                         fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
-                                log_error("Cannot open %s: %m", etc_machine_id);
+                                if (old_errno == EROFS && errno == ENOENT)
+                                        log_error("System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
+                                                  "Booting up is supported only when:\n"
+                                                  "1) /etc/machine-id exists and is populated.\n"
+                                                  "2) /etc/machine-id exists and is empty.\n"
+                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
+                                else
+                                        log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
                                 return -errno;
                         }
 
@@ -199,18 +316,11 @@ int machine_id_setup(const char *root) {
                 }
         }
 
-        if (fstat(fd, &st) < 0) {
-                log_error("fstat() failed: %m");
-                return -errno;
-        }
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "fstat() failed: %m");
 
-        if (S_ISREG(st.st_mode))
-                if (loop_read(fd, id, 33, false) == 33 && id[32] == '\n') {
-                        id[32] = 0;
-
-                        if (id128_is_valid(id))
-                                return 0;
-                }
+        if (S_ISREG(st.st_mode) && get_valid_machine_id(fd, id) == 0)
+                return 0;
 
         /* Hmm, so, the id currently stored is not useful, then let's
          * generate one */
@@ -219,12 +329,9 @@ int machine_id_setup(const char *root) {
         if (r < 0)
                 return r;
 
-        if (S_ISREG(st.st_mode) && writable) {
-                lseek(fd, 0, SEEK_SET);
-
-                if (loop_write(fd, id, 33, false) == 33)
+        if (S_ISREG(st.st_mode) && writable)
+                if (write_machine_id(fd, id) == 0)
                         return 0;
-        }
 
         fd = safe_close(fd);
 
@@ -235,7 +342,7 @@ int machine_id_setup(const char *root) {
                 r = write_string_file(run_machine_id, id);
         }
         if (r < 0) {
-                log_error("Cannot write %s: %s", run_machine_id, strerror(-r));
+                log_error_errno(r, "Cannot write %s: %m", run_machine_id);
                 unlink(run_machine_id);
                 return r;
         }
@@ -243,7 +350,7 @@ int machine_id_setup(const char *root) {
         /* And now, let's mount it over */
         r = mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL);
         if (r < 0) {
-                log_error("Failed to mount %s: %m", etc_machine_id);
+                log_error_errno(errno, "Failed to mount %s: %m", etc_machine_id);
                 unlink_noerrno(run_machine_id);
                 return -errno;
         }
@@ -252,7 +359,7 @@ int machine_id_setup(const char *root) {
 
         /* Mark the mount read-only */
         if (mount(NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
-                log_warning("Failed to make transient %s read-only: %m", etc_machine_id);
+                log_warning_errno(errno, "Failed to make transient %s read-only: %m", etc_machine_id);
 
         return 0;
 }

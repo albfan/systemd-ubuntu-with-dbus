@@ -41,6 +41,10 @@
 #include "event-util.h"
 #include "locale-util.h"
 
+#ifdef HAVE_XKBCOMMON
+#include <xkbcommon/xkbcommon.h>
+#endif
+
 enum {
         /* We don't list LC_ALL here on purpose. People should be
          * using LANG instead. */
@@ -224,7 +228,7 @@ static int x11_read_data(Context *c) {
                 if (in_section && first_word(l, "Option")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_quoted(&a, l);
+                        r = strv_split_quoted(&a, l, false);
                         if (r < 0)
                                 return r;
 
@@ -247,7 +251,7 @@ static int x11_read_data(Context *c) {
                 } else if (!in_section && first_word(l, "Section")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_quoted(&a, l);
+                        r = strv_split_quoted(&a, l, false);
                         if (r < 0)
                                 return -ENOMEM;
 
@@ -371,7 +375,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0)
-                log_error("Failed to update the manager environment: %s", strerror(-r));
+                log_error_errno(r, "Failed to update the manager environment: %m");
 
         return 0;
 }
@@ -533,7 +537,7 @@ static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
                 if (l[0] == 0 || l[0] == '#')
                         continue;
 
-                r = strv_split_quoted(&b, l);
+                r = strv_split_quoted(&b, l, false);
                 if (r < 0)
                         return r;
 
@@ -606,10 +610,8 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
                 int r;
 
                 r = x11_write_data(c);
-                if (r < 0) {
-                        log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set X11 keyboard layout: %m");
 
                 log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
                          strempty(c->x11_layout),
@@ -786,7 +788,7 @@ static int x11_convert_to_vconsole(Context *c, sd_bus *bus) {
         if (modified) {
                 r = vconsole_write_data(c);
                 if (r < 0)
-                        log_error("Failed to set virtual console keymap: %s", strerror(-r));
+                        log_error_errno(r, "Failed to set virtual console keymap: %m");
 
                 log_info("Changed virtual console keymap to '%s' toggle '%s'",
                          strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
@@ -919,7 +921,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
 
                 r = locale_write_data(c, &settings);
                 if (r < 0) {
-                        log_error("Failed to set locale: %s", strerror(-r));
+                        log_error_errno(r, "Failed to set locale: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to set locale: %s", strerror(-r));
                 }
 
@@ -979,7 +981,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
                 r = vconsole_write_data(c);
                 if (r < 0) {
-                        log_error("Failed to set virtual console keymap: %s", strerror(-r));
+                        log_error_errno(r, "Failed to set virtual console keymap: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to set virtual console keymap: %s", strerror(-r));
                 }
 
@@ -988,7 +990,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
                 r = vconsole_reload(bus);
                 if (r < 0)
-                        log_error("Failed to request keymap reload: %s", strerror(-r));
+                        log_error_errno(r, "Failed to request keymap reload: %m");
 
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
@@ -998,12 +1000,60 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                 if (convert) {
                         r = vconsole_convert_to_x11(c, bus);
                         if (r < 0)
-                                log_error("Failed to convert keymap data: %s", strerror(-r));
+                                log_error_errno(r, "Failed to convert keymap data: %m");
                 }
         }
 
         return sd_bus_reply_method_return(m, NULL);
 }
+
+#ifdef HAVE_XKBCOMMON
+static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
+        const char *fmt;
+
+        fmt = strappenda("libxkbcommon: ", format);
+        log_internalv(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, fmt, args);
+}
+
+static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
+        const struct xkb_rule_names rmlvo = {
+                .model          = model,
+                .layout         = layout,
+                .variant        = variant,
+                .options        = options,
+        };
+        struct xkb_context *ctx = NULL;
+        struct xkb_keymap *km = NULL;
+        int r;
+
+        /* compile keymap from RMLVO information to check out its validity */
+
+        ctx = xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
+        if (!ctx) {
+                r = -ENOMEM;
+                goto exit;
+        }
+
+        xkb_context_set_log_fn(ctx, log_xkb);
+
+        km = xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        if (!km) {
+                r = -EINVAL;
+                goto exit;
+        }
+
+        r = 0;
+
+exit:
+        xkb_keymap_unref(km);
+        xkb_context_unref(ctx);
+        return r;
+}
+#else
+static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
+        return 0;
+}
+#endif
 
 static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
@@ -1044,6 +1094,13 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+                r = verify_xkb_rmlvo(model, layout, variant, options);
+                if (r < 0) {
+                        log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
+                                        strempty(model), strempty(layout), strempty(variant), strempty(options));
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot compile XKB keymap, refusing");
+                }
+
                 if (free_and_strdup(&c->x11_layout, layout) < 0 ||
                     free_and_strdup(&c->x11_model, model) < 0 ||
                     free_and_strdup(&c->x11_variant, variant) < 0 ||
@@ -1052,7 +1109,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
 
                 r = x11_write_data(c);
                 if (r < 0) {
-                        log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
+                        log_error_errno(r, "Failed to set X11 keyboard layout: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %s", strerror(-r));
                 }
 
@@ -1070,7 +1127,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                 if (convert) {
                         r = x11_convert_to_vconsole(c, bus);
                         if (r < 0)
-                                log_error("Failed to convert keymap data: %s", strerror(-r));
+                                log_error_errno(r, "Failed to convert keymap data: %m");
                 }
         }
 
@@ -1101,28 +1158,20 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         assert(_bus);
 
         r = sd_bus_default_system(&bus);
-        if (r < 0) {
-                log_error("Failed to get system bus connection: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get system bus connection: %m");
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
-        if (r < 0) {
-                log_error("Failed to register object: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register object: %m");
 
         r = sd_bus_request_name(bus, "org.freedesktop.locale1", 0);
-        if (r < 0) {
-                log_error("Failed to register name: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         r = sd_bus_attach_event(bus, event, 0);
-        if (r < 0) {
-                log_error("Failed to attach bus to event loop: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         *_bus = bus;
         bus = NULL;
@@ -1151,7 +1200,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_default(&event);
         if (r < 0) {
-                log_error("Failed to allocate event loop: %s", strerror(-r));
+                log_error_errno(r, "Failed to allocate event loop: %m");
                 goto finish;
         }
 
@@ -1163,13 +1212,13 @@ int main(int argc, char *argv[]) {
 
         r = context_read_data(&context);
         if (r < 0) {
-                log_error("Failed to read locale data: %s", strerror(-r));
+                log_error_errno(r, "Failed to read locale data: %m");
                 goto finish;
         }
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.locale1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0) {
-                log_error("Failed to run event loop: %s", strerror(-r));
+                log_error_errno(r, "Failed to run event loop: %m");
                 goto finish;
         }
 

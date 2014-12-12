@@ -20,6 +20,7 @@
 ***/
 
 #include <netinet/ether.h>
+#include <linux/netdevice.h>
 
 #include "sd-id128.h"
 
@@ -95,6 +96,7 @@ static void link_configs_free(link_config_ctx *ctx) {
 
         LIST_FOREACH_SAFE(links, link, link_next, ctx->links) {
                 free(link->filename);
+                free(link->name);
                 free(link->match_path);
                 free(link->match_driver);
                 free(link->match_type);
@@ -174,11 +176,10 @@ static bool enable_name_policy(void) {
         size_t l;
 
         r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s",
-                            strerror(-r));
-        if (r <= 0)
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
                 return true;
+        }
 
         FOREACH_WORD_QUOTED(word, l, line, state)
                 if (strneq(word, "net.ifnames=0", l))
@@ -196,17 +197,15 @@ int link_config_load(link_config_ctx *ctx) {
 
         if (!enable_name_policy()) {
                 ctx->enable_name_policy = false;
-                log_info("Network interface NamePolicy= disabled on kernel commandline, ignoring.");
+                log_info("Network interface NamePolicy= disabled on kernel command line, ignoring.");
         }
 
         /* update timestamp */
         paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, true);
 
         r = conf_files_list_strv(&files, ".link", NULL, link_dirs);
-        if (r < 0) {
-                log_error("failed to enumerate link files: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "failed to enumerate link files: %m");
 
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = load_link(ctx, *f);
@@ -226,21 +225,45 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
         link_config *link;
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char* attr_value = udev_device_get_sysattr_value(device, "address");
+                const char* attr_value;
+
+                attr_value = udev_device_get_sysattr_value(device, "address");
 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, NULL, link->match_host,
+                                     link->match_type, link->match_name, link->match_host,
                                      link->match_virt, link->match_kernel, link->match_arch,
                                      attr_value ? ether_aton(attr_value) : NULL,
                                      udev_device_get_property_value(device, "ID_PATH"),
                                      udev_device_get_driver(udev_device_get_parent(device)),
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
-                                     NULL)) {
+                                     udev_device_get_sysname(device))) {
+                        if (link->match_name) {
+                                unsigned char name_assign_type = NET_NAME_UNKNOWN;
+
+                                attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
+                                if (attr_value)
+                                        (void)safe_atou8(attr_value, &name_assign_type);
+
+                                if (name_assign_type == NET_NAME_ENUM) {
+                                        log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
+                                                  link->filename, udev_device_get_sysname(device));
+                                        *ret = link;
+
+                                        return 0;
+                                } else if (name_assign_type == NET_NAME_RENAMED) {
+                                        log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
+                                                  link->filename, udev_device_get_sysname(device));
+
+                                        continue;
+                                }
+                        }
+
                         log_debug("Config file %s applies to device %s",
-                                  link->filename,
-                                  udev_device_get_sysname(device));
+                                  link->filename,  udev_device_get_sysname(device));
+
                         *ret = link;
+
                         return 0;
                 }
         }
@@ -343,14 +366,14 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024,
                               config->duplex);
         if (r < 0)
-                log_warning("Could not set speed or duplex of %s to %u Mbps (%s): %s",
-                            old_name, config->speed / 1024,
-                            duplex_to_string(config->duplex), strerror(-r));
+                log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
+                                  old_name, config->speed / 1024,
+                                  duplex_to_string(config->duplex));
 
         r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
-                log_warning("Could not set WakeOnLan of %s to %s: %s",
-                            old_name, wol_to_string(config->wol), strerror(-r));
+                log_warning_errno(r, "Could not set WakeOnLan of %s to %s: %m",
+                                  old_name, wol_to_string(config->wol));
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
@@ -422,11 +445,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac,
                                      config->mtu);
-        if (r < 0) {
-                log_warning("Could not set Alias, MACAddress or MTU on %s: %s",
-                            old_name, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
 
         *name = new_name;
 

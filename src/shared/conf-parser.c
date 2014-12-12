@@ -27,6 +27,7 @@
 #include <netinet/ether.h>
 
 #include "conf-parser.h"
+#include "conf-files.h"
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
@@ -37,10 +38,16 @@
 #include "exit-status.h"
 #include "sd-messages.h"
 
-int log_syntax_internal(const char *unit, int level,
-                        const char *file, unsigned line, const char *func,
-                        const char *config_file, unsigned config_line,
-                        int error, const char *format, ...) {
+int log_syntax_internal(
+                const char *unit,
+                int level,
+                const char *file,
+                int line,
+                const char *func,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                const char *format, ...) {
 
         _cleanup_free_ char *msg = NULL;
         int r;
@@ -54,22 +61,22 @@ int log_syntax_internal(const char *unit, int level,
 
         if (unit)
                 r = log_struct_internal(level,
+                                        error > 0 ? error : EINVAL,
                                         file, line, func,
                                         getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
-                                        MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
                                         "CONFIG_FILE=%s", config_file,
                                         "CONFIG_LINE=%u", config_line,
-                                        "ERRNO=%d", error > 0 ? error : EINVAL,
-                                        "MESSAGE=[%s:%u] %s", config_file, config_line, msg,
+                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
                                         NULL);
         else
                 r = log_struct_internal(level,
+                                        error > 0 ? error : EINVAL,
                                         file, line, func,
-                                        MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
                                         "CONFIG_FILE=%s", config_file,
                                         "CONFIG_LINE=%u", config_line,
-                                        "ERRNO=%d", error > 0 ? error : EINVAL,
-                                        "MESSAGE=[%s:%u] %s", config_file, config_line, msg,
+                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
                                         NULL);
 
         return r;
@@ -360,7 +367,7 @@ int config_parse(const char *unit,
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read configuration file '%s': %m", filename);
+                        log_error_errno(errno, "Failed to read configuration file '%s': %m", filename);
                         return -errno;
                 }
 
@@ -421,10 +428,41 @@ int config_parse(const char *unit,
 
                 if (r < 0) {
                         if (warn)
-                                log_warning("Failed to parse file '%s': %s",
-                                            filename, strerror(-r));
+                                log_warning_errno(r, "Failed to parse file '%s': %m",
+                                                  filename);
                         return r;
                 }
+        }
+
+        return 0;
+}
+
+/* Parse each config file in the specified directories. */
+int config_parse_many(const char *conf_file,
+                      const char *conf_file_dirs,
+                      const char *sections,
+                      ConfigItemLookup lookup,
+                      const void *table,
+                      bool relaxed,
+                      void *userdata) {
+        _cleanup_strv_free_ char **files = NULL;
+        char **fn;
+        int r;
+
+        r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+        if (r < 0)
+                return r;
+
+        if (conf_file) {
+                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, relaxed, false, true, userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(fn, files) {
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, relaxed, false, true, userdata);
+                if (r < 0)
+                        return r;
         }
 
         return 0;

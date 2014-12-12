@@ -93,12 +93,24 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><varname>OriginalName=</varname></term>
+                                <listitem>
+                                        <para>The device name, as exposed by the udev
+                                        property "INTERFACE". May contain shell style
+                                        globs. This can not be used to match on names
+                                        that have already been changed from userspace.
+                                        Caution is adviced when matching on
+                                        kernel-assigned names, as they are known to
+                                        be unstable between reboots.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><varname>Path=</varname></term>
                                 <listitem>
-                                <para>The persistent path, as exposed by the
-                                udev property <literal>ID_PATH</literal>. May
-                                contain shell style globs.</para>
-                        </listitem>
+                                        <para>The persistent path, as exposed by the
+                                        udev property <literal>ID_PATH</literal>. May
+                                        contain shell style globs.</para>
+                                </listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>Driver=</varname></term>
@@ -231,7 +243,7 @@
                                         be set. <literal>NamePolicy</literal> may be
                                         disabled by specifying
                                         <literal>net.ifnames=0</literal> on the kernel
-                                        commandline. Each of the policies may fail, and
+                                        command line. Each of the policies may fail, and
                                         the first successful one is used. The name is
                                         not set directly, but is exported to udev as
                                         the property <literal>ID_NET_NAME</literal>,

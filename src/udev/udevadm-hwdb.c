@@ -428,6 +428,10 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
         value[0] = '\0';
         value++;
 
+        /* libudev requires properties to start with a space */
+        while (isblank(line[0]) && isblank(line[1]))
+                line++;
+
         if (line[0] == '\0' || value[0] == '\0') {
                 log_error("Error, empty key or value '%s' in '%s':", line, filename);
                 return -EINVAL;
@@ -618,7 +622,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
 
                 err = conf_files_list_strv(&files, ".hwdb", root, conf_file_dirs);
                 if (err < 0) {
-                        log_error("failed to enumerate hwdb files: %s", strerror(-err));
+                        log_error_errno(err, "failed to enumerate hwdb files: %m");
                         rc = EXIT_FAILURE;
                         goto out;
                 }
@@ -652,7 +656,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 mkdir_parents(hwdb_bin, 0755);
                 err = trie_store(trie, hwdb_bin);
                 if (err < 0) {
-                        log_error("Failure writing database %s: %s", hwdb_bin, strerror(-err));
+                        log_error_errno(err, "Failure writing database %s: %m", hwdb_bin);
                         rc = EXIT_FAILURE;
                 }
         }

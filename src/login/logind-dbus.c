@@ -41,7 +41,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "udev-util.h"
 
 static int property_get_idle_hint(
@@ -1159,7 +1159,7 @@ static int flush_devices(Manager *m) {
         d = opendir("/etc/udev/rules.d");
         if (!d) {
                 if (errno != ENOENT)
-                        log_warning("Failed to open /etc/udev/rules.d: %m");
+                        log_warning_errno(errno, "Failed to open /etc/udev/rules.d: %m");
         } else {
                 struct dirent *de;
 
@@ -1175,7 +1175,7 @@ static int flush_devices(Manager *m) {
                                 continue;
 
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to unlink %s: %m", de->d_name);
+                                log_warning_errno(errno, "Failed to unlink %s: %m", de->d_name);
                 }
         }
 
@@ -1300,9 +1300,11 @@ static int bus_manager_log_shutdown(
                 q = NULL;
         }
 
-        return log_struct(LOG_NOTICE, MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
+        return log_struct(LOG_NOTICE,
+                          LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
                           p,
-                          q, NULL);
+                          q,
+                          NULL);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {

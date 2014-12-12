@@ -194,8 +194,8 @@ static void test_hashmap_move(void) {
         hashmap_put(m, "key 3", val3);
         hashmap_put(m, "key 4", val4);
 
-        assert(hashmap_move(n, NULL) == 0);
-        assert(hashmap_move(n, m) == 0);
+        assert_se(hashmap_move(n, NULL) == 0);
+        assert_se(hashmap_move(n, m) == 0);
 
         assert_se(hashmap_size(m) == 1);
         r = hashmap_get(m, "key 1");
@@ -246,7 +246,7 @@ static void test_hashmap_put(void) {
         int valid_hashmap_put;
         void *val1 = (void*) "val 1";
 
-        hashmap_ensure_allocated(&m, &string_hash_ops);
+        assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) >= 0);
         assert_se(m);
 
         valid_hashmap_put = hashmap_put(m, "key 1", val1);
@@ -380,6 +380,7 @@ static void test_hashmap_remove_and_replace(void) {
         void *key2 = UINT_TO_PTR(2);
         void *key3 = UINT_TO_PTR(3);
         void *r;
+        int i, j;
 
         m = hashmap_new(&trivial_hash_ops);
         assert_se(m);
@@ -407,6 +408,25 @@ static void test_hashmap_remove_and_replace(void) {
         r = hashmap_get(m, key2);
         assert_se(r == key2);
         assert_se(!hashmap_get(m, key3));
+
+        /* Repeat this test several times to increase the chance of hitting
+         * the less likely case in hashmap_remove_and_replace where it
+         * compensates for the backward shift. */
+        for (i = 0; i < 20; i++) {
+                hashmap_clear(m);
+
+                for (j = 1; j < 7; j++)
+                        hashmap_put(m, UINT_TO_PTR(10*i + j), UINT_TO_PTR(10*i + j));
+                valid = hashmap_remove_and_replace(m, UINT_TO_PTR(10*i + 1),
+                                                   UINT_TO_PTR(10*i + 2),
+                                                   UINT_TO_PTR(10*i + 2));
+                assert_se(valid == 0);
+                assert_se(!hashmap_get(m, UINT_TO_PTR(10*i + 1)));
+                for (j = 2; j < 7; j++) {
+                        r = hashmap_get(m, UINT_TO_PTR(10*i + j));
+                        assert_se(r == UINT_TO_PTR(10*i + j));
+                }
+        }
 }
 
 static void test_hashmap_ensure_allocated(void) {
@@ -699,9 +719,9 @@ static void test_hashmap_many(void) {
                 for (i = 1; i < tests[j].n_entries*3; i++)
                         assert_se(hashmap_contains(h, UINT_TO_PTR(i)) == (i % 3 == 1));
 
-                log_info("%u <= %u * 0.75 = %g", hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.75);
+                log_info("%u <= %u * 0.8 = %g", hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.8);
 
-                assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.75);
+                assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.8);
                 assert_se(hashmap_size(h) == tests[j].n_entries);
 
                 while (!hashmap_isempty(h)) {

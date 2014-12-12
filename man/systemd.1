@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD" "1" "" "systemd 217" "systemd"
+.TH "SYSTEMD" "1" "" "systemd 218" "systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,9 +42,15 @@ are mostly equivalent when invoked from normal login sessions\&. See
 \fBtelinit\fR(8)
 for more information\&.
 .PP
-When run as system instance, systemd interprets the configuration file
-system\&.conf, otherwise
-user\&.conf\&. See
+When run as a system instance, systemd interprets the configuration file
+system\&.conf
+and the files in
+system\&.conf\&.d
+directories; when run as a user instance, systemd interprets the configuration file
+user\&.conf
+and the files in
+user\&.conf\&.d
+directories\&. See
 \fBsystemd-system.conf\fR(5)
 for more information\&.
 .SH "OPTIONS"
@@ -488,7 +494,7 @@ When this signal is received the systemd manager will try to reconnect to the D\
 \fBSIGUSR2\fR
 .RS 4
 When this signal is received the systemd manager will log its complete state in human readable form\&. The data logged is the same as printed by
-\fBsystemctl dump\fR\&.
+\fBsystemd\-analyze dump\fR\&.
 .RE
 .PP
 \fBSIGHUP\fR

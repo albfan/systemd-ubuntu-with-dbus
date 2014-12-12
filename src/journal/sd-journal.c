@@ -497,6 +497,47 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
         return 0;
 }
 
+static bool whole_file_precedes_location(JournalFile *f, Location *l, direction_t direction) {
+        assert(f);
+        assert(l);
+
+        if (l->type != LOCATION_DISCRETE && l->type != LOCATION_SEEK)
+                return false;
+
+        if (l->seqnum_set && sd_id128_equal(l->seqnum_id, f->header->seqnum_id))
+                return direction == DIRECTION_DOWN ?
+                        l->seqnum > le64toh(f->header->tail_entry_seqnum) :
+                        l->seqnum < le64toh(f->header->head_entry_seqnum);
+
+        if (l->realtime_set)
+                return direction == DIRECTION_DOWN ?
+                        l->realtime > le64toh(f->header->tail_entry_realtime) :
+                        l->realtime < le64toh(f->header->head_entry_realtime);
+
+        return false;
+}
+
+static bool file_may_have_preceding_entry(JournalFile *f, JournalFile *of, uint64_t op, direction_t direction) {
+        Object *o;
+        int r;
+
+        assert(f);
+        assert(of);
+
+        r = journal_file_move_to_object(of, OBJECT_ENTRY, op, &o);
+        if (r < 0)
+                return true;
+
+        if (sd_id128_equal(f->header->seqnum_id, of->header->seqnum_id))
+                return direction == DIRECTION_DOWN ?
+                        le64toh(o->entry.seqnum) >= le64toh(f->header->head_entry_seqnum) :
+                        le64toh(o->entry.seqnum) <= le64toh(f->header->tail_entry_seqnum);
+
+        return direction == DIRECTION_DOWN ?
+                le64toh(o->entry.realtime) >= le64toh(f->header->head_entry_realtime) :
+                le64toh(o->entry.realtime) <= le64toh(f->header->tail_entry_realtime);
+}
+
 _pure_ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         uint64_t a;
 
@@ -882,9 +923,15 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 bool found;
 
+                if (whole_file_precedes_location(f, &j->current_location, direction))
+                        continue;
+
+                if (new_file && !file_may_have_preceding_entry(f, new_file, new_offset, direction))
+                        continue;
+
                 r = next_beyond_location(j, f, direction, &o, &p);
                 if (r < 0) {
-                        log_debug("Can't iterate through %s, ignoring: %s", f->path, strerror(-r));
+                        log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
                         continue;
                 } else if (r == 0)
@@ -1410,7 +1457,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
         d = opendir(path);
         if (!d) {
-                log_debug("Failed to open %s: %m", path);
+                log_debug_errno(errno, "Failed to open %s: %m", path);
                 if (errno == ENOENT)
                         return 0;
                 return -errno;
@@ -1456,7 +1503,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug("Failed to read directory %s: %m", m->path);
+                        log_debug_errno(errno, "Failed to read directory %s: %m", m->path);
                         return r;
                 }
                 if (!de)
@@ -1466,8 +1513,8 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                     dirent_is_file_with_suffix(de, ".journal~")) {
                         r = add_file(j, m->path, de->d_name);
                         if (r < 0) {
-                                log_debug("Failed to add file %s/%s: %s",
-                                          m->path, de->d_name, strerror(-r));
+                                log_debug_errno(r, "Failed to add file %s/%s: %m",
+                                                m->path, de->d_name);
                                 r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
@@ -1546,7 +1593,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug("Failed to read directory %s: %m", m->path);
+                        log_debug_errno(errno, "Failed to read directory %s: %m", m->path);
                         return r;
                 }
                 if (!de)
@@ -1556,8 +1603,8 @@ static int add_root_directory(sd_journal *j, const char *p) {
                     dirent_is_file_with_suffix(de, ".journal~")) {
                         r = add_file(j, m->path, de->d_name);
                         if (r < 0) {
-                                log_debug("Failed to add file %s/%s: %s",
-                                          m->path, de->d_name, strerror(-r));
+                                log_debug_errno(r, "Failed to add file %s/%s: %m",
+                                                m->path, de->d_name);
                                 r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
@@ -1567,7 +1614,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
                         r = add_directory(j, m->path, de->d_name);
                         if (r < 0)
-                                log_debug("Failed to add directory %s/%s: %s", m->path, de->d_name, strerror(-r));
+                                log_debug_errno(r, "Failed to add directory %s/%s: %m", m->path, de->d_name);
                 }
         }
 
@@ -1810,7 +1857,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         STRV_FOREACH(path, paths) {
                 r = add_any_file(j, *path);
                 if (r < 0) {
-                        log_error("Failed to open %s: %s", *path, strerror(-r));
+                        log_error_errno(r, "Failed to open %s: %m", *path);
                         goto fail;
                 }
         }
@@ -2218,8 +2265,8 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
                                 r = add_file(j, d->path, e->name);
                                 if (r < 0) {
-                                        log_debug("Failed to add file %s/%s: %s",
-                                                  d->path, e->name, strerror(-r));
+                                        log_debug_errno(r, "Failed to add file %s/%s: %m",
+                                                        d->path, e->name);
                                         set_put_error(j, r);
                                 }
 
@@ -2227,7 +2274,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
 
                                 r = remove_file(j, d->path, e->name);
                                 if (r < 0)
-                                        log_debug("Failed to remove file %s/%s: %s", d->path, e->name, strerror(-r));
+                                        log_debug_errno(r, "Failed to remove file %s/%s: %m", d->path, e->name);
                         }
 
                 } else if (!d->is_root && e->len == 0) {
@@ -2237,7 +2284,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT)) {
                                 r = remove_directory(j, d);
                                 if (r < 0)
-                                        log_debug("Failed to remove directory %s: %s", d->path, strerror(-r));
+                                        log_debug_errno(r, "Failed to remove directory %s: %m", d->path);
                         }
 
 
@@ -2248,7 +2295,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
                                 r = add_directory(j, d->path, e->name);
                                 if (r < 0)
-                                        log_debug("Failed to add directory %s/%s: %s", d->path, e->name, strerror(-r));
+                                        log_debug_errno(r, "Failed to add directory %s/%s: %m", d->path, e->name);
                         }
                 }
 
@@ -2273,7 +2320,6 @@ static int determine_change(sd_journal *j) {
 }
 
 _public_ int sd_journal_process(sd_journal *j) {
-        uint8_t buffer[sizeof(struct inotify_event) + FILENAME_MAX] _alignas_(struct inotify_event);
         bool got_something = false;
 
         assert_return(j, -EINVAL);
@@ -2282,6 +2328,7 @@ _public_ int sd_journal_process(sd_journal *j) {
         j->last_process_usec = now(CLOCK_MONOTONIC);
 
         for (;;) {
+                uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
                 struct inotify_event *e;
                 ssize_t l;
 
@@ -2295,18 +2342,8 @@ _public_ int sd_journal_process(sd_journal *j) {
 
                 got_something = true;
 
-                e = (struct inotify_event*) buffer;
-                while (l > 0) {
-                        size_t step;
-
+                FOREACH_INOTIFY_EVENT(e, buffer, l)
                         process_inotify_event(j, e);
-
-                        step = sizeof(struct inotify_event) + e->len;
-                        assert(step <= (size_t) l);
-
-                        e = (struct inotify_event*) ((uint8_t*) e + step);
-                        l -= step;
-                }
         }
 }
 

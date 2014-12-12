@@ -58,22 +58,18 @@ static int iterate_dir(
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open directory %s: %m", path);
+                log_error_errno(errno, "Failed to open directory %s: %m", path);
                 return -errno;
         }
 
         for (;;) {
                 struct dirent *de;
                 _cleanup_free_ char *f = NULL;
-                int k;
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0) {
-                        k = errno;
-                        log_error("Failed to read directory %s: %s", path, strerror(k));
-                        return -k;
-                }
+                if (!de && errno != 0)
+                        return log_error_errno(errno, "Failed to read directory %s: %m", path);
 
                 if (!de)
                         break;
@@ -87,7 +83,7 @@ static int iterate_dir(
 
                 r = unit_add_dependency_by_name(u, dependency, de->d_name, f, true);
                 if (r < 0)
-                        log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->id, strerror(-r));
+                        log_error_errno(r, "Cannot add dependency %s to %s, ignoring: %m", de->d_name, u->id);
         }
 
         return 0;
@@ -155,7 +151,7 @@ char **unit_find_dropin_paths(Unit *u) {
 
         r = conf_files_list_strv(&configs, ".conf", NULL, (const char**) strv);
         if (r < 0) {
-                log_error("Failed to get list of configuration files: %s", strerror(-r));
+                log_error_errno(r, "Failed to get list of configuration files: %m");
                 strv_free(configs);
                 return NULL;
         }

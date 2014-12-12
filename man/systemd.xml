@@ -75,10 +75,12 @@
                 <citerefentry><refentrytitle>telinit</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 for more information.</para>
 
-                <para>When run as system instance, systemd interprets
-                the configuration file
-                <filename>system.conf</filename>, otherwise
-                <filename>user.conf</filename>. See
+                <para>When run as a system instance, systemd interprets the
+                configuration file <filename>system.conf</filename> and the
+                files in <filename>system.conf.d</filename> directories; when
+                run as a user instance, systemd interprets the configuration
+                file <filename>user.conf</filename> and the files in
+                <filename>user.conf.d</filename> directories. See
                 <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information.</para>
         </refsect1>
@@ -679,7 +681,7 @@
                                 received the systemd manager will log
                                 its complete state in human readable
                                 form. The data logged is the same as
-                                printed by <command>systemctl
+                                printed by <command>systemd-analyze
                                 dump</command>.</para></listitem>
                         </varlistentry>
 

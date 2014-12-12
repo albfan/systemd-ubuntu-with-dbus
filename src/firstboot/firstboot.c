@@ -98,7 +98,7 @@ static void print_welcome(void) {
         }
 
         if (r < 0 && r != -ENOENT)
-                log_warning("Failed to read os-release file: %s", strerror(-r));
+                log_warning_errno(r, "Failed to read os-release file: %m");
 
         printf("\nWelcome to your new installation of %s!\nPlease configure a few basic system settings:\n\n",
                isempty(pretty_name) ? "Linux" : pretty_name);
@@ -166,10 +166,8 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                 unsigned u;
 
                 r = ask_string(&p, "%s %s (empty to skip): ", draw_special_char(DRAW_TRIANGULAR_BULLET), text);
-                if (r < 0) {
-                        log_error("Failed to query user: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user: %m");
 
                 if (isempty(p)) {
                         log_warning("No data entered, skipping.");
@@ -219,10 +217,8 @@ static int prompt_locale(void) {
                 return 0;
 
         r = get_locales(&locales);
-        if (r < 0) {
-                log_error("Cannot query locales list: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot query locales list: %m");
 
         print_welcome();
 
@@ -262,10 +258,8 @@ static int process_locale(void) {
                 mkdir_parents(etc_localeconf, 0755);
                 r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644);
                 if (r != -ENOENT) {
-                        if (r < 0) {
-                                log_error("Failed to copy %s: %s", etc_localeconf, strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy %s: %m", etc_localeconf);
 
                         log_info("%s copied.", etc_localeconf);
                         return 0;
@@ -288,10 +282,8 @@ static int process_locale(void) {
 
         mkdir_parents(etc_localeconf, 0755);
         r = write_env_file(etc_localeconf, locales);
-        if (r < 0) {
-                log_error("Failed to write %s: %s", etc_localeconf, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_localeconf);
 
         log_info("%s written.", etc_localeconf);
         return 0;
@@ -308,10 +300,8 @@ static int prompt_timezone(void) {
                 return 0;
 
         r = get_timezones(&zones);
-        if (r < 0) {
-                log_error("Cannot query timezone list: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot query timezone list: %m");
 
         print_welcome();
 
@@ -342,16 +332,12 @@ static int process_timezone(void) {
 
                 r = readlink_malloc("/etc/localtime", &p);
                 if (r != -ENOENT) {
-                        if (r < 0) {
-                                log_error("Failed to read host timezone: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read host timezone: %m");
 
                         mkdir_parents(etc_localtime, 0755);
-                        if (symlink(p, etc_localtime) < 0) {
-                                log_error("Failed to create %s symlink: %m", etc_localtime);
-                                return -errno;
-                        }
+                        if (symlink(p, etc_localtime) < 0)
+                                return log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
 
                         log_info("%s copied.", etc_localtime);
                         return 0;
@@ -368,10 +354,8 @@ static int process_timezone(void) {
         e = strappenda("../usr/share/zoneinfo/", arg_timezone);
 
         mkdir_parents(etc_localtime, 0755);
-        if (symlink(e, etc_localtime) < 0) {
-                log_error("Failed to create %s symlink: %m", etc_localtime);
-                return -errno;
-        }
+        if (symlink(e, etc_localtime) < 0)
+                return log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
 
         log_info("%s written", etc_localtime);
         return 0;
@@ -393,10 +377,8 @@ static int prompt_hostname(void) {
                 _cleanup_free_ char *h = NULL;
 
                 r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", draw_special_char(DRAW_TRIANGULAR_BULLET));
-                if (r < 0) {
-                        log_error("Failed to query hostname: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query hostname: %m");
 
                 if (isempty(h)) {
                         log_warning("No hostname entered, skipping.");
@@ -433,10 +415,8 @@ static int process_hostname(void) {
 
         mkdir_parents(etc_hostname, 0755);
         r = write_string_file(etc_hostname, arg_hostname);
-        if (r < 0) {
-                log_error("Failed to write %s: %s", etc_hostname, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_hostname);
 
         log_info("%s written.", etc_hostname);
         return 0;
@@ -456,10 +436,8 @@ static int process_machine_id(void) {
 
         mkdir_parents(etc_machine_id, 0755);
         r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id));
-        if (r < 0) {
-                log_error("Failed to write machine id: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write machine id: %m");
 
         log_info("%s written.", etc_machine_id);
         return 0;
@@ -489,10 +467,8 @@ static int prompt_root_password(void) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
 
                 r = ask_password_tty(msg1, 0, false, NULL, &a);
-                if (r < 0) {
-                        log_error("Failed to query root password: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query root password: %m");
 
                 if (isempty(a)) {
                         log_warning("No password entered, skipping.");
@@ -501,7 +477,7 @@ static int prompt_root_password(void) {
 
                 r = ask_password_tty(msg2, 0, false, NULL, &b);
                 if (r < 0) {
-                        log_error("Failed to query root password: %s", strerror(-r));
+                        log_error_errno(r, "Failed to query root password: %m");
                         clear_string(a);
                         return r;
                 }
@@ -586,15 +562,13 @@ static int process_root_password(void) {
                                 if (!errno)
                                         errno = EIO;
 
-                                log_error("Failed to find shadow entry for root: %m");
+                                log_error_errno(errno, "Failed to find shadow entry for root: %m");
                                 return -errno;
                         }
 
                         r = write_root_shadow(etc_shadow, p);
-                        if (r < 0) {
-                                log_error("Failed to write %s: %s", etc_shadow, strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
 
                         log_info("%s copied.", etc_shadow);
                         return 0;
@@ -609,10 +583,8 @@ static int process_root_password(void) {
                 return 0;
 
         r = dev_urandom(raw, 16);
-        if (r < 0) {
-                log_error("Failed to get salt: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get salt: %m");
 
         /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
         assert_cc(sizeof(table) == 64 + 1);
@@ -628,17 +600,15 @@ static int process_root_password(void) {
                 if (!errno)
                         errno = -EINVAL;
 
-                log_error("Failed to encrypt password: %m");
+                log_error_errno(errno, "Failed to encrypt password: %m");
                 return -errno;
         }
 
         item.sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
 
         r = write_root_shadow(etc_shadow, &item);
-        if (r < 0) {
-                log_error("Failed to write %s: %s", etc_shadow, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
 
         log_info("%s written.", etc_shadow);
         return 0;
@@ -803,10 +773,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_root_password  = NULL;
 
                         r = read_one_line_file(optarg, &arg_root_password);
-                        if (r < 0) {
-                                log_error("Failed to read %s: %s", optarg, strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read %s: %m", optarg);
 
                         break;
 
@@ -870,10 +838,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SETUP_MACHINE_ID:
 
                         r = sd_id128_randomize(&arg_machine_id);
-                        if (r < 0) {
-                                log_error("Failed to generate randomized machine ID: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
 
                         break;
 

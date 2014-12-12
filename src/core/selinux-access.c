@@ -112,7 +112,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 #endif
 
         va_start(ap, fmt);
-        log_metav(LOG_USER | LOG_INFO, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
+        log_internalv(LOG_AUTH | LOG_INFO, 0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
         va_end(ap);
 
         return 0;
@@ -126,10 +126,8 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 static int access_init(void) {
         int r = 0;
 
-        if (avc_open(NULL, 0)) {
-                log_error("avc_open() failed: %m");
-                return -errno;
-        }
+        if (avc_open(NULL, 0))
+                return log_error_errno(errno, "avc_open() failed: %m");
 
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
         selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
@@ -207,7 +205,8 @@ int mac_selinux_generic_access_check(
                         message,
                         SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|
                         SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
-                        SD_BUS_CREDS_SELINUX_CONTEXT,
+                        SD_BUS_CREDS_SELINUX_CONTEXT|
+                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
                         &creds);
         if (r < 0)
                 goto finish;

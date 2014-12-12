@@ -84,17 +84,15 @@ static int spawn_child(const char* child, char** argv) {
         pid_t parent_pid, child_pid;
         int r;
 
-        if (pipe(fd) < 0) {
-                log_error("Failed to create pager pipe: %m");
-                return -errno;
-        }
+        if (pipe(fd) < 0)
+                return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         parent_pid = getpid();
 
         child_pid = fork();
         if (child_pid < 0) {
                 r = -errno;
-                log_error("Failed to fork: %m");
+                log_error_errno(errno, "Failed to fork: %m");
                 safe_close_pair(fd);
                 return r;
         }
@@ -103,7 +101,7 @@ static int spawn_child(const char* child, char** argv) {
         if (child_pid == 0) {
                 r = dup2(fd[1], STDOUT_FILENO);
                 if (r < 0) {
-                        log_error("Failed to dup pipe to stdout: %m");
+                        log_error_errno(errno, "Failed to dup pipe to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -119,13 +117,13 @@ static int spawn_child(const char* child, char** argv) {
                         _exit(EXIT_SUCCESS);
 
                 execvp(child, argv);
-                log_error("Failed to exec child %s: %m", child);
+                log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 
         r = close(fd[1]);
         if (r < 0)
-                log_warning("Failed to close write end of pipe: %m");
+                log_warning_errno(errno, "Failed to close write end of pipe: %m");
 
         return fd[0];
 }
@@ -140,7 +138,7 @@ static int spawn_curl(const char* url) {
 
         r = spawn_child("curl", argv);
         if (r < 0)
-                log_error("Failed to spawn curl: %m");
+                log_error_errno(errno, "Failed to spawn curl: %m");
         return r;
 }
 
@@ -149,21 +147,17 @@ static int spawn_getter(const char *getter, const char *url) {
         _cleanup_strv_free_ char **words = NULL;
 
         assert(getter);
-        r = strv_split_quoted(&words, getter);
-        if (r < 0) {
-                log_error("Failed to split getter option: %s", strerror(-r));
-                return r;
-        }
+        r = strv_split_quoted(&words, getter, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to split getter option: %m");
 
         r = strv_extend(&words, url);
-        if (r < 0) {
-                log_error("Failed to create command line: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create command line: %m");
 
         r = spawn_child(words[0], words);
         if (r < 0)
-                log_error("Failed to spawn getter %s: %m", getter);
+                log_error_errno(errno, "Failed to spawn getter %s: %m", getter);
 
         return r;
 }
@@ -210,8 +204,8 @@ static int open_output(Writer *w, const char* host) {
                                        w->mmap,
                                        NULL, &w->journal);
         if (r < 0)
-                log_error("Failed to open output journal %s: %s",
-                          output, strerror(-r));
+                log_error_errno(r, "Failed to open output journal %s: %m",
+                                output);
         else
                 log_info("Opened output file %s", w->journal->path);
         return r;
@@ -320,11 +314,9 @@ static int get_source_for_fd(RemoteServer *s,
                 return log_oom();
 
         r = get_writer(s, name, &writer);
-        if (r < 0) {
-                log_warning("Failed to get writer for source %s: %s",
-                            name, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get writer for source %s: %m",
+                                         name);
 
         if (s->sources[fd] == NULL) {
                 s->sources[fd] = source_new(fd, false, name, writer);
@@ -376,8 +368,8 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
         r = get_source_for_fd(s, fd, name, &source);
         if (r < 0) {
-                log_error("Failed to create source for fd:%d (%s): %s",
-                          fd, name, strerror(-r));
+                log_error_errno(r, "Failed to create source for fd:%d (%s): %m",
+                                fd, name);
                 free(name);
                 return r;
         }
@@ -393,14 +385,14 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
                         sd_event_source_set_enabled(source->event, SD_EVENT_ON);
         }
         if (r < 0) {
-                log_error("Failed to register event source for fd:%d: %s",
-                          fd, strerror(-r));
+                log_error_errno(r, "Failed to register event source for fd:%d: %m",
+                                fd);
                 goto error;
         }
 
-        r = sd_event_source_set_name(source->event, name);
+        r = sd_event_source_set_description(source->event, name);
         if (r < 0) {
-                log_error("Failed to set source name for fd:%d: %s", fd, strerror(-r));
+                log_error_errno(r, "Failed to set source name for fd:%d: %m", fd);
                 goto error;
         }
 
@@ -426,7 +418,7 @@ static int add_raw_socket(RemoteServer *s, int fd) {
 
         snprintf(name, sizeof(name), "raw-socket-%d", fd);
 
-        r = sd_event_source_set_name(s->listen_event, name);
+        r = sd_event_source_set_description(s->listen_event, name);
         if (r < 0)
                 return r;
 
@@ -459,11 +451,9 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
                 return 0;
 
         r = get_writer(server, hostname, &writer);
-        if (r < 0) {
-                log_warning("Failed to get writer for source %s: %s",
-                            hostname, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get writer for source %s: %m",
+                                         hostname);
 
         source = source_new(fd, true, hostname, writer);
         if (!source) {
@@ -661,10 +651,8 @@ static int setup_microhttpd_server(RemoteServer *s,
         assert(fd >= 0);
 
         r = fd_nonblock(fd, true);
-        if (r < 0) {
-                log_error("Failed to make fd:%d nonblocking: %s", fd, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to make fd:%d nonblocking: %m", fd);
 
         if (key) {
                 assert(cert);
@@ -720,13 +708,13 @@ static int setup_microhttpd_server(RemoteServer *s,
                             epoll_fd, EPOLLIN,
                             dispatch_http_event, d);
         if (r < 0) {
-                log_error("Failed to add event callback: %s", strerror(-r));
+                log_error_errno(r, "Failed to add event callback: %m");
                 goto error;
         }
 
-        r = sd_event_source_set_name(d->event, "epoll-fd");
+        r = sd_event_source_set_description(d->event, "epoll-fd");
         if (r < 0) {
-                log_error("Failed to set source name: %s", strerror(-r));
+                log_error_errno(r, "Failed to set source name: %m");
                 goto error;
         }
 
@@ -738,7 +726,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         r = hashmap_put(s->daemons, &d->fd, d);
         if (r < 0) {
-                log_error("Failed to add daemon to hashmap: %s", strerror(-r));
+                log_error_errno(r, "Failed to add daemon to hashmap: %m");
                 goto error;
         }
 
@@ -803,15 +791,7 @@ static int setup_signals(RemoteServer *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_name(s->sigterm_event, "sigterm");
-        if (r < 0)
-                return r;
-
         r = sd_event_add_signal(s->events, &s->sigint_event, SIGINT, NULL, s);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_name(s->sigint_event, "sigint");
         if (r < 0)
                 return r;
 
@@ -848,10 +828,8 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         r = sd_event_default(&s->events);
-        if (r < 0) {
-                log_error("Failed to allocate event loop: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         setup_signals(s);
 
@@ -863,11 +841,9 @@ static int remoteserver_init(RemoteServer *s,
                 return r;
 
         n = sd_listen_fds(true);
-        if (n < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s",
-                          strerror(-n));
-                return n;
-        } else
+        if (n < 0)
+                return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
+        else
                 log_info("Received %d descriptors", n);
 
         if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n) {
@@ -889,10 +865,8 @@ static int remoteserver_init(RemoteServer *s,
                         char *hostname;
 
                         r = getnameinfo_pretty(fd, &hostname);
-                        if (r < 0) {
-                                log_error("Failed to retrieve remote name: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to retrieve remote name: %m");
 
                         log_info("Received a connection socket (fd:%d) from %s", fd, hostname);
 
@@ -903,11 +877,9 @@ static int remoteserver_init(RemoteServer *s,
                         return -EINVAL;
                 }
 
-                if(r < 0) {
-                        log_error("Failed to register socket (fd:%d): %s",
-                                  fd, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register socket (fd:%d): %m",
+                                               fd);
         }
 
         if (arg_url) {
@@ -966,10 +938,8 @@ static int remoteserver_init(RemoteServer *s,
                         log_info("Reading file %s...", *file);
 
                         fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                        if (fd < 0) {
-                                log_error("Failed to open %s: %m", *file);
-                                return -errno;
-                        }
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open %s: %m", *file);
                         output_name = *file;
                 }
 
@@ -1059,7 +1029,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
-                log_info("Closing connection: %s", strerror(-r));
+                log_info_errno(r, "Closing connection: %m");
                 remove_source(server, fd);
                 return 0;
         } else
@@ -1079,10 +1049,8 @@ static int accept_connection(const char* type, int fd,
 
         log_debug("Accepting new %s connection on fd:%d", type, fd);
         fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (fd2 < 0) {
-                log_error("accept() on fd:%d failed: %m", fd);
-                return -errno;
-        }
+        if (fd2 < 0)
+                return log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
 
         switch(socket_address_family(addr)) {
         case AF_INET:
@@ -1092,7 +1060,7 @@ static int accept_connection(const char* type, int fd,
 
                 r = socket_address_print(addr, &a);
                 if (r < 0) {
-                        log_error("socket_address_print(): %s", strerror(-r));
+                        log_error_errno(r, "socket_address_print(): %m");
                         close(fd2);
                         return r;
                 }
@@ -1163,10 +1131,10 @@ static int parse_config(void) {
                 { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust      },
                 {}};
 
-        return config_parse(NULL, PKGSYSCONFDIR "/journal-remote.conf", NULL,
-                            "Remote\0",
-                            config_item_table_lookup, items,
-                            false, false, true, NULL);
+        return config_parse_many(PKGSYSCONFDIR "/journal-remote.conf",
+                                 CONF_DIRS_NULSTR("systemd/journal-remote.conf"),
+                                 "Remote\0", config_item_table_lookup, items,
+                                 false, NULL);
 }
 
 static void help(void) {
@@ -1469,28 +1437,22 @@ static int load_certificates(char **key, char **cert, char **trust) {
         int r;
 
         r = read_full_file(arg_key ?: PRIV_KEY_FILE, key, NULL);
-        if (r < 0) {
-                log_error("Failed to read key from file '%s': %s",
-                          arg_key ?: PRIV_KEY_FILE, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key from file '%s': %m",
+                                       arg_key ?: PRIV_KEY_FILE);
 
         r = read_full_file(arg_cert ?: CERT_FILE, cert, NULL);
-        if (r < 0) {
-                log_error("Failed to read certificate from file '%s': %s",
-                          arg_cert ?: CERT_FILE, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read certificate from file '%s': %m",
+                                       arg_cert ?: CERT_FILE);
 
         if (arg_trust_all)
                 log_info("Certificate checking disabled.");
         else {
                 r = read_full_file(arg_trust ?: TRUST_FILE, trust, NULL);
-                if (r < 0) {
-                        log_error("Failed to read CA certificate file '%s': %s",
-                                  arg_trust ?: TRUST_FILE, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read CA certificate file '%s': %m",
+                                               arg_trust ?: TRUST_FILE);
         }
 
         return 0;
@@ -1550,7 +1512,7 @@ int main(int argc, char **argv) {
 
         r = sd_event_set_watchdog(s.events, true);
         if (r < 0)
-                log_error("Failed to enable watchdog: %s", strerror(-r));
+                log_error_errno(r, "Failed to enable watchdog: %m");
         else
                 log_debug("Watchdog is %s.", r > 0 ? "enabled" : "disabled");
 
@@ -1569,7 +1531,7 @@ int main(int argc, char **argv) {
 
                 r = sd_event_run(s.events, -1);
                 if (r < 0) {
-                        log_error("Failed to run event loop: %s", strerror(-r));
+                        log_error_errno(r, "Failed to run event loop: %m");
                         break;
                 }
         }

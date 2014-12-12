@@ -98,7 +98,7 @@ static void device_set_state(Device *d, DeviceState state) {
         d->state = state;
 
         if (state != old_state)
-                log_debug_unit(UNIT(d)->id,
+                log_unit_debug(UNIT(d)->id,
                                "%s changed %s -> %s", UNIT(d)->id,
                                device_state_to_string(old_state),
                                device_state_to_string(state));
@@ -249,7 +249,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                         return r;
         }
         if (!isempty(state))
-                log_warning_unit(u->id, "Property %s on %s has trailing garbage, ignoring.",
+                log_unit_warning(u->id, "Property %s on %s has trailing garbage, ignoring.",
                                  property, strna(udev_device_get_syspath(dev)));
 
         return 0;
@@ -334,7 +334,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         return 0;
 
 fail:
-        log_warning("Failed to load device unit: %s", strerror(-r));
+        log_warning_errno(r, "Failed to load device unit: %m");
 
         if (delete && u)
                 unit_free(u);
@@ -628,7 +628,7 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 static RATELIMIT_DEFINE(limit, 10*USEC_PER_SEC, 5);
 
                 if (!ratelimit_test(&limit))
-                        log_error("Failed to get udev event: %m");
+                        log_error_errno(errno, "Failed to get udev event: %m");
                 if (!(revents & EPOLLIN))
                         return 0;
         }
@@ -650,20 +650,20 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (streq(action, "remove") || !device_is_ready(dev))  {
                 r = device_process_removed_device(m, dev);
                 if (r < 0)
-                        log_error("Failed to process device remove event: %s", strerror(-r));
+                        log_error_errno(r, "Failed to process device remove event: %m");
 
                 r = swap_process_removed_device(m, dev);
                 if (r < 0)
-                        log_error("Failed to process swap device remove event: %s", strerror(-r));
+                        log_error_errno(r, "Failed to process swap device remove event: %m");
 
         } else {
                 r = device_process_new_device(m, dev);
                 if (r < 0)
-                        log_error("Failed to process device new event: %s", strerror(-r));
+                        log_error_errno(r, "Failed to process device new event: %m");
 
                 r = swap_process_new_device(m, dev);
                 if (r < 0)
-                        log_error("Failed to process swap device new event: %s", strerror(-r));
+                        log_error_errno(r, "Failed to process swap device new event: %m");
 
                 manager_dispatch_load_queue(m);
 

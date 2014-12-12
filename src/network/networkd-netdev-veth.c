@@ -38,24 +38,22 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
 
         r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
         if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_IPTUN_LINK attribute: %s",
+                log_netdev_error(netdev,
+                                 "Could not append VETH_INFO_PEER attribute: %s",
                                  strerror(-r));
                 return r;
         }
 
         if (v->ifname_peer) {
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
-                if (r < 0) {
-                        log_error("Failed to add netlink interface name: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface name: %m");
         }
 
         if (v->mac_peer) {
                 r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_ADDRESS attribute: %s",
                                          strerror(-r));
                     return r;
@@ -64,7 +62,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
 
         r = sd_rtnl_message_close_container(m);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_INFO_DATA attribute: %s",
                                  strerror(-r));
                 return r;

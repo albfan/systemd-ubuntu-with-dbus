@@ -40,7 +40,7 @@ noreturn static void pager_fallback(void) {
         } while (n > 0);
 
         if (n < 0) {
-                log_error("Internal pager failed: %m");
+                log_error_errno(errno, "Internal pager failed: %m");
                 _exit(EXIT_FAILURE);
         }
 
@@ -67,17 +67,15 @@ int pager_open(bool jump_to_end) {
          * pager so that we get the value from the actual tty */
         columns();
 
-        if (pipe(fd) < 0) {
-                log_error("Failed to create pager pipe: %m");
-                return -errno;
-        }
+        if (pipe(fd) < 0)
+                return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         parent_pid = getpid();
 
         pager_pid = fork();
         if (pager_pid < 0) {
                 r = -errno;
-                log_error("Failed to fork pager: %m");
+                log_error_errno(errno, "Failed to fork pager: %m");
                 safe_close_pair(fd);
                 return r;
         }
@@ -126,10 +124,8 @@ int pager_open(bool jump_to_end) {
         }
 
         /* Return in the parent */
-        if (dup2(fd[1], STDOUT_FILENO) < 0) {
-                log_error("Failed to duplicate pager pipe: %m");
-                return -errno;
-        }
+        if (dup2(fd[1], STDOUT_FILENO) < 0)
+                return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
 
         safe_close_pair(fd);
         return 1;
@@ -143,7 +139,7 @@ void pager_close(void) {
         /* Inform pager that we are done */
         fclose(stdout);
         kill(pager_pid, SIGCONT);
-        wait_for_terminate(pager_pid, NULL);
+        (void) wait_for_terminate(pager_pid, NULL);
         pager_pid = 0;
 }
 
@@ -176,23 +172,21 @@ int show_man_page(const char *desc, bool null_stdio) {
                 args[1] = desc;
 
         pid = fork();
-        if (pid < 0) {
-                log_error("Failed to fork: %m");
-                return -errno;
-        }
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
 
         if (pid == 0) {
                 /* Child */
                 if (null_stdio) {
                         r = make_null_stdio();
                         if (r < 0) {
-                                log_error("Failed to kill stdio: %s", strerror(-r));
+                                log_error_errno(r, "Failed to kill stdio: %m");
                                 _exit(EXIT_FAILURE);
                         }
                 }
 
                 execvp(args[0], (char**) args);
-                log_error("Failed to execute man: %m");
+                log_error_errno(errno, "Failed to execute man: %m");
                 _exit(EXIT_FAILURE);
         }
 

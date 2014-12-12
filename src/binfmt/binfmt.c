@@ -36,15 +36,7 @@
 #include "fileio.h"
 #include "build.h"
 
-static const char conf_file_dirs[] =
-        "/etc/binfmt.d\0"
-        "/run/binfmt.d\0"
-        "/usr/local/lib/binfmt.d\0"
-        "/usr/lib/binfmt.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/binfmt.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("binfmt");
 
 static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;
@@ -72,10 +64,8 @@ static int apply_rule(const char *rule) {
         delete_rule(rule);
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule);
-        if (r < 0) {
-                log_error("Failed to add binary format: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add binary format: %m");
 
         return 0;
 }
@@ -91,8 +81,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open file '%s', ignoring: %s", path, strerror(-r));
-                return r;
+                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
         log_debug("apply: %s", path);
@@ -104,7 +93,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read file '%s', ignoring: %m", path);
+                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                         return -errno;
                 }
 
@@ -199,7 +188,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
-                        log_error("Failed to enumerate binfmt.d files: %s", strerror(-r));
+                        log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
                         goto finish;
                 }
 

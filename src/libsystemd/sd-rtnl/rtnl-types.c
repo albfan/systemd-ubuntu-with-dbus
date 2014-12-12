@@ -211,7 +211,23 @@ static const NLTypeSystem rtnl_link_info_type_system = {
         .types = rtnl_link_info_types,
 };
 
-static const NLType rtnl_link_types[IFLA_MAX + 1] = {
+static const struct NLType rtnl_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
+        [IFLA_BRPORT_STATE]     = { .type = NLA_U8 },
+        [IFLA_BRPORT_COST]      = { .type = NLA_U32 },
+        [IFLA_BRPORT_PRIORITY]  = { .type = NLA_U16 },
+        [IFLA_BRPORT_MODE]      = { .type = NLA_U8 },
+        [IFLA_BRPORT_GUARD]     = { .type = NLA_U8 },
+        [IFLA_BRPORT_PROTECT]   = { .type = NLA_U8 },
+        [IFLA_BRPORT_LEARNING]  = { .type = NLA_U8 },
+        [IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
+};
+
+static const NLTypeSystem rtnl_bridge_port_type_system = {
+        .max = ELEMENTSOF(rtnl_bridge_port_types) - 1,
+        .types = rtnl_bridge_port_types,
+};
+
+static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
         [IFLA_ADDRESS]          = { .type = NLA_ETHER_ADDR, },
         [IFLA_BROADCAST]        = { .type = NLA_ETHER_ADDR, },
         [IFLA_IFNAME]           = { .type = NLA_STRING, .size = IFNAMSIZ - 1, },
@@ -228,6 +244,7 @@ static const NLType rtnl_link_types[IFLA_MAX + 1] = {
         [IFLA_WIRELESS],
         [IFLA_PROTINFO],
 */
+        [IFLA_PROTINFO]         = { .type = NLA_NESTED, .type_system = &rtnl_bridge_port_type_system },
         [IFLA_TXQLEN]           = { .type = NLA_U32 },
 /*
         [IFLA_MAP]              = { .len = sizeof(struct rtnl_link_ifmap) },
@@ -312,6 +329,25 @@ static const NLTypeSystem rtnl_route_type_system = {
         .types = rtnl_route_types,
 };
 
+static const NLType rtnl_neigh_types[NDA_MAX + 1] = {
+        [NDA_DST]               = { .type = NLA_IN_ADDR },
+        [NDA_LLADDR]            = { .type = NLA_ETHER_ADDR },
+/*
+        NDA_CACHEINFO,
+        NDA_PROBES,
+        NDA_VLAN,
+        NDA_PORT
+        NDA_VNI
+        NDA_IFINDEX
+        NDA_MASTER
+*/
+};
+
+static const NLTypeSystem rtnl_neigh_type_system = {
+        .max = ELEMENTSOF(rtnl_neigh_types) - 1,
+        .types = rtnl_neigh_types,
+};
+
 static const NLType rtnl_types[RTM_MAX + 1] = {
         [NLMSG_ERROR]  = { .type = NLA_META, .size = sizeof(struct nlmsgerr) },
         [RTM_NEWLINK]  = { .type = NLA_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
@@ -324,6 +360,9 @@ static const NLType rtnl_types[RTM_MAX + 1] = {
         [RTM_NEWROUTE] = { .type = NLA_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
         [RTM_DELROUTE] = { .type = NLA_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
         [RTM_GETROUTE] = { .type = NLA_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_NEWNEIGH] = { .type = NLA_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_DELNEIGH] = { .type = NLA_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_GETNEIGH] = { .type = NLA_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
 };
 
 const NLTypeSystem rtnl_type_system = {

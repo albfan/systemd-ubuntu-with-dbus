@@ -59,12 +59,12 @@
 #include "bus-error.h"
 #include "errno-list.h"
 #include "af-list.h"
+#include "cap-list.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 
-#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP) || !defined(HAVE_PAM) || !defined(HAVE_SELINUX) || !defined(HAVE_SMACK) || !defined(HAVE_APPARMOR)
 int config_parse_warn_compat(
                 const char *unit,
                 const char *filename,
@@ -76,13 +76,25 @@ int config_parse_warn_compat(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+        Disabled reason = ltype;
 
-        log_syntax(unit, LOG_DEBUG, filename, line, EINVAL,
-                   "Support for option %s= has been disabled at compile time and is ignored",
-                   lvalue);
+        switch(reason) {
+        case DISABLED_CONFIGURATION:
+                log_syntax(unit, LOG_DEBUG, filename, line, EINVAL,
+                           "Support for option %s= has been disabled at compile time and it is ignored", lvalue);
+                break;
+        case DISABLED_LEGACY:
+                log_syntax(unit, LOG_INFO, filename, line, EINVAL,
+                           "Support for option %s= has been removed and it is ignored", lvalue);
+                break;
+        case DISABLED_EXPERIMENTAL:
+                log_syntax(unit, LOG_INFO, filename, line, EINVAL,
+                           "Support for option %s= has not yet been enabled and it is ignored", lvalue);
+                break;
+        };
+
         return 0;
 }
-#endif
 
 int config_parse_unit_deps(const char *unit,
                            const char *filename,
@@ -1029,17 +1041,15 @@ int config_parse_bounding_set(const char *unit,
 
         FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                 _cleanup_free_ char *t = NULL;
-                int r;
-                cap_value_t cap;
+                int cap;
 
                 t = strndup(word, l);
                 if (!t)
                         return log_oom();
 
-                r = cap_from_name(t, &cap);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno,
-                                   "Failed to parse capability in bounding set, ignoring: %s", t);
+                cap = capability_from_name(t);
+                if (cap < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse capability in bounding set, ignoring: %s", t);
                         continue;
                 }
 
@@ -1309,6 +1319,56 @@ int config_parse_exec_apparmor_profile(
         free(c->apparmor_profile);
         c->apparmor_profile = k;
         c->apparmor_profile_ignore = ignore;
+
+        return 0;
+}
+
+int config_parse_exec_smack_process_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        bool ignore;
+        char *k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                free(c->smack_process_label);
+                c->smack_process_label = NULL;
+                c->smack_process_label_ignore = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '-') {
+                ignore = true;
+                rvalue++;
+        } else
+                ignore = false;
+
+        r = unit_name_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r,
+                           "Failed to resolve specifiers, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        free(c->smack_process_label);
+        c->smack_process_label = k;
+        c->smack_process_label_ignore = ignore;
 
         return 0;
 }
@@ -1955,22 +2015,23 @@ int config_parse_ip_tos(const char *unit,
         return 0;
 }
 
-int config_parse_unit_condition_path(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_unit_condition_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        ConditionType cond = ltype;
-        Unit *u = data;
-        bool trigger, negate;
-        Condition *c;
         _cleanup_free_ char *p = NULL;
+        Condition **list = data, *c;
+        ConditionType t = ltype;
+        bool trigger, negate;
+        Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -1980,8 +2041,8 @@ int config_parse_unit_condition_path(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(u->conditions);
-                u->conditions = NULL;
+                condition_free_list(*list);
+                *list = NULL;
                 return 0;
         }
 
@@ -1994,45 +2055,41 @@ int config_parse_unit_condition_path(const char *unit,
                 rvalue++;
 
         r = unit_full_printf(u, rvalue, &p);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve specifiers, ignoring: %s", rvalue);
-        if (!p) {
-                p = strdup(rvalue);
-                if (!p)
-                        return log_oom();
-        }
-
-        if (!path_is_absolute(p)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Path in condition not absolute, ignoring: %s", p);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
                 return 0;
         }
 
-        c = condition_new(cond, p, trigger, negate);
+        if (!path_is_absolute(p)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Path in condition not absolute, ignoring: %s", p);
+                return 0;
+        }
+
+        c = condition_new(t, p, trigger, negate);
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(conditions, u->conditions, c);
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 
-int config_parse_unit_condition_string(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_unit_condition_string(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        ConditionType cond = ltype;
-        Unit *u = data;
-        bool trigger, negate;
-        Condition *c;
         _cleanup_free_ char *s = NULL;
+        Condition **list = data, *c;
+        ConditionType t = ltype;
+        bool trigger, negate;
+        Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2042,8 +2099,8 @@ int config_parse_unit_condition_string(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(u->conditions);
-                u->conditions = NULL;
+                condition_free_list(*list);
+                *list = NULL;
                 return 0;
         }
 
@@ -2056,36 +2113,32 @@ int config_parse_unit_condition_string(const char *unit,
                 rvalue++;
 
         r = unit_full_printf(u, rvalue, &s);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve specifiers, ignoring: %s", rvalue);
-        if (!s) {
-                s = strdup(rvalue);
-                if (!s)
-                        return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
+                return 0;
         }
 
-        c = condition_new(cond, s, trigger, negate);
+        c = condition_new(t, s, trigger, negate);
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(conditions, u->conditions, c);
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 
-int config_parse_unit_condition_null(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_unit_condition_null(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        Unit *u = data;
-        Condition *c;
+        Condition **list = data, *c;
         bool trigger, negate;
         int b;
 
@@ -2096,8 +2149,8 @@ int config_parse_unit_condition_null(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(u->conditions);
-                u->conditions = NULL;
+                condition_free_list(*list);
+                *list = NULL;
                 return 0;
         }
 
@@ -2111,9 +2164,7 @@ int config_parse_unit_condition_null(const char *unit,
 
         b = parse_boolean(rvalue);
         if (b < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -b,
-                           "Failed to parse boolean value in condition, ignoring: %s",
-                           rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -b, "Failed to parse boolean value in condition, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -2124,7 +2175,7 @@ int config_parse_unit_condition_null(const char *unit,
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(conditions, u->conditions, c);
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 
@@ -2446,7 +2497,6 @@ int config_parse_address_families(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
         bool invert = false;
         const char *word, *state;
         size_t l;
@@ -2455,7 +2505,6 @@ int config_parse_address_families(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(u);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */

@@ -129,6 +129,7 @@
                         </varlistentry>
 
                         <xi:include href="user-system-options.xml" xpointer="host" />
+                        <xi:include href="user-system-options.xml" xpointer="machine" />
 
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
@@ -217,7 +218,8 @@
                                 <literal>server</literal>,
                                 <literal>tablet</literal>,
                                 <literal>handset</literal>,
-                                <literal>watch</literal>, as well as
+                                <literal>watch</literal>,
+                                <literal>embedded</literal> as well as
                                 the special chassis types
                                 <literal>vm</literal> and
                                 <literal>container</literal> for

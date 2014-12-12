@@ -179,7 +179,7 @@ global:
         sd_bus_set_anonymous;
         sd_bus_set_trusted;
         sd_bus_set_monitor;
-        sd_bus_set_name;
+        sd_bus_set_description;
         sd_bus_negotiate_fds;
         sd_bus_negotiate_timestamp;
         sd_bus_negotiate_creds;
@@ -190,9 +190,9 @@ global:
         sd_bus_unref;
         sd_bus_is_open;
         sd_bus_can_send;
-        sd_bus_get_server_id;
+        sd_bus_get_bus_id;
         sd_bus_get_owner_creds;
-        sd_bus_get_name;
+        sd_bus_get_description;
         sd_bus_send;
         sd_bus_send_to;
         sd_bus_call;
@@ -223,6 +223,8 @@ global:
         sd_bus_slot_get_bus;
         sd_bus_slot_get_userdata;
         sd_bus_slot_set_userdata;
+        sd_bus_slot_get_description;
+        sd_bus_slot_set_description;
         sd_bus_slot_get_current_message;
         sd_bus_message_new_signal;
         sd_bus_message_new_method_call;
@@ -252,6 +254,7 @@ global:
         sd_bus_message_get_realtime_usec;
         sd_bus_message_get_seqnum;
         sd_bus_message_get_creds;
+        sd_bus_message_is_empty;
         sd_bus_message_is_signal;
         sd_bus_message_is_method_call;
         sd_bus_message_is_method_error;
@@ -315,7 +318,6 @@ global:
         sd_bus_creds_get_uid;
         sd_bus_creds_get_gid;
         sd_bus_creds_get_pid;
-        sd_bus_creds_get_pid_starttime;
         sd_bus_creds_get_tid;
         sd_bus_creds_get_comm;
         sd_bus_creds_get_tid_comm;
@@ -336,7 +338,7 @@ global:
         sd_bus_creds_get_audit_login_uid;
         sd_bus_creds_get_unique_name;
         sd_bus_creds_get_well_known_names;
-        sd_bus_creds_get_connection_name;
+        sd_bus_creds_get_description;
         sd_bus_error_free;
         sd_bus_error_set;
         sd_bus_error_setf;
@@ -387,8 +389,8 @@ global:
         sd_event_get_watchdog;
         sd_event_source_ref;
         sd_event_source_unref;
-        sd_event_source_set_name;
-        sd_event_source_get_name;
+        sd_event_source_set_description;
+        sd_event_source_get_description;
         sd_event_source_set_prepare;
         sd_event_source_get_pending;
         sd_event_source_get_priority;

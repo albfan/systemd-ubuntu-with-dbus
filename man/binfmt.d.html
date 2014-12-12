@@ -19,39 +19,38 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="binfmt.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>binfmt.d — Configure additional binary formats for
-                executables at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/binfmt.d/*.conf</code></p><p><code class="filename">/run/binfmt.d/*.conf</code></p><p><code class="filename">/usr/lib/binfmt.d/*.conf</code></p></div><div class="refsect1"><a name="idm214183102976"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="binfmt.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>binfmt.d — Configure additional binary formats for
+                executables at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/binfmt.d/*.conf</code></p><p><code class="filename">/run/binfmt.d/*.conf</code></p><p><code class="filename">/usr/lib/binfmt.d/*.conf</code></p></div><div class="refsect1"><a name="idm140552302860096"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
                 <a href="systemd-binfmt.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-binfmt.service</span>(8)</span></a>
                 reads configuration files from the above directories
                 to register in the kernel additional binary
-                formats for executables.</p></div><div class="refsect1"><a name="idm214183100752"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each file contains a list of binfmt_misc kernel
+                formats for executables.</p></div><div class="refsect1"><a name="idm140552302857824"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each file contains a list of binfmt_misc kernel
                 binary format rules. Consult <a class="ulink" href="https://www.kernel.org/doc/Documentation/binfmt_misc.txt" target="_top">binfmt_misc.txt</a>
                 for more information on registration of additional
                 binary formats and how to write rules.</p><p>Empty lines and lines beginning with ; and # are
                 ignored. Note that this means you may not use ; and #
-                as delimiter in binary format rules.</p><p>Each configuration file shall be named in the
-                style of <code class="filename"><em class="replaceable"><code>program</code></em>.conf</code>.
-                Files in <code class="filename">/etc/</code> override files
-                with the same name in <code class="filename">/usr/lib/</code>
-                and <code class="filename">/run/</code>. Files in
-                <code class="filename">/run/</code> override files with the
-                same name in <code class="filename">/usr/lib/</code>. Packages
-                should install their configuration files in
-                <code class="filename">/usr/lib/</code>, files in
-                <code class="filename">/etc/</code> are reserved for the local
-                administrator, who may use this logic to override the
-                configuration files installed from vendor
-                packages. All files are sorted by their filename in
-                lexicographic order, regardless of which of the
-                directories they reside in. If multiple files specify
-                the same binary type name, the entry in the file with
-                the lexicographically latest name will be applied.</p><p>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <code class="filename">/dev/null</code> in
-                <code class="filename">/etc/binfmt.d/</code> bearing the
-                same filename.</p></div><div class="refsect1"><a name="idm214186988656"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm214186987984"></a><p class="title"><b>Example 1. /etc/binfmt.d/wine.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Start WINE on Windows executables
-:DOSWin:M::MZ::/usr/bin/wine:</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214186986384"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                as delimiter in binary format rules.</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
+    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
+    <code class="filename">/usr/lib/</code>, in order of precedence.
+    Each configuration file in these configuration directories shall be named in
+    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
+    Files in <code class="filename">/etc/</code> override files with the same name in
+    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
+    <code class="filename">/run/</code> override files with the same name in
+    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
+    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
+    reserved for the local administrator, who may use this logic to override the
+    configuration files installed by vendor packages. All configuration files
+    are sorted by their filename in lexicographic order, regardless of which of
+    the directories they reside in. If multiple files specify the same option,
+    the entry in the file with the lexicographically latest name will take
+    precedence. It is recommended to prefix all filenames with a two-digit number
+    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
+    the vendor, the recommended way is to place a symlink to
+    <code class="filename">/dev/null</code> in the configuration directory in
+    <code class="filename">/etc/</code>, with the same filename as the vendor
+    configuration file.</p></div><div class="refsect1"><a name="idm140552302854256"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140552302853584"></a><p class="title"><b>Example 1. /etc/binfmt.d/wine.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Start WINE on Windows executables
+:DOSWin:M::MZ::/usr/bin/wine:</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140552302851936"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-binfmt.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-binfmt.service</span>(8)</span></a>,
                         <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,

@@ -48,7 +48,7 @@ void server_forward_console(
                 int priority,
                 const char *identifier,
                 const char *message,
-                struct ucred *ucred) {
+                const struct ucred *ucred) {
 
         struct iovec iovec[5];
         char header_pid[16];
@@ -100,12 +100,12 @@ void server_forward_console(
 
         fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug("Failed to open %s for logging: %m", tty);
+                log_debug_errno(errno, "Failed to open %s for logging: %m", tty);
                 return;
         }
 
         if (writev(fd, iovec, n) < 0)
-                log_debug("Failed to write to %s for logging: %m", tty);
+                log_debug_errno(errno, "Failed to write to %s for logging: %m", tty);
 
         safe_close(fd);
 }

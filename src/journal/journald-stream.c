@@ -306,7 +306,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning("Failed to read from stream: %m");
+                log_warning_errno(errno, "Failed to read from stream: %m");
                 goto terminate;
         }
 
@@ -370,7 +370,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 if (errno == EAGAIN)
                         return 0;
 
-                log_error("Failed to accept stdout connection: %m");
+                log_error_errno(errno, "Failed to accept stdout connection: %m");
                 return -errno;
         }
 
@@ -390,31 +390,31 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         r = getpeercred(fd, &stream->ucred);
         if (r < 0) {
-                log_error("Failed to determine peer credentials: %m");
+                log_error_errno(errno, "Failed to determine peer credentials: %m");
                 goto fail;
         }
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
                 if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
-                        log_error("Failed to determine peer security context: %m");
+                        log_error_errno(errno, "Failed to determine peer security context: %m");
         }
 #endif
 
         if (shutdown(fd, SHUT_WR) < 0) {
-                log_error("Failed to shutdown writing side of socket: %m");
+                log_error_errno(errno, "Failed to shutdown writing side of socket: %m");
                 goto fail;
         }
 
         r = sd_event_add_io(s->event, &stream->event_source, fd, EPOLLIN, stdout_stream_process, stream);
         if (r < 0) {
-                log_error("Failed to add stream to event loop: %s", strerror(-r));
+                log_error_errno(r, "Failed to add stream to event loop: %m");
                 goto fail;
         }
 
         r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0) {
-                log_error("Failed to adjust stdout event source priority: %s", strerror(-r));
+                log_error_errno(r, "Failed to adjust stdout event source priority: %m");
                 goto fail;
         }
 
@@ -441,39 +441,29 @@ int server_open_stdout_socket(Server *s) {
                 };
 
                 s->stdout_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->stdout_fd < 0) {
-                        log_error("socket() failed: %m");
-                        return -errno;
-                }
+                if (s->stdout_fd < 0)
+                        return log_error_errno(errno, "socket() failed: %m");
 
                 unlink(sa.un.sun_path);
 
                 r = bind(s->stdout_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error("bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 chmod(sa.un.sun_path, 0666);
 
-                if (listen(s->stdout_fd, SOMAXCONN) < 0) {
-                        log_error("listen(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (listen(s->stdout_fd, SOMAXCONN) < 0)
+                        return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
                 fd_nonblock(s->stdout_fd, 1);
 
         r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
-        if (r < 0) {
-                log_error("Failed to add stdout server fd to event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
 
         r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+10);
-        if (r < 0) {
-                log_error("Failed to adjust priority of stdout server event source: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 
         return 0;
 }

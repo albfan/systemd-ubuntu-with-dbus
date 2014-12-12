@@ -33,6 +33,8 @@
 #include <linux/input.h>
 #include <linux/if_link.h>
 #include <linux/loop.h>
+#include <linux/audit.h>
+#include <linux/capability.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -74,7 +76,11 @@
 #endif
 
 #ifndef MFD_ALLOW_SEALING
-#define MFD_ALLOW_SEALING 0x0002ULL
+#define MFD_ALLOW_SEALING 0x0002U
+#endif
+
+#ifndef MFD_CLOEXEC
+#define MFD_CLOEXEC 0x0001U
 #endif
 
 #ifndef IP_FREEBIND
@@ -115,22 +121,26 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 }
 #endif
 
-#ifdef __x86_64__
-#  ifndef __NR_memfd_create
+#ifndef __NR_memfd_create
+#  if defined __x86_64__
 #    define __NR_memfd_create 319
-#  endif
-#elif defined __arm__
-#  ifndef __NR_memfd_create
+#  elif defined __arm__
 #    define __NR_memfd_create 385
-#  endif
-#elif defined _MIPS_SIM
-#  ifndef __NR_memfd_create
-#    warning "__NR_memfd_create not yet defined for MIPS"
-#    define __NR_memfd_create 0xffffffff
-#  endif
-#else
-#  ifndef __NR_memfd_create
+#  elif defined _MIPS_SIM
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define __NR_memfd_create 4354
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_NABI32
+#      define __NR_memfd_create 6318
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_ABI64
+#      define __NR_memfd_create 5314
+#    endif
+#  elif defined __i386__
 #    define __NR_memfd_create 356
+#  else
+#    warning "__NR_memfd_create unknown for your architecture"
+#    define __NR_memfd_create 0xffffffff
 #  endif
 #endif
 
@@ -138,6 +148,39 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 static inline int memfd_create(const char *name, unsigned int flags) {
         return syscall(__NR_memfd_create, name, flags);
 }
+#endif
+
+#ifndef __NR_getrandom
+#  if defined __x86_64__
+#    define __NR_getrandom 318
+#  elif defined(__i386__)
+#    define __NR_getrandom 355
+#  elif defined(__arm__) || defined(__aarch64__)
+#    define __NR_getrandom 384
+#  elif defined(__ia64__)
+#    define __NR_getrandom 1339
+#  elif defined(__m68k__)
+#    define __NR_getrandom 352
+#  elif defined(__s390x__)
+#    define __NR_getrandom 349
+#  else
+#    warning "__NR_getrandom unknown for your architecture"
+#    define __NR_getrandom 0xffffffff
+#  endif
+#endif
+
+#if !HAVE_DECL_GETRANDOM
+static inline int getrandom(void *buffer, size_t count, unsigned flags) {
+        return syscall(__NR_getrandom, buffer, count, flags);
+}
+#endif
+
+#ifndef GRND_NONBLOCK
+#define GRND_NONBLOCK 0x0001
+#endif
+
+#ifndef GRND_RANDOM
+#define GRND_RANDOM 0x0002
 #endif
 
 #ifndef BTRFS_IOCTL_MAGIC
@@ -411,7 +454,7 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_BOND_AD_INFO 23
 #define __IFLA_BOND_MAX 24
 
-#define IFLA_BOND_MAX	(__IFLA_BOND_MAX - 1)
+#define IFLA_BOND_MAX   (__IFLA_BOND_MAX - 1)
 #endif
 
 #if !HAVE_DECL_IFLA_VLAN_PROTOCOL
@@ -480,6 +523,22 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 #endif
 
+#if !HAVE_DECL_IFLA_BRPORT_UNICAST_FLOOD
+#define IFLA_BRPORT_UNSPEC 0
+#define IFLA_BRPORT_STATE 1
+#define IFLA_BRPORT_PRIORITY 2
+#define IFLA_BRPORT_COST 3
+#define IFLA_BRPORT_MODE 4
+#define IFLA_BRPORT_GUARD 5
+#define IFLA_BRPORT_PROTECT 6
+#define IFLA_BRPORT_FAST_LEAVE 7
+#define IFLA_BRPORT_LEARNING 8
+#define IFLA_BRPORT_UNICAST_FLOOD 9
+#define __IFLA_BRPORT_MAX 10
+
+#define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+#endif
+
 #ifndef IPV6_UNICAST_IF
 #define IPV6_UNICAST_IF 76
 #endif
@@ -506,6 +565,10 @@ static inline int setns(int fd, int nstype) {
 
 #ifndef NET_ADDR_RANDOM
 #  define NET_ADDR_RANDOM 1
+#endif
+
+#ifndef NET_NAME_UNKNOWN
+#  define NET_NAME_UNKNOWN 0
 #endif
 
 #ifndef NET_NAME_ENUM
@@ -535,4 +598,36 @@ static inline int setns(int fd, int nstype) {
  * is compatible with the kernel's internal definition. */
 #ifndef LOOPBACK_IFINDEX
 #define LOOPBACK_IFINDEX 1
+#endif
+
+#ifndef MAX_AUDIT_MESSAGE_LENGTH
+#define MAX_AUDIT_MESSAGE_LENGTH 8970
+#endif
+
+#ifndef AUDIT_NLGRP_MAX
+#define AUDIT_NLGRP_READLOG 1
+#endif
+
+#ifndef CAP_MAC_OVERRIDE
+#define CAP_MAC_OVERRIDE 32
+#endif
+
+#ifndef CAP_MAC_ADMIN
+#define CAP_MAC_ADMIN 33
+#endif
+
+#ifndef CAP_SYSLOG
+#define CAP_SYSLOG 34
+#endif
+
+#ifndef CAP_WAKE_ALARM
+#define CAP_WAKE_ALARM 35
+#endif
+
+#ifndef CAP_BLOCK_SUSPEND
+#define CAP_BLOCK_SUSPEND 36
+#endif
+
+#ifndef CAP_AUDIT_READ
+#define CAP_AUDIT_READ 37
 #endif

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="hostnamectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hostnamectl — Control the system hostname</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">hostnamectl</code>  [OPTIONS...] {COMMAND}</p></div></div><div class="refsect1"><a name="idm214198261376"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>hostnamectl</strong></span> may be used to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="hostnamectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hostnamectl — Control the system hostname</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">hostnamectl</code>  [OPTIONS...] {COMMAND}</p></div></div><div class="refsect1"><a name="idm140098369737552"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>hostnamectl</strong></span> may be used to
                 query and change the system hostname and related
                 settings.</p><p>This tool distinguishes three different
                 hostnames: the high-level "pretty" hostname which
@@ -41,7 +41,7 @@
                 <a href="machine-info.html"><span class="citerefentry"><span class="refentrytitle">machine-info</span>(5)</span></a>.</p><p>Use
                 <a href="systemd-firstboot.html"><span class="citerefentry"><span class="refentrytitle">systemd-firstboot</span>(1)</span></a>
                 to initialize the system host name for mounted (but
-                not booted) system images.</p></div><div class="refsect1"><a name="idm214198252960"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user
+                not booted) system images.</p></div><div class="refsect1"><a name="idm140098369729088"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user
                                 for authentication for privileged
                                 operations.</p></dd><dt id="--static"><span class="term"><code class="option">--static</code>, </span><span class="term"><code class="option">--transient</code>, </span><span class="term"><code class="option">--pretty</code></span><a class="headerlink" title="Permalink to this term" href="#--static">¶</a></dt><dd><p>If
                                 <span class="command"><strong>status</strong></span> is used (or
@@ -63,7 +63,8 @@
       host. This will use SSH to talk to the remote machine manager
       instance. Container names may be enumerated with
       <span class="command"><strong>machinectl -H
-      <em class="replaceable"><code>HOST</code></em></strong></span>.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+      <em class="replaceable"><code>HOST</code></em></strong></span>.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
+      container name to connect to.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
     </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="status"><span class="term"><span class="command"><strong>status</strong></span></span><a class="headerlink" title="Permalink to this term" href="#status">¶</a></dt><dd><p>Show current system
                                 hostname and related
                                 information.</p></dd><dt id="set-hostname NAME"><span class="term"><span class="command"><strong>set-hostname <em class="replaceable"><code>NAME</code></em></strong></span></span><a class="headerlink" title="Permalink to this term" href="#set-hostname%20NAME">¶</a></dt><dd><p>Set the system
@@ -118,7 +119,8 @@
                                 "<code class="literal">server</code>",
                                 "<code class="literal">tablet</code>",
                                 "<code class="literal">handset</code>",
-                                "<code class="literal">watch</code>", as well as
+                                "<code class="literal">watch</code>",
+                                "<code class="literal">embedded</code>" as well as
                                 the special chassis types
                                 "<code class="literal">vm</code>" and
                                 "<code class="literal">container</code>" for
@@ -147,8 +149,8 @@
                                 as "<code class="literal">Berlin, Germany</code>"
                                 or as specific as "<code class="literal">Left Rack,
                                 2nd Shelf</code>".</p><p>Pass an empty string to reset to
-                                the default empty value.</p></dd></dl></div></div><div class="refsect1"><a name="idm214197185104"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm214197183952"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                the default empty value.</p></dd></dl></div></div><div class="refsect1"><a name="idm140098368654352"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm140098368653200"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(1)</span></a>,
                         <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(5)</span></a>,

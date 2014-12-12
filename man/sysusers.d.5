@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSUSERS\&.D" "5" "" "systemd 217" "sysusers.d"
+.TH "SYSUSERS\&.D" "5" "" "systemd 218" "sysusers.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -132,32 +132,39 @@ Only applies to lines of type
 \fIu\fR
 and should otherwise be left unset, or be set to
 "\-"\&.
-.SH "OVERRIDING VENDOR CONFIGURATION"
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
+.PP
+Configuration files are read from directories in
+/etc/,
+/run/, and
+/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
+\fIfilename\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/run/
+and
+/usr/lib/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&.
+.PP
+Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
+.SH "IDEMPOTENCE"
 .PP
 Note that
 \fBsystemd\-sysusers\fR
 will do nothing if the specified users or groups already exist, so normally there no reason to override
 sysusers\&.d
 vendor configuration, except to block certain users or groups from being created\&.
-.PP
-Files in
-/etc/sysusers\&.d
-override files with the same name in
-/usr/lib/sysusers\&.d
-and
-/run/sysusers\&.d\&. Files in
-/run/sysusers\&.d
-override files with the same name in
-/usr/lib/sysusers\&.d\&. The scheme is the same as for
-\fBtmpfiles.d\fR(5), except for the directory name\&.
-.PP
-If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
-/dev/null
-in
-/etc/sysusers\&.d/
-bearing the same filename\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemd-sysusers\fR(8),
-\fBtmpfiles.d\fR(5)
+\fBsystemd-sysusers\fR(8)

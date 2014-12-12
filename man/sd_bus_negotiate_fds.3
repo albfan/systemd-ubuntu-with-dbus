@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_NEGOTIATE_FDS" "3" "" "systemd 217" "sd_bus_negotiate_fds"
+.TH "SD_BUS_NEGOTIATE_FDS" "3" "" "systemd 218" "sd_bus_negotiate_fds"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,7 +33,7 @@ sd_bus_negotiate_fds, sd_bus_negotiate_timestamps, sd_bus_negotiate_creds \- Con
 .HP \w'int\ sd_bus_negotiate_timestamp('u
 .BI "int sd_bus_negotiate_timestamp(sd_bus\ *" "bus" ", int\ " "b" ");"
 .HP \w'int\ sd_bus_negotiate_creds('u
-.BI "int sd_bus_negotiate_creds(sd_bus\ *" "bus" ", int\ " "b" ");"
+.BI "int sd_bus_negotiate_creds(sd_bus\ *" "bus" ", int\ " "b" ", uint64_t\ " "flags" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_bus_negotiate_fds()\fR
@@ -55,17 +55,20 @@ controls whether implicit sender timestamps shall be attached automatically to a
 \fBsd_bus_message_get_seqno\fR(3)
 fail with
 \fB\-ENODATA\fR
-on incoming messages\&. Note that not all transports support timestamping of messages\&. On local transports, the timestamping is applied by the kernel and cannot be manipulated by userspace\&.
+on incoming messages\&. Note that not all transports support timestamping of messages\&. On local transports, the timestamping is applied by the kernel and cannot be manipulated by userspace\&. By default, message timestamping is not negotiated for all connections\&.
 .PP
 \fBsd_bus_negotiate_creds()\fR
-controls whether implicit sender credentials shall be attached automatically to all incoming messages\&. Takes a bus object and a bit mask value, which controls which credential parameters are attached\&. If this is not used,
-\fBsd_bus_message_get_creds\fR(3)
-fails with
-\fB\-ENODATA\fR
-on incoming messages\&. Note that not all transports support attaching sender credentials to messages, or do not support all types of sender credential parameters\&. On local transports, the sender credentials are attached by the kernel and cannot be manipulated by userspace\&. By default, no sender credentials are attached\&.
+controls whether implicit sender credentials shall be attached automatically to all incoming messages\&. Takes a bus object, a boolean indicating wether to enable or disable the credential parts encoded in the bit mask value argument\&. Note that not all transports support attaching sender credentials to messages, or do not support all types of sender credential parameters, or might suppress them under certain circumstances for individual messages\&. On local transports, the sender credentials are attached by the kernel and cannot be manipulated by userspace\&. By default, no sender credentials are attached\&.
 .PP
-These functions may be called only before the connection has been started with
-\fBsd_bus_start\fR(3)\&.
+The
+\fBsd_bus_negotiate_fds()\fR
+function may be called only before the connection has been started with
+\fBsd_bus_start\fR(3)\&. Both
+\fBsd_bus_negotiate_timestamp()\fR
+and
+\fBsd_bus_negotiate_creds()\fR
+also may be called after a connection has been set up\&. Note that when operating on a connection that is shared between multiple components of the same program (for example via
+\fBsd_bus_default\fR(3)) it is highly recommended to only enable additional per message metadata fields, but never disable them again, in order not to disable functionality needed by other components\&.
 .SH "RETURN VALUE"
 .PP
 On success, these functions returns 0 or a positive integer\&. On failure, they return a negative errno\-style error code\&.
@@ -90,4 +93,5 @@ file\&.
 \fBsd_bus_start\fR(3),
 \fBsd_bus_message_can_send\fR(3),
 \fBsd_bus_message_get_monotonic_usec\fR(3),
-\fBsd_bus_message_get_creds\fR(3)
+\fBsd_bus_message_get_creds\fR(3),
+\fBsystemd.busname\fR(5)

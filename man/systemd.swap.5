@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SWAP" "5" "" "systemd 217" "systemd.swap"
+.TH "SYSTEMD\&.SWAP" "5" "" "systemd 218" "systemd.swap"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -70,12 +70,29 @@ If a swap device or file is configured in both
 /etc/fstab
 and a unit file, the configuration in the latter takes precedence\&.
 .PP
-Unless the
-\fBnoauto\fR
-option is set for them all swap units configured in
+When reading
 /etc/fstab
-are also added as requirements to
-swap\&.target, so that they are waited for and activated during boot\&.
+a few special options are understood by systemd which influence how dependencies are created for swap units\&.
+.PP
+\fBnoauto\fR, \fBauto\fR
+.RS 4
+With
+\fBnoauto\fR
+the swap unit will not be added as a dependency for
+swap\&.target\&. This means that it will not be activated automatically during boot, unless it is pulled in by some other unit\&. Option
+\fBauto\fR
+has the opposite meaning and is the default\&.
+.RE
+.PP
+\fBnofail\fR, \fBfail\fR
+.RS 4
+With
+\fBnofail\fR
+the swap unit will be only wanted, not required by
+swap\&.target\&. This means that the boot will continue even if this swap device is not activated successfully\&. Option
+\fBfail\fR
+has the opposite meaning and is the default\&.
+.RE
 .SH "OPTIONS"
 .PP
 Swap files must include a [Swap] section, which carries information about the swap device it supervises\&. A number of options that may be used in this section are shared with other unit types\&. These options are documented in

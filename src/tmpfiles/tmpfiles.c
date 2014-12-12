@@ -39,6 +39,7 @@
 #include <glob.h>
 #include <fnmatch.h>
 #include <sys/capability.h>
+#include <sys/xattr.h>
 
 #include "log.h"
 #include "util.h"
@@ -71,6 +72,7 @@ typedef enum ItemType {
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
         COPY_FILES = 'C',
+        SET_XATTR = 't',
 
         /* These ones take globs */
         WRITE_FILE = 'w',
@@ -88,6 +90,7 @@ typedef struct Item {
 
         char *path;
         char *argument;
+        char **xattrs;
         uid_t uid;
         gid_t gid;
         mode_t mode;
@@ -117,15 +120,7 @@ static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/tmpfiles.d\0"
-        "/run/tmpfiles.d\0"
-        "/usr/local/lib/tmpfiles.d\0"
-        "/usr/lib/tmpfiles.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/tmpfiles.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
 
 #define MAX_DEPTH 256
 
@@ -299,9 +294,9 @@ static int dir_cleanup(
 
                         /* FUSE, NFS mounts, SELinux might return EACCES */
                         if (errno == EACCES)
-                                log_debug("stat(%s/%s) failed: %m", p, dent->d_name);
+                                log_debug_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
                         else
-                                log_error("stat(%s/%s) failed: %m", p, dent->d_name);
+                                log_error_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
                         r = -errno;
                         continue;
                 }
@@ -349,7 +344,7 @@ static int dir_cleanup(
                                 sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
                                 if (!sub_dir) {
                                         if (errno != ENOENT) {
-                                                log_error("opendir(%s/%s) failed: %m", p, dent->d_name);
+                                                log_error_errno(errno, "opendir(%s/%s) failed: %m", p, dent->d_name);
                                                 r = -errno;
                                         }
 
@@ -382,7 +377,7 @@ static int dir_cleanup(
 
                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
                                         if (errno != ENOENT && errno != ENOTEMPTY) {
-                                                log_error("rmdir(%s): %m", sub_path);
+                                                log_error_errno(errno, "rmdir(%s): %m", sub_path);
                                                 r = -errno;
                                         }
                                 }
@@ -430,7 +425,7 @@ static int dir_cleanup(
 
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0) {
                                 if (errno != ENOENT) {
-                                        log_error("unlink(%s): %m", sub_path);
+                                        log_error_errno(errno, "unlink(%s): %m", sub_path);
                                         r = -errno;
                                 }
                         }
@@ -446,7 +441,7 @@ finish:
                 times[1] = ds->st_mtim;
 
                 if (futimens(dirfd(d), times) < 0)
-                        log_error("utimensat(%s): %m", p);
+                        log_error_errno(errno, "utimensat(%s): %m", p);
         }
 
         return r;
@@ -477,24 +472,83 @@ static int item_set_perms(Item *i, const char *path) {
                 }
 
                 if (!st_valid || m != (st.st_mode & 07777)) {
-                        if (chmod(path, m) < 0) {
-                                log_error("chmod(%s) failed: %m", path);
-                                return -errno;
-                        }
+                        if (chmod(path, m) < 0)
+                                return log_error_errno(errno, "chmod(%s) failed: %m", path);
                 }
         }
 
         if ((!st_valid || (i->uid != st.st_uid || i->gid != st.st_gid)) &&
             (i->uid_set || i->gid_set))
                 if (chown(path,
-                          i->uid_set ? i->uid : (uid_t) -1,
-                          i->gid_set ? i->gid : (gid_t) -1) < 0) {
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID) < 0) {
 
-                        log_error("chown(%s) failed: %m", path);
+                        log_error_errno(errno, "chown(%s) failed: %m", path);
                         return -errno;
                 }
 
         return label_fix(path, false, false);
+}
+
+static int get_xattrs_from_arg(Item *i) {
+        char *xattr;
+        const char *p;
+        int r;
+
+        assert(i);
+
+        if (!i->argument) {
+                log_error("%s: Argument can't be empty!", i->path);
+                return -EBADMSG;
+        }
+        p = i->argument;
+
+        while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
+                _cleanup_free_ char *tmp = NULL, *name = NULL, *value = NULL;
+                r = split_pair(xattr, "=", &name, &value);
+                if (r < 0) {
+                        log_warning("Illegal xattr found: \"%s\" - ignoring.", xattr);
+                        free(xattr);
+                        continue;
+                }
+                free(xattr);
+                if (streq(name, "") || streq(value, "")) {
+                        log_warning("Malformed xattr found: \"%s=%s\" - ignoring.", name, value);
+                        continue;
+                }
+                tmp = unquote(value, "\"");
+                if (!tmp)
+                        return log_oom();
+                free(value);
+                value = cunescape(tmp);
+                if (!value)
+                        return log_oom();
+                if (strv_consume_pair(&i->xattrs, name, value) < 0)
+                        return log_oom();
+                name = value = NULL;
+        }
+
+        return r;
+}
+
+static int item_set_xattrs(Item *i, const char *path) {
+        char **name, **value;
+
+        assert(i);
+        assert(path);
+
+        if (strv_isempty(i->xattrs))
+                return 0;
+
+        STRV_FOREACH_PAIR(name, value, i->xattrs) {
+                int n;
+                n = strlen(*value);
+                if (lsetxattr(path, *name, *value, n, 0) < 0) {
+                        log_error("Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
+                        return -errno;
+                }
+        }
+        return 0;
 }
 
 static int write_one_file(Item *i, const char *path) {
@@ -518,7 +572,7 @@ static int write_one_file(Item *i, const char *path) {
                 if (i->type == WRITE_FILE && errno == ENOENT)
                         return 0;
 
-                log_error("Failed to create file %s: %m", path);
+                log_error_errno(errno, "Failed to create file %s: %m", path);
                 return -errno;
         }
 
@@ -542,10 +596,8 @@ static int write_one_file(Item *i, const char *path) {
 
         fd = safe_close(fd);
 
-        if (stat(path, &st) < 0) {
-                log_error("stat(%s) failed: %m", path);
-                return -errno;
-        }
+        if (stat(path, &st) < 0)
+                return log_error_errno(errno, "stat(%s) failed: %m", path);
 
         if (!S_ISREG(st.st_mode)) {
                 log_error("%s is not a file.", path);
@@ -553,6 +605,10 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         r = item_set_perms(i, path);
+        if (r < 0)
+                return r;
+
+        r = item_set_xattrs(i, i->path);
         if (r < 0)
                 return r;
 
@@ -636,7 +692,7 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
                 if (errno == 0)
                         errno = EIO;
 
-                log_error("glob(%s) failed: %m", i->path);
+                log_error_errno(errno, "glob(%s) failed: %m", i->path);
                 return -errno;
         }
 
@@ -675,20 +731,14 @@ static int create_item(Item *i) {
                 if (r < 0) {
                         struct stat a, b;
 
-                        if (r != -EEXIST) {
-                                log_error("Failed to copy files to %s: %s", i->path, strerror(-r));
-                                return -r;
-                        }
+                        if (r != -EEXIST)
+                                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-                        if (stat(i->argument, &a) < 0) {
-                                log_error("stat(%s) failed: %m", i->argument);
-                                return -errno;
-                        }
+                        if (stat(i->argument, &a) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
 
-                        if (stat(i->path, &b) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &b) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if ((a.st_mode ^ b.st_mode) & S_IFMT) {
                                 log_debug("Can't copy to %s, file exists already and is of different type", i->path);
@@ -718,15 +768,11 @@ static int create_item(Item *i) {
                 }
 
                 if (r < 0) {
-                        if (r != -EEXIST) {
-                                log_error("Failed to create directory %s: %s", i->path, strerror(-r));
-                                return r;
-                        }
+                        if (r != -EEXIST)
+                                return log_error_errno(r, "Failed to create directory %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &st) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISDIR(st.st_mode)) {
                                 log_debug("%s already exists and is not a directory.", i->path);
@@ -735,6 +781,10 @@ static int create_item(Item *i) {
                 }
 
                 r = item_set_perms(i, i->path);
+                if (r < 0)
+                        return r;
+
+                r = item_set_xattrs(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -749,15 +799,11 @@ static int create_item(Item *i) {
                 }
 
                 if (r < 0) {
-                        if (errno != EEXIST) {
-                                log_error("Failed to create fifo %s: %m", i->path);
-                                return -errno;
-                        }
+                        if (errno != EEXIST)
+                                return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &st) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISFIFO(st.st_mode)) {
 
@@ -769,10 +815,8 @@ static int create_item(Item *i) {
                                                 mac_selinux_create_file_clear();
                                         }
 
-                                        if (r < 0) {
-                                                log_error("Failed to create fifo %s: %s", i->path, strerror(-r));
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
                                 } else {
                                         log_debug("%s is not a fifo.", i->path);
                                         return 0;
@@ -781,6 +825,10 @@ static int create_item(Item *i) {
                 }
 
                 r = item_set_perms(i, i->path);
+                if (r < 0)
+                        return r;
+
+                r = item_set_xattrs(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -795,10 +843,8 @@ static int create_item(Item *i) {
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
 
-                        if (errno != EEXIST) {
-                                log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
-                                return -errno;
-                        }
+                        if (errno != EEXIST)
+                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                         r = readlink_malloc(i->path, &x);
                         if (r < 0 || !streq(i->argument, x)) {
@@ -808,16 +854,18 @@ static int create_item(Item *i) {
                                         r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
 
-                                        if (r < 0) {
-                                                log_error("symlink(%s, %s) failed: %s", i->argument, i->path, strerror(-r));
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
                                 } else {
                                         log_debug("%s is not a symlink or does not point to the correct path.", i->path);
                                         return 0;
                                 }
                         }
                 }
+
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                       return r;
 
                 break;
 
@@ -850,15 +898,11 @@ static int create_item(Item *i) {
                                 return 0;
                         }
 
-                        if (errno != EEXIST) {
-                                log_error("Failed to create device node %s: %m", i->path);
-                                return -errno;
-                        }
+                        if (errno != EEXIST)
+                                return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &st) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if ((st.st_mode & S_IFMT) != file_type) {
 
@@ -870,10 +914,8 @@ static int create_item(Item *i) {
                                                 mac_selinux_create_file_clear();
                                         }
 
-                                        if (r < 0) {
-                                                log_error("Failed to create device node %s: %s", i->path, strerror(-r));
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to create device node %s: %m", i->path);
                                 } else {
                                         log_debug("%s is not a device node.", i->path);
                                         return 0;
@@ -882,6 +924,10 @@ static int create_item(Item *i) {
                 }
 
                 r = item_set_perms(i, i->path);
+                if (r < 0)
+                        return r;
+
+                r = item_set_xattrs(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -901,7 +947,12 @@ static int create_item(Item *i) {
                 r = glob_item(i, item_set_perms_recursive);
                 if (r < 0)
                         return r;
+                break;
 
+        case SET_XATTR:
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                        return r;
                 break;
         }
 
@@ -931,13 +982,12 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
         case COPY_FILES:
+        case SET_XATTR:
                 break;
 
         case REMOVE_PATH:
-                if (remove(instance) < 0 && errno != ENOENT) {
-                        log_error("remove(%s): %m", instance);
-                        return -errno;
-                }
+                if (remove(instance) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "remove(%s): %m", instance);
 
                 break;
 
@@ -946,10 +996,8 @@ static int remove_item_instance(Item *i, const char *instance) {
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
                 r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
-                if (r < 0 && r != -ENOENT) {
-                        log_error("rm_rf(%s): %s", instance, strerror(-r));
-                        return r;
-                }
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "rm_rf(%s): %m", instance);
 
                 break;
         }
@@ -978,6 +1026,7 @@ static int remove_item(Item *i) {
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
         case COPY_FILES:
+        case SET_XATTR:
                 break;
 
         case REMOVE_PATH:
@@ -1013,24 +1062,20 @@ static int clean_item_instance(Item *i, const char* instance) {
                 if (errno == ENOENT || errno == ENOTDIR)
                         return 0;
 
-                log_error("Failed to open directory %s: %m", i->path);
+                log_error_errno(errno, "Failed to open directory %s: %m", i->path);
                 return -errno;
         }
 
-        if (fstat(dirfd(d), &s) < 0) {
-                log_error("stat(%s) failed: %m", i->path);
-                return -errno;
-        }
+        if (fstat(dirfd(d), &s) < 0)
+                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
         if (!S_ISDIR(s.st_mode)) {
                 log_error("%s is not a directory.", i->path);
                 return -ENOTDIR;
         }
 
-        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0) {
-                log_error("stat(%s/..) failed: %m", i->path);
-                return -errno;
-        }
+        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
+                return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
 
         mountpoint = s.st_dev != ps.st_dev ||
                      (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
@@ -1105,6 +1150,7 @@ static void item_free(Item *i) {
 
         free(i->path);
         free(i->argument);
+        strv_free(i->xattrs);
         free(i);
 }
 
@@ -1303,6 +1349,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
         }
 
+        case SET_XATTR:
+                if (!i->argument) {
+                        log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
+                        return -EBADMSG;
+                }
+                r = get_xattrs_from_arg(i);
+                if (r < 0)
+                        return r;
+                break;
+
         default:
                 log_error("[%s:%u] Unknown command type '%c'.", fname, line, type);
                 return -EBADMSG;
@@ -1396,18 +1452,33 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         existing = hashmap_get(h, i->path);
         if (existing) {
-
-                /* Two identical items are fine */
-                if (!item_equal(existing, i))
-                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
-
-                return 0;
-        }
-
-        r = hashmap_put(h, i->path, i);
-        if (r < 0) {
-                log_error("Failed to insert item %s: %s", i->path, strerror(-r));
-                return r;
+                if (i->type == SET_XATTR) {
+                        r = strv_extend_strv(&existing->xattrs, i->xattrs);
+                        if (r < 0)
+                                return log_oom();
+                        return 0;
+                } else if (existing->type == SET_XATTR) {
+                        r = strv_extend_strv(&i->xattrs, existing->xattrs);
+                        if (r < 0)
+                                return log_oom();
+                        r = hashmap_replace(h, i->path, i);
+                        if (r < 0) {
+                                log_error("Failed to replace item for %s.", i->path);
+                                return r;
+                        }
+                        item_free(existing);
+                } else {
+                        /* Two identical items are fine */
+                        if (!item_equal(existing, i))
+                                log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
+                        return 0;
+                }
+        } else {
+                r = hashmap_put(h, i->path, i);
+                if (r < 0) {
+                        log_error("Failed to insert item %s: %s", i->path, strerror(-r));
+                        return r;
+                }
         }
 
         i = NULL; /* avoid cleanup */
@@ -1539,8 +1610,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open '%s', ignoring: %s", fn, strerror(-r));
-                return r;
+                return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
         }
 
         FOREACH_LINE(line, f, break) {
@@ -1587,7 +1657,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         if (ferror(f)) {
-                log_error("Failed to read from file %s: %m", fn);
+                log_error_errno(errno, "Failed to read from file %s: %m", fn);
                 if (r == 0)
                         r = -EIO;
         }
@@ -1637,7 +1707,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", arg_root, conf_file_dirs);
                 if (r < 0) {
-                        log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
+                        log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
                         goto finish;
                 }
 

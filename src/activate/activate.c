@@ -51,10 +51,8 @@ static int add_epoll(int epoll_fd, int fd) {
 
         ev.data.fd = fd;
         r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0) {
-                log_error("Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
 
         return 0;
 }
@@ -65,11 +63,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
         int count = 0;
 
         n = sd_listen_fds(true);
-        if (n < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s",
-                          strerror(-n));
-                return n;
-        }
+        if (n < 0)
+                return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
         if (n > 0) {
                 log_info("Received %i descriptors via the environment.", n);
 
@@ -103,8 +98,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
-                        log_error("Failed to open '%s': %s", *address, strerror(-fd));
-                        return fd;
+                        return log_error_errno(fd, "Failed to open '%s': %m", *address);
                 }
 
                 assert(fd == SD_LISTEN_FDS_START + count);
@@ -115,10 +109,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 log_open();
 
         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (*epoll_fd < 0) {
-                log_error("Failed to create epoll object: %m");
-                return -errno;
-        }
+        if (*epoll_fd < 0)
+                return log_error_errno(errno, "Failed to create epoll object: %m");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
                 _cleanup_free_ char *name = NULL;
@@ -179,7 +171,7 @@ static int launch(char* name, char **argv, char **env, int fds) {
 
         log_info("Execing %s (%s)", name, tmp);
         execvpe(name, argv, envp);
-        log_error("Failed to execp %s (%s): %m", name, tmp);
+        log_error_errno(errno, "Failed to execp %s (%s): %m", name, tmp);
 
         return -errno;
 }
@@ -196,28 +188,26 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
         parent_pid = getpid();
 
         child_pid = fork();
-        if (child_pid < 0) {
-                log_error("Failed to fork: %m");
-                return -errno;
-        }
+        if (child_pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
 
         /* In the child */
         if (child_pid == 0) {
                 r = dup2(fd, STDIN_FILENO);
                 if (r < 0) {
-                        log_error("Failed to dup connection to stdin: %m");
+                        log_error_errno(errno, "Failed to dup connection to stdin: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = dup2(fd, STDOUT_FILENO);
                 if (r < 0) {
-                        log_error("Failed to dup connection to stdout: %m");
+                        log_error_errno(errno, "Failed to dup connection to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = close(fd);
                 if (r < 0) {
-                        log_error("Failed to close dupped connection: %m");
+                        log_error_errno(errno, "Failed to close dupped connection: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -231,7 +221,7 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
                         _exit(EXIT_SUCCESS);
 
                 execvp(child, argv);
-                log_error("Failed to exec child %s: %m", child);
+                log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 
@@ -246,7 +236,7 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
 
         fd2 = accept(fd, NULL, NULL);
         if (fd2 < 0) {
-                log_error("Failed to accept connection on fd:%d: %m", fd);
+                log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
                 return fd2;
         }
 
@@ -275,7 +265,7 @@ static int install_chld_handler(void) {
 
         r = sigaction(SIGCHLD, &act, 0);
         if (r < 0)
-                log_error("Failed to install SIGCHLD handler: %m");
+                log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
         return r;
 }
 
@@ -393,7 +383,7 @@ int main(int argc, char **argv, char **envp) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("epoll_wait() failed: %m");
+                        log_error_errno(errno, "epoll_wait() failed: %m");
                         return EXIT_FAILURE;
                 }
 

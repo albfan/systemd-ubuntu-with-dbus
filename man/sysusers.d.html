@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="sysusers.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysusers.d — Declarative allocation of system users and groups</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/sysusers.d/*.conf</code></p></div><div class="refsect1"><a name="idm214169941664"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-sysusers</strong></span> uses the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 218</span><hr><div class="refentry"><a name="sysusers.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysusers.d — Declarative allocation of system users and groups</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/sysusers.d/*.conf</code></p></div><div class="refsect1"><a name="idm139781762439824"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-sysusers</strong></span> uses the
                 files from <code class="filename">sysusers.d</code> directory
                 to create system users and groups at package
                 installation or boot time. This tool may be used to
@@ -28,7 +28,7 @@
                 accesses <code class="filename">/etc/passwd</code> and
                 <code class="filename">/etc/group</code> directly, bypassing
                 any more complex user databases, for example any
-                database involving NIS or LDAP.</p></div><div class="refsect1"><a name="idm214169937424"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each configuration file shall be named in the
+                database involving NIS or LDAP.</p></div><div class="refsect1"><a name="idm139781762435584"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each configuration file shall be named in the
                 style of
                 <code class="filename"><em class="replaceable"><code>package</code></em>.conf</code>
                 or
@@ -41,7 +41,7 @@ u httpd 440 "HTTP User"
 u authd /usr/bin/authd "Authorization user"
 g input - -
 m authd input
-u root 0 "Superuser" /root</pre><div class="refsect2"><a name="idm214169932432"></a><h3 id="Type">Type<a class="headerlink" title="Permalink to this headline" href="#Type">¶</a></h3><p>The type consists of a single
+u root 0 "Superuser" /root</pre><div class="refsect2"><a name="idm139781762490192"></a><h3 id="Type">Type<a class="headerlink" title="Permalink to this headline" href="#Type">¶</a></h3><p>The type consists of a single
                         letter. The following line types are
                         understood:</p><div class="variablelist"><dl class="variablelist"><dt id="u"><span class="term"><code class="varname">u</code></span><a class="headerlink" title="Permalink to this term" href="#u">¶</a></dt><dd><p>Create a
                                         system user and group of the
@@ -82,7 +82,7 @@ u root 0 "Superuser" /root</pre><div class="refsect2"><a name="idm214169932432">
                                         and groups of the same name
                                         are likely to carry the same
                                         numeric UID and
-                                        GID.</p></dd></dl></div></div><div class="refsect2"><a name="idm214173873440"></a><h3 id="Name">Name<a class="headerlink" title="Permalink to this headline" href="#Name">¶</a></h3><p>The name field specifies the user or
+                                        GID.</p></dd></dl></div></div><div class="refsect2"><a name="idm139781762624928"></a><h3 id="Name">Name<a class="headerlink" title="Permalink to this headline" href="#Name">¶</a></h3><p>The name field specifies the user or
                         group name. It should be shorter than 31
                         characters and avoid any non-ASCII characters,
                         and not begin with a numeric character. It is
@@ -95,7 +95,7 @@ u root 0 "Superuser" /root</pre><div class="refsect2"><a name="idm214169932432">
                         field should contain the user name to add to a
                         group.</p><p>For lines of type <code class="varname">r</code>
                         this field should be set to
-                        "<code class="literal">-</code>".</p></div><div class="refsect2"><a name="idm214173868576"></a><h3 id="ID">ID<a class="headerlink" title="Permalink to this headline" href="#ID">¶</a></h3><p>For <code class="varname">u</code> and
+                        "<code class="literal">-</code>".</p></div><div class="refsect2"><a name="idm139781762620064"></a><h3 id="ID">ID<a class="headerlink" title="Permalink to this headline" href="#ID">¶</a></h3><p>For <code class="varname">u</code> and
                         <code class="varname">g</code> the numeric 32bit UID or
                         GID of the user/group. Do not use IDs 65535 or
                         4294967295, as they have special placeholder
@@ -114,12 +114,12 @@ u root 0 "Superuser" /root</pre><div class="refsect2"><a name="idm214169932432">
                         both values are formatted as decimal ASCII
                         numbers. Alternatively, a single UID/GID may
                         be specified formatted as decimal ASCII
-                        numbers.</p></div><div class="refsect2"><a name="idm214173855200"></a><h3 id="GECOS">GECOS<a class="headerlink" title="Permalink to this headline" href="#GECOS">¶</a></h3><p>A short, descriptive string for users to
+                        numbers.</p></div><div class="refsect2"><a name="idm139781762606608"></a><h3 id="GECOS">GECOS<a class="headerlink" title="Permalink to this headline" href="#GECOS">¶</a></h3><p>A short, descriptive string for users to
                         be created, enclosed in quotation marks. Note
                         that this field may not contain colons.</p><p>Only applies to lines of type
                         <code class="varname">u</code> and should otherwise be
                         left unset, or be set to
-                        "<code class="literal">-</code>".</p></div><div class="refsect2"><a name="idm214173852288"></a><h3 id="Home Directory">Home Directory<a class="headerlink" title="Permalink to this headline" href="#Home%20Directory">¶</a></h3><p>The home directory for a new system
+                        "<code class="literal">-</code>".</p></div><div class="refsect2"><a name="idm139781762603728"></a><h3 id="Home Directory">Home Directory<a class="headerlink" title="Permalink to this headline" href="#Home%20Directory">¶</a></h3><p>The home directory for a new system
                         user. If omitted defaults to the root
                         directory. It is recommended to not
                         unnecessarily specify home directories for
@@ -127,26 +127,32 @@ u root 0 "Superuser" /root</pre><div class="refsect2"><a name="idm214169932432">
                         requires one to be set.</p><p>Only applies to lines of type
                         <code class="varname">u</code> and should otherwise be
                         left unset, or be set to
-                        "<code class="literal">-</code>".</p></div></div><div class="refsect1"><a name="idm214173849088"></a><h2 id="Overriding vendor configuration">Overriding vendor configuration<a class="headerlink" title="Permalink to this headline" href="#Overriding%20vendor%20configuration">¶</a></h2><p>Note that <span class="command"><strong>systemd-sysusers</strong></span>
+                        "<code class="literal">-</code>".</p></div></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
+    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
+    <code class="filename">/usr/lib/</code>, in order of precedence.
+    Each configuration file in these configuration directories shall be named in
+    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
+    Files in <code class="filename">/etc/</code> override files with the same name in
+    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
+    <code class="filename">/run/</code> override files with the same name in
+    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
+    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
+    reserved for the local administrator, who may use this logic to override the
+    configuration files installed by vendor packages. All configuration files
+    are sorted by their filename in lexicographic order, regardless of which of
+    the directories they reside in. If multiple files specify the same option,
+    the entry in the file with the lexicographically latest name will take
+    precedence. It is recommended to prefix all filenames with a two-digit number
+    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
+    the vendor, the recommended way is to place a symlink to
+    <code class="filename">/dev/null</code> in the configuration directory in
+    <code class="filename">/etc/</code>, with the same filename as the vendor
+    configuration file.</p></div><div class="refsect1"><a name="idm139781762599632"></a><h2 id="Idempotence">Idempotence<a class="headerlink" title="Permalink to this headline" href="#Idempotence">¶</a></h2><p>Note that <span class="command"><strong>systemd-sysusers</strong></span>
                 will do nothing if the specified users or groups
                 already exist, so normally there no reason to override
                 <code class="filename">sysusers.d</code> vendor configuration,
                 except to block certain users or groups from being
-                created.</p><p>Files in <code class="filename">/etc/sysusers.d</code>
-                override files with the same name in
-                <code class="filename">/usr/lib/sysusers.d</code> and
-                <code class="filename">/run/sysusers.d</code>. Files in
-                <code class="filename">/run/sysusers.d</code> override files
-                with the same name in
-                <code class="filename">/usr/lib/sysusers.d</code>. The scheme is the same as for
-                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>,
-                except for the directory name.</p><p>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <code class="filename">/dev/null</code> in
-                <code class="filename">/etc/sysusers.d/</code> bearing the
-                same filename.</p></div><div class="refsect1"><a name="idm214173839456"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                created.</p></div><div class="refsect1"><a name="idm139781762596736"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
-                        <a href="systemd-sysusers.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysusers</span>(8)</span></a>,
-                        <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>
+                        <a href="systemd-sysusers.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysusers</span>(8)</span></a>
                 </p></div></div></body></html>

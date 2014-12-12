@@ -27,7 +27,7 @@
 #include "bus-util.h"
 #include "bus-label.h"
 #include "strv.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "copy.h"
 #include "fileio.h"
 #include "in-addr-util.h"
@@ -207,7 +207,7 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                n = local_addresses(NULL, 0, &addresses);
+                n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                 if (n < 0)
                         _exit(EXIT_FAILURE);
 

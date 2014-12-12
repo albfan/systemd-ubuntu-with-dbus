@@ -1,5 +1,5 @@
 '\" t
-.TH "LOGIND\&.CONF" "5" "" "systemd 217" "logind.conf"
+.TH "LOGIND\&.CONF" "5" "" "systemd 218" "logind.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,14 +20,49 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-logind.conf \- Login manager configuration file
+logind.conf, logind.conf.d \- Login manager configuration files
 .SH "SYNOPSIS"
 .PP
 /etc/systemd/logind\&.conf
+.PP
+/etc/systemd/logind\&.conf\&.d/*\&.conf
+.PP
+/run/systemd/logind\&.conf\&.d/*\&.conf
+.PP
+/usr/lib/systemd/logind\&.conf\&.d/*\&.conf
 .SH "DESCRIPTION"
 .PP
-This file configures various parameters of the systemd login manager,
+These files configure various parameters of the systemd login manager,
 \fBsystemd-logind.service\fR(8)\&.
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
+.PP
+Configuration files are read from directories in
+/etc/,
+/run/, and
+/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
+\fIfilename\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/run/
+and
+/usr/lib/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&.
+.PP
+Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
+.SH "CONFIGURATION FILE"
+.PP
+Configuration is also read from a single configuration file in
+/etc/\&. This file is read before any of the configuration directories, and has the lowest precedence; entries in a file in any configuration directory override entries in the single configuration file\&.
 .SH "OPTIONS"
 .PP
 All options are configured in the
@@ -164,14 +199,14 @@ action occurs\&.
 \fIPowerKeyIgnoreInhibited=\fR, \fISuspendKeyIgnoreInhibited=\fR, \fIHibernateKeyIgnoreInhibited=\fR, \fILidSwitchIgnoreInhibited=\fR
 .RS 4
 Controls whether actions triggered by the power and sleep keys and the lid switch are subject to inhibitor locks\&. These settings take boolean arguments\&. If
-"off", the inhibitor locks taken by applications in order to block the requested operation are respected\&. If
-"on", the requested operation is executed in any case\&.
+"no", the inhibitor locks taken by applications in order to block the requested operation are respected\&. If
+"yes", the requested operation is executed in any case\&.
 \fIPowerKeyIgnoreInhibited=\fR,
 \fISuspendKeyIgnoreInhibited=\fR
 and
 \fIHibernateKeyIgnoreInhibited=\fR
 default to
-"off"\&.
+"no"\&.
 \fILidSwitchIgnoreInhibited=\fR
 defaults to
 "yes"\&. This means that the lid switch does not respect suspend blockers by default, but the power and sleep keys do\&.

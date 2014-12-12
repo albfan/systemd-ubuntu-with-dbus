@@ -387,7 +387,7 @@ static int spawn_exec(struct udev_event *event,
                 if (fd_stderr < 0)
                         dup2(fd, STDERR_FILENO);
         } else
-                log_error("open /dev/null failed: %m");
+                log_error_errno(errno, "open /dev/null failed: %m");
 
         /* connect pipes to std{out,err} */
         if (fd_stdout >= 0) {
@@ -409,7 +409,7 @@ static int spawn_exec(struct udev_event *event,
         execve(argv[0], argv, envp);
 
         /* exec failed */
-        log_error("failed to execute '%s' '%s': %m", argv[0], cmd);
+        log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
 
         return -errno;
 }
@@ -437,14 +437,14 @@ static void spawn_read(struct udev_event *event,
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                log_error("error creating epoll fd: %m");
+                log_error_errno(errno, "error creating epoll fd: %m");
                 return;
         }
 
         if (fd_stdout >= 0) {
                 r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe);
                 if (r < 0) {
-                        log_error("fail to add stdout fd to epoll: %m");
+                        log_error_errno(errno, "fail to add stdout fd to epoll: %m");
                         return;
                 }
         }
@@ -452,7 +452,7 @@ static void spawn_read(struct udev_event *event,
         if (fd_stderr >= 0) {
                 r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe);
                 if (r < 0) {
-                        log_error("fail to add stderr fd to epoll: %m");
+                        log_error_errno(errno, "fail to add stderr fd to epoll: %m");
                         return;
                 }
         }
@@ -481,7 +481,7 @@ static void spawn_read(struct udev_event *event,
                 if (fdcount < 0) {
                         if (errno == EINTR)
                                 continue;
-                        log_error("failed to poll: %m");
+                        log_error_errno(errno, "failed to poll: %m");
                         return;
                 } else if (fdcount == 0) {
                         log_error("timeout '%s'", cmd);
@@ -527,7 +527,7 @@ static void spawn_read(struct udev_event *event,
                         } else if (ev[i].events & EPOLLHUP) {
                                 r = epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL);
                                 if (r < 0) {
-                                        log_error("failed to remove fd from epoll: %m");
+                                        log_error_errno(errno, "failed to remove fd from epoll: %m");
                                         return;
                                 }
                                 *fd = -1;
@@ -576,7 +576,7 @@ static int spawn_wait(struct udev_event *event,
                         if (errno == EINTR)
                                 continue;
                         err = -errno;
-                        log_error("failed to poll: %m");
+                        log_error_errno(errno, "failed to poll: %m");
                         goto out;
                 }
                 if (fdcount == 0) {
@@ -587,7 +587,7 @@ static int spawn_wait(struct udev_event *event,
                                 if (errno == EINTR)
                                         continue;
                                 err = -errno;
-                                log_error("failed to poll: %m");
+                                log_error_errno(errno, "failed to poll: %m");
                                 goto out;
                         }
                         if (fdcount == 0) {
@@ -676,7 +676,6 @@ int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_warn_usec,
                      const char *cmd, char **envp, const sigset_t *sigmask,
                      char *result, size_t ressize) {
-        struct udev *udev = event->udev;
         int outpipe[2] = {-1, -1};
         int errpipe[2] = {-1, -1};
         pid_t pid;
@@ -689,17 +688,17 @@ int udev_event_spawn(struct udev_event *event,
         udev_build_argv(event->udev, arg, NULL, argv);
 
         /* pipes from child to parent */
-        if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {
+        if (result != NULL || log_get_max_level() >= LOG_INFO) {
                 if (pipe2(outpipe, O_NONBLOCK) != 0) {
                         err = -errno;
-                        log_error("pipe failed: %m");
+                        log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
-        if (udev_get_log_priority(udev) >= LOG_INFO) {
+        if (log_get_max_level() >= LOG_INFO) {
                 if (pipe2(errpipe, O_NONBLOCK) != 0) {
                         err = -errno;
-                        log_error("pipe failed: %m");
+                        log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
@@ -730,7 +729,7 @@ int udev_event_spawn(struct udev_event *event,
 
                 _exit(2 );
         case -1:
-                log_error("fork of '%s' failed: %m", cmd);
+                log_error_errno(errno, "fork of '%s' failed: %m", cmd);
                 err = -1;
                 goto out;
         default:
@@ -776,21 +775,19 @@ static int rename_netif(struct udev_event *event) {
         strscpy(name, IFNAMSIZ, event->name);
 
         r = rtnl_set_link_name(&event->rtnl, udev_device_get_ifindex(dev), name);
-        if (r < 0) {
-                log_error("error changing net interface name '%s' to '%s': %s",
-                          oldname, name, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Error changing net interface name '%s' to '%s': %m", oldname, name);
 
-        log_debug("renamed network interface '%s' to '%s'\n", oldname, name);
+        log_debug("renamed network interface '%s' to '%s'", oldname, name);
 
         return 0;
 }
 
 void udev_event_execute_rules(struct udev_event *event,
-                              usec_t timeout_usec,
-                              usec_t timeout_warn_usec,
-                              struct udev_rules *rules, const sigset_t *sigmask) {
+                              usec_t timeout_usec, usec_t timeout_warn_usec,
+                              struct udev_list *properties_list,
+                              struct udev_rules *rules,
+                              const sigset_t *sigmask) {
         struct udev_device *dev = event->dev;
 
         if (udev_device_get_subsystem(dev) == NULL)
@@ -804,7 +801,10 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_watch_end(event->udev, dev);
 
-                udev_rules_apply_to_event(rules, event, timeout_usec, timeout_warn_usec, sigmask);
+                udev_rules_apply_to_event(rules, event,
+                                          timeout_usec, timeout_warn_usec,
+                                          properties_list,
+                                          sigmask);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
@@ -838,7 +838,10 @@ void udev_event_execute_rules(struct udev_event *event,
                         }
                 }
 
-                udev_rules_apply_to_event(rules, event, timeout_usec, timeout_warn_usec, sigmask);
+                udev_rules_apply_to_event(rules, event,
+                                          timeout_usec, timeout_warn_usec,
+                                          properties_list,
+                                          sigmask);
 
                 /* rename a new network interface, if needed */
                 if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&

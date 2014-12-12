@@ -125,10 +125,9 @@ static void parse_conf(void) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        config_parse(NULL, BOOTCHART_CONF, NULL,
-                     NULL,
-                     config_item_table_lookup, items,
-                     true, false, true, NULL);
+        config_parse_many(BOOTCHART_CONF,
+                          CONF_DIRS_NULSTR("systemd/bootchart.conf"),
+                          NULL, config_item_table_lookup, items, true, NULL);
 
         if (init != NULL)
                 strscpy(arg_init_path, sizeof(arg_init_path), init);
@@ -194,8 +193,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'f':
                         r = safe_atod(optarg, &arg_hz);
                         if (r < 0)
-                                log_warning("failed to parse --freq/-f argument '%s': %s",
-                                            optarg, strerror(-r));
+                                log_warning_errno(r, "failed to parse --freq/-f argument '%s': %m",
+                                                  optarg);
                         break;
                 case 'F':
                         arg_filter = false;
@@ -209,8 +208,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'n':
                         r = safe_atoi(optarg, &arg_samples_len);
                         if (r < 0)
-                                log_warning("failed to parse --samples/-n argument '%s': %s",
-                                            optarg, strerror(-r));
+                                log_warning_errno(r, "failed to parse --samples/-n argument '%s': %m",
+                                                  optarg);
                         break;
                 case 'o':
                         path_kill_slashes(optarg);
@@ -226,14 +225,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'x':
                         r = safe_atod(optarg, &arg_scale_x);
                         if (r < 0)
-                                log_warning("failed to parse --scale-x/-x argument '%s': %s",
-                                            optarg, strerror(-r));
+                                log_warning_errno(r, "failed to parse --scale-x/-x argument '%s': %m",
+                                                  optarg);
                         break;
                 case 'y':
                         r = safe_atod(optarg, &arg_scale_y);
                         if (r < 0)
-                                log_warning("failed to parse --scale-y/-y argument '%s': %s",
-                                            optarg, strerror(-r));
+                                log_warning_errno(r, "failed to parse --scale-y/-y argument '%s': %m",
+                                                  optarg);
                         break;
                 case 'e':
                         arg_entropy = true;
@@ -285,12 +284,12 @@ static void do_journal_append(char *file) {
 
         f = open(file, O_RDONLY|O_CLOEXEC);
         if (f < 0) {
-                log_error("Failed to read bootchart data: %m");
+                log_error_errno(errno, "Failed to read bootchart data: %m");
                 return;
         }
         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
         if (n < 0) {
-                log_error("Failed to read bootchart data: %s", strerror(-n));
+                log_error_errno(n, "Failed to read bootchart data: %m");
                 close(f);
                 return;
         }
@@ -302,7 +301,7 @@ static void do_journal_append(char *file) {
 
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
-                log_error("Failed to send bootchart: %s", strerror(-r));
+                log_error_errno(r, "Failed to send bootchart: %m");
 }
 
 int main(int argc, char *argv[]) {
@@ -434,7 +433,7 @@ int main(int argc, char *argv[]) {
                                         /* caught signal, probably HUP! */
                                         break;
                                 }
-                                log_error("nanosleep() failed: %m");
+                                log_error_errno(errno, "nanosleep() failed: %m");
                                 exit(EXIT_FAILURE);
                         }
                 } else {

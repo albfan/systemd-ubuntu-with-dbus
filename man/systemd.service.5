@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 217" "systemd.service"
+.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 218" "systemd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -179,7 +179,7 @@ is set to
 Takes a D\-Bus bus name that this service is reachable as\&. This option is mandatory for services where
 \fIType=\fR
 is set to
-\fBdbus\fR, but its use is otherwise recommended if the process takes a name on the D\-Bus bus\&.
+\fBdbus\fR\&.
 .RE
 .PP
 \fIBusPolicy=\fR
@@ -765,20 +765,6 @@ Check
 and
 \fBsystemd.kill\fR(5)
 for more settings\&.
-.SH "COMPATIBILITY OPTIONS"
-.PP
-The following options are also available in the
-"[Service]"
-section, but exist purely for compatibility reasons and should not be used in newly written service files\&.
-.PP
-\fISysVStartPriority=\fR
-.RS 4
-Set the SysV start priority to use to order this service in relation to SysV services lacking LSB headers\&. This option is only necessary to fix ordering in relation to legacy SysV services that have no ordering information encoded in the script headers\&. As such, it should only be used as a temporary compatibility option and should not be used in new unit files\&. Almost always, it is a better choice to add explicit ordering directives via
-\fIAfter=\fR
-or
-\fIBefore=\fR, instead\&. For more details, see
-\fBsystemd.unit\fR(5)\&. If used, pass an integer value in the range 0\-99\&.
-.RE
 .SH "COMMAND LINES"
 .PP
 This section describes command line parsing and variable and specifier substitions for

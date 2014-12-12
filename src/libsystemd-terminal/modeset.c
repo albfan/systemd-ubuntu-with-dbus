@@ -146,16 +146,12 @@ static int modeset_new(Modeset **out) {
                 return log_oom();
 
         r = sd_pid_get_session(getpid(), &m->session);
-        if (r < 0) {
-                log_error("Cannot retrieve logind session: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot retrieve logind session: %m");
 
         r = sd_session_get_seat(m->session, &m->seat);
-        if (r < 0) {
-                log_error("Cannot retrieve seat of logind session: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot retrieve seat of logind session: %m");
 
         m->my_tty = is_my_tty(m->session);
         m->managed = m->my_tty && geteuid() > 0;
@@ -309,17 +305,13 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                                       name,
                                       modeset_grdev_fn,
                                       m);
-                if (r < 0) {
-                        log_error("Cannot create grdev session: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Cannot create grdev session: %m");
 
                 if (m->managed) {
                         r = sysview_session_take_control(ev->session_add.session);
-                        if (r < 0) {
-                                log_error("Cannot request session control: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot request session control: %m");
                 }
 
                 grdev_session_enable(m->grdev_session);
@@ -358,16 +350,12 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                 break;
         case SYSVIEW_EVENT_SESSION_CONTROL:
                 r = ev->session_control.error;
-                if (r < 0) {
-                        log_error("Cannot acquire session control: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Cannot acquire session control: %m");
 
                 r = ioctl(1, KDSKBMODE, K_UNICODE);
-                if (r < 0) {
-                        log_error("Cannot set K_UNICODE on stdout: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "Cannot set K_UNICODE on stdout: %m");
 
                 break;
         }
@@ -480,7 +468,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        srand(time(NULL));
+        initialize_srand();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

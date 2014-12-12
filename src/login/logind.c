@@ -290,7 +290,7 @@ static int manager_enumerate_seats(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/seats: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
                 return -errno;
         }
 
@@ -327,7 +327,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /var/lib/systemd/linger/: %m");
+                log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
                 return -errno;
         }
 
@@ -339,7 +339,7 @@ static int manager_enumerate_linger_users(Manager *m) {
 
                 k = manager_add_user_by_name(m, de->d_name, NULL);
                 if (k < 0) {
-                        log_notice("Couldn't add lingering user %s: %s", de->d_name, strerror(-k));
+                        log_notice_errno(k, "Couldn't add lingering user %s: %m", de->d_name);
                         r = k;
                 }
         }
@@ -363,7 +363,7 @@ static int manager_enumerate_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/users: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/users: %m");
                 return -errno;
         }
 
@@ -375,7 +375,7 @@ static int manager_enumerate_users(Manager *m) {
 
                 k = manager_add_user_by_name(m, de->d_name, &u);
                 if (k < 0) {
-                        log_error("Failed to add user by file name %s: %s", de->d_name, strerror(-k));
+                        log_error_errno(k, "Failed to add user by file name %s: %m", de->d_name);
 
                         r = k;
                         continue;
@@ -404,7 +404,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/sessions: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
                 return -errno;
         }
 
@@ -423,7 +423,7 @@ static int manager_enumerate_sessions(Manager *m) {
 
                 k = manager_add_session(m, de->d_name, &s);
                 if (k < 0) {
-                        log_error("Failed to add session by file name %s: %s", de->d_name, strerror(-k));
+                        log_error_errno(k, "Failed to add session by file name %s: %m", de->d_name);
 
                         r = k;
                         continue;
@@ -451,7 +451,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/inhibit: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
                 return -errno;
         }
 
@@ -464,7 +464,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
 
                 k = manager_add_inhibitor(m, de->d_name, &i);
                 if (k < 0) {
-                        log_notice("Couldn't add inhibitor %s: %s", de->d_name, strerror(-k));
+                        log_notice_errno(k, "Couldn't add inhibitor %s: %m", de->d_name);
                         r = k;
                         continue;
                 }
@@ -568,7 +568,7 @@ static int manager_reserve_vt(Manager *m) {
 
                 /* Don't complain on VT-less systems */
                 if (errno != ENOENT)
-                        log_warning("Failed to pin reserved VT: %m");
+                        log_warning_errno(errno, "Failed to pin reserved VT: %m");
                 return -errno;
         }
 
@@ -583,52 +583,36 @@ static int manager_connect_bus(Manager *m) {
         assert(!m->bus);
 
         r = sd_bus_default_system(&m->bus);
-        if (r < 0) {
-                log_error("Failed to connect to system bus: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/login1", "org.freedesktop.login1.Manager", manager_vtable, m);
-        if (r < 0) {
-                log_error("Failed to add manager object vtable: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add manager object vtable: %m");
 
         r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
-        if (r < 0) {
-                log_error("Failed to add seat object vtable: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add seat object vtable: %m");
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/seat", seat_node_enumerator, m);
-        if (r < 0) {
-                log_error("Failed to add seat enumerator: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add seat enumerator: %m");
 
         r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
-        if (r < 0) {
-                log_error("Failed to add session object vtable: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add session object vtable: %m");
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/session", session_node_enumerator, m);
-        if (r < 0) {
-                log_error("Failed to add session enumerator: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add session enumerator: %m");
 
         r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
-        if (r < 0) {
-                log_error("Failed to add user object vtable: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add user object vtable: %m");
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/user", user_node_enumerator, m);
-        if (r < 0) {
-                log_error("Failed to add user enumerator: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add user enumerator: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -638,10 +622,8 @@ static int manager_connect_bus(Manager *m) {
                              "member='NameOwnerChanged',"
                              "path='/org/freedesktop/DBus'",
                              match_name_owner_changed, m);
-        if (r < 0) {
-                log_error("Failed to add match for NameOwnerChanged: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for NameOwnerChanged: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -651,10 +633,8 @@ static int manager_connect_bus(Manager *m) {
                              "member='JobRemoved',"
                              "path='/org/freedesktop/systemd1'",
                              match_job_removed, m);
-        if (r < 0) {
-                log_error("Failed to add match for JobRemoved: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for JobRemoved: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -664,10 +644,8 @@ static int manager_connect_bus(Manager *m) {
                              "member='UnitRemoved',"
                              "path='/org/freedesktop/systemd1'",
                              match_unit_removed, m);
-        if (r < 0) {
-                log_error("Failed to add match for UnitRemoved: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for UnitRemoved: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -676,10 +654,8 @@ static int manager_connect_bus(Manager *m) {
                              "interface='org.freedesktop.DBus.Properties',"
                              "member='PropertiesChanged'",
                              match_properties_changed, m);
-        if (r < 0) {
-                log_error("Failed to add match for PropertiesChanged: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for PropertiesChanged: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -689,10 +665,8 @@ static int manager_connect_bus(Manager *m) {
                              "member='Reloading',"
                              "path='/org/freedesktop/systemd1'",
                              match_reloading, m);
-        if (r < 0) {
-                log_error("Failed to add match for Reloading: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for Reloading: %m");
 
         r = sd_bus_call_method(
                         m->bus,
@@ -708,16 +682,12 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_request_name(m->bus, "org.freedesktop.login1", 0);
-        if (r < 0) {
-                log_error("Failed to register name: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0) {
-                log_error("Failed to attach bus to event loop: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         return 0;
 }
@@ -783,7 +753,7 @@ static int manager_connect_console(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /sys/class/tty/tty0/active: %m");
+                log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
                 return -errno;
         }
 
@@ -806,16 +776,12 @@ static int manager_connect_console(Manager *m) {
         }
 
         r = ignore_signals(SIGRTMIN + 1, -1);
-        if (r < 0) {
-                log_error("Cannot ignore SIGRTMIN + 1: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot ignore SIGRTMIN + 1: %m");
 
         r = sigprocmask_many(SIG_BLOCK, SIGRTMIN, -1);
-        if (r < 0) {
-                log_error("Cannot block SIGRTMIN: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot block SIGRTMIN: %m");
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
         if (r < 0)
@@ -1016,28 +982,20 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                                 CLOCK_MONOTONIC,
                                 elapse, USEC_PER_SEC*30,
                                 manager_dispatch_idle_action, m);
-                if (r < 0) {
-                        log_error("Failed to add idle event source: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add idle event source: %m");
 
                 r = sd_event_source_set_priority(m->idle_action_event_source, SD_EVENT_PRIORITY_IDLE+10);
-                if (r < 0) {
-                        log_error("Failed to set idle event source priority: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set idle event source priority: %m");
         } else {
                 r = sd_event_source_set_time(m->idle_action_event_source, elapse);
-                if (r < 0) {
-                        log_error("Failed to set idle event timer: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set idle event timer: %m");
 
                 r = sd_event_source_set_enabled(m->idle_action_event_source, SD_EVENT_ONESHOT);
-                if (r < 0) {
-                        log_error("Failed to enable idle event timer: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable idle event timer: %m");
         }
 
         return 0;
@@ -1061,10 +1019,8 @@ int manager_startup(Manager *m) {
 
         /* Connect to udev */
         r = manager_connect_udev(m);
-        if (r < 0) {
-                log_error("Failed to create udev watchers: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create udev watchers: %m");
 
         /* Connect to the bus */
         r = manager_connect_bus(m);
@@ -1073,39 +1029,37 @@ int manager_startup(Manager *m) {
 
         /* Instantiate magic seat 0 */
         r = manager_add_seat(m, "seat0", &m->seat0);
-        if (r < 0) {
-                log_error("Failed to add seat0: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add seat0: %m");
 
         r = manager_set_lid_switch_ignore(m, 0 + IGNORE_LID_SWITCH_STARTUP_USEC);
         if (r < 0)
-                log_warning("Failed to set up lid switch ignore event source: %s", strerror(-r));
+                log_warning_errno(r, "Failed to set up lid switch ignore event source: %m");
 
         /* Deserialize state */
         r = manager_enumerate_devices(m);
         if (r < 0)
-                log_warning("Device enumeration failed: %s", strerror(-r));
+                log_warning_errno(r, "Device enumeration failed: %m");
 
         r = manager_enumerate_seats(m);
         if (r < 0)
-                log_warning("Seat enumeration failed: %s", strerror(-r));
+                log_warning_errno(r, "Seat enumeration failed: %m");
 
         r = manager_enumerate_users(m);
         if (r < 0)
-                log_warning("User enumeration failed: %s", strerror(-r));
+                log_warning_errno(r, "User enumeration failed: %m");
 
         r = manager_enumerate_sessions(m);
         if (r < 0)
-                log_warning("Session enumeration failed: %s", strerror(-r));
+                log_warning_errno(r, "Session enumeration failed: %m");
 
         r = manager_enumerate_inhibitors(m);
         if (r < 0)
-                log_warning("Inhibitor enumeration failed: %s", strerror(-r));
+                log_warning_errno(r, "Inhibitor enumeration failed: %m");
 
         r = manager_enumerate_buttons(m);
         if (r < 0)
-                log_warning("Button enumeration failed: %s", strerror(-r));
+                log_warning_errno(r, "Button enumeration failed: %m");
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
@@ -1171,10 +1125,11 @@ int manager_run(Manager *m) {
 static int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse(NULL, "/etc/systemd/logind.conf", NULL,
-                            "Login\0",
-                            config_item_perf_lookup, logind_gperf_lookup,
-                            false, false, true, m);
+        return config_parse_many("/etc/systemd/logind.conf",
+                                 CONF_DIRS_NULSTR("systemd/logind.conf"),
+                                 "Login\0",
+                                 config_item_perf_lookup, logind_gperf_lookup,
+                                 false, m);
 }
 
 int main(int argc, char *argv[]) {
@@ -1213,7 +1168,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_startup(m);
         if (r < 0) {
-                log_error("Failed to fully start up daemon: %s", strerror(-r));
+                log_error_errno(r, "Failed to fully start up daemon: %m");
                 goto finish;
         }
 

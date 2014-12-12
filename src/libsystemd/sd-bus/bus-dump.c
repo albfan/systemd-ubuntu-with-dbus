@@ -23,27 +23,42 @@
 #include "capability.h"
 #include "strv.h"
 #include "audit.h"
+#include "macro.h"
+#include "cap-list.h"
 
 #include "bus-message.h"
 #include "bus-internal.h"
 #include "bus-type.h"
 #include "bus-dump.h"
 
-static char *indent(unsigned level) {
+static char *indent(unsigned level, unsigned flags) {
         char *p;
+        unsigned n, i = 0;
 
-        p = new(char, 2 + level + 1);
+        n = 0;
+
+        if (flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY && level > 0)
+                level -= 1;
+
+        if (flags & BUS_MESSAGE_DUMP_WITH_HEADER)
+                n += 2;
+
+        p = new(char, n + level*8 + 1);
         if (!p)
                 return NULL;
 
-        p[0] = p[1] = ' ';
-        memset(p + 2, '\t', level);
-        p[2 + level] = 0;
+        if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
+                p[i++] = ' ';
+                p[i++] = ' ';
+        }
+
+        memset(p + i, ' ', level*8);
+        p[i + level*8] = 0;
 
         return p;
 }
 
-int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
+int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         unsigned level = 1;
         int r;
 
@@ -52,7 +67,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
         if (!f)
                 f = stdout;
 
-        if (with_header) {
+        if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
                 fprintf(f,
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%lli",
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
@@ -107,16 +122,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 if (m->monotonic != 0 || m->realtime != 0 || m->seqnum != 0)
                         fputs("\n", f);
 
-                bus_creds_dump(&m->creds, f);
+                bus_creds_dump(&m->creds, f, true);
         }
 
-        r = sd_bus_message_rewind(m, true);
-        if (r < 0) {
-                log_error("Failed to rewind: %s", strerror(-r));
-                return r;
-        }
+        r = sd_bus_message_rewind(m, !(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY));
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %m");
 
-        fprintf(f, "  MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
+                fprintf(f, "%sMESSAGE \"%s\" {\n", indent(0, flags), strempty(m->root_container.signature));
 
         for (;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -136,24 +150,20 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 } basic;
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
-                if (r < 0) {
-                        log_error("Failed to peek type: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to peek type: %m");
 
                 if (r == 0) {
                         if (level <= 1)
                                 break;
 
                         r = sd_bus_message_exit_container(m);
-                        if (r < 0) {
-                                log_error("Failed to exit container: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to exit container: %m");
 
                         level--;
 
-                        prefix = indent(level);
+                        prefix = indent(level, flags);
                         if (!prefix)
                                 return log_oom();
 
@@ -161,16 +171,14 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         continue;
                 }
 
-                prefix = indent(level);
+                prefix = indent(level, flags);
                 if (!prefix)
                         return log_oom();
 
                 if (bus_type_is_container(type) > 0) {
                         r = sd_bus_message_enter_container(m, type, contents);
-                        if (r < 0) {
-                                log_error("Failed to enter container: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to enter container: %m");
 
                         if (type == SD_BUS_TYPE_ARRAY)
                                 fprintf(f, "%sARRAY \"%s\" {\n", prefix, contents);
@@ -187,10 +195,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 }
 
                 r = sd_bus_message_read_basic(m, type, &basic);
-                if (r < 0) {
-                        log_error("Failed to get basic: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get basic: %m");
 
                 assert(r > 0);
 
@@ -253,7 +259,9 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 }
         }
 
-        fprintf(f, "  };\n\n");
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
+                fprintf(f, "%s};\n\n", indent(0, flags));
+
         return 0;
 }
 
@@ -261,6 +269,7 @@ static void dump_capabilities(
                 sd_bus_creds *c,
                 FILE *f,
                 const char *name,
+                bool terse,
                 int (*has)(sd_bus_creds *c, int capability)) {
 
         unsigned long i, last_cap;
@@ -277,20 +286,18 @@ static void dump_capabilities(
         if (r < 0)
                 return;
 
-        fprintf(f, "  %s=", name);
+        fprintf(f, "%s%s=%s", terse ? "  " : "", name, terse ? "" : ansi_highlight());
         last_cap = cap_last_cap();
 
         for (;;) {
                 if (r > 0) {
-                        _cleanup_cap_free_charp_ char *t;
 
                         if (n > 0)
                                 fputc(' ', f);
                         if (n % 4 == 3)
-                                fputs("\n          ", f);
+                                fprintf(f, terse ? "\n          " : "\n        ");
 
-                        t = cap_to_name(i);
-                        fprintf(f, "%s", t);
+                        fprintf(f, "%s", strna(capability_to_name(i)));
                         n++;
                 }
 
@@ -303,14 +310,18 @@ static void dump_capabilities(
         }
 
         fputs("\n", f);
+
+        if (!terse)
+                fputs(ansi_highlight_off(), f);
 }
 
-int bus_creds_dump(sd_bus_creds *c, FILE *f) {
+int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         bool audit_sessionid_is_set = false, audit_loginuid_is_set = false;
         const char *u = NULL, *uu = NULL, *s = NULL, *sl = NULL;
         uid_t owner, audit_loginuid;
         uint32_t audit_sessionid;
         char **cmdline = NULL, **well_known = NULL;
+        const char *prefix, *color, *suffix;
         int r;
 
         assert(c);
@@ -318,45 +329,76 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
         if (!f)
                 f = stdout;
 
+        if (terse) {
+                prefix = "  ";
+                suffix = "";
+                color = "";
+        } else {
+                const char *off;
+
+                prefix = "";
+                color = ansi_highlight();
+
+                off = ansi_highlight_off();
+                suffix = strappenda(off, "\n");
+        }
+
         if (c->mask & SD_BUS_CREDS_PID)
-                fprintf(f, "  PID="PID_FMT, c->pid);
-        if (c->mask & SD_BUS_CREDS_PID_STARTTIME)
-                fprintf(f, "  PIDStartTime="USEC_FMT, c->pid_starttime);
+                fprintf(f, "%sPID=%s"PID_FMT"%s", prefix, color, c->pid, suffix);
         if (c->mask & SD_BUS_CREDS_TID)
-                fprintf(f, "  TID="PID_FMT, c->tid);
+                fprintf(f, "%sTID=%s"PID_FMT"%s", prefix, color, c->tid, suffix);
+
+        if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID))))
+                fputs("\n", f);
+
         if (c->mask & SD_BUS_CREDS_UID)
-                fprintf(f, "  UID="UID_FMT, c->uid);
+                fprintf(f, "%sUID=%s"UID_FMT"%s", prefix, color, c->uid, suffix);
+        if (c->mask & SD_BUS_CREDS_EUID)
+                fprintf(f, "%sEUID=%s"UID_FMT"%s", prefix, color, c->euid, suffix);
+        if (c->mask & SD_BUS_CREDS_SUID)
+                fprintf(f, "%sSUID=%s"UID_FMT"%s", prefix, color, c->suid, suffix);
+        if (c->mask & SD_BUS_CREDS_FSUID)
+                fprintf(f, "%sFSUID=%s"UID_FMT"%s", prefix, color, c->fsuid, suffix);
         r = sd_bus_creds_get_owner_uid(c, &owner);
         if (r >= 0)
-                fprintf(f, "  OwnerUID="UID_FMT, owner);
+                fprintf(f, "%sOwnerUID=%s"UID_FMT"%s", prefix, color, owner, suffix);
         if (c->mask & SD_BUS_CREDS_GID)
-                fprintf(f, "  GID="GID_FMT, c->gid);
+                fprintf(f, "%sGID=%s"GID_FMT"%s", prefix, color, c->gid, suffix);
+        if (c->mask & SD_BUS_CREDS_EGID)
+                fprintf(f, "%sEGID=%s"GID_FMT"%s", prefix, color, c->egid, suffix);
+        if (c->mask & SD_BUS_CREDS_SGID)
+                fprintf(f, "%sSGID=%s"GID_FMT"%s", prefix, color, c->sgid, suffix);
+        if (c->mask & SD_BUS_CREDS_FSGID)
+                fprintf(f, "%sFSGID=%s"GID_FMT"%s", prefix, color, c->fsgid, suffix);
 
-        if ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID)) || r >= 0)
+        if (c->mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                unsigned i;
+
+                fprintf(f, "%sSupplementaryGIDs=%s", prefix, color);
+                for (i = 0; i < c->n_supplementary_gids; i++)
+                        fprintf(f, "%s" GID_FMT, i > 0 ? " " : "", c->supplementary_gids[i]);
+                fprintf(f, "%s", suffix);
+        }
+
+        if (terse && ((c->mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                                  SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
+                                  SD_BUS_CREDS_SUPPLEMENTARY_GIDS)) || r >= 0))
                 fputs("\n", f);
 
-        if (c->mask & SD_BUS_CREDS_EXE)
-                fprintf(f, "  Exe=%s", c->exe);
         if (c->mask & SD_BUS_CREDS_COMM)
-                fprintf(f, "  Comm=%s", c->comm);
+                fprintf(f, "%sComm=%s%s%s", prefix, color, c->comm, suffix);
         if (c->mask & SD_BUS_CREDS_TID_COMM)
-                fprintf(f, "  TIDComm=%s", c->tid_comm);
+                fprintf(f, "%sTIDComm=%s%s%s", prefix, color, c->tid_comm, suffix);
+        if (c->mask & SD_BUS_CREDS_EXE)
+                fprintf(f, "%sExe=%s%s%s", prefix, color, c->exe, suffix);
 
-        if (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM))
-                fputs("\n", f);
-
-        if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
-                fprintf(f, "  Label=%s", c->label);
-        if (c->mask & SD_BUS_CREDS_CONNECTION_NAME)
-                fprintf(f, "  ConnectionName=%s", c->conn_name);
-
-        if (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_CONNECTION_NAME))
+        if (terse && (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)))
                 fputs("\n", f);
 
         if (sd_bus_creds_get_cmdline(c, &cmdline) >= 0) {
                 char **i;
 
-                fputs("  CommandLine={", f);
+                fprintf(f, "%sCommandLine=%s", prefix, color);
                 STRV_FOREACH(i, cmdline) {
                         if (i != cmdline)
                                 fputc(' ', f);
@@ -364,46 +406,54 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
                         fputs(*i, f);
                 }
 
-                fputs("}\n", f);
+                fprintf(f, "%s", suffix);
         }
 
+        if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
+                fprintf(f, "%sLabel=%s%s%s", prefix, color, c->label, suffix);
+        if (c->mask & SD_BUS_CREDS_DESCRIPTION)
+                fprintf(f, "%sDescription=%s%s%s", prefix, color, c->description, suffix);
+
+        if (terse && (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_DESCRIPTION)))
+                fputs("\n", f);
+
         if (c->mask & SD_BUS_CREDS_CGROUP)
-                fprintf(f, "  CGroup=%s", c->cgroup);
+                fprintf(f, "%sCGroup=%s%s%s", prefix, color, c->cgroup, suffix);
         sd_bus_creds_get_unit(c, &u);
         if (u)
-                fprintf(f, "  Unit=%s", u);
+                fprintf(f, "%sUnit=%s%s%s", prefix, color, u, suffix);
         sd_bus_creds_get_user_unit(c, &uu);
         if (uu)
-                fprintf(f, "  UserUnit=%s", uu);
+                fprintf(f, "%sUserUnit=%s%s%s", prefix, color, uu, suffix);
         sd_bus_creds_get_slice(c, &sl);
         if (sl)
-                fprintf(f, "  Slice=%s", sl);
+                fprintf(f, "%sSlice=%s%s%s", prefix, color, sl, suffix);
         sd_bus_creds_get_session(c, &s);
         if (s)
-                fprintf(f, "  Session=%s", s);
+                fprintf(f, "%sSession=%s%s%s", prefix, color, s, suffix);
 
-        if ((c->mask & SD_BUS_CREDS_CGROUP) || u || uu || sl || s)
+        if (terse && ((c->mask & SD_BUS_CREDS_CGROUP) || u || uu || sl || s))
                 fputs("\n", f);
 
         if (sd_bus_creds_get_audit_login_uid(c, &audit_loginuid) >= 0) {
                 audit_loginuid_is_set = true;
-                fprintf(f, "  AuditLoginUID="UID_FMT, audit_loginuid);
+                fprintf(f, "%sAuditLoginUID=%s"UID_FMT"%s", prefix, color, audit_loginuid, suffix);
         }
         if (sd_bus_creds_get_audit_session_id(c, &audit_sessionid) >= 0) {
                 audit_sessionid_is_set = true;
-                fprintf(f, "  AuditSessionID=%"PRIu32, audit_sessionid);
+                fprintf(f, "%sAuditSessionID=%s%"PRIu32"%s", prefix, color, audit_sessionid, suffix);
         }
 
-        if (audit_loginuid_is_set || audit_sessionid_is_set)
+        if (terse && (audit_loginuid_is_set || audit_sessionid_is_set))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_UNIQUE_NAME)
-                fprintf(f, "  UniqueName=%s", c->unique_name);
+                fprintf(f, "%sUniqueName=%s%s%s", prefix, color, c->unique_name, suffix);
 
         if (sd_bus_creds_get_well_known_names(c, &well_known) >= 0) {
                 char **i;
 
-                fputs("  WellKnownNames={", f);
+                fprintf(f, "%sWellKnownNames=%s", prefix, color);
                 STRV_FOREACH(i, well_known) {
                         if (i != well_known)
                                 fputc(' ', f);
@@ -411,16 +461,111 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
                         fputs(*i, f);
                 }
 
-                fputc('}', f);
+                fprintf(f, "%s", suffix);
         }
 
-        if (c->mask & SD_BUS_CREDS_UNIQUE_NAME || well_known)
+        if (terse && (c->mask & SD_BUS_CREDS_UNIQUE_NAME || well_known))
                 fputc('\n', f);
 
-        dump_capabilities(c, f, "EffectiveCapabilities", sd_bus_creds_has_effective_cap);
-        dump_capabilities(c, f, "PermittedCapabilities", sd_bus_creds_has_permitted_cap);
-        dump_capabilities(c, f, "InheritableCapabilities", sd_bus_creds_has_inheritable_cap);
-        dump_capabilities(c, f, "BoundingCapabilities", sd_bus_creds_has_bounding_cap);
+        dump_capabilities(c, f, "EffectiveCapabilities", terse, sd_bus_creds_has_effective_cap);
+        dump_capabilities(c, f, "PermittedCapabilities", terse, sd_bus_creds_has_permitted_cap);
+        dump_capabilities(c, f, "InheritableCapabilities", terse, sd_bus_creds_has_inheritable_cap);
+        dump_capabilities(c, f, "BoundingCapabilities", terse, sd_bus_creds_has_bounding_cap);
+
+        return 0;
+}
+
+/*
+ * For details about the file format, see:
+ *
+ * http://wiki.wireshark.org/Development/LibpcapFileFormat
+ */
+
+typedef struct _packed_ pcap_hdr_s {
+        uint32_t magic_number;   /* magic number */
+        uint16_t version_major;  /* major version number */
+        uint16_t version_minor;  /* minor version number */
+        int32_t  thiszone;       /* GMT to local correction */
+        uint32_t sigfigs;        /* accuracy of timestamps */
+        uint32_t snaplen;        /* max length of captured packets, in octets */
+        uint32_t network;        /* data link type */
+} pcap_hdr_t ;
+
+typedef struct  _packed_ pcaprec_hdr_s {
+        uint32_t ts_sec;         /* timestamp seconds */
+        uint32_t ts_usec;        /* timestamp microseconds */
+        uint32_t incl_len;       /* number of octets of packet saved in file */
+        uint32_t orig_len;       /* actual length of packet */
+} pcaprec_hdr_t;
+
+int bus_pcap_header(size_t snaplen, FILE *f) {
+
+        pcap_hdr_t hdr = {
+                .magic_number = 0xa1b2c3d4U,
+                .version_major = 2,
+                .version_minor = 4,
+                .thiszone = 0, /* UTC */
+                .sigfigs = 0,
+                .network = 231, /* D-Bus */
+        };
+
+        if (!f)
+                f = stdout;
+
+        assert(snaplen > 0);
+        assert((size_t) (uint32_t) snaplen == snaplen);
+
+        hdr.snaplen = (uint32_t) snaplen;
+
+        fwrite(&hdr, 1, sizeof(hdr), f);
+        fflush(f);
+
+        return 0;
+}
+
+int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
+        struct bus_body_part *part;
+        pcaprec_hdr_t hdr = {};
+        struct timeval tv;
+        unsigned i;
+        size_t w;
+
+        if (!f)
+                f = stdout;
+
+        assert(m);
+        assert(snaplen > 0);
+        assert((size_t) (uint32_t) snaplen == snaplen);
+
+        if (m->realtime != 0)
+                timeval_store(&tv, m->realtime);
+        else
+                assert_se(gettimeofday(&tv, NULL) >= 0);
+
+        hdr.ts_sec = tv.tv_sec;
+        hdr.ts_usec = tv.tv_usec;
+        hdr.orig_len = BUS_MESSAGE_SIZE(m);
+        hdr.incl_len = MIN(hdr.orig_len, snaplen);
+
+        /* write the pcap header */
+        fwrite(&hdr, 1, sizeof(hdr), f);
+
+        /* write the dbus header */
+        w = MIN(BUS_MESSAGE_BODY_BEGIN(m), snaplen);
+        fwrite(m->header, 1, w, f);
+        snaplen -= w;
+
+        /* write the dbus body */
+        MESSAGE_FOREACH_PART(part, i, m) {
+                if (snaplen <= 0)
+                        break;
+
+                w = MIN(part->size, snaplen);
+                fwrite(part->data, 1, w, f);
+                snaplen -= w;
+        }
+
+        fflush(f);
 
         return 0;
 }

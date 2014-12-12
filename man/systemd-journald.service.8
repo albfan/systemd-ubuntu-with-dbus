@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-JOURNALD\&.SERVICE" "8" "" "systemd 217" "systemd-journald.service"
+.TH "SYSTEMD\-JOURNALD\&.SERVICE" "8" "" "systemd 218" "systemd-journald.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,9 +33,67 @@ systemd\-journald\-dev\-log\&.socket
 .SH "DESCRIPTION"
 .PP
 systemd\-journald
-is a system service that collects and stores logging data\&. It creates and maintains structured, indexed journals based on logging information that is received from the kernel, from user processes via the libc
+is a system service that collects and stores logging data\&. It creates and maintains structured, indexed journals based on logging information that is received from a variety of sources:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Kernel log messages, via kmsg
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Simple system log messages, via the libc
 \fBsyslog\fR(3)
-call, from standard input and standard error of system services or via its native API\&. It will implicitly collect numerous metadata fields for each log messages in a secure and unfakeable way\&. See
+call
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Structured system log messages via the native Journal API, see
+\fBsd_journal_print\fR(4)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Standard output and standard error of system services
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Audit records, via the audit subsystem
+.RE
+.PP
+The daemon will implicitly collect numerous metadata fields for each log messages in a secure and unfakeable way\&. See
 \fBsystemd.journal-fields\fR(7)
 for more information about the collected metadata\&.
 .PP
@@ -52,7 +110,7 @@ will then store the data\&.
 .PP
 systemd\-journald
 will forward all received log messages to the
-\fBAF_UNIX\fR\fBSOCK_DGRAM\fR
+\fBAF_UNIX\fR/\fBSOCK_DGRAM\fR
 socket
 /run/systemd/journal/syslog, if it exists, which may be used by Unix syslog daemons to process the data further\&.
 .PP
@@ -164,4 +222,5 @@ configuration file\&.
 \fBsd-journal\fR(3),
 \fBsystemd-coredump\fR(8),
 \fBsetfacl\fR(1),
+\fBsd_journal_print\fR(4),
 \fBpydoc systemd\&.journal\fR\&.
