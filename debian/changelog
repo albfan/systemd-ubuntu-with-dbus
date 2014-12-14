@@ -1,4 +1,4 @@
-systemd (218-1) UNRELEASED; urgency=medium
+systemd (218-1) experimental; urgency=medium
 
   * New upstream release. Drop all cherry-picked patches and port the Debian
     specific ones.
@@ -13,7 +13,7 @@ systemd (218-1) UNRELEASED; urgency=medium
   * udev-fallback-graphics upstart job: Guard the modprobe with || true to
     avoid a failure when vesafb is compiled in. (LP: #1367241)
 
- -- Martin Pitt <mpitt@debian.org>  Fri, 12 Dec 2014 20:32:32 +0200
+ -- Martin Pitt <mpitt@debian.org>  Sun, 14 Dec 2014 13:58:39 +0100
 
 systemd (217-4) experimental; urgency=medium
 
