@@ -243,10 +243,12 @@ endif
 	rm debian/udev/lib/udev/rules.d/71-seat.rules
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
 
-# use symlinked doc directories as the old udev package did
+# use symlinked doc directories on Debian as the old udev package did
 override_dh_installdocs:
-	dh_installdocs -pudev -plibudev-dev --link-doc=libudev1
-	dh_installdocs -pgir1.2-gudev-1.0 -plibgudev-1.0-dev --link-doc=libgudev-1.0-0
+	if ! dpkg-vendor --is ubuntu; then \
+		dh_installdocs -pudev -plibudev-dev --link-doc=libudev1; \
+		dh_installdocs -pgir1.2-gudev-1.0 -plibgudev-1.0-dev --link-doc=libgudev-1.0-0; \
+	fi
 	dh_installdocs --remaining-packages
 
 override_dh_installinit:

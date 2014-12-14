@@ -5,6 +5,8 @@ systemd (218-1) UNRELEASED; urgency=medium
     - Create /etc/machine-id on boot if missing. (LP: #1387090)
   * Add new libmount-dev build dependency.
   * Configure with --enable-split-usr.
+  * Merge some permanent Ubuntu changes, using dpkg-vendor:
+    - Don't symlink udev doc directories.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 12 Dec 2014 20:32:32 +0200
 
