@@ -243,6 +243,11 @@ endif
 	rm debian/udev/lib/udev/rules.d/73-seat-late.rules
 	rm debian/udev/lib/udev/rules.d/71-seat.rules
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
+	# Ubuntu specific files
+	if dpkg-vendor --is ubuntu; then \
+		install -D --mode=644 debian/extra/udev.py debian/udev/usr/share/apport/package-hooks/udev.py; \
+		install -D --mode=644 debian/extra/systemd.py debian/systemd/usr/share/apport/package-hooks/systemd.py; \
+	fi
 
 # use symlinked doc directories on Debian as the old udev package did
 override_dh_installdocs:

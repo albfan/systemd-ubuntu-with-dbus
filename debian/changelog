@@ -9,6 +9,7 @@ systemd (218-1) UNRELEASED; urgency=medium
     - Don't symlink udev doc directories.
     - Add epoch to gudev packages; Ubuntu packaged the standalone gudev before
       it got merged into udev.
+    - Add Apport hooks for udev and systemd.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 12 Dec 2014 20:32:32 +0200
 
