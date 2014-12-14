@@ -7,6 +7,8 @@ systemd (218-1) UNRELEASED; urgency=medium
   * Configure with --enable-split-usr.
   * Merge some permanent Ubuntu changes, using dpkg-vendor:
     - Don't symlink udev doc directories.
+    - Add epoch to gudev packages; Ubuntu packaged the standalone gudev before
+      it got merged into udev.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 12 Dec 2014 20:32:32 +0200
 
