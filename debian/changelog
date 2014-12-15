@@ -2,6 +2,7 @@ systemd (218-2) UNRELEASED; urgency=medium
 
   * boot-and-services AppArmor autopkgtest: Stop checking the dmesg log; it is
     racy as sometimes message bursts are suppressed.
+  * Fix crash in timedatectl with Etc/UTC.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 15 Dec 2014 10:54:32 +0100
 

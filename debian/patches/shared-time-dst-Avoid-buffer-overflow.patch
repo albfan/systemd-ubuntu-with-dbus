@@ -1,0 +1,24 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 15 Dec 2014 13:06:48 +0100
+Subject: shared: time-dst: Avoid buffer overflow
+
+Commit 681f9718 introduced an additional null terminator for the zone names.
+Increase the allocation of "transitions" to actually make room for this.
+---
+ src/shared/time-dst.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/shared/time-dst.c b/src/shared/time-dst.c
+index 926d22b..1ce6f72 100644
+--- a/src/shared/time-dst.c
++++ b/src/shared/time-dst.c
+@@ -183,7 +183,8 @@ read_again:
+                         return -EINVAL;
+         }
+ 
+-        transitions = malloc0(total_size + tzspec_len);
++        /* leave space for additional zone_names zero terminator */
++        transitions = malloc0(total_size + tzspec_len + 1);
+         if (transitions == NULL)
+                 return -EINVAL;
+ 

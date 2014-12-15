@@ -1,3 +1,7 @@
+## Cherry-picked from upstream
+shared-time-dst-Avoid-buffer-overflow.patch
+
+## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
 Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
 Also-redirect-to-update-rc.d-when-not-using-.service.patch
