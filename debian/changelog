@@ -1,3 +1,10 @@
+systemd (218-2) UNRELEASED; urgency=medium
+
+  * boot-and-services AppArmor autopkgtest: Stop checking the dmesg log; it is
+    racy as sometimes message bursts are suppressed.
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 15 Dec 2014 10:54:32 +0100
+
 systemd (218-1) experimental; urgency=medium
 
   * New upstream release. Drop all cherry-picked patches and port the Debian

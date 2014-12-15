@@ -206,10 +206,6 @@ AppArmorProfile=violator-test
             self.assertIn(f.read().strip(), out)
         self.assertNotIn('root:x', out, 'unit can read /etc/passwd')
 
-        # check kernel log of violation
-        out = subprocess.check_output(['dmesg'])
-        self.assertRegex(out, b'apparmor.*DENIED.*violator-test.*/etc/passwd')
-
 
 def boot_with_systemd():
     '''Reboot with systemd as init
