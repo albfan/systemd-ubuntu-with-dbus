@@ -294,7 +294,7 @@ ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 		make -C build-deb check || ( \
 		cd build-deb; \
 		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done; \
-		exit 0; )  # replace with 1 to make failures fatal
+		exit 1; )  # replace with 1 to make failures fatal
 endif
 
 %:

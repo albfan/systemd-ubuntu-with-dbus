@@ -7,6 +7,9 @@ systemd (218-2) UNRELEASED; urgency=medium
     copy&paste'd comment, fix log strings. Thanks Adam D. Barratt.
   * boot-and-services: Robustify Nspawn tests, and show systemd-nspawn output
     on failure.
+  * Disable tests which fail on buildds, presumably due to too old kernels,
+    misconfigured /etc/hosts, and similar problems. Make failures of the test
+    suite fatal now.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 15 Dec 2014 10:54:32 +0100
 
