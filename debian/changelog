@@ -8,6 +8,8 @@ systemd (215-9) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * Prefer-etc-X11-default-display-manager-if-present.patch: Drop wrong
     copy&paste'd comment, fix log strings. Thanks Adam D. Barratt.
+  * Log all members of cyclic dependencies (loops) even with quiet on the
+    kernel cmdline. (Closes: #770504)
 
  -- Didier Roche <didrocks@ubuntu.com>  Wed, 10 Dec 2014 13:57:17 +0100
 
