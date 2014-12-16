@@ -1,8 +1,13 @@
 systemd (215-9) UNRELEASED; urgency=medium
 
+  [ Didier Roche ]
   * Add display managers autopkgtests.
   * Reset display-manager symlink to match /e/X/d-d-m even if
     display-manager.service was removed. Adapt the autopkgtests for it.
+
+  [ Martin Pitt ]
+  * Prefer-etc-X11-default-display-manager-if-present.patch: Drop wrong
+    copy&paste'd comment, fix log strings. Thanks Adam D. Barratt.
 
  -- Didier Roche <didrocks@ubuntu.com>  Wed, 10 Dec 2014 13:57:17 +0100
 

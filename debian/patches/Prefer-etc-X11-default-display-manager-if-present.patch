@@ -6,17 +6,17 @@ Add a generator to ensure /etc/X11/default-display-manager is controlling
 which display-manager is started.
 ---
  Makefile.am                                        |  11 ++-
- src/default-display-manager-generator/Makefile     |  28 ++++++
+ src/default-display-manager-generator/Makefile     |  24 +++++
  .../default-display-manager-generator.c            | 103 +++++++++++++++++++++
- 3 files changed, 141 insertions(+), 1 deletion(-)
+ 3 files changed, 137 insertions(+), 1 deletion(-)
  create mode 100644 src/default-display-manager-generator/Makefile
  create mode 100644 src/default-display-manager-generator/default-display-manager-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index ec5b871..b607a4a 100644
+index 6f4df22..9d83771 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -402,7 +402,8 @@ systemgenerator_PROGRAMS = \
+@@ -387,7 +387,8 @@ systemgenerator_PROGRAMS = \
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
@@ -26,7 +26,7 @@ index ec5b871..b607a4a 100644
  
  dist_bashcompletion_DATA = \
  	shell-completion/bash/busctl \
-@@ -2190,6 +2191,14 @@ systemd_delta_LDADD = \
+@@ -1965,6 +1966,14 @@ systemd_delta_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------
@@ -43,10 +43,10 @@ index ec5b871..b607a4a 100644
  
 diff --git a/src/default-display-manager-generator/Makefile b/src/default-display-manager-generator/Makefile
 new file mode 100644
-index 0000000..b29b937
+index 0000000..3a4bbbe
 --- /dev/null
 +++ b/src/default-display-manager-generator/Makefile
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,24 @@
 +#  This file is part of systemd.
 +#
 +#  Copyright 2014 Canonical
@@ -64,10 +64,6 @@ index 0000000..b29b937
 +#  You should have received a copy of the GNU Lesser General Public License
 +#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 +
-+# This file is a dirty trick to simplify compilation from within
-+# emacs. This file is not intended to be distributed. So, don't touch
-+# it, even better ignore it!
-+
 +all:
 +	$(MAKE) -C ..
 +
@@ -77,7 +73,7 @@ index 0000000..b29b937
 +.PHONY: all clean
 diff --git a/src/default-display-manager-generator/default-display-manager-generator.c b/src/default-display-manager-generator/default-display-manager-generator.c
 new file mode 100644
-index 0000000..817b30b
+index 0000000..930a67e
 --- /dev/null
 +++ b/src/default-display-manager-generator/default-display-manager-generator.c
 @@ -0,0 +1,103 @@
@@ -147,10 +143,10 @@ index 0000000..817b30b
 +
 +        /* we only create the alias symlink for non sysvinit services */
 +        if (access(target_unit_path, F_OK) < 0 && (errno == ENOENT)) {
-+                log_warning("%s doesn't seem to be a system unit, we disable the systemd enabled display manager", target_unit_path);
++                log_warning("%s is not a systemd unit, we disable the systemd enabled display manager", target_unit_path);
 +                target_unit_path = "/dev/null";
 +        } else {
-+                log_warning("%s point at %s while the default systemd unit is %s. Reconfiguring %s as default.",
++                log_warning("%s points at %s while the default systemd unit is %s. Reconfiguring %s as default.",
 +                            default_dm_file, default_dm, enabled_dm_unit, default_dm);
 +        }
 +
