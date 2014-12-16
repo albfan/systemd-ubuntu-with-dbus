@@ -132,18 +132,23 @@ poweroff\n''')
     def test_boot(self):
         cont = os.path.join(self.workdir.name, 'c1')
         shutil.copytree(self.c_busybox, cont, symlinks=True)
-        out = subprocess.check_output(['systemd-nspawn', '-D', cont, '-b'],
-                                      timeout=60, stderr=subprocess.STDOUT)
+        os.sync()
+        nspawn = subprocess.Popen(['systemd-nspawn', '-D', cont, '-b'],
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out = nspawn.communicate(timeout=60)[0]
         self.assertIn(b'Spawning container c1', out)
         self.assertIn(b'fake container started', out)
         self.assertRegex(out, b'\n\s+1\s+0\s+init[\r\n]')
         self.assertRegex(out, b'\n\s+2+\s+0\s.*rcS[\r\n]')
         self.assertRegex(out, b'Container c1.*shut down')
+        self.assertEqual(nspawn.returncode, 0)
 
     def test_service(self):
         self.assertTrue(os.path.isdir('/var/lib/container'))
         cont = '/var/lib/container/c1'
         shutil.copytree(self.c_busybox, cont, symlinks=True)
+        self.addCleanup(shutil.rmtree, cont)
+        os.sync()
         subprocess.check_call(['systemctl', 'start', 'systemd-nspawn@c1'])
         time.sleep(5)
 
