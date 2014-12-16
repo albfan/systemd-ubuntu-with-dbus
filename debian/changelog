@@ -3,6 +3,8 @@ systemd (218-2) UNRELEASED; urgency=medium
   * boot-and-services AppArmor autopkgtest: Stop checking the dmesg log; it is
     racy as sometimes message bursts are suppressed.
   * Fix crash in timedatectl with Etc/UTC.
+  * Prefer-etc-X11-default-display-manager-if-present.patch: Drop wrong
+    copy&paste'd comment, fix log strings. Thanks Adam D. Barratt.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 15 Dec 2014 10:54:32 +0100
 
