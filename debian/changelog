@@ -2,6 +2,8 @@ systemd (218-2ubuntu2) UNRELEASED; urgency=medium
 
   * debian/udev.postinst: Fix missing --usr, so that hwdb.bin goes back to
     /lib/udev/.
+  * debian/udev.postinst: Clean up /etc/udev/hwdb.bin after missing --usr from
+    early vivid versions.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 17 Dec 2014 08:24:30 +0100
 

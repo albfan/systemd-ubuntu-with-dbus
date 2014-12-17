@@ -1,7 +1,10 @@
 #!/bin/sh -e
 
 update_hwdb() {
-  udevadm hwdb --update --usr || true
+  if udevadm hwdb --update --usr; then
+      # clean up after missing --usr from early vivid versions
+      rm -f /etc/udev/hwdb.bin
+  fi
 }
 
 chrooted() {
