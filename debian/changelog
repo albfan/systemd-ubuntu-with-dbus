@@ -1,4 +1,4 @@
-systemd (218-2ubuntu2) UNRELEASED; urgency=medium
+systemd (218-2ubuntu2) vivid; urgency=medium
 
   * debian/udev.postinst: Fix missing --usr, so that hwdb.bin goes back to
     /lib/udev/.
@@ -15,7 +15,7 @@ systemd (218-2ubuntu2) UNRELEASED; urgency=medium
   * build-login autopkgtest: Build against libsystemd, not libsystemd-login
     any more.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 17 Dec 2014 08:24:30 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 17 Dec 2014 09:56:07 +0100
 
 systemd (218-2ubuntu1) vivid; urgency=medium
 
