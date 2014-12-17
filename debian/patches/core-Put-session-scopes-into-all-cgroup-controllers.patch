@@ -1,4 +1,3 @@
-From 8ba57e29d9cb0f50149ef4ef1d3caf1652c2a00c Mon Sep 17 00:00:00 2001
 From: Martin Pitt <martin.pitt@ubuntu.com>
 Date: Wed, 26 Nov 2014 11:51:04 +0100
 Subject: core: Put session scopes into all cgroup controllers
@@ -15,12 +14,17 @@ ones.
 FIXME: There doesn't seem to be a good way of figuring out the user ID from a
 "user-NNNN.slice", so this currently parses the name.
 
+This also reverts upstream commit 02ba8fb3357daf5. Otherwise udevd encounters
+eternal kernel deep sleep hangs when unmounting an ntfs-3g partition (see
+https://launchpad.net/bugs/1398859).
+
 https://launchpad.net/bugs/1346734
 ---
  src/core/scope.c         | 21 ++++++++++++++++++
  src/shared/cgroup-util.c | 56 +++++++++++++++++++++++++++++++++++++++++++++++-
  src/shared/cgroup-util.h | 20 +++++++++++------
- 3 files changed, 90 insertions(+), 7 deletions(-)
+ src/udev/udevd.c         |  7 ++----
+ 4 files changed, 92 insertions(+), 12 deletions(-)
 
 diff --git a/src/core/scope.c b/src/core/scope.c
 index e0da6e4..6c484b2 100644
@@ -180,6 +184,22 @@ index 5e1e445..d9fd737 100644
  int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid, cg_migrate_callback_t callback, void *userdata);
  int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
  int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
--- 
-2.1.3
-
+diff --git a/src/udev/udevd.c b/src/udev/udevd.c
+index 8bec03e..d107266 100644
+--- a/src/udev/udevd.c
++++ b/src/udev/udevd.c
+@@ -731,12 +731,9 @@ static int synthesize_change(struct udev_device *dev) {
+                  * partition table is found, and we will not get an event for
+                  * the disk.
+                  */
+-                fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
++                fd = open(udev_device_get_devnode(dev), O_RDONLY|O_EXCL|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                 if (fd >= 0) {
+-                        r = flock(fd, LOCK_EX|LOCK_NB);
+-                        if (r >= 0)
+-                                r = ioctl(fd, BLKRRPART, 0);
+-
++                        r = ioctl(fd, BLKRRPART, 0);
+                         close(fd);
+                         if (r >= 0)
+                                 part_table_read = true;

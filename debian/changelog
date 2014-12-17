@@ -1,3 +1,11 @@
+systemd (218-2ubuntu3) UNRELEASED; urgency=medium
+
+  * core-Put-session-scopes-into-all-cgroup-controllers.patch: Revert upstream
+    commit 02ba8fb3357d to fix eternal kernel deep sleep hangs when unmounting
+    an ntfs-3g partition. (LP: #1398859)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 17 Dec 2014 13:20:21 +0100
+
 systemd (218-2ubuntu2) vivid; urgency=medium
 
   * debian/udev.postinst: Fix missing --usr, so that hwdb.bin goes back to
