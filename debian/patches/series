@@ -576,6 +576,7 @@ Add-support-for-TuxOnIce-hibernation.patch
 Make-emergency.service-conflict-with-rescue.service.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
 Fix-udev-directory-in-udev-7.patch
+Make-sd_login_monitor_new-work-for-logind-without-sy.patch
 
 ## Ubuntu patches:
 Add-env-variable-for-machine-ID-path.patch
