@@ -129,6 +129,9 @@ poweroff\n''')
     def setUp(self):
         self.workdir = tempfile.TemporaryDirectory()
 
+    # this fails in Ubuntu CI when triggered by Jenkins (unreproducible
+    # manually)
+    @unittest.expectedFailure
     def test_boot(self):
         cont = os.path.join(self.workdir.name, 'c1')
         shutil.copytree(self.c_busybox, cont, symlinks=True)
