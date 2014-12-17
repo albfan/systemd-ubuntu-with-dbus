@@ -1,0 +1,12 @@
+# shim unit to satisfy dependencies until Debian/Ubuntu enable systemd-vconsole
+[Unit]
+Description=Setup Virtual Console
+DefaultDependencies=no
+Conflicts=shutdown.target
+Requires=console-setup.service
+ConditionPathExists=/dev/tty0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true

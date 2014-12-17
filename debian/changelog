@@ -7,6 +7,10 @@ systemd (218-3) UNRELEASED; urgency=medium
     (LP: #1400203)
   * build-login autopkgtest: Build against libsystemd, not libsystemd-login
     any more.
+  * Add debian/extra/systemd-vconsole-setup.service dependency shim for
+    the console-setup init script, to avoid breaking dependencies of
+    third-party packages. Install it for Ubuntu only for now, as in Debian
+    plymouth's unit got adjusted. (LP: #1392970, Debian #755194)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 
