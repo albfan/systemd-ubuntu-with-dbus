@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 update_hwdb() {
-  udevadm hwdb --update || true
+  udevadm hwdb --update --usr || true
 }
 
 chrooted() {

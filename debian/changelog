@@ -1,3 +1,10 @@
+systemd (218-2ubuntu2) UNRELEASED; urgency=medium
+
+  * debian/udev.postinst: Fix missing --usr, so that hwdb.bin goes back to
+    /lib/udev/.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 17 Dec 2014 08:24:30 +0100
+
 systemd (218-2ubuntu1) vivid; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
