@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 }
 EOF
 
-gcc -Wall -Werror -o loginmonitor loginmonitor.c `pkg-config --cflags --libs libsystemd-login`
+gcc -Wall -Werror -o loginmonitor loginmonitor.c `pkg-config --cflags --libs libsystemd`
 echo "build: OK"
 [ -x loginmonitor ]
 ./loginmonitor

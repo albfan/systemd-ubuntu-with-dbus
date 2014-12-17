@@ -5,6 +5,8 @@ systemd (218-3) UNRELEASED; urgency=medium
   * Bring back patch to make sd_login_monitor_new() work under other init
     systems where /sys/fs/cgroup/systemd/machine does not exist.
     (LP: #1400203)
+  * build-login autopkgtest: Build against libsystemd, not libsystemd-login
+    any more.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 
