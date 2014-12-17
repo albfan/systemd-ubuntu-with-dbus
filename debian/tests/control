@@ -4,6 +4,7 @@ Restrictions: needs-root isolation-machine
 
 Tests: build-login
 Depends: libsystemd-login-dev, build-essential, pkg-config
+Restrictions: isolation-container
 
 Tests: python3
 Depends: python3-systemd

@@ -19,8 +19,13 @@ int main(int argc, char **argv)
     int res;
 
     res = sd_login_monitor_new(NULL, &mon);
-    if (res >= 0)
-        sd_login_monitor_unref(mon);
+    if (res < 0) {
+        fprintf(stderr, "sd_login_monitor_new failed with value %i\n", res);
+        return 1;
+    }
+
+    assert(sd_login_monitor_get_fd(mon) > 0);
+    sd_login_monitor_unref(mon);
 
     return 0;
 }

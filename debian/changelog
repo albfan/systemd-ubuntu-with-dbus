@@ -1,3 +1,10 @@
+systemd (208-8ubuntu8.2) UNRELEASED; urgency=medium
+
+  * build-logind autopkgtest: Re-enforce that sd_login_monitor_new() succeeds,
+    and restrict this test to isolation-container. (Reproduces LP #1400203)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
+
 systemd (208-8ubuntu8.1) utopic-proposed; urgency=medium
 
   * Fix path-id to correctly recognize supported devices. This brings back
