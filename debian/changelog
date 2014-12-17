@@ -7,6 +7,13 @@ systemd (218-2ubuntu2) UNRELEASED; urgency=medium
   * Make failure of boot-and-services NSpawn.test_boot non-fatal for now. This
     currently fails when being triggered by Jenkins, but is totally
     unreproducible when running this manually on the exact same machine.
+  * build-logind autopkgtest: Re-enforce that sd_login_monitor_new() succeeds,
+    and restrict this test to isolation-container. (Reproduces LP #1400203)
+  * Bring back patch to make sd_login_monitor_new() work under other init
+    systems where /sys/fs/cgroup/systemd/machine does not exist.
+    (LP: #1400203)
+  * build-login autopkgtest: Build against libsystemd, not libsystemd-login
+    any more.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 17 Dec 2014 08:24:30 +0100
 

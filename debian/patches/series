@@ -51,6 +51,7 @@ sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Re-enable-journal-forwarding-to-syslog.patch
 Disable-tests-which-fail-on-buildds.patch
+Make-sd_login_monitor_new-work-for-logind-without-sy.patch
 
 ## Ubuntu patches:
 Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
