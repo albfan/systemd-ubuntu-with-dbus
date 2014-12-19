@@ -10,6 +10,8 @@ systemd (215-9) UNRELEASED; urgency=medium
     copy&paste'd comment, fix log strings. Thanks Adam D. Barratt.
   * Log all members of cyclic dependencies (loops) even with quiet on the
     kernel cmdline. (Closes: #770504)
+  * Don't auto-clean PrivateTmp dir in /var/tmp; in Debian we don't want to
+    clean /var/tmp/ automatically. (Closes: #773313)
 
  -- Didier Roche <didrocks@ubuntu.com>  Wed, 10 Dec 2014 13:57:17 +0100
 

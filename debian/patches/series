@@ -123,6 +123,7 @@ util-allow-strappenda-to-take-any-number-of-args.patch
 journal-do-server_vacuum-for-sigusr1.patch
 journalctl-correct-help-text-for-until.patch
 Raise-level-of-Found-dependency.-lines.patch
+systemd-tmpfiles-Fix-IGNORE_DIRECTORY_PATH-age-handl.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
