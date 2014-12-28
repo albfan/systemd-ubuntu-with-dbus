@@ -42,6 +42,7 @@ Build-Depends: debhelper (>= 9),
 
 Package: systemd
 Architecture: linux-any
+Multi-Arch: foreign
 Section: admin
 Priority: optional
 Recommends: libpam-systemd,
@@ -78,6 +79,7 @@ Description: system and service manager
 
 Package: systemd-sysv
 Architecture: linux-any
+Multi-Arch: foreign
 Section: admin
 Priority: extra
 Conflicts: sysvinit-core,
