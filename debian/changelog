@@ -20,6 +20,8 @@ systemd (218-3) UNRELEASED; urgency=medium
     jobs without sysvinit scripts (thanks lintian).
   * Put systemd.pc into arch specific pkgconfig dir, as it contains the arch
     specific libdir value.
+  * Don't enable audit by default. It causes flooding of dmesg and syslog,
+    suppressing actually important messages. (Closes: #773528)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 
