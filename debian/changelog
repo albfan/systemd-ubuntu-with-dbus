@@ -18,6 +18,8 @@ systemd (218-3) UNRELEASED; urgency=medium
     dir).
   * Use dh_installinit's --noscript instead of --no-start for the upstart
     jobs without sysvinit scripts (thanks lintian).
+  * Put systemd.pc into arch specific pkgconfig dir, as it contains the arch
+    specific libdir value.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 
