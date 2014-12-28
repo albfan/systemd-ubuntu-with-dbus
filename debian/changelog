@@ -12,6 +12,7 @@ systemd (218-3) UNRELEASED; urgency=medium
     third-party packages. Install it for Ubuntu only for now, as in Debian
     plymouth's unit got adjusted. (LP: #1392970, Debian #755194)
   * Mark systemd{,-sysv} as M-A: foreign (thanks lintian).
+  * Quiesce maintainer-script-calls-systemctl lintian warning.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 
