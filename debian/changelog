@@ -16,6 +16,8 @@ systemd (218-3) UNRELEASED; urgency=medium
   * Quiesce possibly-insecure-handling-of-tmp-files lintian warning, it's
     wrong there (we are handling tmpfiles.d/ files which are not in a temp
     dir).
+  * Use dh_installinit's --noscript instead of --no-start for the upstart
+    jobs without sysvinit scripts (thanks lintian).
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 

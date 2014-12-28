@@ -261,9 +261,10 @@ override_dh_installdocs:
 override_dh_installinit:
 	dh_installinit --no-start
 	dh_installinit --name=udev-finish --no-start
-	dh_installinit --name=udevtrigger --no-start
-	dh_installinit --name=udevmonitor --no-start
-	dh_installinit --name=udev-fallback-graphics --no-start
+	# the following are only upstart jobs
+	dh_installinit --name=udevtrigger --noscripts
+	dh_installinit --name=udevmonitor --noscripts
+	dh_installinit --name=udev-fallback-graphics --noscripts
 
 # The SysV compat tools (which are symlinks to systemctl) are
 # quasi-essential, so add its dependencies to Pre-Depends
