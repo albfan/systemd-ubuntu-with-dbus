@@ -1,3 +1,9 @@
+systemd (218-3ubuntu1) UNRELEASED; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+
 systemd (218-3) experimental; urgency=medium
 
   * build-logind autopkgtest: Re-enforce that sd_login_monitor_new() succeeds,
