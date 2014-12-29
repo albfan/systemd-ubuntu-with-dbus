@@ -1,3 +1,9 @@
+systemd (229-4ubuntu1) UNRELEASED; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:13:25 +0200
+
 systemd (229-4) unstable; urgency=medium
 
   * Fix assertion crash when processing a (broken) device without a sysfs
