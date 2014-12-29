@@ -22,6 +22,9 @@ systemd (218-3) UNRELEASED; urgency=medium
     specific libdir value.
   * Don't enable audit by default. It causes flooding of dmesg and syslog,
     suppressing actually important messages. (Closes: #773528)
+  * Cherrypick various bug fixes in loopback device setup and netlink socket
+    communication. Fixes massive CPU usage due to tight retry loops in user
+    LXC containers.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
 

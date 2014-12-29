@@ -1,0 +1,143 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 29 Dec 2014 14:18:28 +0100
+Subject: Loopback setup / rtnl fixes
+
+Various bug fixes in loopback device setup and netlink socket communication,
+taken from upstream commits e95e909 ff. Fixes massive CPU usage due to tight
+retry loops in user LXC containers.
+---
+ src/core/loopback-setup.c             | 42 +++++++++++++++--------------------
+ src/libsystemd/sd-rtnl/rtnl-message.c | 18 ++++++++++++---
+ src/libsystemd/sd-rtnl/sd-rtnl.c      |  4 +++-
+ 3 files changed, 36 insertions(+), 28 deletions(-)
+
+diff --git a/src/core/loopback-setup.c b/src/core/loopback-setup.c
+index 98fc04d..ca10e20 100644
+--- a/src/core/loopback-setup.c
++++ b/src/core/loopback-setup.c
+@@ -56,30 +56,24 @@ static int start_loopback(sd_rtnl *rtnl) {
+         return 0;
+ }
+ 
+-static int check_loopback(void) {
++static bool check_loopback(sd_rtnl *rtnl) {
++        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
++        unsigned flags;
+         int r;
+-        _cleanup_close_ int fd = -1;
+-        union {
+-                struct sockaddr sa;
+-                struct sockaddr_in in;
+-        } sa = {
+-                .in.sin_family = AF_INET,
+-                .in.sin_addr.s_addr = INADDR_LOOPBACK,
+-        };
+-
+-        /* If we failed to set up the loop back device, check whether
+-         * it might already be set up */
+-
+-        fd = socket(AF_INET, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+-        if (fd < 0)
+-                return -errno;
+-
+-        if (bind(fd, &sa.sa, sizeof(sa.in)) >= 0)
+-                r = 1;
+-        else
+-                r = errno == EADDRNOTAVAIL ? 0 : -errno;
+-
+-        return r;
++
++        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, LOOPBACK_IFINDEX);
++        if (r < 0)
++                return false;
++
++        r = sd_rtnl_call(rtnl, req, 0, &reply);
++        if (r < 0)
++                return false;
++
++        r = sd_rtnl_message_link_get_flags(reply, &flags);
++        if (r < 0)
++                return false;
++
++        return flags & IFF_UP;
+ }
+ 
+ int loopback_setup(void) {
+@@ -92,7 +86,7 @@ int loopback_setup(void) {
+ 
+         r = start_loopback(rtnl);
+         if (r == -EPERM) {
+-                if (check_loopback() < 0)
++                if (!check_loopback(rtnl))
+                         return log_warning_errno(EPERM, "Failed to configure loopback device: %m");
+         } else if (r < 0)
+                 return log_warning_errno(r, "Failed to configure loopback device: %m");
+diff --git a/src/libsystemd/sd-rtnl/rtnl-message.c b/src/libsystemd/sd-rtnl/rtnl-message.c
+index 165e84d..e5a69bd 100644
+--- a/src/libsystemd/sd-rtnl/rtnl-message.c
++++ b/src/libsystemd/sd-rtnl/rtnl-message.c
+@@ -1294,8 +1294,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
+                 /* no data */
+                 if (errno == ENOBUFS)
+                         log_debug("rtnl: kernel receive buffer overrun");
++                else if (errno == EAGAIN)
++                        log_debug("rtnl: no data in socket");
+ 
+-                return (errno == EAGAIN) ? 0 : -errno;
++                return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
+         } else if (r == 0)
+                 /* connection was closed by the kernel */
+                 return -ECONNRESET;
+@@ -1307,8 +1309,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
+                         struct ucred *ucred = (void *)CMSG_DATA(cmsg);
+ 
+                         /* from the kernel */
+-                        if (ucred->uid == 0 && ucred->pid == 0)
++                        if (ucred->pid == 0)
+                                 auth = true;
++                        else
++                                log_debug("rtnl: ignoring message from pid %u", ucred->pid);
+                 } else if (cmsg->cmsg_level == SOL_NETLINK &&
+                            cmsg->cmsg_type == NETLINK_PKTINFO &&
+                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
+@@ -1319,9 +1323,17 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
+                 }
+         }
+ 
+-        if (!auth)
++        if (!auth) {
+                 /* not from the kernel, ignore */
++                if (peek) {
++                        /* drop the message */
++                        r = recvmsg(fd, &msg, 0);
++                        if (r < 0)
++                                return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
++                }
++
+                 return 0;
++        }
+ 
+         if (group)
+                 *_group = group;
+diff --git a/src/libsystemd/sd-rtnl/sd-rtnl.c b/src/libsystemd/sd-rtnl/sd-rtnl.c
+index abb011e..7d388c9 100644
+--- a/src/libsystemd/sd-rtnl/sd-rtnl.c
++++ b/src/libsystemd/sd-rtnl/sd-rtnl.c
+@@ -489,7 +489,7 @@ static int rtnl_poll(sd_rtnl *rtnl, bool need_more, uint64_t timeout_usec) {
+         if (need_more)
+                 /* Caller wants more data, and doesn't care about
+                  * what's been read or any other timeouts. */
+-                return e |= POLLIN;
++                e |= POLLIN;
+         else {
+                 usec_t until;
+                 /* Caller wants to process if there is something to
+@@ -701,6 +701,8 @@ int sd_rtnl_call(sd_rtnl *rtnl,
+                 r = rtnl_poll(rtnl, true, left);
+                 if (r < 0)
+                         return r;
++                else if (r == 0)
++                        return -ETIMEDOUT;
+ 
+                 r = dispatch_wqueue(rtnl);
+                 if (r < 0)
