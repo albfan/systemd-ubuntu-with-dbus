@@ -1,3 +1,9 @@
+systemd (218-10ubuntu1) UNRELEASED; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+
 systemd (218-10) experimental; urgency=medium
 
   * Pull latest keymaps from upstream git. (LP: #1334968, #1409721)
