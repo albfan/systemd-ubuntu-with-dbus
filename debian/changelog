@@ -1,4 +1,4 @@
-systemd (218-3) UNRELEASED; urgency=medium
+systemd (218-3) experimental; urgency=medium
 
   * build-logind autopkgtest: Re-enforce that sd_login_monitor_new() succeeds,
     and restrict this test to isolation-container. (Reproduces LP #1400203)
@@ -26,7 +26,7 @@ systemd (218-3) UNRELEASED; urgency=medium
     communication. Fixes massive CPU usage due to tight retry loops in user
     LXC containers.
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 17 Dec 2014 09:22:17 +0100
+ -- Martin Pitt <mpitt@debian.org>  Mon, 29 Dec 2014 14:55:35 +0100
 
 systemd (218-2) experimental; urgency=medium
 
