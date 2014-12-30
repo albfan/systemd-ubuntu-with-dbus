@@ -1,0 +1,25 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Tue, 30 Dec 2014 16:34:43 +0100
+Subject: Limit journal to 7 days
+
+Set MaxRetentionSec to "7day" corresponding to the default rsyslog rotation
+period.
+
+Bug-Debian: http://bugs.debian.org/773538
+---
+ src/journal/journald.conf | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/journal/journald.conf b/src/journal/journald.conf
+index 5f99ee4..8641cdd 100644
+--- a/src/journal/journald.conf
++++ b/src/journal/journald.conf
+@@ -24,7 +24,7 @@
+ #RuntimeMaxUse=
+ #RuntimeKeepFree=
+ #RuntimeMaxFileSize=
+-#MaxRetentionSec=
++MaxRetentionSec=7day
+ #MaxFileSec=1month
+ #ForwardToSyslog=yes
+ #ForwardToKMsg=no

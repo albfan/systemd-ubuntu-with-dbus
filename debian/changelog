@@ -1,3 +1,10 @@
+systemd (218-4) UNRELEASED; urgency=medium
+
+  * Limit journal to 7 days with "MaxRetentionSec=7day", corresponding to the
+    default rsyslog rotation period. (Closes: #773538)
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 30 Dec 2014 16:36:10 +0100
+
 systemd (218-3) experimental; urgency=medium
 
   * build-logind autopkgtest: Re-enforce that sd_login_monitor_new() succeeds,
