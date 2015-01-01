@@ -55,4 +55,3 @@ Disable-tests-which-fail-on-buildds.patch
 Make-sd_login_monitor_new-work-for-logind-without-sy.patch
 build-sys-Fix-install-location-of-systemd.pc.patch
 Don-t-enable-audit-by-default.patch
-Limit-journal-to-7-days.patch
