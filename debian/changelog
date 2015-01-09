@@ -4,6 +4,11 @@ systemd (218-4) UNRELEASED; urgency=medium
   * sysv-generator: handle Provides: for non-virtual facility names.
     (Closes: #774335)
 
+  [ Martin Pitt ]
+  * fstab-generator: Handle mountall's non-standard "nobootwait" and
+    "optional" options. ("bootwait" is already the systemd default behaviour,
+    and "showthrough" is irrelevant here, so both can be ignored).
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Jan 2015 08:18:52 +0100
 
 systemd (218-3) experimental; urgency=medium
