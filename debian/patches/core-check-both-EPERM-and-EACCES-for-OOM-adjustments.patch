@@ -1,0 +1,21 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 8 Jan 2015 23:21:01 +0100
+Subject: core: check both EPERM and EACCES for OOM adjustments
+
+---
+ src/core/execute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/execute.c b/src/core/execute.c
+index c39378e..68df1e7 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -1368,7 +1368,7 @@ static int exec_child(ExecCommand *command,
+ 
+                 sprintf(t, "%i", context->oom_score_adjust);
+                 err = write_string_file("/proc/self/oom_score_adj", t);
+-                if (err < 0 && err != -EPERM) {
++                if (err < 0 && err != -EPERM && err != EACCES) {
+                         *error = EXIT_OOM_ADJUST;
+                         return -errno;
+                 }

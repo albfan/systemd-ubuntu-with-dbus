@@ -1,6 +1,8 @@
 ## Cherry-picked from upstream
 shared-time-dst-Avoid-buffer-overflow.patch
 Loopback-setup-rtnl-fixes.patch
+core-make-EPERM-errors-when-applying-OOM-adjustment-.patch
+core-check-both-EPERM-and-EACCES-for-OOM-adjustments.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
