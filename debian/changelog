@@ -1,4 +1,4 @@
-systemd (218-3ubuntu2) UNRELEASED; urgency=medium
+systemd (218-3ubuntu2) vivid; urgency=medium
 
   * Make EPERM/EACCESS when applying OOM adjustment for forked processes
     non-fatal. This happens in user namespaces like unprivileged LXC
@@ -7,7 +7,7 @@ systemd (218-3ubuntu2) UNRELEASED; urgency=medium
     "optional" options. ("bootwait" is already the systemd default behaviour,
     and "showthrough" is irrelevant here, so both can be ignored).
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 09 Jan 2015 08:04:46 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 12 Jan 2015 08:47:05 +0100
 
 systemd (218-3ubuntu1) vivid; urgency=medium
 
