@@ -1,9 +1,9 @@
-systemd (218-3ubuntu3) UNRELEASED; urgency=medium
+systemd (218-3ubuntu3) vivid; urgency=medium
 
   * Fix sign error in previous EPERM/EACCESS check for OOM adjustment.
   * Merge current changes from experimental git, see changelog below.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 13 Jan 2015 07:07:57 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 13 Jan 2015 12:42:41 +0100
 
 systemd (218-4) UNRELEASED; urgency=medium
 
