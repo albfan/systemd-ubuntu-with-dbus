@@ -1,3 +1,11 @@
+systemd (218-4) UNRELEASED; urgency=medium
+
+  [ Michael Biebl ]
+  * sysv-generator: handle Provides: for non-virtual facility names.
+    (Closes: #774335)
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 13 Jan 2015 08:18:52 +0100
+
 systemd (218-3) experimental; urgency=medium
 
   * build-logind autopkgtest: Re-enforce that sd_login_monitor_new() succeeds,
