@@ -16,6 +16,9 @@ systemd (215-9) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * sysv-generator: handle Provides: for non-virtual facility names.
     (Closes: #774335)
+  * Fix systemd-remount-fs.service to not fail on remounting /usr if /usr
+    isn't mounted yet. This happens with initramfs-tools < 0.118 which we
+    might not get into Jessie any more. (Closes: #742048)
 
  -- Didier Roche <didrocks@ubuntu.com>  Wed, 10 Dec 2014 13:57:17 +0100
 
