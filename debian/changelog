@@ -1,3 +1,9 @@
+systemd (218-3ubuntu3) UNRELEASED; urgency=medium
+
+  * Fix sign error in previous EPERM/EACCESS check for OOM adjustment.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 13 Jan 2015 07:07:57 +0100
+
 systemd (218-3ubuntu2) vivid; urgency=medium
 
   * Make EPERM/EACCESS when applying OOM adjustment for forked processes

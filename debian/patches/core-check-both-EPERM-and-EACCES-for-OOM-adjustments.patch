@@ -15,7 +15,7 @@ index c39378e..68df1e7 100644
                  sprintf(t, "%i", context->oom_score_adjust);
                  err = write_string_file("/proc/self/oom_score_adj", t);
 -                if (err < 0 && err != -EPERM) {
-+                if (err < 0 && err != -EPERM && err != EACCES) {
++                if (err < 0 && err != -EPERM && err != -EACCES) {
                          *error = EXIT_OOM_ADJUST;
                          return -errno;
                  }
