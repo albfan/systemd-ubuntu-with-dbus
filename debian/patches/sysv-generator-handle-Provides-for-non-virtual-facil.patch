@@ -24,10 +24,10 @@ Bug-Debian: https://bugs.debian.org/774335
  1 file changed, 24 insertions(+), 1 deletion(-)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 1efd8b8..9747566 100644
+index 45c8b4e..dd861c1 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
-@@ -117,6 +117,27 @@ static int add_symlink(const char *service, const char *where) {
+@@ -112,6 +112,27 @@ static int add_symlink(const char *service, const char *where) {
          return 1;
  }
  
@@ -55,7 +55,7 @@ index 1efd8b8..9747566 100644
  static int generate_unit_file(SysvStub *s) {
          char **p;
          _cleanup_fclose_ FILE *f = NULL;
-@@ -472,7 +493,9 @@ static int load_sysv(SysvStub *s) {
+@@ -457,7 +478,9 @@ static int load_sysv(SysvStub *s) {
                                          if (r == 0)
                                                  continue;
  

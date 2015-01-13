@@ -9,10 +9,10 @@ Presumably these are due to running on too old kernels, misconfigured
  1 file changed, 1 insertion(+), 6 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index f1299ef..3138fc3 100644
+index df99fed..6bc4c58 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -1377,13 +1377,12 @@ tests += \
+@@ -1376,13 +1376,12 @@ tests += \
  	test-capability \
  	test-async \
  	test-ratelimit \
@@ -27,7 +27,7 @@ index f1299ef..3138fc3 100644
  
  EXTRA_DIST += \
  	test/a.service \
-@@ -2842,10 +2841,8 @@ tests += \
+@@ -2841,10 +2840,8 @@ tests += \
  	test-bus-introspect \
  	test-bus-objects \
  	test-bus-error \
@@ -38,7 +38,7 @@ index f1299ef..3138fc3 100644
  	test-local-addresses \
  	test-resolve
  
-@@ -3156,7 +3153,6 @@ test_dhcp6_client_LDADD = \
+@@ -3155,7 +3152,6 @@ test_dhcp6_client_LDADD = \
  
  tests += \
  	test-dhcp-option \
@@ -46,7 +46,7 @@ index f1299ef..3138fc3 100644
  	test-dhcp-server \
  	test-ipv4ll \
  	test-icmp6-rs \
-@@ -5339,7 +5335,6 @@ test_network_tables_LDADD = \
+@@ -5338,7 +5334,6 @@ test_network_tables_LDADD = \
  	libudev-core.la
  
  tests += \
