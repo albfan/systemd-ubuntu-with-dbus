@@ -13,6 +13,10 @@ Tests: boot-and-services
 Depends: lightdm, cron, network-manager, busybox-static, apparmor
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
 
+Tests: cmdline-upstart-boot
+Depends: systemd-sysv, cron, network-manager
+Restrictions: needs-root, isolation-machine, breaks-testbed
+
 Tests: display-managers
 Depends: systemd, lightdm
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed

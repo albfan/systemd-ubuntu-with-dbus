@@ -14,7 +14,7 @@ kept in /usr/share/pkgconfig/.
  1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 3138fc3..6bc4c58 100644
+index ac7924e..9fa4a86 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -74,7 +74,6 @@ dbussessionservicedir=@dbussessionservicedir@
@@ -25,7 +25,7 @@ index 3138fc3..6bc4c58 100644
  pkgconfiglibdir=$(libdir)/pkgconfig
  polkitpolicydir=$(datadir)/polkit-1/actions
  bashcompletiondir=@bashcompletiondir@
-@@ -1301,7 +1300,7 @@ dist_dbussystemservice_DATA += \
+@@ -1293,7 +1292,7 @@ dist_dbussystemservice_DATA += \
  polkitpolicy_in_in_files += \
  	src/core/org.freedesktop.systemd1.policy.in.in
  
@@ -34,7 +34,7 @@ index 3138fc3..6bc4c58 100644
  	src/core/systemd.pc
  
  nodist_rpmmacros_DATA = \
-@@ -5985,7 +5984,6 @@ EXTRA_DIST += \
+@@ -5966,7 +5965,6 @@ EXTRA_DIST += \
  CLEANFILES += \
  	$(nodist_systemunit_DATA) \
  	$(nodist_userunit_DATA) \

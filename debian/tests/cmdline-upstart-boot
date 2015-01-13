@@ -1,0 +1,99 @@
+#!/usr/bin/python3
+# autopkgtest check: One-time upstart boot with systemd-sysv installed
+# (C) 2015 Canonical Ltd.
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+
+import sys
+import os
+import unittest
+import subprocess
+
+
+class ServicesTest(unittest.TestCase):
+    '''Check that expected services are running'''
+
+    def test_0_init(self):
+        '''Verify that init is upstart'''
+
+        self.assertIn('upstart', os.readlink('/proc/1/exe'))
+
+    def test_dbus(self):
+        out = subprocess.check_output(
+            ['dbus-send', '--print-reply', '--system',
+             '--dest=org.freedesktop.DBus', '/', 'org.freedesktop.DBus.GetId'])
+        self.assertIn(b'string "', out)
+        self.active_job('dbus')
+
+    def test_network_manager(self):
+        # 0.9.10 changed the command name
+        _help = subprocess.check_output(['nmcli', '--help'],
+                                        stderr=subprocess.STDOUT)
+        if b' g[eneral]' in _help:
+            out = subprocess.check_output(['nmcli', 'general'])
+        else:
+            out = subprocess.check_output(['nmcli', 'nm'])
+        self.assertIn(b'enabled', out)
+        self.active_job('network-manager')
+
+    def test_cron(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'cron'])
+        self.assertIn(b'root', out)
+        self.active_job('cron')
+
+    def test_rsyslog(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'rsyslogd'])
+        self.assertIn(b'rsyslogd\n', out)
+        self.active_job('rsyslog')
+        with open('/var/log/syslog') as f:
+            log = f.read()
+        # has kernel messages
+        self.assertRegex(log, 'kernel:.*[cC]ommand line:')
+        # has other services
+        self.assertRegex(log, 'NetworkManager.*:')
+
+    def test_udev(self):
+        out = subprocess.check_output(['udevadm', 'info', '--export-db'])
+        self.assertIn(b'\nP: /devices/', out)
+        self.active_job('udev')
+
+    # Helper methods
+
+    def active_job(self, job):
+        '''Check that given job is running'''
+
+        out = subprocess.check_output(['initctl', 'status', job])
+        self.assertIn(b'start/running', out)
+
+
+def configure_boot():
+    '''Reboot with upstart as init'''
+
+    print('Installing upstart-bin and rebooting...')
+    subprocess.check_call('apt-get -y install upstart-bin 2>&1',
+                          shell=True)
+    print('Setting init=/sbin/upstart in grub kernel command line...')
+    subprocess.check_call(['sh', '-ec', "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/"
+                           '''s_"$_ init=/sbin/upstart"_' '''
+                           '/etc/default/grub /etc/default/grub.d/*'])
+    subprocess.check_call(['update-grub'], stderr=subprocess.DEVNULL)
+    if os.path.exists('/boot/grub/menu.lst'):
+        # Ubuntu cloud images still use legacy grub
+        subprocess.check_call(['sed', '-i',
+                               '/^kernel/ s_$_ init=/sbin/upstart_',
+                               '/boot/grub/menu.lst'])
+
+    subprocess.check_call(['autopkgtest-reboot', 'boot-upstart'])
+
+
+if __name__ == '__main__':
+    # Ubuntu split out upstart-bin, Debian doesn't
+    if subprocess.call(['apt-cache', 'show', 'upstart-bin'],
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE) != 0:
+        print('SKIP: upstart-bin not available')
+        sys.exit(0)
+
+    if not os.getenv('ADT_REBOOT_MARK'):
+        configure_boot()
+
+    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
+                                                     verbosity=2))

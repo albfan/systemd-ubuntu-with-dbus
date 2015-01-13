@@ -1,6 +1,9 @@
 ## Cherry-picked from upstream
 shared-time-dst-Avoid-buffer-overflow.patch
 Loopback-setup-rtnl-fixes.patch
+build-sys-Fix-install-location-of-systemd.pc.patch
+sysv-generator-handle-Provides-for-non-virtual-facil.patch
+sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 core-make-EPERM-errors-when-applying-OOM-adjustment-.patch
 core-check-both-EPERM-and-EACCES-for-OOM-adjustments.patch
 
@@ -50,13 +53,13 @@ sd-bus-Accept-no-sender-as-the-destination-field.patch
 login-don-t-overmount-run-user-UID-on-upgrades.patch
 udev-re-enable-mount-propagation-for-udevd.patch
 Add-env-variable-for-machine-ID-path.patch
-sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Re-enable-journal-forwarding-to-syslog.patch
 Disable-tests-which-fail-on-buildds.patch
 Make-sd_login_monitor_new-work-for-logind-without-sy.patch
-build-sys-Fix-install-location-of-systemd.pc.patch
 Don-t-enable-audit-by-default.patch
+Accept-mountall-specific-fstab-options.patch
+Fix-usr-remount-failure-for-split-usr.patch
 
 ## Ubuntu patches:
 Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
@@ -67,4 +70,3 @@ Trigger-ifup-.service-on-network-devices.patch
 Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
 cgroup-Initialize-cpuset.clone_children.patch
 core-Put-session-scopes-into-all-cgroup-controllers.patch
-Accept-mountall-specific-fstab-options.patch

@@ -1,8 +1,28 @@
 systemd (218-3ubuntu3) UNRELEASED; urgency=medium
 
   * Fix sign error in previous EPERM/EACCESS check for OOM adjustment.
+  * Merge current changes from experimental git, see changelog below.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 13 Jan 2015 07:07:57 +0100
+
+systemd (218-4) UNRELEASED; urgency=medium
+
+  [ Michael Biebl ]
+  * sysv-generator: handle Provides: for non-virtual facility names.
+    (Closes: #774335)
+  * Fix systemd-remount-fs.service to not fail on remounting /usr if /usr
+    isn't mounted yet. This happens with initramfs-tools < 0.118 which we
+    might not get into Jessie any more. (Closes: #742048)
+
+  [ Martin Pitt ]
+  * fstab-generator: Handle mountall's non-standard "nobootwait" and
+    "optional" options. ("bootwait" is already the systemd default behaviour,
+    and "showthrough" is irrelevant here, so both can be ignored).
+  * Add autopkgtest for one-time boot with upstart when systemd-sysv is
+    installed. This test only works under Ubuntu which has a split out
+    upstart-bin package, and will be skipped under Debian.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 13 Jan 2015 08:18:52 +0100
 
 systemd (218-3ubuntu2) vivid; urgency=medium
 
