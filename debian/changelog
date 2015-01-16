@@ -1,9 +1,9 @@
-systemd (218-3ubuntu4) UNRELEASED; urgency=medium
+systemd (218-3ubuntu4) vivid; urgency=medium
 
   * Fix assertion failure due to /dev/urandom being unmounted when shutting
     down unprivileged containers. Thanks Stéphane Graber.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 16 Jan 2015 18:02:15 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 16 Jan 2015 18:32:49 +0100
 
 systemd (218-3ubuntu3) vivid; urgency=medium
 
