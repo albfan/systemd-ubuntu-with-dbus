@@ -70,3 +70,4 @@ Trigger-ifup-.service-on-network-devices.patch
 Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
 cgroup-Initialize-cpuset.clone_children.patch
 core-Put-session-scopes-into-all-cgroup-controllers.patch
+Add-dev-urandom-to-ignore_paths.patch
