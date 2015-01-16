@@ -64,3 +64,4 @@ Don-t-enable-audit-by-default.patch
 Accept-mountall-specific-fstab-options.patch
 Fix-usr-remount-failure-for-split-usr.patch
 util-Add-hidden-suffixes-for-ucf.patch
+Add-dev-urandom-to-ignore_paths.patch

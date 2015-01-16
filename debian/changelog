@@ -23,6 +23,8 @@ systemd (218-5) UNRELEASED; urgency=medium
   * Make EPERM/EACCESS when applying OOM adjustment for forked processes
     non-fatal. This happens in user namespaces like unprivileged LXC
     containers.
+  * Fix assertion failure due to /dev/urandom being unmounted when shutting
+    down unprivileged containers. Thanks Stéphane Graber.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
