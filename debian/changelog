@@ -24,6 +24,9 @@ systemd (218-4) UNRELEASED; urgency=medium
     scripts. (Closes: #775404)
   * Fix journal forwarding to syslog in containers without CAP_SYS_ADMIN.
     (Closes: #775067)
+  * Re-enable AppArmor support, now that libapparmor1 moved to /lib. Add
+    versioned dependency as long as this is still only in experimental.
+    (Closes: #775331)
 
   [ Christian Kastner ]
   * Use common-session-noninteractive in systemd-user's PAM config, instead of
