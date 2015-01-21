@@ -34,10 +34,10 @@ Bug-Debian: https://bugs.debian.org/775404
  1 file changed, 9 insertions(+)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 84ccbf6..eb50179 100644
+index ed3309f..6dc8835 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
-@@ -152,6 +152,7 @@ static int generate_unit_file(SysvStub *s) {
+@@ -147,6 +147,7 @@ static int generate_unit_file(SysvStub *s) {
          _cleanup_free_ char *wants = NULL;
          _cleanup_free_ char *conflicts = NULL;
          int r;
@@ -45,7 +45,7 @@ index 84ccbf6..eb50179 100644
  
          before = strv_join(s->before, " ");
          if (!before)
-@@ -173,6 +174,14 @@ static int generate_unit_file(SysvStub *s) {
+@@ -168,6 +169,14 @@ static int generate_unit_file(SysvStub *s) {
          if (!unit)
                  return log_oom();
  
