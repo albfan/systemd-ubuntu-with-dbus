@@ -58,7 +58,7 @@ index 80c9736..9a48222 100644
  
          s->max_file_usec = DEFAULT_MAX_FILE_USEC;
 diff --git a/src/journal/journald-syslog.c b/src/journal/journald-syslog.c
-index cc44d45..e18bec3 100644
+index 47986ec..f1204ca 100644
 --- a/src/journal/journald-syslog.c
 +++ b/src/journal/journald-syslog.c
 @@ -37,14 +37,14 @@
