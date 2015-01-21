@@ -17,6 +17,8 @@ systemd (218-4) UNRELEASED; urgency=medium
   * debian/ifup@.service: Check if ifup succeeds by calling ifquery, to
     work around ifup not failing on invalid interfaces (see #773539)
   * debian/ifup@.service: Set proper service type (oneshot).
+  * sysv-generator: Handle .sh suffixes when translating Provides:.
+    (Closes: #775889)
 
   [ Christian Kastner ]
   * Use common-session-noninteractive in systemd-user's PAM config, instead of
