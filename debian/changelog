@@ -18,6 +18,15 @@ systemd (218-4) UNRELEASED; urgency=medium
     work around ifup not failing on invalid interfaces (see #773539)
   * debian/ifup@.service: Set proper service type (oneshot).
 
+  [ Christian Kastner ]
+  * Use common-session-noninteractive in systemd-user's PAM config, instead of
+    common-session. The latter can include PAM modules like libpam-mount which
+    expect to be called just once and/or interactively, which already happens
+    for login, ssh, or the display-manager. Add pam_systemd.so explicitly, as
+    it's not included in -noninteractive, but is always required (and
+    idempotent). There is no net change on systemd which don't use manually
+    installed PAM modules. (Closes: #739676)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Jan 2015 08:18:52 +0100
 
 systemd (218-3) experimental; urgency=medium
