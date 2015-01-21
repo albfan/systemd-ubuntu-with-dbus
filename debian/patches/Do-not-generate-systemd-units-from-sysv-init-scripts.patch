@@ -8,7 +8,7 @@ Subject: Do not generate systemd units from sysv init scripts if a native
  1 file changed, 27 insertions(+), 1 deletion(-)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 63f4812..619d08e 100644
+index 81d6aea..f33c8d8 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -723,6 +723,25 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
@@ -50,7 +50,7 @@ index 63f4812..619d08e 100644
                          service = new0(SysvStub, 1);
                          if (!service)
                                  return log_oom();
-@@ -846,7 +871,8 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
+@@ -850,7 +875,8 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
  
                                  service = hashmap_get(all_services, name);
                                  if (!service){
