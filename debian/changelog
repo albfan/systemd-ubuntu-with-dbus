@@ -1,3 +1,16 @@
+systemd (215-10) UNRELEASED; urgency=medium
+
+  [ Christian Kastner ]
+  * Use common-session-noninteractive in systemd-user's PAM config, instead of
+    common-session. The latter can include PAM modules like libpam-mount which
+    expect to be called just once and/or interactively, which already happens
+    for login, ssh, or the display-manager. Add pam_systemd.so explicitly, as
+    it's not included in -noninteractive, but is always required (and
+    idempotent). There is no net change on systemd which don't use manually
+    installed PAM modules. (Closes: #739676)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 21 Jan 2015 12:03:48 +0100
+
 systemd (215-9) unstable; urgency=medium
 
   [ Didier Roche ]
