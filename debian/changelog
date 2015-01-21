@@ -1,4 +1,4 @@
-systemd (215-10) UNRELEASED; urgency=medium
+systemd (215-10) unstable; urgency=medium
 
   [ Martin Pitt ]
   * sysv-generator: Handle .sh suffixes when translating Provides:.
@@ -18,7 +18,7 @@ systemd (215-10) UNRELEASED; urgency=medium
     idempotent). There is no net change on systemd which don't use manually
     installed PAM modules. (Closes: #739676)
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 21 Jan 2015 12:03:48 +0100
+ -- Martin Pitt <mpitt@debian.org>  Wed, 21 Jan 2015 13:18:05 +0100
 
 systemd (215-9) unstable; urgency=medium
 
