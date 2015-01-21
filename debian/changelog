@@ -37,6 +37,12 @@ systemd (218-4) UNRELEASED; urgency=medium
     idempotent). There is no net change on systemd which don't use manually
     installed PAM modules. (Closes: #739676)
 
+  [ Michael Biebl ]
+  * Make sure we run debian-fixup.service after /var has been mounted if /var
+    is on a separate partition. Otherwise we might end up creating the
+    /var/lock and /var/run symlink in the underlying root filesystem.
+    (Closes: #768644)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Jan 2015 08:18:52 +0100
 
 systemd (218-3) experimental; urgency=medium
