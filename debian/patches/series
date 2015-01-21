@@ -6,6 +6,7 @@ sysv-generator-handle-Provides-for-non-virtual-facil.patch
 sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
 sysv-generator-Handle-.sh-suffixes-when-translating-.patch
+util-Add-some-missing-hidden_file-suffixes.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -61,3 +62,4 @@ Don-t-enable-audit-by-default.patch
 Accept-mountall-specific-fstab-options.patch
 Fix-usr-remount-failure-for-split-usr.patch
 sysv-generator-Replace-Provides-symlinks-with-real-u.patch
+util-Add-hidden-suffixes-for-ucf.patch

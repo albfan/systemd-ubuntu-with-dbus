@@ -27,6 +27,9 @@ systemd (218-4) UNRELEASED; urgency=medium
   * Re-enable AppArmor support, now that libapparmor1 moved to /lib. Add
     versioned dependency as long as this is still only in experimental.
     (Closes: #775331)
+  * Add some missing dpkg and ucf temp files to the "hidden file" filter, to
+    e. g. avoid creating units for them through the sysv-generator.
+    (Closes: #775903)
 
   [ Christian Kastner ]
   * Use common-session-noninteractive in systemd-user's PAM config, instead of
