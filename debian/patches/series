@@ -59,3 +59,4 @@ Don-t-enable-audit-by-default.patch
 Accept-mountall-specific-fstab-options.patch
 Fix-usr-remount-failure-for-split-usr.patch
 sysv-generator-Handle-.sh-suffixes-when-translating-.patch
+sysv-generator-Replace-Provides-symlinks-with-real-u.patch
