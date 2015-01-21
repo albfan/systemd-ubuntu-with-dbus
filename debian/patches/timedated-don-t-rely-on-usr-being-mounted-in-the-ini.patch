@@ -18,7 +18,7 @@ Closes: #726256
  1 file changed, 93 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 84b5259..8b9afdf 100644
+index 7876807..b757be2 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -23,6 +23,9 @@

@@ -30,6 +30,9 @@ systemd (218-4) UNRELEASED; urgency=medium
   * Add some missing dpkg and ucf temp files to the "hidden file" filter, to
     e. g. avoid creating units for them through the sysv-generator.
     (Closes: #775903)
+  * Silence useless warning about /etc/localtime not being a symlink. This is
+    deliberate in Debian with /usr (possibly) being on a separate partition.
+    (LP: #1409594)
 
   [ Christian Kastner ]
   * Use common-session-noninteractive in systemd-user's PAM config, instead of
