@@ -178,3 +178,4 @@ core-Fix-bind-error-message.patch
 core-Make-binding-notify-private-dbus-socket-more-ro.patch
 Fix-usr-remount-failure-for-split-usr.patch
 sysv-generator-Handle-.sh-suffixes-when-translating-.patch
+sysv-generator-Replace-Provides-symlinks-with-real-u.patch
