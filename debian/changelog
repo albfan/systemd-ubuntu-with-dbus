@@ -1,5 +1,9 @@
 systemd (215-10) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
+  * sysv-generator: Handle .sh suffixes when translating Provides:.
+    (Closes: #775889)
+
   [ Christian Kastner ]
   * Use common-session-noninteractive in systemd-user's PAM config, instead of
     common-session. The latter can include PAM modules like libpam-mount which
