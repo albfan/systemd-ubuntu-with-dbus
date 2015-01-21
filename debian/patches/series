@@ -5,6 +5,7 @@ build-sys-Fix-install-location-of-systemd.pc.patch
 sysv-generator-handle-Provides-for-non-virtual-facil.patch
 sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
+sysv-generator-Handle-.sh-suffixes-when-translating-.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -59,5 +60,4 @@ Make-sd_login_monitor_new-work-for-logind-without-sy.patch
 Don-t-enable-audit-by-default.patch
 Accept-mountall-specific-fstab-options.patch
 Fix-usr-remount-failure-for-split-usr.patch
-sysv-generator-Handle-.sh-suffixes-when-translating-.patch
 sysv-generator-Replace-Provides-symlinks-with-real-u.patch
