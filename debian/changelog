@@ -31,6 +31,7 @@ systemd (219-4ubuntu1) UNRELEASED; urgency=medium
       user LXC containers work under systemd. (LP: #1346734)
     - Lower Breaks: to plymouth version which has the udev inotify fix in
       Ubuntu.
+    - Lower libappamor1 dep to the Ubuntu version where it moved to /lib.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Feb 2015 07:11:12 +0100
 
