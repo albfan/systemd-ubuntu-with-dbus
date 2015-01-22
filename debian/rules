@@ -21,7 +21,6 @@ CONFFLAGS = \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
 	--disable-coredump \
-	--disable-efi \
 	--disable-myhostname \
 	--disable-vconsole \
 	--disable-microhttpd \

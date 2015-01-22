@@ -25,6 +25,9 @@ systemd (218-5) UNRELEASED; urgency=medium
     containers.
   * Fix assertion failure due to /dev/urandom being unmounted when shutting
     down unprivileged containers. Thanks Stéphane Graber.
+  * Enable EFI support. This mostly auto-mounts /sys/firmware/efi/efivars, but
+    also provides a generator for auto-detecting the root and the /boot/efi
+    partition if they aren't in /etc/fstab. (Closes: #773533)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
