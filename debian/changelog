@@ -14,6 +14,9 @@ systemd (218-5) UNRELEASED; urgency=medium
       for partitions with PARTNAME. By Ricardo Salveti.
     - Add 71-power-switch-proliant.rules for supporting the power switches of
       ProLiant Server Cartridges. By Dann Frazier.
+    - Add 78-graphics-card.rules: Mark KMS capable graphics devices as
+      PRIMARY_DEVICE_FOR_DISPLAY so that we can wait for those in plymouth.
+      By Scott James Remnant.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
