@@ -2,6 +2,8 @@ systemd (218-5) UNRELEASED; urgency=medium
 
   * Drop logger.agent. It hasn't been called from any udev rule for a long
     time, and looks obsolete.
+  * debian/rules: Configure with --disable-firstboot to replace some manual
+    file removals.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 

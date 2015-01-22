@@ -26,6 +26,7 @@ CONFFLAGS = \
 	--disable-vconsole \
 	--disable-microhttpd \
 	--disable-sysusers \
+	--disable-firstboot \
 	--disable-silent-rules \
 	--with-ntp-servers="0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org"  \
 	--with-system-uid-max=999 \
@@ -121,6 +122,8 @@ override_dh_install:
 	rm -rf debian/install/*/etc/kernel/
 	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
 	find debian/install/ -name '*.la' -delete
+	# --disable-firstboot does not catch this
+	rm -f debian/install/*/usr/share/man/man*/*firstboot*
 	# remove files related to factory-reset feature
 	find debian/install/ \( -name 'systemd-update-done*' -o \
 		-name systemd-journal-catalog-update.service -o \
@@ -128,12 +131,6 @@ override_dh_install:
 		-name ldconfig.service -o \
 		-name etc.conf \) -delete
 	rm -rf debian/install/*/usr/share/factory/
-	# don't ship systemd-firstboot for now; we rather want debconf, and
-	# this needs to be adjusted to Debian config files
-	rm -f debian/install/*/usr/share/man/man*/*firstboot*
-	rm -f debian/install/*/lib/systemd/system/*firstboot*
-	rm -f debian/install/*/lib/systemd/system/*.wants/*firstboot*
-	rm -f debian/install/*/bin/*firstboot*
 	# remove .so for deprecated compatibility libraries
 	rm -f debian/install/*/usr/lib/*/libsystemd-daemon.so
 	rm -f debian/install/*/usr/lib/*/libsystemd-login.so
