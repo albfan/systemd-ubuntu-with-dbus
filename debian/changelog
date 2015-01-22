@@ -7,6 +7,9 @@ systemd (218-5) UNRELEASED; urgency=medium
   * debian/rules: Remove manual file installation, move them to
     debian/*.install. Move all Debian specific installed files to
     debian/extra/.
+  * Merge some changes from the Ubuntu package to reduce the delta; these only
+    apply when building on/for Ubuntu:
+    - Add 40-hyperv-hotadd.rules: Workaround for LP: #1233466.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
