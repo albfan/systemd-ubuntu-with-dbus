@@ -8,6 +8,7 @@ journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
 sysv-generator-Handle-.sh-suffixes-when-translating-.patch
 sysv-generator-Replace-Provides-symlinks-with-real-u.patch
 util-Add-some-missing-hidden_file-suffixes.patch
+core-make-EPERM-errors-when-applying-OOM-adjustment-.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

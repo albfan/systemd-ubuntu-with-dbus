@@ -1,0 +1,35 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 8 Jan 2015 23:12:16 +0100
+Subject: core: make EPERM errors when applying OOM adjustment for forked
+ processes non-fatal
+
+This should be useful for user namespaces.
+---
+ src/core/execute.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/src/core/execute.c b/src/core/execute.c
+index 5e4135e..22b7862 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -1359,12 +1359,16 @@ static int exec_child(ExecCommand *command,
+         }
+ 
+         if (context->oom_score_adjust_set) {
+-                char t[16];
++                char t[DECIMAL_STR_MAX(context->oom_score_adjust)];
+ 
+-                snprintf(t, sizeof(t), "%i", context->oom_score_adjust);
+-                char_array_0(t);
++                /* When we can't make this change due to EPERM, then
++                 * let's silently skip over it. User namespaces
++                 * prohibit write access to this file, and we
++                 * shouldn't trip up over that. */
+ 
+-                if (write_string_file("/proc/self/oom_score_adj", t) < 0) {
++                sprintf(t, "%i", context->oom_score_adjust);
++                err = write_string_file("/proc/self/oom_score_adj", t);
++                if (err < 0 && err != -EPERM && err != -EACCES) {
+                         *error = EXIT_OOM_ADJUST;
+                         return -errno;
+                 }

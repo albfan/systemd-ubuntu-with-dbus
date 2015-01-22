@@ -20,6 +20,9 @@ systemd (218-5) UNRELEASED; urgency=medium
     - Don't install the Debian *.agent scripts. Instead, have Ubuntu's
       80-networking.rules directly pull in ifup@.service, which is much easier
       and more efficient.
+  * Make EPERM/EACCESS when applying OOM adjustment for forked processes
+    non-fatal. This happens in user namespaces like unprivileged LXC
+    containers.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
