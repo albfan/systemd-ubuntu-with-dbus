@@ -17,6 +17,9 @@ systemd (218-5) UNRELEASED; urgency=medium
     - Add 78-graphics-card.rules: Mark KMS capable graphics devices as
       PRIMARY_DEVICE_FOR_DISPLAY so that we can wait for those in plymouth.
       By Scott James Remnant.
+    - Don't install the Debian *.agent scripts. Instead, have Ubuntu's
+      80-networking.rules directly pull in ifup@.service, which is much easier
+      and more efficient.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
