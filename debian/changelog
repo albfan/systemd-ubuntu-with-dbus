@@ -1,4 +1,4 @@
-systemd (218-5ubuntu1) UNRELEASED; urgency=medium
+systemd (218-5ubuntu1) vivid; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Hack to support system-image read-only /etc, and modify files in
@@ -35,7 +35,7 @@ systemd (218-5ubuntu1) UNRELEASED; urgency=medium
     - Remove obsolete systemd-logind upstart job.
     - Clean up obsolete /etc/udev/rules.d/README.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 22 Jan 2015 17:30:58 +0100
 
 systemd (218-5) experimental; urgency=medium
 
