@@ -1,4 +1,4 @@
-systemd (218-5) UNRELEASED; urgency=medium
+systemd (218-5) experimental; urgency=medium
 
   * Drop logger.agent. It hasn't been called from any udev rule for a long
     time, and looks obsolete.
@@ -29,7 +29,7 @@ systemd (218-5) UNRELEASED; urgency=medium
     also provides a generator for auto-detecting the root and the /boot/efi
     partition if they aren't in /etc/fstab. (Closes: #773533)
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 16:13:46 +0100
 
 systemd (218-4) experimental; urgency=medium
 
