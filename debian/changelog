@@ -10,6 +10,8 @@ systemd (218-5) UNRELEASED; urgency=medium
   * Merge some changes from the Ubuntu package to reduce the delta; these only
     apply when building on/for Ubuntu:
     - Add 40-hyperv-hotadd.rules: Workaround for LP: #1233466.
+    - Add 61-persistant-storage-android.rules to create persistent symlinks
+      for partitions with PARTNAME. By Ricardo Salveti.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 22 Jan 2015 08:00:27 +0100
 
