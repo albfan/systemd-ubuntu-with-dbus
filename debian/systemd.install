@@ -47,3 +47,9 @@ usr/lib/sysctl.d/
 usr/lib/systemd/
 usr/lib/tmpfiles.d/
 usr/share/locale/
+../../extra/init-functions.d lib/lsb/
+../../extra/tmpfiles.d/*.conf usr/lib/tmpfiles.d/
+../../extra/systemd-logind-launch lib/systemd/
+../../extra/debian-fixup lib/systemd/
+../../extra/debian-fixup.service lib/systemd/system/
+../../extra/ifup@.service lib/systemd/system/

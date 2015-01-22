@@ -2,3 +2,4 @@
 /lib/systemd/system/systemd-udevd.service /lib/systemd/system/udev.service
 /usr/share/man/man8/systemd-udevd.8 /usr/share/man/man8/udevd.8
 /bin/udevadm /sbin/udevadm
+/lib/systemd/system/udev-finish.service /lib/systemd/system/sysinit.target.wants/udev-finish.service

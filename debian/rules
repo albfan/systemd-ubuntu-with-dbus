@@ -143,62 +143,9 @@ override_dh_install:
 	rm -f debian/install/*/usr/lib/*/libnss_mymachines*
 	# still needs to mature a bit, and packaging
 	rm -f debian/install/*/usr/lib/*/libnss_resolve*
+
 	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
-	# install some files manually, --sourcedir makes that necessary
-	# udev-udeb
-	install -D --mode=755 debian/extra/udev.startup \
-		debian/udev-udeb/lib/debian-installer/start-udev
-	install -D --mode=755 debian/extra/udev.base-installer \
-		debian/udev-udeb/usr/lib/base-installer.d/05udev
-	mkdir -p debian/udev-udeb/lib/udev/rules.d/
-	install -D --mode=644 \
-		debian/extra/rules/50-firmware.rules \
-		debian/extra/rules/73-idrac.rules \
-		debian/extra/rules/75-persistent-net-generator.rules \
-		debian/udev-udeb/lib/udev/rules.d/
-	mkdir -p debian/udev-udeb/lib/udev
-	install -D --mode=644 \
-		debian/extra/hotplug.functions \
-		debian/extra/rule_generator.functions \
-		debian/udev-udeb/lib/udev/
-	install -D --mode=755 \
-		debian/extra/write_net_rules \
-		debian/udev-udeb/lib/udev/
-	# udev: initramfs-tools support
-	install -D --mode=755 debian/extra/initramfs.hook \
-		debian/udev/usr/share/initramfs-tools/hooks/udev
-	install -D --mode=755 debian/extra/initramfs.top \
-		debian/udev/usr/share/initramfs-tools/scripts/init-top/udev
-	install -D --mode=755 debian/extra/initramfs.bottom \
-		debian/udev/usr/share/initramfs-tools/scripts/init-bottom/udev
-	# udev: debian specific rules and helpers
-	install -D --mode=644 debian/extra/rules/* \
-		debian/udev/lib/udev/rules.d/
-	install -D --mode=644 debian/extra/fbdev-blacklist.conf \
-		debian/udev/etc/modprobe.d/fbdev-blacklist.conf
-	install -D --mode=644 \
-		debian/extra/hotplug.functions \
-		debian/extra/rule_generator.functions \
-		debian/udev/lib/udev/
-	install -D --mode=755 \
-		debian/extra/dsl-modem.agent \
-		debian/extra/net.agent \
-		debian/extra/udev-finish \
-		debian/extra/write_net_rules \
-		debian/udev/lib/udev/
-	# systemd
-	cp -a debian/pam-configs debian/libpam-systemd/usr/share/
-	install -D --mode=644 debian/init-functions.d/40-systemd \
-		debian/systemd/lib/lsb/init-functions.d/40-systemd
-	install --mode=644 debian/tmpfiles.d/debian.conf \
-		debian/systemd/usr/lib/tmpfiles.d/
-	install --mode=644 debian/debian-fixup.service debian/ifup@.service \
-		debian/systemd/lib/systemd/system/
-	install --mode=644 debian/extra/udev-finish.service \
-		debian/udev/lib/systemd/system/
-	ln -s ../udev-finish.service debian/udev/lib/systemd/system/sysinit.target.wants/
-	install --mode=755 debian/debian-fixup \
-		debian/systemd/lib/systemd/
+
 	# Make sure the runlevel services are known by systemd so their targets
 	# get launches. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
 	for t in poweroff rescue multi-user graphical reboot; do \
@@ -208,8 +155,7 @@ override_dh_install:
 	done
 	# man files for example code in /usr/share/doc
 	mkdir -p debian/systemd/usr/share/man/man3/
-	install --mode=755 debian/systemd-logind-launch \
-		debian/systemd/lib/systemd/
+
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1
@@ -239,6 +185,7 @@ endif
 	rm debian/udev/lib/udev/rules.d/73-seat-late.rules
 	rm debian/udev/lib/udev/rules.d/71-seat.rules
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
+
 	# Ubuntu specific files
 	if dpkg-vendor --is ubuntu; then \
 		install -D --mode=644 debian/extra/udev.py debian/udev/usr/share/apport/package-hooks/udev.py; \
