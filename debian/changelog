@@ -1,8 +1,8 @@
-systemd (218-5ubuntu2) UNRELEASED; urgency=medium
+systemd (218-5ubuntu2) vivid; urgency=medium
 
   * initramfs hook: Install 61-persistant-storage-android.rules if it exists.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 23 Jan 2015 12:32:55 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 23 Jan 2015 12:41:02 +0100
 
 systemd (218-5ubuntu1) vivid; urgency=medium
 
