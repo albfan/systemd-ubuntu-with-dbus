@@ -35,6 +35,10 @@ systemd (218-6ubuntu1) UNRELEASED; urgency=medium
     - Remove obsolete systemd-logind upstart job.
     - Clean up obsolete /etc/udev/rules.d/README.
 
+  * Make the "systemd" controller session scope cgroup directory owned by the
+    user as well. This fixes user containers with latest LXC, and with systemd
+    in the container. (LP: #1413927)
+
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
 systemd (218-6) experimental; urgency=medium

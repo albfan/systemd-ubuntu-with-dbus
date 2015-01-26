@@ -136,7 +136,7 @@ index 1bcba01..74ddc97 100644
 +         * in all others */
 +
 +        /* First create the cgroup in our own hierarchy. */
-+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
++        r = cg_create_uid(SYSTEMD_CGROUP_CONTROLLER, path, uid);
 +        if (r < 0)
 +                return r;
 +
