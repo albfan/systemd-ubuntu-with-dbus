@@ -18,6 +18,11 @@ systemd (219-4ubuntu1) UNRELEASED; urgency=medium
       deal with "auto" devices appearing after "/etc/init.d/networking start"
       already ran. (LP: #1374521) Also, check if devices are actually defined
       in /etc/network/interfaces as we don't use Debian's net.agent.
+    - ifup@.service: Drop dependency on networking.service (i. e.
+      /etc/init.d/networking), and merely ensure that /run/network exists.
+      This avoids unnecessary dependencies/waiting during boot and dependency
+      cycles if hooks wait for other interfaces to come up (like ifenslave
+      with bonding interfaces). (LP: #1414544)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Feb 2015 07:11:12 +0100
 
