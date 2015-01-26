@@ -8,6 +8,8 @@ systemd (218-6) UNRELEASED; urgency=medium
     if hooks wait for other interfaces to come up (like ifenslave with bonding
     interfaces). (LP: #1414544)
   * Pull latest keymaps from upstream git.
+  * Order ifup@.service and networking.service after network-pre.target.
+    (Closes: #766938)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 23 Jan 2015 12:31:50 +0100
 

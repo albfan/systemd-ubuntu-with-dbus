@@ -54,3 +54,4 @@ usr/share/locale/
 ../../extra/debian-fixup lib/systemd/
 ../../extra/debian-fixup.service lib/systemd/system/
 ../../extra/ifup@.service lib/systemd/system/
+../../extra/network-pre.conf lib/systemd/system/networking.service.d/
