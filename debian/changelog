@@ -19,6 +19,11 @@ systemd (222-1ubuntu1) UNRELEASED; urgency=medium
       deal with "auto" devices appearing after "/etc/init.d/networking start"
       already ran. (LP: #1374521) Also run ifup in the background during boot,
       to avoid blocking network.target. (LP: #1425376)
+    - ifup@.service: Drop dependency on networking.service (i. e.
+      /etc/init.d/networking), and merely ensure that /run/network exists.
+      This avoids unnecessary dependencies/waiting during boot and dependency
+      cycles if hooks wait for other interfaces to come up (like ifenslave
+      with bonding interfaces). (LP: #1414544)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 28 Jun 2015 12:30:17 +0200
 
