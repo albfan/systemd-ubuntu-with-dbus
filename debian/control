@@ -168,21 +168,6 @@ Description: systemd utility library - development files
  .
  This package contains the development files.
 
-Package: libsystemd-login0
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
-Description: systemd login utility library (deprecated)
- The libsystemd-login library provides an interface for the
- systemd-logind service which is used to track user sessions and seats.
- .
- Transitional compatibility library, functionality has been integrated into
- libsystemd0.
-
 Package: libsystemd-login-dev
 Architecture: linux-any
 Multi-Arch: same
@@ -197,21 +182,6 @@ Description: systemd login utility library (transitional package)
  This is a compatibility package which provides a .pc file for the old library
  name. That way, packages can be rebuilt against the new libsystemd library
  without requiring changes to existing configure scripts.
-
-Package: libsystemd-daemon0
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
-Description: systemd utility library (deprecated)
- The sd-daemon library provides a reference implementation of various
- APIs for new-style daemons, as implemented by the systemd init system.
- .
- Transitional compatibility library, functionality has been integrated into
- libsystemd0.
 
 Package: libsystemd-daemon-dev
 Architecture: linux-any
@@ -228,21 +198,6 @@ Description: systemd utility library (transitional package)
  name. That way, packages can be rebuilt against the new libsystemd library
  without requiring changes to existing configure scripts.
 
-Package: libsystemd-journal0
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
-Description: systemd journal utility library (deprecated)
- The libsystemd-journal library provides an interface for the
- systemd journal service.
- .
- Transitional compatibility library, functionality has been integrated into
- libsystemd0.
-
 Package: libsystemd-journal-dev
 Architecture: linux-any
 Multi-Arch: same
@@ -257,21 +212,6 @@ Description: systemd journal utility library (transitional package)
  This is a compatibility package which provides a .pc file for the old library
  name. That way, packages can be rebuilt against the new libsystemd library
  without requiring changes to existing configure scripts.
-
-Package: libsystemd-id128-0
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
-Description: systemd 128 bit ID utility library (deprecated)
- The libsystemd-id128 library provides utility functions for generating
- 128 bit IDs.
- .
- Transitional compatibility library, functionality has been integrated into
- libsystemd0.
 
 Package: libsystemd-id128-dev
 Architecture: linux-any

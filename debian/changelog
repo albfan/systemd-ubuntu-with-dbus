@@ -15,6 +15,8 @@ systemd (218-6) UNRELEASED; urgency=medium
   * Drop rc-local generator in favor of statically enabling rc-local.service,
     and drop halt-local.service which is unnecessary on Debian.
     (Closes: #776170)
+  * Drop the obsolete libsystemd-* libraries, there are no reverse
+    dependencies left.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 23 Jan 2015 12:31:50 +0100
 
