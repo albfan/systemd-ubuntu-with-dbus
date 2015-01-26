@@ -7,6 +7,7 @@ systemd (218-6) UNRELEASED; urgency=medium
     avoids unnecessary dependencies/waiting during boot, and dependency cycles
     if hooks wait for other interfaces to come up (like ifenslave with bonding
     interfaces). (LP: #1414544)
+  * Pull latest keymaps from upstream git.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 23 Jan 2015 12:31:50 +0100
 
