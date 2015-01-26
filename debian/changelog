@@ -22,6 +22,11 @@ systemd (219-7ubuntu1) UNRELEASED; urgency=medium
       in /etc/network/interfaces as we don't use Debian's net.agent.
       Also run ifup in the background during boot, to avoid blocking
       network.target. (LP: #1425376)
+    - ifup@.service: Drop dependency on networking.service (i. e.
+      /etc/init.d/networking), and merely ensure that /run/network exists.
+      This avoids unnecessary dependencies/waiting during boot and dependency
+      cycles if hooks wait for other interfaces to come up (like ifenslave
+      with bonding interfaces). (LP: #1414544)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Mar 2015 14:23:13 +0100
 
