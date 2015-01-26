@@ -5,12 +5,16 @@ Subject: Make net.ifnames opt-in instead of opt-out
 With this commit, you need to actively specify net.ifnames=1 to get
 predictable network interface names:
 http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/
+
+Also downgrade the "Network interface NamePolicy= disabled on kernel
+commandline, ignoring" message to debug, as we expect this to happen right now
+and it is confusing.
 ---
- src/udev/net/link-config.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ src/udev/net/link-config.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
-index 3cc0471..2778b74 100644
+index 3cc0471..ff65f43 100644
 --- a/src/udev/net/link-config.c
 +++ b/src/udev/net/link-config.c
 @@ -200,13 +200,13 @@ static bool enable_name_policy(void) {
@@ -31,3 +35,12 @@ index 3cc0471..2778b74 100644
  }
  
  int link_config_load(link_config_ctx *ctx) {
+@@ -218,7 +218,7 @@ int link_config_load(link_config_ctx *ctx) {
+ 
+         if (!enable_name_policy()) {
+                 ctx->enable_name_policy = false;
+-                log_info("Network interface NamePolicy= disabled on kernel commandline, ignoring.");
++                log_debug("Network interface NamePolicy= disabled on kernel commandline, ignoring.");
+         }
+ 
+         /* update timestamp */
