@@ -84,6 +84,8 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	dh_auto_build --builddirectory=build-deb
 	dh_auto_build --builddirectory=build-udeb
+	# generate POT file for translators
+	cd build-deb/po; srcdir=../../po intltool-update --pot --verbose
 
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build-deb \

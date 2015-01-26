@@ -1,6 +1,7 @@
 systemd (218-6) UNRELEASED; urgency=medium
 
   * initramfs hook: Install 61-persistant-storage-android.rules if it exists.
+  * Generate POT file during package build, for translators.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 23 Jan 2015 12:31:50 +0100
 
