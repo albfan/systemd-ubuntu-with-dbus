@@ -6,23 +6,10 @@ Add various options for making it easy unescape, or mangle, or format as
 template instance or append a suffix.
 
 (cherry picked from commit a1948c7bfeb87b54bc7715a44490c01593ee6e23)
-
-Conflicts:
-	.gitignore
 ---
- src/escape/Makefile |   1 +
  src/escape/escape.c | 215 +++++++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 205 insertions(+), 11 deletions(-)
- create mode 120000 src/escape/Makefile
+ 1 file changed, 204 insertions(+), 11 deletions(-)
 
-diff --git a/src/escape/Makefile b/src/escape/Makefile
-new file mode 120000
-index 0000000..d0b0e8e
---- /dev/null
-+++ b/src/escape/Makefile
-@@ -0,0 +1 @@
-+../Makefile
-\ No newline at end of file
 diff --git a/src/escape/escape.c b/src/escape/escape.c
 index 0a59a05..ae0c183 100644
 --- a/src/escape/escape.c
