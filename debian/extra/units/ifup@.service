@@ -1,9 +1,8 @@
 [Unit]
 Description=ifup for %I
-After=local-fs.target network-pre.target networking.service apparmor.service
+After=local-fs.target network-pre.target apparmor.service systemd-tmpfiles-setup.service
 Before=network.target
 BindsTo=sys-subsystem-net-devices-%i.device
-ConditionPathIsDirectory=/run/network
 DefaultDependencies=no
 IgnoreOnIsolate=yes
 
