@@ -1,5 +1,6 @@
 systemd (218-6) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * initramfs hook: Install 61-persistant-storage-android.rules if it exists.
   * Generate POT file during package build, for translators.
   * Pull latest keymaps from upstream git.
@@ -8,6 +9,9 @@ systemd (218-6) UNRELEASED; urgency=medium
   * Tone down "Network interface NamePolicy= disabled on kernel commandline,
     ignoring" info message to debug, as we expect this while we disable
     net.ifnames by default. (Closes: #762101, LP: #1411992)
+
+  [ Michael Biebl ]
+  * Ship bash-completion for udevadm. (Closes: #776166)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 23 Jan 2015 12:31:50 +0100
 
