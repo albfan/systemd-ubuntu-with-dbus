@@ -17,6 +17,8 @@ systemd (215-14) UNRELEASED; urgency=medium
     name when the cgroup becomes empty. (Closes: #781210)
   * boot-and-services, display-managers autopkgtests: Add missing python3 test
     dependency.
+  * Don't attempt to mount the same swap partition twice through different
+    device node aliases. (Closes: #772182, LP: #1399595)
 
   [ Christian Seiler ]
   * Make the journald to syslog forwarding more robust by increasing the
