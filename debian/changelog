@@ -1,3 +1,12 @@
+systemd (215-14) UNRELEASED; urgency=medium
+
+  * Map $x-display-manager LSB facility to display-manager.service instead of
+    making it a target. Using a target had the downside that multiple display
+    managers could hook into it at the same time which could lead to several
+    failed start attempts for the non-default display manager.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 28 Mar 2015 09:27:07 +0100
+
 systemd (215-13) unstable; urgency=medium
 
   [ Martin Pitt ]
