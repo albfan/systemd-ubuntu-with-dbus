@@ -12,6 +12,10 @@ systemd (218-7) UNRELEASED; urgency=medium
 
   [ Michael Biebl ]
   * Update Vcs-Browser URL to use cgit and https.
+  * Map $x-display-manager LSB facility to display-manager.service instead of
+    making it a target. Using a target had the downside that multiple display
+    managers could hook into it at the same time which could lead to several
+    failed start attempts for the non-default display manager.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 28 Jan 2015 08:24:04 +0100
 
