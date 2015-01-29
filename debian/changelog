@@ -1,5 +1,6 @@
 systemd (218-7) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Don't attempt to mount the same swap partition twice through different
     device node aliases. (Closes: #772182, LP: #1399595)
   * logind: handle closing sessions over daemon restarts. (Closes: #759515,
@@ -8,6 +9,9 @@ systemd (218-7) UNRELEASED; urgency=medium
     after log out actually work.
   * debian/rules: Drop obsolete --disable-multi-seat-x and
     --with-firmware-path configure options.
+
+  [ Michael Biebl ]
+  * Update Vcs-Browser URL to use cgit and https.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 28 Jan 2015 08:24:04 +0100
 
