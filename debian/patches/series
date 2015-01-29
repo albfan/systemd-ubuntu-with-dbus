@@ -126,6 +126,7 @@ Raise-level-of-Found-dependency.-lines.patch
 systemd-tmpfiles-Fix-IGNORE_DIRECTORY_PATH-age-handl.patch
 sysv-generator-handle-Provides-for-non-virtual-facil.patch
 journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
+logind-handle-closing-sessions-over-daemon-restarts.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

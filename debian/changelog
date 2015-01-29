@@ -7,6 +7,8 @@ systemd (215-11) UNRELEASED; urgency=medium
   * Tone down "Network interface NamePolicy= disabled on kernel commandline,
     ignoring" info message to debug, as we expect this while we disable
     net.ifnames by default. (Closes: #762101, LP: #1411992)
+  * logind: handle closing sessions over daemon restarts. (Closes: #759515,
+    LP: #1415104)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 26 Jan 2015 08:20:18 +0100
 
