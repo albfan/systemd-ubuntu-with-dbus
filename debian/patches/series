@@ -11,6 +11,7 @@ util-Add-some-missing-hidden_file-suffixes.patch
 core-make-EPERM-errors-when-applying-OOM-adjustment-.patch
 list-add-macro-for-iterating-through-a-list-an-item-.patch
 core-if-two-start-jobs-for-the-same-swap-device-node.patch
+logind-handle-closing-sessions-over-daemon-restarts.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
