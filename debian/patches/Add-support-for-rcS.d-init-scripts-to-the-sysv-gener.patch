@@ -7,7 +7,7 @@ Subject: Add support for rcS.d init scripts to the sysv-generator
  1 file changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 6dc8835..6cc2cd5 100644
+index c01d15e..b2a15cf 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -41,6 +41,7 @@
@@ -66,7 +66,7 @@ index 6dc8835..6cc2cd5 100644
                  yes_no(!s->pid_file));
  
          if (s->pid_file)
-@@ -710,6 +721,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
+@@ -713,6 +724,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
                  if (s->has_lsb && other->has_lsb)
                          continue;
  
@@ -78,7 +78,7 @@ index 6dc8835..6cc2cd5 100644
                  if (other->sysv_start_priority < s->sysv_start_priority) {
                          r = strv_extend(&s->after, other->name);
                          if (r < 0)
-@@ -861,8 +877,12 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
+@@ -864,8 +880,12 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                  }
  
                                  if (de->d_name[0] == 'S')  {
