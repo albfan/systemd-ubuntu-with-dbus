@@ -117,6 +117,8 @@ fstab-generator-properly-deal-with-discard-as-non-la.patch
 core-swap-follow-the-configured-unit-by-default.patch
 core-swap-advertise-Discard-over-dbus.patch
 core-swap-only-make-configured-units-part-of-swap.ta.patch
+core-Fix-bind-error-message.patch
+core-Make-binding-notify-private-dbus-socket-more-ro.patch
 swap-replace-Discard-setting-by-a-more-generic-Optio.patch
 shared-add-readlink_value.patch
 util-allow-strappenda-to-take-any-number-of-args.patch
@@ -125,6 +127,9 @@ journalctl-correct-help-text-for-until.patch
 Raise-level-of-Found-dependency.-lines.patch
 systemd-tmpfiles-Fix-IGNORE_DIRECTORY_PATH-age-handl.patch
 sysv-generator-handle-Provides-for-non-virtual-facil.patch
+sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
+sysv-generator-Handle-.sh-suffixes-when-translating-.patch
+sysv-generator-Replace-Provides-symlinks-with-real-u.patch
 journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
 logind-handle-closing-sessions-over-daemon-restarts.patch
 logind-fix-sd_eviocrevoke-ioctl-call.patch
@@ -175,10 +180,5 @@ sd-bus-Accept-no-sender-as-the-destination-field.patch
 login-don-t-overmount-run-user-UID-on-upgrades.patch
 udev-re-enable-mount-propagation-for-udevd.patch
 Add-env-variable-for-machine-ID-path.patch
-sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
-core-Fix-bind-error-message.patch
-core-Make-binding-notify-private-dbus-socket-more-ro.patch
 Fix-usr-remount-failure-for-split-usr.patch
-sysv-generator-Handle-.sh-suffixes-when-translating-.patch
-sysv-generator-Replace-Provides-symlinks-with-real-u.patch

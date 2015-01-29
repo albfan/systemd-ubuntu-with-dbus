@@ -11,6 +11,8 @@ systemd (215-11) UNRELEASED; urgency=medium
     LP: #1415104)
   * logind: Fix sd_eviocrevoke ioctl call, to make forced input device release
     after log out actually work.
+  * debian/patches/series: Move upstreamed patches into the appropriate
+    section.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 26 Jan 2015 08:20:18 +0100
 
