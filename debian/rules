@@ -16,7 +16,6 @@ CONFFLAGS = \
 	--with-zshcompletiondir=/usr/share/zsh/vendor-completions \
 	--with-sysvinit-path=/etc/init.d \
 	--with-sysvrcnd-path=/etc \
-	--with-firmware-path=/lib/firmware \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
@@ -71,7 +70,6 @@ CONFFLAGS_udeb = \
 	--disable-gcrypt \
 	--disable-gudev \
 	--disable-rfkill \
-	--disable-multi-seat-x \
 	--disable-manpages \
 	--without-python
 
