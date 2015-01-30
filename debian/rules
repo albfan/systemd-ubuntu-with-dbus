@@ -239,6 +239,8 @@ endif
 # use symlinked doc directories as the old udev package did
 override_dh_installdocs:
 	dh_installdocs -pudev -plibudev-dev --link-doc=libudev1
+	# we have to manually install udev's README for the above
+	install -D --mode 644 debian/udev.README.Debian debian/libudev1/usr/share/doc/libudev1/README.Debian
 	dh_installdocs -pgir1.2-gudev-1.0 -plibgudev-1.0-dev --link-doc=libgudev-1.0-0
 	dh_installdocs --remaining-packages
 

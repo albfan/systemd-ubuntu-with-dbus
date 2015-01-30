@@ -3,6 +3,8 @@ systemd (215-12) UNRELEASED; urgency=medium
   * debian/udev.README.Debian: Trim the parts which are obsolete, wrong, or
     described in manpages. Only keep the Debian specific bits.
     (Part of #776546)
+  * Actually install udev's README.Debian when building for Debian.
+    (Closes: #776546)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 30 Jan 2015 15:56:22 +0100
 
