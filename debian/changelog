@@ -1,4 +1,4 @@
-systemd (218-7) UNRELEASED; urgency=medium
+systemd (218-7) experimental; urgency=medium
 
   [ Martin Pitt ]
   * Don't attempt to mount the same swap partition twice through different
@@ -25,7 +25,7 @@ systemd (218-7) UNRELEASED; urgency=medium
     managers could hook into it at the same time which could lead to several
     failed start attempts for the non-default display manager.
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 28 Jan 2015 08:24:04 +0100
+ -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 20:48:49 +0100
 
 systemd (218-6) experimental; urgency=medium
 
