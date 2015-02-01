@@ -5,6 +5,8 @@ systemd (218-8) UNRELEASED; urgency=medium
     with cruft in /etc/modules).
   * Revert "input" system group creation in systemd.postinst from 218-7. It's
     already done in udev.postinst.
+  * ifup@.service: Revert checking for existance of ifupdown config for that
+    interface, net.agent already does that.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
