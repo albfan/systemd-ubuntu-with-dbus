@@ -11,7 +11,7 @@ systemd (215-12) UNRELEASED; urgency=medium
 systemd (215-11) unstable; urgency=medium
 
   [ Martin Pitt ]
-  * escape-beef-up-new-systemd-escape-tool.patch: Avoid creating a danling
+  * escape-beef-up-new-systemd-escape-tool.patch: Avoid creating a dangling
     symlink, to work around regression in recent patch (see #776257).
   * Order ifup@.service and networking.service after network-pre.target.
     (Closes: #766938)
