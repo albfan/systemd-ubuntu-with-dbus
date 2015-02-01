@@ -20,6 +20,17 @@ class ServicesTest(unittest.TestCase):
 
         self.assertIn('systemd', os.readlink('/proc/1/exe'))
 
+    def test_no_failed(self):
+        '''No failed units'''
+
+        out = subprocess.check_output(['systemctl', '--failed', '--no-legend'],
+                                      universal_newlines=True)
+        failed = out.splitlines()
+        # FIXME: ignore /etc/modules failure as stuff that we put there by
+        # default often fails
+        failed = [f for f in failed if 'systemd-modules-load' not in f]
+        self.assertEqual(failed, [])
+
     def test_lightdm(self):
         out = subprocess.check_output(['ps', 'u', '-C', 'lightdm'])
         self.assertIn(b'lightdm --session', out)

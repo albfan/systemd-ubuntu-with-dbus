@@ -1,3 +1,11 @@
+systemd (218-8) UNRELEASED; urgency=medium
+
+  * boot-and-services autopkgtest: Ensure that there are no failed units,
+    except possibly systemd-modules-load.service (as that notoriously fails
+    with cruft in /etc/modules).
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
+
 systemd (218-7) experimental; urgency=medium
 
   [ Martin Pitt ]
