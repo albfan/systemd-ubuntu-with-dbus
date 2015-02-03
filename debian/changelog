@@ -7,10 +7,6 @@ systemd (218-8) UNRELEASED; urgency=medium
     already done in udev.postinst.
   * ifup@.service: Revert checking for existance of ifupdown config for that
     interface, net.agent already does that.
-  * ifup@.service: Drop Before=network.target ordering. network.target is an
-    early-boot target which runs before bringing up any interface, and this
-    unit can happen at any time on a hotplug event. This avoids dependency
-    loops during boot.
   * Drop Also-redirect-to-update-rc.d-when-not-using-.service.patch; not
     necessary any more with the current version (mangle_names() already takes
     care of this).
