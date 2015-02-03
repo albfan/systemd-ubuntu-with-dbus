@@ -44,7 +44,7 @@ index 762dae2..d10f631 100644
  [D-BUS Service]
  Name=org.freedesktop.login1
 -Exec=/bin/false
-+Exec=/lib/systemd/systemd-logind
++Exec=/bin/sh -c 'mkdir -p /run/systemd; exec /lib/systemd/systemd-logind'
  User=root
  SystemdService=dbus-org.freedesktop.login1.service
 diff --git a/src/timedate/org.freedesktop.timedate1.service b/src/timedate/org.freedesktop.timedate1.service

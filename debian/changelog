@@ -15,6 +15,9 @@ systemd (218-8) UNRELEASED; urgency=medium
       partially reverts the above, and is just fixing it.
     - Map-rcS.d-init-script-dependencies-to-their-systemd-.patch as it's just
       adding some missing functionality for the same purpose.
+  * Drop Launch-logind-via-a-shell-wrapper.patch and systemd-logind-launch
+    wrapper. The only remaining thing that we need from it is to create
+    /run/systemd/, move that into the D-BUS service file directly.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
