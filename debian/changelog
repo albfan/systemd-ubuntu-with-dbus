@@ -14,6 +14,11 @@ systemd (218-8) UNRELEASED; urgency=medium
   * Drop Also-redirect-to-update-rc.d-when-not-using-.service.patch; not
     necessary any more with the current version (mangle_names() already takes
     care of this).
+  * Merge into Add-support-for-rcS.d-init-scripts-to-the-sysv-gener.patch:
+    - Do-not-order-rcS.d-services-after-local-fs.target-if.patch, as it
+      partially reverts the above, and is just fixing it.
+    - Map-rcS.d-init-script-dependencies-to-their-systemd-.patch as it's just
+      adding some missing functionality for the same purpose.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
