@@ -17,7 +17,6 @@ logind-fix-sd_eviocrevoke-ioctl-call.patch
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
 Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
-Also-redirect-to-update-rc.d-when-not-using-.service.patch
 systemctl-don-t-skip-native-units-when-enabling-disa.patch
 Run-update-rc.d-defaults-before-update-rc.d-enable-d.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch

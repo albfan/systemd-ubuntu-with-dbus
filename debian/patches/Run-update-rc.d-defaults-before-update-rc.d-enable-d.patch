@@ -8,10 +8,10 @@ Closes: #722523
  1 file changed, 39 insertions(+), 1 deletion(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 87d9c5d..98be4d0 100644
+index 393ddb9..497e63b 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5208,8 +5208,46 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5210,8 +5210,46 @@ static int enable_sysv_units(const char *verb, char **args) {
                      continue;
                  }
  
