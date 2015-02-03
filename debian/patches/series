@@ -13,6 +13,7 @@ list-add-macro-for-iterating-through-a-list-an-item-.patch
 core-if-two-start-jobs-for-the-same-swap-device-node.patch
 logind-handle-closing-sessions-over-daemon-restarts.patch
 logind-fix-sd_eviocrevoke-ioctl-call.patch
+Add-dev-urandom-to-ignore_paths.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -64,5 +65,4 @@ Don-t-enable-audit-by-default.patch
 Accept-mountall-specific-fstab-options.patch
 Fix-usr-remount-failure-for-split-usr.patch
 util-Add-hidden-suffixes-for-ucf.patch
-Add-dev-urandom-to-ignore_paths.patch
 Drop-rc-local-generator.patch

@@ -11,10 +11,10 @@ read some random bytes and getting 0 back.
  1 file changed, 1 insertion(+)
 
 diff --git a/src/core/mount-setup.c b/src/core/mount-setup.c
-index 6823bd8..ae68876 100644
+index 342f552..58b1ad7 100644
 --- a/src/core/mount-setup.c
 +++ b/src/core/mount-setup.c
-@@ -131,6 +131,7 @@ static const char ignore_paths[] =
+@@ -129,6 +129,7 @@ static const char ignore_paths[] =
          /* Container bind mounts */
          "/proc/sys\0"
          "/dev/console\0"
