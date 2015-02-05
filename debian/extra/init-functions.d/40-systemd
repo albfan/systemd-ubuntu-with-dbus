@@ -59,8 +59,17 @@ systemctl_redirect () {
     state=$(systemctl -p LoadState show $service 2>/dev/null)
     [ "$state" = "LoadState=masked" ] && return 0
 
+    # avoid deadlocks during bootup and shutdown from units/hooks
+    # which call "invoke-rc.d service reload" and similar, since
+    # the synchronous wait plus systemd's normal behaviour of
+    # transactionally processing all dependencies first easily
+    # causes dependency loops
+    if ! systemctl is-system-running; then
+        sctl_args="--job-mode=ignore-dependencies"
+    fi
+
     [ "$command" = status ] || log_daemon_msg "$s" "$service"
-    /bin/systemctl $command "$service"
+    /bin/systemctl $sctl_args $command "$service"
     rc=$?
     [ "$command" = status ] || log_end_msg $rc
 

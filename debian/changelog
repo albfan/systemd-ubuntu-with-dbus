@@ -18,6 +18,13 @@ systemd (218-8) UNRELEASED; urgency=medium
   * Drop Launch-logind-via-a-shell-wrapper.patch and systemd-logind-launch
     wrapper. The only remaining thing that we need from it is to create
     /run/systemd/, move that into the D-BUS service file directly.
+  * /lib/lsb/init-functions.d/40-systemd: Avoid deadlocks during bootup and
+    shutdown. DHCP/ifupdown and similar hooks which call "/etc/init.d/foo
+    reload" can easily cause deadlocks , since the synchronous wait plus
+    systemd's normal behaviour of transactionally processing all dependencies
+    first easily causes dependency loops. Thus during boot/shutdown operate
+    only on the unit and not on its dependencies, just like SysV behaves.
+    (Closes: #777115, LP: #1417010)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
