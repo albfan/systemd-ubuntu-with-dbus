@@ -10,6 +10,8 @@ ifneq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 BOOTSTRAP_DH_FLAGS := -Ngir1.2-gudev-1.0 -Nlibgudev-1.0-0 -Nlibgudev-1.0-dev
 endif
 
+DBUS_DAEMONDIR = $(shell pkg-config --variable=daemondir dbus-1)
+
 CONFFLAGS = \
 	--with-rootprefix= \
 	--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
@@ -181,7 +183,12 @@ endif
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
 
 	# Debian specific units
-	sed "s!@DBUS_DAEMONDIR@!$$(pkg-config --variable=daemondir dbus-1)!" < debian/extra/getty-static.service.in > debian/systemd/lib/systemd/system/getty-static.service
+	sed 's!@DBUS_DAEMONDIR@!$(DBUS_DAEMONDIR)!' < debian/extra/getty-static.service.in > debian/systemd/lib/systemd/system/getty-static.service
+
+	# logind fails to start in environments without D-BUS, such as LXC
+	# containers or servers. Add a startup condition to avoid the very
+	# noisy startup failure.
+	sed -i '/\[Service\]/ s!^!ConditionFileIsExecutable=$(DBUS_DAEMONDIR)/dbus-daemon\n\n!' debian/systemd/lib/systemd/system/systemd-logind.service
 
 	# Ubuntu specific files
 	if dpkg-vendor --is ubuntu; then \
