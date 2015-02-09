@@ -12,13 +12,15 @@ It has the following modifications:
 - it removes support for boot. and bool.localfs which is a SuSE specific
   extension
 - it ensures that targets do not start other targets or services
+- maps $x-display-manager to display-manager.service, just like the
+  sysv-generator
 
 [0] https://build.opensuse.org/package/view_file/openSUSE:Factory/systemd/insserv-generator.patch
 ---
  Makefile.am                               |   9 +
  src/insserv-generator/Makefile            |  28 +++
- src/insserv-generator/insserv-generator.c | 324 ++++++++++++++++++++++++++++++
- 3 files changed, 361 insertions(+)
+ src/insserv-generator/insserv-generator.c | 326 ++++++++++++++++++++++++++++++
+ 3 files changed, 363 insertions(+)
  create mode 100644 src/insserv-generator/Makefile
  create mode 100644 src/insserv-generator/insserv-generator.c
 
@@ -85,10 +87,10 @@ index 0000000..9d07505
 +.PHONY: all clean
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
 new file mode 100644
-index 0000000..d86ee29
+index 0000000..97a68e7
 --- /dev/null
 +++ b/src/insserv-generator/insserv-generator.c
-@@ -0,0 +1,324 @@
+@@ -0,0 +1,326 @@
 +/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 +
 +/***
@@ -160,6 +162,8 @@ index 0000000..d86ee29
 +                "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
 +                "syslog",               NULL,
 +                "time",                 SPECIAL_TIME_SYNC_TARGET,
++                /* Debian defined facilities */
++                "x-display-manager",    "display-manager.service",
 +        };
 +
 +        unsigned i;
