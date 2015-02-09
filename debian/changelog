@@ -28,6 +28,9 @@ systemd (218-8) UNRELEASED; urgency=medium
     first easily causes dependency loops. Thus during boot/shutdown operate
     only on the unit and not on its dependencies, just like SysV behaves.
     (Closes: #777115, LP: #1417010)
+  * Only start logind if D-BUS is installed. This fixes the noisy startup
+    failure in environments without D-BUS, such as LXC containers or servers.
+    (part of #772700, does not yet address the auto-VT issue)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
