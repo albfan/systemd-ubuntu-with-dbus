@@ -65,4 +65,4 @@ Accept-mountall-specific-fstab-options.patch
 Fix-usr-remount-failure-for-split-usr.patch
 util-Add-hidden-suffixes-for-ucf.patch
 Drop-rc-local-generator.patch
-Only-start-logind-if-D-BUS-is-installed.patch
+Only-start-logind-if-dbus-is-installed.patch
