@@ -1,4 +1,4 @@
-systemd (218-8) UNRELEASED; urgency=medium
+systemd (218-8) experimental; urgency=medium
 
   [ Martin Pitt ]
   * boot-and-services autopkgtest: Ensure that there are no failed units,
@@ -42,7 +42,7 @@ systemd (218-8) UNRELEASED; urgency=medium
     This avoids creating references to a no longer existing
     x-display-manager.target unit.
 
- -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
+ -- Martin Pitt <mpitt@debian.org>  Mon, 09 Feb 2015 18:07:22 +0100
 
 systemd (218-7) experimental; urgency=medium
 
