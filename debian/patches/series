@@ -182,3 +182,4 @@ udev-re-enable-mount-propagation-for-udevd.patch
 Add-env-variable-for-machine-ID-path.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Fix-usr-remount-failure-for-split-usr.patch
+Only-start-logind-if-D-BUS-is-installed.patch
