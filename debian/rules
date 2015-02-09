@@ -180,6 +180,9 @@ endif
 	rm debian/udev/lib/udev/rules.d/71-seat.rules
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
 
+	# Debian specific units
+	sed "s!@DBUS_DAEMONDIR@!$$(pkg-config --variable=daemondir dbus-1)!" < debian/extra/getty-static.service.in > debian/systemd/lib/systemd/system/getty-static.service
+
 	# Ubuntu specific files
 	if dpkg-vendor --is ubuntu; then \
 		install -D --mode=644 debian/extra/udev.py debian/udev/usr/share/apport/package-hooks/udev.py; \

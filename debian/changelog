@@ -31,6 +31,9 @@ systemd (218-8) UNRELEASED; urgency=medium
   * Only start logind if dbus is installed. This fixes the noisy startup
     failure in environments without dbus, such as LXC containers or servers.
     (part of #772700, does not yet address the auto-VT issue)
+  * Add getty-static.service unit which starts getty@.service on tty 2 to 6 if
+    dbus is not installed, and hence logind cannot auto-start them on demand.
+    (Closes: #772700)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
