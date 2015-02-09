@@ -1,5 +1,6 @@
 systemd (218-8) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * boot-and-services autopkgtest: Ensure that there are no failed units,
     except possibly systemd-modules-load.service (as that notoriously fails
     with cruft in /etc/modules).
@@ -34,6 +35,12 @@ systemd (218-8) UNRELEASED; urgency=medium
   * Add getty-static.service unit which starts getty@.service on tty 2 to 6 if
     dbus is not installed, and hence logind cannot auto-start them on demand.
     (Closes: #772700)
+
+  [ Michael Biebl ]
+  * Update insserv-generator and map $x-display-manager to
+    display-manager.service, following the recent change in sysv-generator.
+    This avoids creating references to a no longer existing
+    x-display-manager.target unit.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 01 Feb 2015 22:42:30 +0100
 
