@@ -8,7 +8,7 @@ Subject: =?utf-8?q?systemctl=3A_don=E2=80=99t_skip_native_units_when_enabl?=
  1 file changed, 1 insertion(+), 4 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index ed25f9a..393ddb9 100644
+index 73bfdfd..497e63b 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -5194,9 +5194,6 @@ static int enable_sysv_units(const char *verb, char **args) {

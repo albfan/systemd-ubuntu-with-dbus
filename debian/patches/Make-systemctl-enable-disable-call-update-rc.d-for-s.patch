@@ -1,14 +1,16 @@
 From: Michael Stapelberg <michael@stapelberg.de>
 Date: Mon, 29 Jul 2013 22:01:21 +0200
 Subject: Make systemctl enable/disable call update-rc.d for sysv init scripts
- (#709780)
 
+Also run update-rc.d defaults before update-rc.d <enable|disable> (#722523)
+
+Closes: #709780
 ---
- src/systemctl/systemctl.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
+ src/systemctl/systemctl.c | 59 +++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 49 insertions(+), 10 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index b1441ad..ed25f9a 100644
+index b1441ad..73bfdfd 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -5142,7 +5142,7 @@ static int import_environment(sd_bus *bus, char **args) {
@@ -41,7 +43,7 @@ index b1441ad..ed25f9a 100644
                  char **k;
                  int j;
                  pid_t pid;
-@@ -5205,15 +5206,15 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5205,15 +5206,53 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
@@ -55,11 +57,49 @@ index b1441ad..ed25f9a 100644
 +                    continue;
 +                }
  
++                /* Run update-rc.d <file> defaults first to ensure the K- and
++                 * S-symlinks are present. If they are missing, update-rc.d
++                 * <enable|disable> will fail. See
++                 * http://bugs.debian.org/722523 */
                  argv[c++] = basename(p);
 -                argv[c++] =
 -                        streq(verb, "enable") ? "on" :
 -                        streq(verb, "disable") ? "off" : "--level=5";
-+                argv[c++] = verb;
++                argv[c++] = "defaults";
++                argv[c] = NULL;
++
++                l = strv_join((char**)argv, " ");
++                if (!l) {
++                        return log_oom();
++                }
++
++                log_info("Executing %s", l);
++                free(l);
++
++                pid = fork();
++                if (pid < 0) {
++                        log_error("Failed to fork: %m");
++                        return -errno;
++                } else if (pid == 0) {
++                        /* Child */
++
++                        execv(argv[0], (char**) argv);
++                        _exit(EXIT_FAILURE);
++                }
++
++                j = wait_for_terminate(pid, &status);
++                if (j < 0) {
++                        log_error("Failed to wait for child: %s", strerror(-r));
++                        return j;
++                }
++
++                if (status.si_code == CLD_EXITED) {
++                        if (status.si_status != 0)
++                                return -EINVAL;
++                } else
++                        return -EPROTO;
++
++                argv[c-1] = verb;
                  argv[c] = NULL;
  
                  l = strv_join((char**)argv, " ");
