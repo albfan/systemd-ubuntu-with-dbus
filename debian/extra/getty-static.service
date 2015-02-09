@@ -1,7 +1,7 @@
 [Unit]
 Description=getty on tty2-tty6 if dbus and logind are not available
 ConditionPathExists=/dev/tty2
-ConditionFileIsExecutable=!@DBUS_DAEMONDIR@/dbus-daemon
+ConditionPathExists=!/lib/systemd/system/dbus.service
 
 [Service]
 Type=oneshot
