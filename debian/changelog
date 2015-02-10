@@ -1,3 +1,11 @@
+systemd (218-9) UNRELEASED; urgency=medium
+
+  * debian/tests/logind: With dropped systemd-logind-launch we don't have a
+    visible /sys/fs/cgroup/systemd/ any more under cgmanager. So adjust the
+    test to check /proc/self/cgroup instead.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
+
 systemd (218-8) experimental; urgency=medium
 
   [ Martin Pitt ]
