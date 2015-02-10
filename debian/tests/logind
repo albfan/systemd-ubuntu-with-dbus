@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo " * cgroup is mounted"
-mountpoint -q /sys/fs/cgroup/systemd
+echo " * process is in session cgroup"
+grep 'systemd:.*session.*scope' /proc/self/cgroup
 echo " * daemon is started"
 # should start at boot, not with D-BUS activation
 pidof systemd-logind > /dev/null
