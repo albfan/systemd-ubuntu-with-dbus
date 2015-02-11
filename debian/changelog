@@ -3,6 +3,8 @@ systemd (218-9) UNRELEASED; urgency=medium
   * debian/tests/logind: With dropped systemd-logind-launch we don't have a
     visible /sys/fs/cgroup/systemd/ any more under cgmanager. So adjust the
     test to check /proc/self/cgroup instead.
+  * Add unit-config autopkgtest to check systemd unit/sysv init enabling and
+    disabling via systemctl. This also reproduces #777613.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
 
