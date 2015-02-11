@@ -26,7 +26,7 @@ index f02a0f7..fa01532 100644
  	units/user/basic.target \
  	units/user/default.target \
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 6dc8835..c01d15e 100644
+index 30e3042..0085e26 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -272,6 +272,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char

@@ -14,6 +14,7 @@ core-if-two-start-jobs-for-the-same-swap-device-node.patch
 logind-handle-closing-sessions-over-daemon-restarts.patch
 logind-fix-sd_eviocrevoke-ioctl-call.patch
 Add-dev-urandom-to-ignore_paths.patch
+Do-not-generate-systemd-units-from-sysv-init-scripts.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -46,7 +47,6 @@ Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
 Add-support-for-TuxOnIce-hibernation.patch
 Add-support-for-rcS.d-init-scripts-to-the-sysv-gener.patch
-Do-not-generate-systemd-units-from-sysv-init-scripts.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
 Make-run-lock-tmpfs-an-API-fs.patch
 Include-additional-directories-in-ProtectSystem.patch
