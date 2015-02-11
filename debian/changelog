@@ -1,5 +1,6 @@
 systemd (218-9) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * debian/tests/logind: With dropped systemd-logind-launch we don't have a
     visible /sys/fs/cgroup/systemd/ any more under cgmanager. So adjust the
     test to check /proc/self/cgroup instead.
@@ -8,6 +9,10 @@ systemd (218-9) UNRELEASED; urgency=medium
   * systemctl: Always install/enable/disable native units, even if there is a
     corresponding SysV script and we call update-rc.d; while the latter
     handles WantedBy=, it does not handle Alias=. (Closes: #777613)
+
+  [ Ben Howard ]
+  * (Ubuntu) Add 62-cloudimg.rules to use noop I/O scheduler for Google
+    virtual drives. (LP: #1420544)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
 
