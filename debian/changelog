@@ -11,6 +11,9 @@ systemd (215-12) UNRELEASED; urgency=medium
   * Add getty-static.service unit which starts getty@.service on tty 2 to 6 if
     dbus is not installed, and hence logind cannot auto-start them on demand.
     (Closes: #772700)
+  * Add unit-config autopkgtest to check systemd unit/sysv init enabling and
+    disabling via systemctl. This avoids bugs like #777613 (did not affect
+    unstable).
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 30 Jan 2015 15:56:22 +0100
 
