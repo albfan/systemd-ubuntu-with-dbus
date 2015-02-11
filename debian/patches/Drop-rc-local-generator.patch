@@ -14,7 +14,7 @@ Bug-Debian: https://bugs.debian.org/776170
  1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index f253078..9cdb1d6 100644
+index f253078..8e34220 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -616,12 +616,13 @@ CLEANFILES += \

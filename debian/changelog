@@ -5,6 +5,9 @@ systemd (218-9) UNRELEASED; urgency=medium
     test to check /proc/self/cgroup instead.
   * Add unit-config autopkgtest to check systemd unit/sysv init enabling and
     disabling via systemctl. This also reproduces #777613.
+  * systemctl: Always install/enable/disable native units, even if there is a
+    corresponding SysV script and we call update-rc.d; while the latter
+    handles WantedBy=, it does not handle Alias=. (Closes: #777613)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
 
