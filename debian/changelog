@@ -19,6 +19,10 @@ systemd (215-12) UNRELEASED; urgency=medium
     that systemd itself created. This avoids cleaning up empty cgroups from
     e.g. LXC. (Closes: #777601)
 
+  [ Michael Biebl ]
+  * core: Don't fail to run services in --user instances if $HOME is missing.
+    (Closes: #759320)
+
   [ Didier Roche ]
   * default-display-manager-generator: Avoid unnecessary /dev/null symlink and
     warning if there is no display-manager.service unit.
