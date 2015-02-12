@@ -10,8 +10,8 @@ systemd (218-9) UNRELEASED; urgency=medium
     corresponding SysV script and we call update-rc.d; while the latter
     handles WantedBy=, it does not handle Alias=. (Closes: #777613)
   * cgroup: Don't trim cgroup trees created by someone else, just the ones
-    that systemd itself created. This avoids cleaning up empty cgroups from e.
-    g. LXC. (Closes: #777601)
+    that systemd itself created. This avoids cleaning up empty cgroups from
+    e.g. LXC. (Closes: #777601)
   * Don't parse /etc/mtab for current mounts, but /proc/self/mountinfo. If the
     former is a file, it's most likely outdated on boot, leading to race
     conditions and unmounts during boot. (LP: #1419623)
@@ -25,7 +25,7 @@ systemd (218-9) UNRELEASED; urgency=medium
     (Closes: #759320)
 
   [ Didier Roche ]
-  * default-display-manager-generator: Avoid unecessary /dev/null symlink and
+  * default-display-manager-generator: Avoid unnecessary /dev/null symlink and
     warning if there is no display-manager.service unit.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
