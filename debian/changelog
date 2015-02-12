@@ -9,6 +9,9 @@ systemd (218-9) UNRELEASED; urgency=medium
   * systemctl: Always install/enable/disable native units, even if there is a
     corresponding SysV script and we call update-rc.d; while the latter
     handles WantedBy=, it does not handle Alias=. (Closes: #777613)
+  * cgroup: Don't trim cgroup trees created by someone else, just the ones
+    that systemd itself created. This avoids cleaning up empty cgroups from e.
+    g. LXC. (Closes: #777601)
 
   [ Ben Howard ]
   * (Ubuntu) Add 62-cloudimg.rules to use noop I/O scheduler for Google
