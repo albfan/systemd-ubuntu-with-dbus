@@ -14,6 +14,11 @@ systemd (218-9) UNRELEASED; urgency=medium
   * (Ubuntu) Add 62-cloudimg.rules to use noop I/O scheduler for Google
     virtual drives. (LP: #1420544)
 
+  [ Michael Biebl ]
+  * Explicitly disable the features we don't want to build for those with
+    autodetection. This ensures reliable build results in dirty build
+    environments.
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
 
 systemd (218-8) experimental; urgency=medium

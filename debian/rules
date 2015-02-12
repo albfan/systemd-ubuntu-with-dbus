@@ -19,12 +19,20 @@ CONFFLAGS = \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
-	--disable-coredump \
-	--disable-myhostname \
-	--disable-vconsole \
+	--disable-seccomp \
+	--disable-qrencode \
 	--disable-microhttpd \
+	--disable-chkconfig \
+	--disable-gnutls \
+	--disable-libcurl \
+	--disable-libidn \
+	--disable-elfutils \
+	--disable-vconsole \
 	--disable-sysusers \
 	--disable-firstboot \
+	--disable-coredump \
+	--disable-xkbcommon \
+	--disable-myhostname \
 	--disable-silent-rules \
 	--with-ntp-servers="0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org"  \
 	--with-system-uid-max=999 \
@@ -39,8 +47,7 @@ CONFFLAGS_deb = \
 	--enable-introspection \
 	--enable-gtk-doc \
 	--enable-compat-libs \
-	PYTHON=python3 \
-	$(NULL)
+	PYTHON=python3
 
 CONFFLAGS_udeb = \
 	--disable-libcryptsetup \
