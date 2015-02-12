@@ -16,11 +16,11 @@ systemd (215-12) UNRELEASED; urgency=medium
     disabling via systemctl. This avoids bugs like #777613 (did not affect
     unstable).
   * cgroup: Don't trim cgroup trees created by someone else, just the ones
-    that systemd itself created. This avoids cleaning up empty cgroups from e.
-    g. LXC. (Closes: #777601)
+    that systemd itself created. This avoids cleaning up empty cgroups from
+    e.g. LXC. (Closes: #777601)
 
   [ Didier Roche ]
-  * default-display-manager-generator: Avoid unecessary /dev/null symlink and
+  * default-display-manager-generator: Avoid unnecessary /dev/null symlink and
     warning if there is no display-manager.service unit.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 30 Jan 2015 15:56:22 +0100
