@@ -12,6 +12,9 @@ systemd (218-9) UNRELEASED; urgency=medium
   * cgroup: Don't trim cgroup trees created by someone else, just the ones
     that systemd itself created. This avoids cleaning up empty cgroups from e.
     g. LXC. (Closes: #777601)
+  * Don't parse /etc/mtab for current mounts, but /proc/self/mountinfo. If the
+    former is a file, it's most likely outdated on boot, leading to race
+    conditions and unmounts during boot. (LP: #1419623)
 
   [ Michael Biebl ]
   * Explicitly disable the features we don't want to build for those with
