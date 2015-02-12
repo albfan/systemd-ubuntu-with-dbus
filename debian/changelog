@@ -20,6 +20,10 @@ systemd (218-9) UNRELEASED; urgency=medium
     environments.
   * Disable AppArmor support in the udeb build.
 
+  [ Didier Roche ]
+  * default-display-manager-generator: Avoid unecessary /dev/null symlink and
+    warning if there is no display-manager.service unit.
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
 
 systemd (218-8) experimental; urgency=medium

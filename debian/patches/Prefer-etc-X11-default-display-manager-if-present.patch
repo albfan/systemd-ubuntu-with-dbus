@@ -5,10 +5,10 @@ Subject: Prefer /etc/X11/default-display-manager if present
 Add a generator to ensure /etc/X11/default-display-manager is controlling
 which display-manager is started.
 ---
- Makefile.am                                        |  11 ++-
+ Makefile.am                                        |  11 +-
  src/default-display-manager-generator/Makefile     |  24 +++++
- .../default-display-manager-generator.c            | 103 +++++++++++++++++++++
- 3 files changed, 137 insertions(+), 1 deletion(-)
+ .../default-display-manager-generator.c            | 112 +++++++++++++++++++++
+ 3 files changed, 146 insertions(+), 1 deletion(-)
  create mode 100644 src/default-display-manager-generator/Makefile
  create mode 100644 src/default-display-manager-generator/default-display-manager-generator.c
 
@@ -73,10 +73,10 @@ index 0000000..3a4bbbe
 +.PHONY: all clean
 diff --git a/src/default-display-manager-generator/default-display-manager-generator.c b/src/default-display-manager-generator/default-display-manager-generator.c
 new file mode 100644
-index 0000000..930a67e
+index 0000000..3e476b5
 --- /dev/null
 +++ b/src/default-display-manager-generator/default-display-manager-generator.c
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,112 @@
 +/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 +
 +/***
@@ -99,6 +99,7 @@ index 0000000..930a67e
 +***/
 +
 +#include <errno.h>
++#include <stdbool.h>
 +#include <unistd.h>
 +
 +#include "fileio.h"
@@ -122,6 +123,7 @@ index 0000000..930a67e
 +
 +        _cleanup_free_ char *default_dm_path = NULL, *enabled_dm_unit = NULL;
 +        const char *default_dm = NULL, *in_mem_symlink = NULL, *target_unit_path = NULL;
++        bool dm_service_exists = true;
 +        int r;
 +
 +        r = read_full_file(default_dm_file, &default_dm_path, NULL);
@@ -132,8 +134,10 @@ index 0000000..930a67e
 +        default_dm = strstrip(basename(default_dm_path));
 +
 +        r = readlink_value(dm_service_unit, &enabled_dm_unit);
-+        if (r < 0)
++        if (r < 0) {
 +                enabled_dm_unit = strdup("");
++                dm_service_exists = false;
++        }
 +
 +        /* all is fine if the info matches */
 +        if (streq(strappenda(default_dm, ".service"), enabled_dm_unit))
@@ -143,6 +147,11 @@ index 0000000..930a67e
 +
 +        /* we only create the alias symlink for non sysvinit services */
 +        if (access(target_unit_path, F_OK) < 0 && (errno == ENOENT)) {
++                /* if the dm service was already disabled, nothing to be done */
++                if (!dm_service_exists) {
++                        log_debug("No %s file, nothing to mask", dm_service_unit);
++                        return 0;
++                }
 +                log_warning("%s is not a systemd unit, we disable the systemd enabled display manager", target_unit_path);
 +                target_unit_path = "/dev/null";
 +        } else {
