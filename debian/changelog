@@ -15,6 +15,9 @@ systemd (215-12) UNRELEASED; urgency=medium
   * Add unit-config autopkgtest to check systemd unit/sysv init enabling and
     disabling via systemctl. This avoids bugs like #777613 (did not affect
     unstable).
+  * cgroup: Don't trim cgroup trees created by someone else, just the ones
+    that systemd itself created. This avoids cleaning up empty cgroups from e.
+    g. LXC. (Closes: #777601)
 
   [ Didier Roche ]
   * default-display-manager-generator: Avoid unecessary /dev/null symlink and
