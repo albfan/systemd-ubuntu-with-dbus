@@ -13,10 +13,6 @@ systemd (218-9) UNRELEASED; urgency=medium
     that systemd itself created. This avoids cleaning up empty cgroups from e.
     g. LXC. (Closes: #777601)
 
-  [ Ben Howard ]
-  * (Ubuntu) Add 62-cloudimg.rules to use noop I/O scheduler for Google
-    virtual drives. (LP: #1420544)
-
   [ Michael Biebl ]
   * Explicitly disable the features we don't want to build for those with
     autodetection. This ensures reliable build results in dirty build
