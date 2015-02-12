@@ -1,4 +1,4 @@
-systemd (218-9) UNRELEASED; urgency=medium
+systemd (218-9) experimental; urgency=medium
 
   [ Martin Pitt ]
   * debian/tests/logind: With dropped systemd-logind-launch we don't have a
@@ -28,7 +28,7 @@ systemd (218-9) UNRELEASED; urgency=medium
   * default-display-manager-generator: Avoid unnecessary /dev/null symlink and
     warning if there is no display-manager.service unit.
 
- -- Martin Pitt <mpitt@debian.org>  Tue, 10 Feb 2015 10:26:12 +0100
+ -- Michael Biebl <biebl@debian.org>  Thu, 12 Feb 2015 18:45:12 +0100
 
 systemd (218-8) experimental; urgency=medium
 
