@@ -1,5 +1,6 @@
 systemd (215-12) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * debian/udev.README.Debian: Trim the parts which are obsolete, wrong, or
     described in manpages. Only keep the Debian specific bits.
     (Part of #776546)
@@ -14,6 +15,10 @@ systemd (215-12) UNRELEASED; urgency=medium
   * Add unit-config autopkgtest to check systemd unit/sysv init enabling and
     disabling via systemctl. This avoids bugs like #777613 (did not affect
     unstable).
+
+  [ Didier Roche ]
+  * default-display-manager-generator: Avoid unecessary /dev/null symlink and
+    warning if there is no display-manager.service unit.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 30 Jan 2015 15:56:22 +0100
 
