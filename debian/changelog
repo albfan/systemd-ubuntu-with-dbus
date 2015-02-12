@@ -21,6 +21,8 @@ systemd (218-9) UNRELEASED; urgency=medium
     autodetection. This ensures reliable build results in dirty build
     environments.
   * Disable AppArmor support in the udeb build.
+  * core: Don't fail to run services in --user instances if $HOME is missing.
+    (Closes: #759320)
 
   [ Didier Roche ]
   * default-display-manager-generator: Avoid unecessary /dev/null symlink and
