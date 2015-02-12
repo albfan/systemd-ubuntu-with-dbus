@@ -44,6 +44,7 @@ endif
 
 CONFFLAGS_deb = \
 	--enable-selinux \
+	--enable-apparmor \
 	--enable-introspection \
 	--enable-gtk-doc \
 	--enable-compat-libs \
@@ -54,6 +55,7 @@ CONFFLAGS_udeb = \
 	--disable-pam \
 	--disable-audit \
 	--disable-selinux \
+	--disable-apparmor \
 	--disable-smack \
 	--disable-ima \
 	--disable-introspection \
