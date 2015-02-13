@@ -18,6 +18,7 @@ Do-not-generate-systemd-units-from-sysv-init-scripts.patch
 rules-Fix-by-path-of-mmc-RPMB-partitions-and-don-t-b.patch
 core-mount-add-dependencies-to-dynamically-mounted-m.patch
 rules-clean-up-stale-CD-drive-mounts-after-ejection.patch
+core-don-t-fail-to-run-services-in-user-instances-if.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -71,4 +72,3 @@ Drop-rc-local-generator.patch
 Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 core-mount-ensure-that-we-parse-proc-self-mountinfo.patch
-core-don-t-fail-to-run-services-in-user-instances-if.patch
