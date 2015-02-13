@@ -1,4 +1,4 @@
-systemd (218-10) UNRELEASED; urgency=medium
+systemd (218-10) experimental; urgency=medium
 
   * Pull latest keymaps from upstream git. (LP: #1334968, #1409721)
   * rules: Fix by-path of mmc RPMB partitions and don't blkid them. Avoids
@@ -14,7 +14,7 @@ systemd (218-10) UNRELEASED; urgency=medium
     creation/cleanup behaviour. This reproduces #777601 and verifies the fix
     for it.
 
- -- Martin Pitt <mpitt@debian.org>  Fri, 13 Feb 2015 08:41:07 +0100
+ -- Martin Pitt <mpitt@debian.org>  Fri, 13 Feb 2015 12:25:06 +0100
 
 systemd (218-9) experimental; urgency=medium
 
