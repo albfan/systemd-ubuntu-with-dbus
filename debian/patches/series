@@ -19,6 +19,7 @@ rules-Fix-by-path-of-mmc-RPMB-partitions-and-don-t-b.patch
 core-mount-add-dependencies-to-dynamically-mounted-m.patch
 rules-clean-up-stale-CD-drive-mounts-after-ejection.patch
 core-don-t-fail-to-run-services-in-user-instances-if.patch
+man-document-failed.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

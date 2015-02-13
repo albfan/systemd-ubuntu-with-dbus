@@ -94,10 +94,10 @@ index c67a199..8b7851f 100644
  
                          <para><filename>/etc/sysctl.d/bridge.conf</filename>:
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index d1991e0..b288d58 100644
+index ad1c527..0c0b353 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
-@@ -420,8 +420,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -429,8 +429,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
            processes. Not all unit types manage processes of these
            types however. For example, for mount units, control processes
            are defined (which are the invocations of
