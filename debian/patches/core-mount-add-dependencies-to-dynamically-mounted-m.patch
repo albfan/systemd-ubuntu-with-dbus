@@ -1,0 +1,28 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 28 Jan 2015 13:53:25 +0100
+Subject: core/mount: add dependencies to dynamically mounted mounts too
+
+Add unit dependencies for dynamic (i. e. not from fstab) mounts. With that,
+mount units properly bind to their underlying device, and thus get
+automatically stopped/unmounted when the underlying device goes away.
+
+This cleans up stale mounts from unplugged devices.
+
+Thanks to Lennart Poettering for pointing out the fix!
+---
+ src/core/mount.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/mount.c b/src/core/mount.c
+index e271d43..8bc5564 100644
+--- a/src/core/mount.c
++++ b/src/core/mount.c
+@@ -306,7 +306,7 @@ static int mount_add_device_links(Mount *m) {
+ 
+         assert(m);
+ 
+-        p = get_mount_parameters_fragment(m);
++        p = get_mount_parameters(m);
+         if (!p)
+                 return 0;
+ 

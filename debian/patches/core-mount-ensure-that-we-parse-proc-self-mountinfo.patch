@@ -29,7 +29,7 @@ https://launchpad.net/bugs/1419623
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/mount.c b/src/core/mount.c
-index e271d43..4290a11 100644
+index 8bc5564..dfea3ca 100644
 --- a/src/core/mount.c
 +++ b/src/core/mount.c
 @@ -1530,7 +1530,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {

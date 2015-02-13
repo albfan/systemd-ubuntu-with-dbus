@@ -3,6 +3,8 @@ systemd (218-10) UNRELEASED; urgency=medium
   * Pull latest keymaps from upstream git. (LP: #1334968, #1409721)
   * rules: Fix by-path of mmc RPMB partitions and don't blkid them. Avoids
     kernel buffer I/O errors and timeouts. (LP: #1333140)
+  * Clean up stale mounts when ejecting CD drives with the hardware eject
+    button. (LP: #1168742)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 13 Feb 2015 08:41:07 +0100
 
