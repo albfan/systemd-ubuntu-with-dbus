@@ -29,6 +29,10 @@ systemd (219-1ubuntu1) UNRELEASED; urgency=medium
       (LP: #1377258)
     - Put session scopes into all cgroup controllers. This makes unprivileged
       user LXC containers work under systemd. (LP: #1346734)
+    - Add systemd-fsckd multiplexer and feed its output to plymouth. This
+      provides an aggregate progress report of running file system checks and
+      also allows cancelling them with ^C.
+      (LP: #1316796; Closes: #775093, #758902)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 

@@ -1,0 +1,50 @@
+From: Didier Roche <didrocks@ubuntu.com>
+Date: Mon, 26 Jan 2015 17:23:08 +0100
+Subject: Refresh po files
+
+Also, add new plymouth fsckd translated strings in french.
+Refreshed with "make update-po".
+---
+ po/fr.po | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/po/fr.po b/po/fr.po
+index 4d4fc6b..609b7cd 100644
+--- a/po/fr.po
++++ b/po/fr.po
+@@ -7,7 +7,7 @@ msgid ""
+ msgstr ""
+ "Project-Id-Version: systemd\n"
+ "Report-Msgid-Bugs-To: \n"
+-"POT-Creation-Date: 2015-01-22 16:03+0100\n"
++"POT-Creation-Date: 2015-02-05 17:15+0100\n"
+ "PO-Revision-Date: 2014-12-28 13:04+0100\n"
+ "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
+ "Language-Team: French\n"
+@@ -89,8 +89,8 @@ msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
+ #: ../src/import/org.freedesktop.import1.policy.in.h:2
+ msgid "Authentication is required to download a VM or container image"
+ msgstr ""
+-"Authentification requise pour télécharger une image de "
+-"machine virtuelle (VM) ou de conteneur."
++"Authentification requise pour télécharger une image de machine virtuelle "
++"(VM) ou de conteneur."
+ 
+ #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+ msgid "Set system locale"
+@@ -433,3 +433,15 @@ msgid ""
+ msgstr ""
+ "Authentification requise pour activer ou désactiver la synchronisation de "
+ "l'heure avec le réseau."
++
++#: ../src/fsckd/fsckd.c:185
++#, c-format
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr "Appuyez sur Ctrl+C pour annuler toutes vérifications du système de fichier en cours"
++
++#: ../src/fsckd/fsckd.c:226
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] "Vérification en cours sur %d disque (%3.1f%% complété)"
++msgstr[1] "Vérification en cours sur %d disques (%3.1f%% complété)"
