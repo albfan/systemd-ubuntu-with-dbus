@@ -4,40 +4,28 @@ Subject: rules: Fix by-path of mmc RPMB partitions and don't blkid them
 
 Linux 3.10+ exposes RPMB (Replay Protected Memory Block) partitions of MMC
 devices [1] ; trying to read them with blkid or other unspecific means will
-cause kernel buffer I/O errors and timeouts. So don't run blkid on these.
+cause kernel buffer I/O errors and timeouts.
 
-Also ensure that /dev/disk/by-path creates proper symlinks and exposes the
--rpmb partition separately, instead of letting the "normal" partition symlink
-point to the rpbm device (this is a race condition).
+Blacklist those to prevent creating wrong by-path links and
+blkid'ing those.
 
 [1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=090d25fe224c0
 
 https://launchpad.net/bugs/1333140
 ---
- rules/60-persistent-storage.rules | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ rules/60-persistent-storage.rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/rules/60-persistent-storage.rules b/rules/60-persistent-storage.rules
-index 475b151..08ed1cc 100644
+index 475b151..25b44a5 100644
 --- a/rules/60-persistent-storage.rules
 +++ b/rules/60-persistent-storage.rules
-@@ -53,7 +53,8 @@ KERNEL=="mspblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+=
+@@ -14,7 +14,7 @@ ACTION=="add", SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_
+ SUBSYSTEM!="block", GOTO="persistent_storage_end"
  
- # by-path (parent device path)
- ENV{DEVTYPE}=="disk", DEVPATH!="*/virtual/*", IMPORT{builtin}="path_id"
--ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
-+ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", KERNEL=="mmcblk[0-9]*rpmb", SYMLINK+="disk/by-path/$env{ID_PATH}-rpmb"
-+ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", KERNEL!="mmcblk[0-9]*rpmb", SYMLINK+="disk/by-path/$env{ID_PATH}"
- ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+ # skip rules for inappropriate block devices
+-KERNEL=="fd*|mtd*|nbd*|gnbd*|btibm*|dm-*|md*|zram*", GOTO="persistent_storage_end"
++KERNEL=="fd*|mtd*|nbd*|gnbd*|btibm*|dm-*|md*|zram*|mmcblk[0-9]*rpmb", GOTO="persistent_storage_end"
  
- # skip unpartitioned removable media devices from drivers which do not send "change" events
-@@ -66,6 +67,9 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
- KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DATA}=="?*", ENV{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}=="", \
-   IMPORT{builtin}="blkid --noraid"
- 
-+# don't try to read Replay Protected Memory Block partitions
-+KERNEL=="mmcblk[0-9]*rpmb", GOTO="persistent_storage_end"
-+
- # probe filesystem metadata of disks
- KERNEL!="sr*", IMPORT{builtin}="blkid"
- 
+ # ignore partitions that span the entire disk
+ TEST=="whole_disk", GOTO="persistent_storage_end"
