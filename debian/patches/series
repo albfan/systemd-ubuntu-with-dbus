@@ -133,6 +133,7 @@ sysv-generator-Replace-Provides-symlinks-with-real-u.patch
 journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
 logind-handle-closing-sessions-over-daemon-restarts.patch
 logind-fix-sd_eviocrevoke-ioctl-call.patch
+rules-Fix-by-path-of-mmc-RPMB-partitions-and-don-t-b.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

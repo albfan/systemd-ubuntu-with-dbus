@@ -21,6 +21,8 @@ systemd (215-12) UNRELEASED; urgency=medium
   * boot-and-services autopkgtest: Add CgroupsTest to check cgroup
     creation/cleanup behaviour. This reproduces #777601 and verifies the fix
     for it.
+  * rules: Fix by-path of mmc RPMB partitions and don't blkid them. Avoids
+    kernel buffer I/O errors and timeouts. (LP: #1333140)
 
   [ Michael Biebl ]
   * core: Don't fail to run services in --user instances if $HOME is missing.
