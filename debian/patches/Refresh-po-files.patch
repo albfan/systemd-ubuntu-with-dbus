@@ -1,0 +1,592 @@
+From: Didier Roche <didrocks@ubuntu.com>
+Date: Mon, 26 Jan 2015 17:23:08 +0100
+Subject: Refresh po files
+
+Also, add new plymouth fsckd translated strings in french.
+Refreshed with "make update-po".
+---
+ po/de.po | 92 +++++++++++++++++++++++++++++++++++++++++++++++++++-------------
+ po/el.po | 90 +++++++++++++++++++++++++++++++++++++++++++++++++-------------
+ po/fr.po | 12 +++++++++
+ po/ru.po | 92 +++++++++++++++++++++++++++++++++++++++++++++++-----------------
+ po/uk.po | 90 ++++++++++++++++++++++++++++++++++++++++++++++++--------------
+ 5 files changed, 297 insertions(+), 79 deletions(-)
+
+diff --git a/po/de.po b/po/de.po
+index a41e33d..6d31da5 100644
+--- a/po/de.po
++++ b/po/de.po
+@@ -9,7 +9,7 @@ msgstr ""
+ "Project-Id-Version: systemd master\n"
+ "Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
+ "product=systemd&keywords=I18N+L10N&component=general\n"
+-"POT-Creation-Date: 2014-06-02 10:25+0000\n"
++"POT-Creation-Date: 2015-01-26 13:38+0100\n"
+ "PO-Revision-Date: 2014-06-02 22:43+0100\n"
+ "Last-Translator: Benjamin Steinwender <b@stbe.at>\n"
+ "Language-Team: German <gnome-de@gnome.org>\n"
+@@ -20,6 +20,49 @@ msgstr ""
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ "X-Generator: Poedit 1.6.5\n"
+ 
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
++msgid "Send passphrase back to system"
++msgstr "Passphrase zurück an das System senden"
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
++msgid ""
++"Authentication is required to send the entered passphrase back to the system."
++msgstr ""
++"Legitimierung ist zum Senden des eingegebenen Kennworts zurück an das System "
++"notwendig."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
++msgid "Manage system services or units"
++msgstr ""
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
++#, fuzzy
++msgid "Authentication is required to manage system services or units."
++msgstr ""
++"Legitimierung ist notwendig für den Zugriff auf die System- und "
++"Dienstverwaltung."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
++msgid "Manage system service or unit files"
++msgstr ""
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
++#, fuzzy
++msgid "Authentication is required to manage system service or unit files."
++msgstr ""
++"Legitimierung ist notwendig für den Zugriff auf die System- und "
++"Dienstverwaltung."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
++#, fuzzy
++msgid "Reload the systemd state"
++msgstr "Das System neu starten"
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
++#, fuzzy
++msgid "Authentication is required to reload the systemd state."
++msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
++
+ #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+ msgid "Set host name"
+ msgstr "Rechnername festlegen"
+@@ -50,6 +93,17 @@ msgstr ""
+ "Legitimierung ist zum Festlegen der lokalen Maschinen-Information "
+ "erforderlich."
+ 
++#: ../src/import/org.freedesktop.import1.policy.in.h:1
++msgid "Download a VM or container image"
++msgstr ""
++
++#: ../src/import/org.freedesktop.import1.policy.in.h:2
++#, fuzzy
++msgid "Authentication is required to download a VM or container image"
++msgstr ""
++"Legitimierung ist zum Festlegen der lokalen Maschinen-Information "
++"erforderlich."
++
+ #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+ msgid "Set system locale"
+ msgstr "Die lokale Sprachumgebung festlegen"
+@@ -356,6 +410,15 @@ msgstr ""
+ "Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, "
+ "während eine Anwendung wünscht dies zu verhindern."
+ 
++#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
++msgid "Log into a local container"
++msgstr ""
++
++#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
++#, fuzzy
++msgid "Authentication is required to log into a local container"
++msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
++
+ #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+ msgid "Set system time"
+ msgstr "Die Systemzeit festlegen"
+@@ -396,23 +459,16 @@ msgstr ""
+ "Legitimierung ist zum Festlegen, ob Netzwerkzeitabgeich eingeschaltet sein "
+ "soll, erforderlich."
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+-msgid "Send passphrase back to system"
+-msgstr "Passphrase zurück an das System senden"
+-
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+-msgid ""
+-"Authentication is required to send the entered passphrase back to the system."
++#: ../src/fsckd/fsckd.c:185
++msgid "Press Ctrl+C to cancel all checks in progress"
+ msgstr ""
+-"Legitimierung ist zum Senden des eingegebenen Kennworts zurück an das System "
+-"notwendig."
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+-msgid "Privileged system and service manager access"
+-msgstr "Privilegierter Zugriff auf die System- und Dienstverwaltung"
++#: ../src/fsckd/fsckd.c:226
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+-msgid "Authentication is required to access the system and service manager."
+-msgstr ""
+-"Legitimierung ist notwendig für den Zugriff auf die System- und "
+-"Dienstverwaltung."
++#~ msgid "Privileged system and service manager access"
++#~ msgstr "Privilegierter Zugriff auf die System- und Dienstverwaltung"
+diff --git a/po/el.po b/po/el.po
+index 1570565..8d58165 100644
+--- a/po/el.po
++++ b/po/el.po
+@@ -8,7 +8,7 @@ msgstr ""
+ "Project-Id-Version: systemd master\n"
+ "Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?product=sys"
+ "temd&keywords=I18N+L10N&component=general\n"
+-"POT-Creation-Date: 2014-04-25 15:51+0000\n"
++"POT-Creation-Date: 2015-01-26 13:38+0100\n"
+ "PO-Revision-Date: 2014-04-29 09:17+0300\n"
+ "Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
+ "Language-Team: team@lists.gnome.gr\n"
+@@ -19,6 +19,49 @@ msgstr ""
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ "X-Generator: Virtaal 0.7.0\n"
+ 
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
++msgid "Send passphrase back to system"
++msgstr "Αποστολή του συνθηματικού πίσω στο σύστημα"
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
++msgid ""
++"Authentication is required to send the entered passphrase back to the system."
++msgstr ""
++"Απαιτείται πιστοποίηση για αποστολή του εισερχόμενου συνθηματικού πίσω στο "
++"σύστημα."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
++msgid "Manage system services or units"
++msgstr ""
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
++#, fuzzy
++msgid "Authentication is required to manage system services or units."
++msgstr ""
++"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
++"υπηρεσιών."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
++msgid "Manage system service or unit files"
++msgstr ""
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
++#, fuzzy
++msgid "Authentication is required to manage system service or unit files."
++msgstr ""
++"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
++"υπηρεσιών."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
++#, fuzzy
++msgid "Reload the systemd state"
++msgstr "Επανεκκίνηση του συστήματος"
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
++#, fuzzy
++msgid "Authentication is required to reload the systemd state."
++msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
++
+ #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+ msgid "Set host name"
+ msgstr "Ορισμός ονόματος οικοδεσπότη"
+@@ -47,6 +90,15 @@ msgstr "Ορισμός πληροφοριών μηχανής"
+ msgid "Authentication is required to set local machine information."
+ msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
+ 
++#: ../src/import/org.freedesktop.import1.policy.in.h:1
++msgid "Download a VM or container image"
++msgstr ""
++
++#: ../src/import/org.freedesktop.import1.policy.in.h:2
++#, fuzzy
++msgid "Authentication is required to download a VM or container image"
++msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
++
+ #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+ msgid "Set system locale"
+ msgstr "Ορισμός τοπικών ρυθμίσεων συστήματος"
+@@ -342,6 +394,15 @@ msgstr ""
+ "Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ μια εφαρμογή "
+ "ζήτησε να αποτραπεί."
+ 
++#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
++msgid "Log into a local container"
++msgstr ""
++
++#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
++#, fuzzy
++msgid "Authentication is required to log into a local container"
++msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
++
+ #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+ msgid "Set system time"
+ msgstr "Ορισμός ώρας συστήματος"
+@@ -382,23 +443,16 @@ msgstr ""
+ "Απαιτείται πιστοποίηση για να ελέγξετε αν ο συγχρονισμός ώρας δικτύου θα "
+ "ενεργοποιηθεί."
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+-msgid "Send passphrase back to system"
+-msgstr "Αποστολή του συνθηματικού πίσω στο σύστημα"
+-
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+-msgid ""
+-"Authentication is required to send the entered passphrase back to the system."
++#: ../src/fsckd/fsckd.c:185
++msgid "Press Ctrl+C to cancel all checks in progress"
+ msgstr ""
+-"Απαιτείται πιστοποίηση για αποστολή του εισερχόμενου συνθηματικού πίσω στο "
+-"σύστημα."
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+-msgid "Privileged system and service manager access"
+-msgstr "Προνομιούχος πρόσβαση διαχειριστή συστήματος και υπηρεσίας"
++#: ../src/fsckd/fsckd.c:226
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+-msgid "Authentication is required to access the system and service manager."
+-msgstr ""
+-"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
+-"υπηρεσιών."
++#~ msgid "Privileged system and service manager access"
++#~ msgstr "Προνομιούχος πρόσβαση διαχειριστή συστήματος και υπηρεσίας"
+diff --git a/po/fr.po b/po/fr.po
+index 7240cc5..c33b262 100644
+--- a/po/fr.po
++++ b/po/fr.po
+@@ -421,3 +421,15 @@ msgstr "Recharger l'état de systemd"
+ #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+ msgid "Authentication is required to reload the systemd state."
+ msgstr "Authentification requise pour recharger l'état de systemd"
++
++#: ../src/fsckd/fsckd.c:185
++#, c-format
++msgid "Press Ctrl+C to cancel all checks in progress"
++msgstr "Appuyez sur Ctrl+C pour annuler toutes les vérifications en cours"
++
++#: ../src/fsckd/fsckd.c:226
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] "Vérification en cours sur %d disque (%3.1f%% complété)"
++msgstr[1] "Vérification en cours sur %d disques (%3.1f%% complété)"
+diff --git a/po/ru.po b/po/ru.po
+index de283f7..e07a1fe 100644
+--- a/po/ru.po
++++ b/po/ru.po
+@@ -27,8 +27,12 @@ msgid "Set static host name"
+ msgstr "Настроить статическое имя компьютера"
+ 
+ #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+-msgid "Authentication is required to set the statically configured local host name, as well as the pretty host name."
+-msgstr "Чтобы настроить статическое имя компьютера, а также его «красивое» имя, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required to set the statically configured local host name, "
++"as well as the pretty host name."
++msgstr ""
++"Чтобы настроить статическое имя компьютера, а также его «красивое» имя, "
++"необходимо пройти аутентификацию."
+ 
+ #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+ msgid "Set machine information"
+@@ -140,15 +144,20 @@ msgstr "Разрешить подключение устройств к рабо
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:22
+ msgid "Authentication is required for attaching a device to a seat."
+-msgstr "Чтобы разрешить подключение устройств к рабочим местам, необходимо пройти аутентификацию."
++msgstr ""
++"Чтобы разрешить подключение устройств к рабочим местам, необходимо пройти "
++"аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:23
+ msgid "Flush device to seat attachments"
+ msgstr "Сбросить привязки устройств к рабочим местам"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:24
+-msgid "Authentication is required for resetting how devices are attached to seats."
+-msgstr "Чтобы сбросить привязки устройств к рабочим местам, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for resetting how devices are attached to seats."
++msgstr ""
++"Чтобы сбросить привязки устройств к рабочим местам, необходимо пройти "
++"аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:25
+ msgid "Power off the system"
+@@ -160,19 +169,30 @@ msgstr "Чтобы выключить систему, необходимо пр
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:27
+ msgid "Power off the system while other users are logged in"
+-msgstr "Выключить систему, несмотря на то, что в ней работают другие пользователи"
++msgstr ""
++"Выключить систему, несмотря на то, что в ней работают другие пользователи"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:28
+-msgid "Authentication is required for powering off the system while other users are logged in."
+-msgstr "Чтобы выключить систему, несмотря на то, что в ней работают другие пользователи, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for powering off the system while other users are "
++"logged in."
++msgstr ""
++"Чтобы выключить систему, несмотря на то, что в ней работают другие "
++"пользователи, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:29
+ msgid "Power off the system while an application asked to inhibit it"
+-msgstr "Выключить систему, несмотря на то, что приложение запросило блокировку выключения"
++msgstr ""
++"Выключить систему, несмотря на то, что приложение запросило блокировку "
++"выключения"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:30
+-msgid "Authentication is required for powering off the system while an application asked to inhibit it."
+-msgstr "Чтобы выключить систему, несмотря на то, что приложение запросило блокировку выключения, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for powering off the system while an application "
++"asked to inhibit it."
++msgstr ""
++"Чтобы выключить систему, несмотря на то, что приложение запросило блокировку "
++"выключения, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:31
+ msgid "Reboot the system"
+@@ -184,19 +204,30 @@ msgstr "Чтобы перезагрузить систему, необходим
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:33
+ msgid "Reboot the system while other users are logged in"
+-msgstr "Перезагрузить систему, несмотря на то, что в ней работают другие пользователи"
++msgstr ""
++"Перезагрузить систему, несмотря на то, что в ней работают другие пользователи"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:34
+-msgid "Authentication is required for rebooting the system while other users are logged in."
+-msgstr "Чтобы перезагрузить систему, несмотря на то, что в ней работают другие пользователи, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for rebooting the system while other users are "
++"logged in."
++msgstr ""
++"Чтобы перезагрузить систему, несмотря на то, что в ней работают другие "
++"пользователи, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:35
+ msgid "Reboot the system while an application asked to inhibit it"
+-msgstr "Перезагрузить систему, несмотря на то, что приложение запросило блокировку выключения"
++msgstr ""
++"Перезагрузить систему, несмотря на то, что приложение запросило блокировку "
++"выключения"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:36
+-msgid "Authentication is required for rebooting the system while an application asked to inhibit it."
+-msgstr "Чтобы перезагрузить систему, несмотря на то, что приложение запросило блокировку выключения, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for rebooting the system while an application "
++"asked to inhibit it."
++msgstr ""
++"Чтобы перезагрузить систему, несмотря на то, что приложение запросило "
++"блокировку выключения, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:37
+ msgid "Suspend the system"
+@@ -204,23 +235,36 @@ msgstr "Перевести систему в ждущий режим"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:38
+ msgid "Authentication is required for suspending the system."
+-msgstr "Чтобы перевести систему в ждущий режим, необходимо пройти аутентификацию."
++msgstr ""
++"Чтобы перевести систему в ждущий режим, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:39
+ msgid "Suspend the system while other users are logged in"
+-msgstr "Перевести систему в ждущий режим, несмотря на то, что в ней работают другие пользователи"
++msgstr ""
++"Перевести систему в ждущий режим, несмотря на то, что в ней работают другие "
++"пользователи"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:40
+-msgid "Authentication is required for suspending the system while other users are logged in."
+-msgstr "Чтобы перевести систему в ждущий режим, несмотря на то, что в ней работают другие пользователи, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for suspending the system while other users are "
++"logged in."
++msgstr ""
++"Чтобы перевести систему в ждущий режим, несмотря на то, что в ней работают "
++"другие пользователи, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:41
+ msgid "Suspend the system while an application asked to inhibit it"
+-msgstr "Перевести систему в ждущий режим, несмотря на то, что приложение запросило блокировку"
++msgstr ""
++"Перевести систему в ждущий режим, несмотря на то, что приложение запросило "
++"блокировку"
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:42
+-msgid "Authentication is required for suspending the system while an application asked to inhibit it."
+-msgstr "Чтобы перевести систему в ждущий режим, несмотря на то, что приложение запросило блокировку, необходимо пройти аутентификацию."
++msgid ""
++"Authentication is required for suspending the system while an application "
++"asked to inhibit it."
++msgstr ""
++"Чтобы перевести систему в ждущий режим, несмотря на то, что приложение "
++"запросило блокировку, необходимо пройти аутентификацию."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:43
+ msgid "Hibernate the system"
+diff --git a/po/uk.po b/po/uk.po
+index 7a5212a..b9ea3a2 100644
+--- a/po/uk.po
++++ b/po/uk.po
+@@ -8,7 +8,7 @@ msgstr ""
+ "Project-Id-Version: systemd master\n"
+ "Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?product=sys"
+ "temd&keywords=I18N+L10N&component=general\n"
+-"POT-Creation-Date: 2014-06-06 22:16+0000\n"
++"POT-Creation-Date: 2015-01-26 13:38+0100\n"
+ "PO-Revision-Date: 2014-07-16 19:13+0300\n"
+ "Last-Translator: Daniel Korostil <ted.korostiled@gmail.com>\n"
+ "Language-Team: linux.org.ua\n"
+@@ -16,10 +16,47 @@ msgstr ""
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%"
+-"10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
++"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
++"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+ "X-Generator: Virtaal 0.7.1\n"
+ 
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
++msgid "Send passphrase back to system"
++msgstr "Надіслати пароль назад у систему"
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
++msgid ""
++"Authentication is required to send the entered passphrase back to the system."
++msgstr "Засвідчення потрібно, щоб надіслати введений пароль назад у систему."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
++msgid "Manage system services or units"
++msgstr ""
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
++#, fuzzy
++msgid "Authentication is required to manage system services or units."
++msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
++msgid "Manage system service or unit files"
++msgstr ""
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
++#, fuzzy
++msgid "Authentication is required to manage system service or unit files."
++msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
++#, fuzzy
++msgid "Reload the systemd state"
++msgstr "Перезавантажити систему"
++
++#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
++#, fuzzy
++msgid "Authentication is required to reload the systemd state."
++msgstr "Засвідчення потрібно, щоб вказати системний час."
++
+ #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+ msgid "Set host name"
+ msgstr "Встановити назву вузла"
+@@ -48,6 +85,15 @@ msgstr "Встановити інформацію про машину"
+ msgid "Authentication is required to set local machine information."
+ msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
+ 
++#: ../src/import/org.freedesktop.import1.policy.in.h:1
++msgid "Download a VM or container image"
++msgstr ""
++
++#: ../src/import/org.freedesktop.import1.policy.in.h:2
++#, fuzzy
++msgid "Authentication is required to download a VM or container image"
++msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
++
+ #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+ msgid "Set system locale"
+ msgstr "Вказати системну локаль"
+@@ -244,8 +290,7 @@ msgid ""
+ "Authentication is required for rebooting the system while other users are "
+ "logged in."
+ msgstr ""
+-"Засвідчення потрібно, щоб перезапустити систему, коли інші користувачі в "
+-"ній."
++"Засвідчення потрібно, щоб перезапустити систему, коли інші користувачі в ній."
+ 
+ #: ../src/login/org.freedesktop.login1.policy.in.h:35
+ msgid "Reboot the system while an application asked to inhibit it"
+@@ -321,6 +366,15 @@ msgstr ""
+ "Засвідчення потрібно, щоб приспати систему, коли програми намагаються "
+ "першкодити цьому."
+ 
++#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
++msgid "Log into a local container"
++msgstr ""
++
++#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
++#, fuzzy
++msgid "Authentication is required to log into a local container"
++msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
++
+ #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+ msgid "Set system time"
+ msgstr "Вказати системний час"
+@@ -359,19 +413,17 @@ msgstr ""
+ "Засвідчення потрібно, щоб контролювати, чи синхронізування часу через мережу "
+ "запущено."
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+-msgid "Send passphrase back to system"
+-msgstr "Надіслати пароль назад у систему"
+-
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+-msgid ""
+-"Authentication is required to send the entered passphrase back to the system."
+-msgstr "Засвідчення потрібно, щоб надіслати введений пароль назад у систему."
++#: ../src/fsckd/fsckd.c:185
++msgid "Press Ctrl+C to cancel all checks in progress"
++msgstr ""
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+-msgid "Privileged system and service manager access"
+-msgstr "Привілейований доступ до менеджера системи і служб"
++#: ../src/fsckd/fsckd.c:226
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
++msgstr[2] ""
+ 
+-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+-msgid "Authentication is required to access the system and service manager."
+-msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
++#~ msgid "Privileged system and service manager access"
++#~ msgstr "Привілейований доступ до менеджера системи і служб"

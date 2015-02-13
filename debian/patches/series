@@ -81,3 +81,12 @@ Support-system-image-read-only-etc.patch
 Provide-shutdown-fallback-for-upstart.patch
 Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
 core-Put-session-scopes-into-all-cgroup-controllers.patch
+fsckd-daemon-for-inter-fsckd-communication.patch
+systemd-fsck-always-connect-to-systemd-fsckd.patch
+Connect-to-plymouth-and-support-cancellation-of-in-p.patch
+Add-gettext-support.patch
+Translate-fsckd-messages-for-plymouth.patch
+Refresh-po-files.patch
+Add-fsckd-service-and-socket-retarget-systemd-fsck.patch
+Add-man-page-and-references-to-it.patch
+Add-mock-fsck-process.patch
