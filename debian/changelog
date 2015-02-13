@@ -6,6 +6,8 @@ systemd (218-10) UNRELEASED; urgency=medium
   * Clean up stale mounts when ejecting CD drives with the hardware eject
     button. (LP: #1168742)
   * Document systemctl --failed option. (Closes: #767267)
+  * Quiesce confusing and irrelevant "failed to reset devices.list" warning.
+    (LP: #1413193)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 13 Feb 2015 08:41:07 +0100
 

@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/777601
  2 files changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index 35b862d..1749305 100644
+index 3d5d889..06e113c 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -818,7 +818,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
+@@ -836,7 +836,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
          if (!u->cgroup_path)
                  return;
  
