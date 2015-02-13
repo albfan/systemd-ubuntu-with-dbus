@@ -21,6 +21,7 @@ rules-clean-up-stale-CD-drive-mounts-after-ejection.patch
 core-don-t-fail-to-run-services-in-user-instances-if.patch
 man-document-failed.patch
 cgroup-downgrade-log-messages-when-we-cannot-write-t.patch
+bootchart-Ensure-that-systemd-is-the-init-called-aft.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

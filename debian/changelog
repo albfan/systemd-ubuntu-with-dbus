@@ -8,6 +8,8 @@ systemd (218-10) UNRELEASED; urgency=medium
   * Document systemctl --failed option. (Closes: #767267)
   * Quiesce confusing and irrelevant "failed to reset devices.list" warning.
     (LP: #1413193)
+  * When booting with systemd-bootchart, default to run systemd rather than
+    /sbin/init (which might not be systemd). (LP: #1417059)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 13 Feb 2015 08:41:07 +0100
 

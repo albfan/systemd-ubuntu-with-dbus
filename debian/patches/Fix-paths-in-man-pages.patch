@@ -68,11 +68,11 @@ Closes: #717491
  56 files changed, 157 insertions(+), 157 deletions(-)
 
 diff --git a/man/bootchart.conf.xml b/man/bootchart.conf.xml
-index a364826..f385e47 100644
+index e11ccb5..93964bf 100644
 --- a/man/bootchart.conf.xml
 +++ b/man/bootchart.conf.xml
 @@ -127,7 +127,7 @@
-                                 binary instead of <filename>/sbin/init</filename>. This
+                                 binary instead of <filename>/usr/lib/systemd/systemd</filename>. This
                                  option is only relevant if bootchart was invoked from the
                                  kernel command line with
 -                                init=/usr/lib/systemd/systemd-bootchart.</para></listitem>
@@ -164,7 +164,7 @@ index cb96048..78f65b2 100644
  
          <refsect1>
 diff --git a/man/systemd-bootchart.xml b/man/systemd-bootchart.xml
-index 0068e92..4759f3f 100644
+index ff86be2..347bfed 100644
 --- a/man/systemd-bootchart.xml
 +++ b/man/systemd-bootchart.xml
 @@ -63,7 +63,7 @@
