@@ -11,14 +11,14 @@ Part of #772700
  1 file changed, 1 insertion(+)
 
 diff --git a/units/systemd-logind.service.in b/units/systemd-logind.service.in
-index c6cbd1c..ef68aa0 100644
+index f087e99..07f65c4 100644
 --- a/units/systemd-logind.service.in
 +++ b/units/systemd-logind.service.in
 @@ -12,6 +12,7 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/logind
  Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
  Wants=user.slice
  After=nss-user-lookup.target user.slice
-+ConditionFileIsExecutable=/usr/bin/dbus-daemon
++ConditionPathExists=/lib/systemd/system/dbus.service
  
  # Ask for the dbus socket. If running over kdbus, the socket will
  # not be actually used.
