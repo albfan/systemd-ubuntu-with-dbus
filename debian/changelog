@@ -10,6 +10,9 @@ systemd (218-10) UNRELEASED; urgency=medium
     (LP: #1413193)
   * When booting with systemd-bootchart, default to run systemd rather than
     /sbin/init (which might not be systemd). (LP: #1417059)
+  * boot-and-services autopkgtest: Add CgroupsTest to check cgroup
+    creation/cleanup behaviour. This reproduces #777601 and verifies the fix
+    for it.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 13 Feb 2015 08:41:07 +0100
 

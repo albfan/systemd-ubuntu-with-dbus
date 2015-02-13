@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import shutil
 import time
+from glob import glob
 
 
 class ServicesTest(unittest.TestCase):
@@ -221,6 +222,107 @@ AppArmorProfile=violator-test
         with open('/etc/machine-id') as f:
             self.assertIn(f.read().strip(), out)
         self.assertNotIn('root:x', out, 'unit can read /etc/passwd')
+
+
+class CgroupsTest(unittest.TestCase):
+    '''Check cgroup setup'''
+
+    @classmethod
+    def setUpClass(kls):
+        kls.controllers = []
+        for controller in glob('/sys/fs/cgroup/*'):
+            if not os.path.islink(controller):
+                kls.controllers.append(controller)
+
+    def setUp(self):
+        self.service = 'testsrv.service'
+        self.service_file = '/run/systemd/system/' + self.service
+
+    def tearDown(self):
+        subprocess.call(['systemctl', 'stop', self.service],
+                        stderr=subprocess.PIPE)
+        try:
+            os.unlink(self.service_file)
+        except OSError:
+            pass
+        subprocess.check_call(['systemctl', 'daemon-reload'])
+
+    def create_service(self, extra_service=''):
+        '''Create test service unit'''
+
+        with open(self.service_file, 'w') as f:
+            f.write('''[Unit]
+Description=test service
+[Service]
+ExecStart=/bin/sleep 500
+%s
+''' % extra_service)
+        subprocess.check_call(['systemctl', 'daemon-reload'])
+
+    def assertNoControllers(self):
+        '''Assert that no cgroup controllers exist for test service'''
+
+        cs = glob('/sys/fs/cgroup/*/system.slice/%s' % self.service)
+        self.assertEqual(cs, [])
+
+    def assertController(self, name):
+        '''Assert that cgroup controller exists for test service'''
+
+        c = '/sys/fs/cgroup/%s/system.slice/%s' % (name, self.service)
+        self.assertTrue(os.path.isdir(c))
+
+    def assertNoController(self, name):
+        '''Assert that cgroup controller does not exist for test service'''
+
+        c = '/sys/fs/cgroup/%s/system.slice/%s' % (name, self.service)
+        self.assertFalse(os.path.isdir(c))
+
+    def test_simple(self):
+        '''simple service'''
+
+        self.create_service()
+        self.assertNoControllers()
+        subprocess.check_call(['systemctl', 'start', self.service])
+        self.assertController('systemd')
+        subprocess.check_call(['systemctl', 'stop', self.service])
+        self.assertNoControllers()
+
+    def test_cpushares(self):
+        '''service with CPUShares'''
+
+        self.create_service('CPUShares=1000')
+        self.assertNoControllers()
+        subprocess.check_call(['systemctl', 'start', self.service])
+        self.assertController('systemd')
+        self.assertController('cpu,cpuacct')
+        subprocess.check_call(['systemctl', 'stop', self.service])
+        self.assertNoControllers()
+
+    def test_custom_cgroup_cleanup(self):
+        '''cgroup cleanup does not touch manually created cgroups'''
+
+        # reproduces https://bugs.debian.org/777601
+        self.create_service()
+        os.mkdir('/sys/fs/cgroup/blkio/aux')
+        os.mkdir('/sys/fs/cgroup/perf_event/aux')
+        self.addCleanup(os.rmdir, '/sys/fs/cgroup/blkio/aux')
+        self.addCleanup(os.rmdir, '/sys/fs/cgroup/perf_event/aux')
+        subprocess.check_call(['systemctl', 'start', self.service])
+        self.assertController('systemd')
+        self.assertTrue(os.path.exists('/sys/fs/cgroup/blkio/aux'))
+        self.assertTrue(os.path.exists('/sys/fs/cgroup/perf_event/aux'))
+
+        subprocess.check_call(['systemctl', 'daemon-reload'])
+        time.sleep(1)
+        subprocess.check_call(['systemctl', 'restart', self.service])
+        time.sleep(1)
+        self.assertTrue(os.path.exists('/sys/fs/cgroup/blkio/aux'))
+        self.assertTrue(os.path.exists('/sys/fs/cgroup/perf_event/aux'))
+
+        subprocess.check_call(['systemctl', 'stop', self.service])
+        self.assertNoControllers()
+        self.assertTrue(os.path.exists('/sys/fs/cgroup/blkio/aux'))
+        self.assertTrue(os.path.exists('/sys/fs/cgroup/perf_event/aux'))
 
 
 def boot_with_systemd():
