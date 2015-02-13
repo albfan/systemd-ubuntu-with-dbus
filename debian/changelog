@@ -1,4 +1,4 @@
-systemd (218-10ubuntu1) UNRELEASED; urgency=medium
+systemd (218-10ubuntu1) vivid; urgency=medium
 
   [ Martin Pitt ]
   * Merge with Debian unstable. Remaining Ubuntu changes:
@@ -50,7 +50,7 @@ systemd (218-10ubuntu1) UNRELEASED; urgency=medium
     also allows cancelling them with ^C.
     (LP: #1316796; Closes: #775093, #758902)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 13 Feb 2015 15:51:59 +0100
 
 systemd (218-10) experimental; urgency=medium
 
