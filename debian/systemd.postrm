@@ -4,6 +4,11 @@ set -e
 
 case "$1" in
     purge)
+        # clean up after manually enabled units in postinst
+        rm -f /etc/systemd/system/getty.target.wants/getty@tty1.service
+        rm -f /etc/systemd/system/multi-user.target.wants/remote-fs.target
+        rmdir --ignore-fail-on-non-empty /etc/systemd/system/getty.target.wants /etc/systemd/system/multi-user.target.wants
+
         rm -f /var/lib/systemd/catalog/database
         rmdir --ignore-fail-on-non-empty /var/lib/systemd/catalog 2> /dev/null || true
 

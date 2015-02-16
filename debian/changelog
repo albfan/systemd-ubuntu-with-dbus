@@ -2,6 +2,8 @@ systemd (218-11) UNRELEASED; urgency=medium
 
   * /lib/lsb/init-functions.d/40-systemd: Call systemctl is-system-running
     with --quiet. (LP: #1421058)
+  * debian/systemd.postrm: Clean getty@tty1.service and remote-fs.target
+    enablement symlinks on purge. (Closes: #778499)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 15 Feb 2015 16:44:52 +0100
 
