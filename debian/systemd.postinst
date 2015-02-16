@@ -26,6 +26,11 @@ if dpkg --compare-versions "$2" lt "214-1"; then
     systemctl enable remote-fs.target || true
 fi
 
+# Enable timesyncd by default on new installs installs and upgrades
+if dpkg --compare-versions "$2" lt "218-11~"; then
+    systemctl enable systemd-timesyncd.service || true
+fi
+
 # Cleanup state files from the auto-enabler which we used in wheezy
 if dpkg --compare-versions "$2" lt "204-1"; then
     rm -f /var/lib/systemd/enabled-units

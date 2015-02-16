@@ -6,6 +6,8 @@ systemd (218-11) UNRELEASED; urgency=medium
     enablement symlinks on purge. (Closes: #778499)
   * Move all Debian specific units in the systemd package into
     debian/extra/units/ and simplify debian/systemd.install.
+  * Enable timesyncd by default. Add a config drop-in to not start if ntp,
+    openntpd, or chrony is installed. (Closes: #755722)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 15 Feb 2015 16:44:52 +0100
 
