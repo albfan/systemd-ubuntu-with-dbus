@@ -183,7 +183,7 @@ override_dh_install:
 		debian/systemd/lib/lsb/init-functions.d/40-systemd
 	install --mode=644 debian/tmpfiles.d/debian.conf \
 		debian/systemd/usr/lib/tmpfiles.d/
-	install --mode=644 debian/debian-fixup.service debian/ifup@.service debian/extra/getty-static.service \
+	install --mode=644 debian/debian-fixup.service debian/ifup@.service debian/extra/getty-static.service debian/extra/hwclock-save.service \
 		debian/systemd/lib/systemd/system/
 	install -D --mode=644 debian/extra/network-pre.conf \
 		debian/systemd/lib/systemd/system/networking.service.d/network-pre.conf
