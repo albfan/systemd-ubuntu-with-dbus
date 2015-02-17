@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_LOGIN_MONITOR_NEW" "3" "" "systemd 218" "sd_login_monitor_new"
+.TH "SD_LOGIN_MONITOR_NEW" "3" "" "systemd 219" "sd_login_monitor_new"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -109,13 +109,13 @@ uint64_t t;
 int msec;
 sd_login_monitor_get_timeout(m, &t);
 if (t == (uint64_t) \-1)
-        msec = \-1;
+  msec = \-1;
 else {
-        struct timespec ts;
-        uint64_t n;
-        clock_getttime(CLOCK_MONOTONIC, &ts);
-        n = (uint64_t) ts\&.tv_sec * 1000000 + ts\&.tv_nsec / 1000;
-        msec = t > n ? (int) ((t \- n + 999) / 1000) : 0;
+  struct timespec ts;
+  uint64_t n;
+  clock_getttime(CLOCK_MONOTONIC, &ts);
+  n = (uint64_t) ts\&.tv_sec * 1000000 + ts\&.tv_nsec / 1000;
+  msec = t > n ? (int) ((t \- n + 999) / 1000) : 0;
 }
 .fi
 .if n \{\

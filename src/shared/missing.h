@@ -40,11 +40,15 @@
 #include <libaudit.h>
 #endif
 
-#include "macro.h"
-
 #ifdef ARCH_MIPS
 #include <asm/sgidefs.h>
 #endif
+
+#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
+
+#include "macro.h"
 
 #ifndef RLIMIT_RTTIME
 #define RLIMIT_RTTIME 15
@@ -73,6 +77,12 @@
 #define F_SEAL_SHRINK   0x0002  /* prevent file from shrinking */
 #define F_SEAL_GROW     0x0004  /* prevent file from growing */
 #define F_SEAL_WRITE    0x0008  /* prevent writes */
+#endif
+
+#ifndef F_OFD_GETLK
+#define F_OFD_GETLK     36
+#define F_OFD_SETLK     37
+#define F_OFD_SETLKW    38
 #endif
 
 #ifndef MFD_ALLOW_SEALING
@@ -126,6 +136,8 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #    define __NR_memfd_create 319
 #  elif defined __arm__
 #    define __NR_memfd_create 385
+#  elif defined __aarch64__
+#    define __NR_memfd_create 279
 #  elif defined _MIPS_SIM
 #    if _MIPS_SIM == _MIPS_SIM_ABI32
 #      define __NR_memfd_create 4354
@@ -155,14 +167,18 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 #    define __NR_getrandom 318
 #  elif defined(__i386__)
 #    define __NR_getrandom 355
-#  elif defined(__arm__) || defined(__aarch64__)
+#  elif defined(__arm__)
 #    define __NR_getrandom 384
+# elif defined(__aarch64__)
+#    define __NR_getrandom 278
 #  elif defined(__ia64__)
 #    define __NR_getrandom 1339
 #  elif defined(__m68k__)
 #    define __NR_getrandom 352
 #  elif defined(__s390x__)
 #    define __NR_getrandom 349
+#  elif defined(__powerpc__)
+#    define __NR_getrandom 359
 #  else
 #    warning "__NR_getrandom unknown for your architecture"
 #    define __NR_getrandom 0xffffffff
@@ -244,6 +260,34 @@ struct btrfs_ioctl_fs_info_args {
 #ifndef BTRFS_IOC_DEVICES_READY
 #define BTRFS_IOC_DEVICES_READY _IOR(BTRFS_IOCTL_MAGIC, 39, \
                                  struct btrfs_ioctl_vol_args)
+#endif
+
+#ifndef BTRFS_FIRST_FREE_OBJECTID
+#define BTRFS_FIRST_FREE_OBJECTID 256
+#endif
+
+#ifndef BTRFS_ROOT_TREE_OBJECTID
+#define BTRFS_ROOT_TREE_OBJECTID 1
+#endif
+
+#ifndef BTRFS_QUOTA_TREE_OBJECTID
+#define BTRFS_QUOTA_TREE_OBJECTID 8ULL
+#endif
+
+#ifndef BTRFS_ROOT_ITEM_KEY
+#define BTRFS_ROOT_ITEM_KEY 132
+#endif
+
+#ifndef BTRFS_QGROUP_STATUS_KEY
+#define BTRFS_QGROUP_STATUS_KEY 240
+#endif
+
+#ifndef BTRFS_QGROUP_INFO_KEY
+#define BTRFS_QGROUP_INFO_KEY 242
+#endif
+
+#ifndef BTRFS_QGROUP_LIMIT_KEY
+#define BTRFS_QGROUP_LIMIT_KEY 244
 #endif
 
 #ifndef BTRFS_SUPER_MAGIC
@@ -394,6 +438,24 @@ static inline int setns(int fd, int nstype) {
 #define LOOP_CTL_GET_FREE 0x4C82
 #endif
 
+#if !HAVE_DECL_IFLA_INET6_ADDR_GEN_MODE
+#define IFLA_INET6_UNSPEC 0
+#define IFLA_INET6_FLAGS 1
+#define IFLA_INET6_CONF 2
+#define IFLA_INET6_STATS 3
+#define IFLA_INET6_MCAST 4
+#define IFLA_INET6_CACHEINFO 5
+#define IFLA_INET6_ICMP6STATS 6
+#define IFLA_INET6_TOKEN 7
+#define IFLA_INET6_ADDR_GEN_MODE 8
+#define __IFLA_INET6_MAX 9
+
+#define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
+
+#define IN6_ADDR_GEN_MODE_EUI64 0
+#define IN6_ADDR_GEN_MODE_NONE 1
+#endif
+
 #if !HAVE_DECL_IFLA_MACVLAN_FLAGS
 #define IFLA_MACVLAN_UNSPEC 0
 #define IFLA_MACVLAN_MODE 1
@@ -401,6 +463,18 @@ static inline int setns(int fd, int nstype) {
 #define __IFLA_MACVLAN_MAX 3
 
 #define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
+#endif
+
+#if !HAVE_DECL_IFLA_IPVLAN_MODE
+#define IFLA_IPVLAN_UNSPEC 0
+#define IFLA_IPVLAN_MODE 1
+#define __IFLA_IPVLAN_MAX 2
+
+#define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
+
+#define IPVLAN_MODE_L2 0
+#define IPVLAN_MODE_L3 1
+#define IPVLAN_MAX 2
 #endif
 
 #if !HAVE_DECL_IFLA_VTI_REMOTE
@@ -630,4 +704,62 @@ static inline int setns(int fd, int nstype) {
 
 #ifndef CAP_AUDIT_READ
 #define CAP_AUDIT_READ 37
+#endif
+
+static inline int raw_clone(unsigned long flags, void *child_stack) {
+#if defined(__s390__) || defined(__CRIS__)
+        /* On s390 and cris the order of the first and second arguments
+         * of the raw clone() system call is reversed. */
+        return (int) syscall(__NR_clone, child_stack, flags);
+#else
+        return (int) syscall(__NR_clone, flags, child_stack);
+#endif
+}
+
+static inline pid_t raw_getpid(void) {
+        return (pid_t) syscall(__NR_getpid);
+}
+
+#if !HAVE_DECL_RENAMEAT2
+
+#ifndef __NR_renameat2
+#  if defined __x86_64__
+#    define __NR_renameat2 316
+#  elif defined __arm__
+#    define __NR_renameat2 382
+#  elif defined _MIPS_SIM
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define __NR_renameat2 4351
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_NABI32
+#      define __NR_renameat2 6315
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_ABI64
+#      define __NR_renameat2 5311
+#    endif
+#  elif defined __i386__
+#    define __NR_renameat2 353
+#  else
+#    warning "__NR_renameat2 unknown for your architecture"
+#    define __NR_renameat2 0xffffffff
+#  endif
+#endif
+
+static inline int renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
+        return syscall(__NR_renameat2, oldfd, oldname, newfd, newname, flags);
+}
+#endif
+
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE (1 << 0)
+#endif
+
+#if !HAVE_DECL_KCMP
+static inline int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
+        return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
+}
+#endif
+
+#ifndef KCMP_FILE
+#define KCMP_FILE 0
 #endif

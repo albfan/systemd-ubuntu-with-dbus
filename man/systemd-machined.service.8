@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-MACHINED\&.SERVICE" "8" "" "systemd 218" "systemd-machined.service"
+.TH "SYSTEMD\-MACHINED\&.SERVICE" "8" "" "systemd 219" "systemd-machined.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,7 +33,13 @@ is a system service that keeps track of virtual machines and containers, and pro
 .PP
 See
 \fBsystemd-nspawn\fR(1)
-for some examples on how to start a container the systemd way\&.
+for some examples on how to run containers with OS tools\&.
+.PP
+Use
+\fBnss-mymachines\fR(8)
+to make the names of local containers known to
+\fBsystemd\-machined\fR
+locally resolvable as host names\&.
 .PP
 See the
 \m[blue]\fBmachined D\-Bus API Documentation\fR\m[]\&\s-2\u[1]\d\s+2
@@ -44,7 +50,9 @@ provides\&.
 .PP
 \fBsystemd\fR(1),
 \fBmachinectl\fR(1),
-\fBsystemd.special\fR(7)\&.
+\fBsystemd-nspawn\fR(1),
+\fBnss-mymachines\fR(8),
+\fBsystemd.special\fR(7)
 .SH "NOTES"
 .IP " 1." 4
 machined D-Bus API Documentation

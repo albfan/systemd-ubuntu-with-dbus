@@ -43,6 +43,7 @@
 #define BUS_ERROR_SCOPE_NOT_RUNNING "org.freedesktop.systemd1.ScopeNotRunning"
 
 #define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
+#define BUS_ERROR_NO_SUCH_IMAGE "org.freedesktop.machine1.NoSuchImage"
 #define BUS_ERROR_NO_MACHINE_FOR_PID "org.freedesktop.machine1.NoMachineForPID"
 #define BUS_ERROR_MACHINE_EXISTS "org.freedesktop.machine1.MachineExists"
 #define BUS_ERROR_NO_PRIVATE_NETWORKING "org.freedesktop.machine1.NoPrivateNetworking"
@@ -70,5 +71,8 @@
 #define BUS_ERROR_CNAME_LOOP "org.freedesktop.resolve1.CNameLoop"
 #define BUS_ERROR_ABORTED "org.freedesktop.resolve1.Aborted"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
+
+#define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"
+#define BUS_ERROR_TRANSFER_IN_PROGRESS "org.freedesktop.import1.TransferInProgress"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

@@ -158,6 +158,11 @@ global:
         sd_session_get_desktop;
 } LIBSYSTEMD_216;
 
+LIBSYSTEMD_219 {
+global:
+        sd_pid_notify_with_fds;
+} LIBSYSTEMD_217;
+
 m4_ifdef(`ENABLE_KDBUS',
 LIBSYSTEMD_FUTURE {
 global:
@@ -169,7 +174,7 @@ global:
         sd_bus_open_user;
         sd_bus_open_system;
         sd_bus_open_system_remote;
-        sd_bus_open_system_container;
+        sd_bus_open_system_machine;
         sd_bus_new;
         sd_bus_set_address;
         sd_bus_set_fd;
@@ -345,6 +350,7 @@ global:
         sd_bus_error_set_const;
         sd_bus_error_set_errno;
         sd_bus_error_set_errnof;
+        sd_bus_error_set_errnofv;
         sd_bus_error_get_errno;
         sd_bus_error_copy;
         sd_bus_error_is_set;
@@ -377,6 +383,9 @@ global:
         sd_event_add_child;
         sd_event_add_defer;
         sd_event_add_exit;
+        sd_event_wait;
+        sd_event_prepare;
+        sd_event_dispatch;
         sd_event_run;
         sd_event_loop;
         sd_event_exit;

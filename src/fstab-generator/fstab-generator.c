@@ -29,6 +29,7 @@
 #include "util.h"
 #include "unit-name.h"
 #include "path-util.h"
+#include "fstab-util.h"
 #include "mount-setup.h"
 #include "special.h"
 #include "mkdir.h"
@@ -47,33 +48,6 @@ static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 
-static int mount_find_pri(struct mntent *me, int *ret) {
-        char *end, *opt;
-        unsigned long r;
-
-        assert(me);
-        assert(ret);
-
-        opt = hasmntopt(me, "pri");
-        if (!opt)
-                return 0;
-
-        opt += strlen("pri");
-        if (*opt != '=')
-                return -EINVAL;
-
-        errno = 0;
-        r = strtoul(opt + 1, &end, 10);
-        if (errno > 0)
-                return -errno;
-
-        if (end == opt + 1 || (*end != ',' && *end != 0))
-                return -EINVAL;
-
-        *ret = (int) r;
-        return 1;
-}
-
 static int add_swap(
                 const char *what,
                 struct mntent *me,
@@ -87,16 +61,19 @@ static int add_swap(
         assert(what);
         assert(me);
 
+        if (access("/proc/swaps", F_OK) < 0) {
+                log_info("Swap not supported, ignoring fstab swap entry for %s.", what);
+                return 0;
+        }
+
         if (detect_container(NULL) > 0) {
                 log_info("Running in a container, ignoring fstab swap entry for %s.", what);
                 return 0;
         }
 
-        r = mount_find_pri(me, &pri);
-        if (r < 0) {
-                log_error("Failed to parse priority");
-                return r;
-        }
+        r = fstab_find_pri(me->mnt_opts, &pri);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse priority: %m");
 
         name = unit_name_from_path(what, ".swap");
         if (!name)
@@ -158,17 +135,15 @@ static int add_swap(
 static bool mount_is_network(struct mntent *me) {
         assert(me);
 
-        return
-                hasmntopt(me, "_netdev") ||
-                fstype_is_network(me->mnt_type);
+        return fstab_test_option(me->mnt_opts, "_netdev\0") ||
+               fstype_is_network(me->mnt_type);
 }
 
 static bool mount_in_initrd(struct mntent *me) {
         assert(me);
 
-        return
-                hasmntopt(me, "x-initrd.mount") ||
-                streq(me->mnt_dir, "/usr");
+        return fstab_test_option(me->mnt_opts, "x-initrd.mount\0") ||
+               streq(me->mnt_dir, "/usr");
 }
 
 static int add_mount(
@@ -355,7 +330,7 @@ static int parse_fstab(bool initrd) {
                 if (!what)
                         return log_oom();
 
-                if (detect_container(NULL) > 0 && is_device_path(what)) {
+                if (is_device_path(what) && path_is_read_only_fs("sys") > 0) {
                         log_info("Running in a container, ignoring fstab device entry for %s.", what);
                         continue;
                 }
@@ -367,8 +342,8 @@ static int parse_fstab(bool initrd) {
                 if (is_path(where))
                         path_kill_slashes(where);
 
-                noauto = !!hasmntopt(me, "noauto");
-                nofail = !!hasmntopt(me, "nofail");
+                noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
+                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
                 log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
                           yes_no(noauto), yes_no(nofail));
@@ -379,10 +354,9 @@ static int parse_fstab(bool initrd) {
                         bool automount;
                         const char *post;
 
-                        automount =
-                                  hasmntopt(me, "comment=systemd.automount") ||
-                                  hasmntopt(me, "x-systemd.automount");
-
+                        automount = fstab_test_option(me->mnt_opts,
+                                                      "comment=systemd.automount\0"
+                                                      "x-systemd.automount\0");
                         if (initrd)
                                 post = SPECIAL_INITRD_FS_TARGET;
                         else if (mount_in_initrd(me))
@@ -429,9 +403,8 @@ static int add_root_mount(void) {
         if (!arg_root_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
         else if (arg_root_rw >= 0 ||
-                 (!mount_test_option(arg_root_options, "ro") &&
-                  !mount_test_option(arg_root_options, "rw")))
-                opts = strappenda(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+                 !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
+                opts = strjoina(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_root_options;
 
@@ -487,9 +460,8 @@ static int add_usr_mount(void) {
 
         if (!arg_usr_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
-        else if (!mount_test_option(arg_usr_options, "ro") &&
-                 !mount_test_option(arg_usr_options, "rw"))
-                opts = strappenda(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+        else if (!fstab_test_option(arg_usr_options, "ro\0" "rw\0"))
+                opts = strjoina(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_usr_options;
 

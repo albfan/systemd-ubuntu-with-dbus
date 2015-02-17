@@ -314,19 +314,23 @@ static int write_to_console(
                 const char *object,
                 const char *buffer) {
 
-        char location[64];
-        struct iovec iovec[5] = {};
+        char location[64], prefix[1 + DECIMAL_STR_MAX(int) + 2];
+        struct iovec iovec[6] = {};
         unsigned n = 0;
         bool highlight;
 
         if (console_fd < 0)
                 return 0;
 
+        if (log_target == LOG_TARGET_CONSOLE_PREFIXED) {
+                sprintf(prefix, "<%i>", level);
+                IOVEC_SET_STRING(iovec[n++], prefix);
+        }
+
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         if (show_location) {
-                snprintf(location, sizeof(location), "(%s:%u) ", file, line);
-                char_array_0(location);
+                snprintf(location, sizeof(location), "(%s:%i) ", file, line);
                 IOVEC_SET_STRING(iovec[n++], location);
         }
 
@@ -370,7 +374,9 @@ static int write_to_syslog(
                 const char *object,
                 const char *buffer) {
 
-        char header_priority[1 + DECIMAL_STR_MAX(int) + 2], header_time[64], header_pid[1 + DECIMAL_STR_MAX(pid_t) + 4];
+        char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
+             header_time[64],
+             header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
         struct iovec iovec[5] = {};
         struct msghdr msghdr = {
                 .msg_iov = iovec,
@@ -382,8 +388,7 @@ static int write_to_syslog(
         if (syslog_fd < 0)
                 return 0;
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", level);
-        char_array_0(header_priority);
+        xsprintf(header_priority, "<%i>", level);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
         tm = localtime(&t);
@@ -393,8 +398,7 @@ static int write_to_syslog(
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
                 return -EINVAL;
 
-        snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", getpid());
-        char_array_0(header_pid);
+        xsprintf(header_pid, "["PID_FMT"]: ", getpid());
 
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], header_time);
@@ -433,17 +437,15 @@ static int write_to_kmsg(
                 const char *object,
                 const char *buffer) {
 
-        char header_priority[1 + DECIMAL_STR_MAX(int) + 2], header_pid[1 + DECIMAL_STR_MAX(pid_t) + 4];
+        char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
+             header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
         struct iovec iovec[5] = {};
 
         if (kmsg_fd < 0)
                 return 0;
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", level);
-        char_array_0(header_priority);
-
-        snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", getpid());
-        char_array_0(header_pid);
+        xsprintf(header_priority, "<%i>", level);
+        xsprintf(header_pid, "["PID_FMT"]: ", getpid());
 
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], program_invocation_short_name);
@@ -492,7 +494,6 @@ static int log_do_header(
                  isempty(object) ? "" : object,
                  isempty(object) ? "" : "\n",
                  program_invocation_short_name);
-        header[size - 1] = '\0';
 
         return 0;
 }
@@ -654,7 +655,6 @@ int log_internalv(
                 errno = error;
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
-        char_array_0(buffer);
 
         return log_dispatch(level, error, file, line, func, NULL, NULL, buffer);
 }
@@ -702,7 +702,6 @@ int log_object_internalv(
                 errno = error;
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
-        char_array_0(buffer);
 
         return log_dispatch(level, error, file, line, func, object_field, object, buffer);
 }
@@ -744,7 +743,6 @@ static void log_assert(
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
         REENABLE_WARNING;
 
-        char_array_0(buffer);
         log_abort_msg = buffer;
 
         log_dispatch(level, 0, file, line, func, NULL, NULL, buffer);
@@ -870,7 +868,6 @@ int log_struct_internal(
                 va_copy(aq, ap);
                 vsnprintf(buf, sizeof(buf), format, aq);
                 va_end(aq);
-                char_array_0(buf);
 
                 if (startswith(buf, "MESSAGE=")) {
                         found = true;
@@ -917,7 +914,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
          * The systemd.log_xyz= settings are parsed by all tools, and
          * so is "debug".
          *
-         * However, "quiet" is only parsed by PID 1!
+         * However, "quiet" is only parsed by PID 1, and only turns of
+         * status output to /dev/console, but does not alter the log
+         * level.
          */
 
         if (streq(key, "debug") && !value)
@@ -950,7 +949,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 void log_parse_environment(void) {
         const char *e;
 
-        (void) parse_proc_cmdline(parse_proc_cmdline_item);
+        if (get_ctty_devnr(0, NULL) < 0)
+                /* Only try to read the command line in daemons.
+                   We assume that anything that has a controlling
+                   tty is user stuff. */
+                (void) parse_proc_cmdline(parse_proc_cmdline_item);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1016,7 +1019,8 @@ int log_show_location_from_string(const char *e) {
 }
 
 bool log_on_console(void) {
-        if (log_target == LOG_TARGET_CONSOLE)
+        if (log_target == LOG_TARGET_CONSOLE ||
+            log_target == LOG_TARGET_CONSOLE_PREFIXED)
                 return true;
 
         return syslog_fd < 0 && kmsg_fd < 0 && journal_fd < 0;
@@ -1024,6 +1028,7 @@ bool log_on_console(void) {
 
 static const char *const log_target_table[_LOG_TARGET_MAX] = {
         [LOG_TARGET_CONSOLE] = "console",
+        [LOG_TARGET_CONSOLE_PREFIXED] = "console-prefixed",
         [LOG_TARGET_KMSG] = "kmsg",
         [LOG_TARGET_JOURNAL] = "journal",
         [LOG_TARGET_JOURNAL_OR_KMSG] = "journal-or-kmsg",
@@ -1043,7 +1048,7 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                 get_process_comm(si->ssi_pid, &p);
 
                 log_full(level,
-                         "Received SIG%s from PID "PID_FMT" (%s).",
+                         "Received SIG%s from PID %"PRIu32" (%s).",
                          signal_to_string(si->ssi_signo),
                          si->ssi_pid, strna(p));
         } else

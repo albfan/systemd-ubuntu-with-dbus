@@ -32,9 +32,10 @@
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
-#include "machine.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "machine.h"
+#include "machine-dbus.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;
@@ -201,23 +202,25 @@ int machine_save(Machine *m) {
                 goto finish;
         }
 
+        free(temp_path);
+        temp_path = NULL;
+
         if (m->unit) {
                 char *sl;
 
                 /* Create a symlink from the unit name to the machine
                  * name, so that we can quickly find the machine for
                  * each given unit */
-                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 symlink(m->name, sl);
         }
 
 finish:
-        if (r < 0) {
-                if (temp_path)
-                        unlink(temp_path);
+        if (temp_path)
+                unlink(temp_path);
 
+        if (r < 0)
                 log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
-        }
 
         return r;
 }
@@ -229,7 +232,7 @@ static void machine_unlink(Machine *m) {
 
                 char *sl;
 
-                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 unlink(sl);
         }
 
@@ -337,7 +340,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                 if (!scope)
                         return log_oom();
 
-                description = strappenda(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
+                description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
                 r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0) {
@@ -405,12 +408,10 @@ static int machine_stop_scope(Machine *m) {
         if (!m->unit)
                 return 0;
 
-        if (!m->registered) {
-                r = manager_stop_unit(m->manager, m->unit, &error, &job);
-                if (r < 0) {
-                        log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
-                        return r;
-                }
+        r = manager_stop_unit(m->manager, m->unit, &error, &job);
+        if (r < 0) {
+                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
+                return r;
         }
 
         free(m->scope_job);

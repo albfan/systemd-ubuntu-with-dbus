@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALD\&.CONF" "5" "" "systemd 218" "journald.conf"
+.TH "JOURNALD\&.CONF" "5" "" "systemd 219" "journald.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -242,8 +242,7 @@ Controls the maximum log level of messages that are stored on disk, forwarded to
 "warning",
 "notice",
 "info",
-"debug"
-or integer values in the range of 0\&.\&.7 (corresponding to the same levels)\&. Messages equal or below the log level specified are stored/forwarded, messages above are dropped\&. Defaults to
+"debug", or integer values in the range of 0\&.\&.7 (corresponding to the same levels)\&. Messages equal or below the log level specified are stored/forwarded, messages above are dropped\&. Defaults to
 "debug"
 for
 \fIMaxLevelStore=\fR
@@ -254,8 +253,7 @@ for
 \fIMaxLevelKMsg=\fR,
 "info"
 for
-\fIMaxLevelConsole=\fR
-and
+\fIMaxLevelConsole=\fR, and
 "emerg"
 for
 \fIMaxLevelWall=\fR\&.

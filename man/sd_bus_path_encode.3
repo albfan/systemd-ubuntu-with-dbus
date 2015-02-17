@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_PATH_ENCODE" "3" "" "systemd 218" "sd_bus_path_encode"
+.TH "SD_BUS_PATH_ENCODE" "3" "" "systemd 219" "sd_bus_path_encode"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@ sd_bus_path_encode, sd_bus_path_decode \- Convert an external identifier into an
 .HP \w'int\ sd_bus_path_encode('u
 .BI "int sd_bus_path_encode(const\ char\ *" "prefix" ", const\ char\ *" "external_id" ", char\ **" "ret_path" ");"
 .HP \w'int\ sd_bus_path_decode('u
-.BI "int sd_bus_path_decode(const\ char\ *" "prefix" ", const\ char\ *" "path" ", char\ **" "ret_external_id" ");"
+.BI "int sd_bus_path_decode(const\ char\ *" "path" ", const\ char\ *" "prefix" ", char\ **" "ret_external_id" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_bus_path_encode()\fR

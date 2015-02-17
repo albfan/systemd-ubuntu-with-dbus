@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <sys/capability.h>
 #include <arpa/inet.h>
 
 #include "bus-util.h"
@@ -32,7 +31,10 @@
 #include "fileio.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
+#include "path-util.h"
+#include "bus-internal.h"
 #include "machine.h"
+#include "machine-dbus.h"
 
 static int property_get_id(
                 sd_bus *bus,
@@ -172,6 +174,9 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         assert(bus);
         assert(message);
         assert(m);
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting IP address data is only supported on container machines.");
 
         r = readlink_malloc("/proc/self/ns/net", &us);
         if (r < 0)
@@ -317,16 +322,19 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
         assert(message);
         assert(m);
 
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
+
         r = namespace_open(m->leader, NULL, &mntns_fd, NULL, &root_fd);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         child = fork();
         if (child < 0)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         if (child == 0) {
                 _cleanup_close_ int fd = -1;
@@ -344,7 +352,7 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
                                 _exit(EXIT_FAILURE);
                 }
 
-                r = copy_bytes(fd, pair[1], (off_t) -1);
+                r = copy_bytes(fd, pair[1], (off_t) -1, false);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -355,37 +363,157 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 
         f = fdopen(pair[0], "re");
         if (!f)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         pair[0] = -1;
 
         r = load_env_file_pairs(f, "/etc/os-release", NULL, &l);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         r = wait_for_terminate(child, &si);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
         if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return sd_bus_error_set_errno(error, EIO);
+                return -EIO;
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "{ss}");
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         STRV_FOREACH_PAIR(k, v, l) {
                 r = sd_bus_message_append(reply, "{ss}", *k, *v);
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ char *pty_name = NULL;
+        _cleanup_close_ int master = -1;
+        Machine *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening pseudo TTYs is only supported on container machines.");
+
+        master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (master < 0)
+                return master;
+
+        r = ptsname_malloc(master, &pty_name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "hs", master, pty_name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ char *pty_name = NULL, *getty = NULL;
+        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_close_ int master = -1;
+        Machine *m = userdata;
+        const char *p;
+        int r;
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening logins is only supported on container machines.");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.login",
+                        false,
+                        &m->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (master < 0)
+                return master;
+
+        r = ptsname_malloc(master, &pty_name);
+        if (r < 0)
+                return r;
+
+        p = path_startswith(pty_name, "/dev/pts/");
+        if (!p)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PTS name %s is invalid", pty_name);
+
+        if (unlockpt(master) < 0)
+                return -errno;
+
+        r = sd_bus_new(&container_bus);
+        if (r < 0)
+                return r;
+
+#ifdef ENABLE_KDBUS
+        asprintf(&container_bus->address, "x-machine-kernel:pid=" PID_FMT ";x-machine-unix:pid=" PID_FMT, m->leader, m->leader);
+#else
+        asprintf(&container_bus->address, "x-machine-kernel:pid=" PID_FMT, m->leader);
+#endif
+        if (!container_bus->address)
+                return -ENOMEM;
+
+        container_bus->bus_client = true;
+        container_bus->trusted = false;
+        container_bus->is_system = true;
+
+        r = sd_bus_start(container_bus);
+        if (r < 0)
+                return r;
+
+        getty = strjoin("container-getty@", p, ".service", NULL);
+        if (!getty)
+                return -ENOMEM;
+
+        r = sd_bus_call_method(
+                        container_bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        error, NULL,
+                        "ss", getty, "replace");
+        if (r < 0)
+                return r;
+
+        container_bus = sd_bus_unref(container_bus);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "hs", master, pty_name);
+        if (r < 0)
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
@@ -407,6 +535,8 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, 0),
+        SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 

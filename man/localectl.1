@@ -1,5 +1,5 @@
 '\" t
-.TH "LOCALECTL" "1" "" "systemd 218" "localectl"
+.TH "LOCALECTL" "1" "" "systemd 219" "localectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -101,9 +101,9 @@ List available locales useful for configuration with
 .PP
 \fBset\-keymap MAP [TOGGLEMAP]\fR
 .RS 4
-Set the system keyboard mapping for the console\&. This takes a keyboard mapping name (such as "de" or "us"), and possibly a second one to define a toggle keyboard mapping\&. Unless
+Set the system keyboard mapping for the console and X11\&. This takes a mapping name (such as "de" or "us"), and possibly a second one to define a toggle keyboard mapping\&. Unless
 \fB\-\-no\-convert\fR
-is passed, the selected setting is also applied to the default keyboard mapping of X11, after converting it to the closest matching X11 keyboard mapping\&. Use
+is passed, the selected setting is also applied as the default system keyboard mapping of X11, after converting it to the closest matching X11 keyboard mapping\&. Use
 \fBlist\-keymaps\fR
 for a list of available keyboard mappings (see below)\&.
 .RE
@@ -116,11 +116,14 @@ List available keyboard mappings for the console, useful for configuration with
 .PP
 \fBset\-x11\-keymap LAYOUT [MODEL [VARIANT [OPTIONS]]]\fR
 .RS 4
-Set the system default keyboard mapping for X11\&. This takes a keyboard mapping name (such as "de" or "us"), and possibly a model, variant and options, see
+Set the system default keyboard mapping for X11 and the virtual console\&. This takes a keyboard mapping name (such as
+"de"
+or
+"us"), and possibly a model, variant, and options, see
 \fBkbd\fR(4)
 for details\&. Unless
 \fB\-\-no\-convert\fR
-is passed, the selected setting is also applied to the system console keyboard mapping, after converting it to the closest matching console keyboard mapping\&.
+is passed, the selected setting is also applied as the system console keyboard mapping, after converting it to the closest matching console keyboard mapping\&.
 .RE
 .PP
 \fBlist\-x11\-keymap\-models\fR, \fBlist\-x11\-keymap\-layouts\fR, \fBlist\-x11\-keymap\-variants [LAYOUT]\fR, \fBlist\-x11\-keymap\-options\fR

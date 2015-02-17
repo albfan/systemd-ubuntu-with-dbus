@@ -3,22 +3,22 @@
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-This file is part of systemd.
+  This file is part of systemd.
 
-Copyright 2014 Zbigniew Jędrzejewski-Szmek
+  Copyright 2014 Zbigniew Jędrzejewski-Szmek
 
-systemd is free software; you can redistribute it and/or modify it
-under the terms of the GNU Lesser General Public License as published by
-the Free Software Foundation; either version 2.1 of the License, or
-(at your option) any later version.
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
 
-systemd is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public License
-along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="busctl"
@@ -121,16 +121,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <listitem><para>When showing messages being exchanged, show only the
           subset matching <replaceable>MATCH</replaceable>.</para></listitem>
           <!-- TODO: link to sd_bus_add_match when it is written? -->
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-legend</option></term>
-
-        <listitem>
-          <para>Do not print the legend,
-          i.e. the column headers and the
-          footer.</para>
-        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -251,9 +241,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
   </refsect1>
 
@@ -313,11 +304,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg></term>
+        <term><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable></arg></term>
 
         <listitem><para>Show interfaces, methods, properties and
         signals of the specified object (identified by its path) on
-        the specified service.</para></listitem>
+        the specified service. If the interface argument is passed the
+        output is limited to members of the specified
+        interface.</para></listitem>
       </varlistentry>
 
       <varlistentry>

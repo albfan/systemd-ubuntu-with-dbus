@@ -53,6 +53,12 @@ struct PTYForward {
         bool master_writable:1;
         bool master_hangup:1;
 
+        /* Continue reading after hangup? */
+        bool ignore_vhangup:1;
+
+        bool last_char_set:1;
+        char last_char;
+
         char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full, out_buffer_full;
 
@@ -166,14 +172,15 @@ static int shovel(PTYForward *f) {
                         if (k < 0) {
 
                                 /* Note that EIO on the master device
-                                 * might be cause by vhangup() or
+                                 * might be caused by vhangup() or
                                  * temporary closing of everything on
                                  * the other side, we treat it like
-                                 * EAGAIN here and try again. */
+                                 * EAGAIN here and try again, unless
+                                 * ignore_vhangup is off. */
 
-                                if (errno == EAGAIN || errno == EIO)
+                                if (errno == EAGAIN || (errno == EIO && f->ignore_vhangup))
                                         f->master_readable = false;
-                                else if (errno == EPIPE || errno == ECONNRESET) {
+                                else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
@@ -203,6 +210,12 @@ static int shovel(PTYForward *f) {
                                 }
 
                         } else {
+
+                                if (k > 0) {
+                                        f->last_char = f->out_buffer[k-1];
+                                        f->last_char_set = true;
+                                }
+
                                 assert(f->out_buffer_full >= (size_t) k);
                                 memmove(f->out_buffer, f->out_buffer + k, f->out_buffer_full - k);
                                 f->out_buffer_full -= k;
@@ -280,12 +293,12 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
 
         /* The window size changed, let's forward that. */
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                (void)ioctl(f->master, TIOCSWINSZ, &ws);
+                (void) ioctl(f->master, TIOCSWINSZ, &ws);
 
         return 0;
 }
 
-int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
+int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward **ret) {
         _cleanup_(pty_forward_freep) PTYForward *f = NULL;
         struct winsize ws;
         int r;
@@ -293,6 +306,8 @@ int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
         f = new0(PTYForward, 1);
         if (!f)
                 return -ENOMEM;
+
+        f->ignore_vhangup = ignore_vhangup;
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -358,6 +373,8 @@ int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
                 return r;
 
         r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);
+        if (r < 0)
+                return r;
 
         *ret = f;
         f = NULL;
@@ -387,4 +404,44 @@ PTYForward *pty_forward_free(PTYForward *f) {
         fd_nonblock(STDOUT_FILENO, false);
 
         return NULL;
+}
+
+int pty_forward_get_last_char(PTYForward *f, char *ch) {
+        assert(f);
+        assert(ch);
+
+        if (!f->last_char_set)
+                return -ENXIO;
+
+        *ch = f->last_char;
+        return 0;
+}
+
+int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup) {
+        int r;
+
+        assert(f);
+
+        if (f->ignore_vhangup == ignore_vhangup)
+                return 0;
+
+        f->ignore_vhangup = ignore_vhangup;
+        if (!f->ignore_vhangup) {
+
+                /* We shall now react to vhangup()s? Let's check
+                 * immediately if we might be in one */
+
+                f->master_readable = true;
+                r = shovel(f);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int pty_forward_get_ignore_vhangup(PTYForward *f) {
+        assert(f);
+
+        return f->ignore_vhangup;
 }

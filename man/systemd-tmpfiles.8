@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-TMPFILES" "8" "" "systemd 218" "systemd-tmpfiles"
+.TH "SYSTEMD\-TMPFILES" "8" "" "systemd 219" "systemd-tmpfiles"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -53,6 +53,7 @@ If this option is passed, all files and directories marked with
 \fIw\fR,
 \fId\fR,
 \fID\fR,
+\fIv\fR,
 \fIp\fR,
 \fIL\fR,
 \fIc\fR,
@@ -61,7 +62,10 @@ If this option is passed, all files and directories marked with
 in the configuration files are created or written to\&. Files and directories marked with
 \fIz\fR,
 \fIZ\fR,
-\fIm\fR
+\fIt\fR,
+\fIT\fR,
+\fIa\fR, and
+\fIA\fR
 have their ownership, access mode and security labels set\&.
 .RE
 .PP
@@ -72,10 +76,14 @@ If this option is passed, all files and directories with an age parameter config
 .PP
 \fB\-\-remove\fR
 .RS 4
-If this option is passed, all files and directories marked with
-\fIr\fR,
+If this option is passed, the contents of directories marked with
+\fID\fR
+or
+\fIR\fR, and files or directories themselves marked with
+\fIr\fR
+or
 \fIR\fR
-in the configuration files are removed\&.
+are removed\&.
 .RE
 .PP
 \fB\-\-boot\fR
@@ -85,12 +93,12 @@ Also execute lines with an exclamation mark\&.
 .PP
 \fB\-\-prefix=\fR\fB\fIpath\fR\fR
 .RS 4
-Only apply rules that apply to paths with the specified prefix\&. This option can be specified multiple times\&.
+Only apply rules with paths that start with the specified prefix\&. This option can be specified multiple times\&.
 .RE
 .PP
 \fB\-\-exclude\-prefix=\fR\fB\fIpath\fR\fR
 .RS 4
-Ignore rules that apply to paths with the specified prefix\&. This option can be specified multiple times\&.
+Ignore rules with paths that start with the specified prefix\&. This option can be specified multiple times\&.
 .RE
 .PP
 \fB\-\-root=\fR\fB\fIroot\fR\fR
@@ -125,6 +133,12 @@ systemd\-tmpfiles \-\-remove \-\-create
 .if n \{\
 .RE
 .\}
+.SH "UNPRIVILEGED --CLEANUP OPERATION"
+.PP
+\fBsystemd\-tmpfiles\fR
+tries to avoid changing the access and modification times on the directories it accesses, which requires
+\fBCAP_ADMIN\fR
+privileges\&. When running as non\-root, directories which are checked for files to clean up will have their access time bumped, which might prevent their cleanup\&.
 .SH "EXIT STATUS"
 .PP
 On success, 0 is returned, a non\-zero failure code otherwise\&.

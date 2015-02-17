@@ -1,5 +1,5 @@
 '\" t
-.TH "OS\-RELEASE" "5" "" "systemd 218" "os-release"
+.TH "OS\-RELEASE" "5" "" "systemd 219" "os-release"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,7 +36,7 @@ files contain operating system identification data\&.
 .PP
 The basic file format of
 os\-release
-is a newline\-separated list of environment\-like shell\-compatible variable assignments\&. It is possible to source the configuration from shell scripts, however, beyond mere variable assignments, no shell features are supported (this means variable expansion is explicitly not supported), allowing applications to read the file without implementing a shell compatible execution engine\&. Variable assignment values should be enclosed in double or single quotes if they include spaces, semicolons or other special characters outside of A\-Z, a\-z, 0\-9\&. All strings should be in UTF\-8 format, and non\-printable characters should not be used\&. If double or single quotes or backslashes are to be used within variable assignments, they should be escaped with backslashes, following shell style\&. It is not supported to concatenate multiple individually quoted strings\&. Lines beginning with "#" shall be ignored as comments\&.
+is a newline\-separated list of environment\-like shell\-compatible variable assignments\&. It is possible to source the configuration from shell scripts, however, beyond mere variable assignments, no shell features are supported (this means variable expansion is explicitly not supported), allowing applications to read the file without implementing a shell compatible execution engine\&. Variable assignment values must be enclosed in double or single quotes if they include spaces, semicolons or other special characters outside of A\-Z, a\-z, 0\-9\&. Shell special characters ("$", quotes, backslash, backtick) must be escaped with backslashes, following shell style\&. All strings should be in UTF\-8 format, and non\-printable characters should not be used\&. It is not supported to concatenate multiple individually quoted strings\&. Lines beginning with "#" shall be ignored as comments\&.
 .PP
 The file
 /etc/os\-release
@@ -144,7 +144,7 @@ as proposed by the MITRE Corporation\&. This field is optional\&. Example:
 "CPE_NAME="cpe:/o:fedoraproject:fedora:17""
 .RE
 .PP
-\fIHOME_URL=\fR, \fISUPPORT_URL=\fR, \fIBUG_REPORT_URL=\fR
+\fIHOME_URL=\fR, \fISUPPORT_URL=\fR, \fIBUG_REPORT_URL=\fR, \fIPRIVACY_POLICY_URL=\fR
 .RS 4
 Links to resources on the Internet related the operating system\&.
 \fIHOME_URL=\fR
@@ -152,7 +152,9 @@ should refer to the homepage of the operating system, or alternatively some home
 \fISUPPORT_URL=\fR
 should refer to the main support page for the operating system, if there is any\&. This is primarily intended for operating systems which vendors provide support for\&.
 \fIBUG_REPORT_URL=\fR
-should refer to the main bug reporting page for the operating system, if there is any\&. This is primarily intended for operating systems that rely on community QA\&. These settings are optional, and providing only some of these settings is common\&. These URLs are intended to be exposed in "About this system" UIs behind links with captions such as "About this Operating System", "Obtain Support", and "Report a Bug"\&. The values should be in
+should refer to the main bug reporting page for the operating system, if there is any\&. This is primarily intended for operating systems that rely on community QA\&.
+\fIPRIVACY_POLICY_URL=\fR
+should refer to the main privacy policy page for the operation system, if there is any\&. These settings are optional, and providing only some of these settings is common\&. These URLs are intended to be exposed in "About this system" UIs behind links with captions such as "About this Operating System", "Obtain Support", "Report a Bug", or "Privacy Policy"\&. The values should be in
 \m[blue]\fBRFC3986 format\fR\m[]\&\s-2\u[3]\d\s+2, and should be
 "http:"
 or
@@ -174,9 +176,22 @@ or
 "BUILD_ID=201303203"\&.
 .RE
 .PP
-If you are reading this file from C code or a shell script to determine the OS or a specific version of it, use the ID and VERSION_ID fields, possibly with ID_LIKE as fallback for ID\&. When looking for an OS identification string for presentation to the user use the PRETTY_NAME field\&.
+If you are reading this file from C code or a shell script to determine the OS or a specific version of it, use the
+\fIID\fR
+and
+\fIVERSION_ID\fR
+fields, possibly with
+\fIID_LIKE\fR
+as fallback for
+\fIID\fR\&. When looking for an OS identification string for presentation to the user use the
+\fIPRETTY_NAME\fR
+field\&.
 .PP
-Note that operating system vendors may choose not to provide version information, for example to accommodate for rolling releases\&. In this case, VERSION and VERSION_ID may be unset\&. Applications should not rely on these fields to be set\&.
+Note that operating system vendors may choose not to provide version information, for example to accommodate for rolling releases\&. In this case,
+\fIVERSION\fR
+and
+\fIVERSION_ID\fR
+may be unset\&. Applications should not rely on these fields to be set\&.
 .PP
 Operating system vendors may extend the file format and introduce new fields\&. It is highly recommended to prefix new fields with an OS specific name in order to avoid name clashes\&. Applications reading this file must ignore unknown fields\&. Example:
 "DEBIAN_BTS="debbugs://bugs\&.debian\&.org/""
@@ -208,7 +223,8 @@ BUG_REPORT_URL="https://bugzilla\&.redhat\&.com/"
 \fBmachine-info\fR(5)
 .SH "NOTES"
 .IP " 1." 4
-Announcement of /etc/os-release
+Announcement of
+    /etc/os-release
 .RS 4
 \%http://0pointer.de/blog/projects/os-release
 .RE

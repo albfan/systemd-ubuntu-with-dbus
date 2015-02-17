@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_LISTEN_FDS" "3" "" "systemd 218" "sd_listen_fds"
+.TH "SD_LISTEN_FDS" "3" "" "systemd 219" "sd_listen_fds"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -46,12 +46,16 @@ If the
 parameter is non\-zero,
 \fBsd_listen_fds()\fR
 will unset the
-\fI$LISTEN_FDS\fR/\fI$LISTEN_PID\fR
+\fI$LISTEN_FDS\fR
+and
+\fI$LISTEN_PID\fR
 environment variables before returning (regardless of whether the function call itself succeeded or not)\&. Further calls to
 \fBsd_listen_fds()\fR
 will then fail, but the variables are no longer inherited by child processes\&.
 .PP
-If a daemon receives more than one file descriptor, they will be passed in the same order as configured in the systemd socket definition file\&. Nonetheless, it is recommended to verify the correct socket types before using them\&. To simplify this checking, the functions
+If a daemon receives more than one file descriptor, they will be passed in the same order as configured in the systemd socket unit file (see
+\fBsystemd.socket\fR(5)
+for details)\&. Nonetheless, it is recommended to verify the correct socket types before using them\&. To simplify this checking, the functions
 \fBsd_is_fifo\fR(3),
 \fBsd_is_socket\fR(3),
 \fBsd_is_socket_inet\fR(3),
@@ -59,6 +63,11 @@ If a daemon receives more than one file descriptor, they will be passed in the s
 are provided\&. In order to maximize flexibility, it is recommended to make these checks as loose as possible without allowing incorrect setups\&. i\&.e\&. often, the actual port number a socket is bound to matters little for the service to work, hence it should not be verified\&. On the other hand, whether a socket is a datagram or stream socket matters a lot for the most common program logics and should be checked\&.
 .PP
 This function call will set the FD_CLOEXEC flag for all passed file descriptors to avoid further inheritance to children of the calling process\&.
+.PP
+If multiple socket units activate the same service the order of the file descriptors passed to its main process is undefined\&. If additional file descriptors have been passed to the service manager using
+\fBsd_pid_notify_with_fds\fR(3)\*(Aqs
+"FDSTORE=1"
+messages, these file descriptors are passed last, in arbitrary order, and with duplicates removed\&.
 .SH "RETURN VALUE"
 .PP
 On failure, this call returns a negative errno\-style error code\&. If

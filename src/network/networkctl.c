@@ -21,20 +21,26 @@
 
 #include <stdbool.h>
 #include <getopt.h>
+#include <net/if.h>
 
 #include "sd-network.h"
 #include "sd-rtnl.h"
+#include "sd-hwdb.h"
 #include "libudev.h"
 
+#include "strv.h"
 #include "build.h"
 #include "util.h"
 #include "pager.h"
+#include "lldp.h"
 #include "rtnl-util.h"
 #include "udev-util.h"
+#include "hwdb-util.h"
 #include "arphrd-list.h"
 #include "local-addresses.h"
 #include "socket-util.h"
 #include "ether-addr-util.h"
+#include "verbs.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -181,7 +187,7 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
-static int list_links(char **args, unsigned n) {
+static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
@@ -249,32 +255,45 @@ static int list_links(char **args, unsigned n) {
 }
 
 /* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(struct udev_hwdb *hwdb, struct ether_addr *mac, char **ret) {
-        struct udev_list_entry *entry;
-        char *description;
-        char str[strlen("OUI:XXYYXXYYXXYY") + 1];
+static int ieee_oui(sd_hwdb *hwdb, struct ether_addr *mac, char **ret) {
+        const char *description;
+        char modalias[strlen("OUI:XXYYXXYYXXYY") + 1], *desc;
+        int r;
+
+        assert(ret);
+
+        if (!hwdb)
+                return -EINVAL;
+
+        if (!mac)
+                return -EINVAL;
 
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
 
-        snprintf(str, sizeof(str), "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
+        snprintf(modalias, sizeof(modalias), "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
 
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, str, 0))
-                if (strcmp(udev_list_entry_get_name(entry), "ID_OUI_FROM_DATABASE") == 0) {
-                        description = strdup(udev_list_entry_get_value(entry));
-                        if (!description)
-                                return -ENOMEM;
+        r = sd_hwdb_get(hwdb, modalias, "ID_OUI_FROM_DATABASE", &description);
+        if (r < 0)
+                return r;
 
-                        *ret = description;
-                        return 0;
-                }
+        desc = strdup(description);
+        if (!desc)
+                return -ENOMEM;
 
-        return -ENODATA;
+        *ret = desc;
+
+        return 0;
 }
 
-static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int ifindex, int family,
-                                   union in_addr_union *gateway, char **gateway_description) {
+static int get_gateway_description(
+                sd_rtnl *rtnl,
+                sd_hwdb *hwdb,
+                int ifindex,
+                int family,
+                union in_addr_union *gateway,
+                char **gateway_description) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         sd_rtnl_message *m;
         int r;
@@ -374,7 +393,11 @@ static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int if
         return -ENODATA;
 }
 
-static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *prefix, int ifindex) {
+static int dump_gateways(
+                sd_rtnl *rtnl,
+                sd_hwdb *hwdb,
+                const char *prefix,
+                int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
@@ -389,26 +412,41 @@ static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *pref
                 if (r < 0)
                         return r;
 
-                r = get_gateway_description(rtnl, hwdb, ifindex, local[i].family, &local[i].address, &description);
+                r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway: %m");
 
+                printf("%*s%s",
+                       (int) strlen(prefix),
+                       i == 0 ? prefix : "",
+                       gateway);
+
                 if (description)
-                        printf("%*s%s (%s)\n",
-                               (int) strlen(prefix),
-                               i == 0 ? prefix : "",
-                               gateway, description);
-                else
-                        printf("%*s%s\n",
-                               (int) strlen(prefix),
-                               i == 0 ? prefix : "",
-                               gateway);
+                        printf(" (%s)", description);
+
+                /* Show interface name for the entry if we show
+                 * entries for all interfaces */
+                if (ifindex <= 0) {
+                        char name[IF_NAMESIZE+1];
+
+                        if (if_indextoname(local[i].ifindex, name)) {
+                                fputs(" on ", stdout);
+                                fputs(name, stdout);
+                        } else
+                                printf(" on %%%i", local[i].ifindex);
+                }
+
+                fputc('\n', stdout);
         }
 
         return 0;
 }
 
-static int dump_addresses(sd_rtnl *rtnl, const char *prefix, int ifindex) {
+static int dump_addresses(
+                sd_rtnl *rtnl,
+                const char *prefix,
+                int ifindex) {
+
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
@@ -423,10 +461,22 @@ static int dump_addresses(sd_rtnl *rtnl, const char *prefix, int ifindex) {
                 if (r < 0)
                         return r;
 
-                printf("%*s%s\n",
+                printf("%*s%s",
                        (int) strlen(prefix),
                        i == 0 ? prefix : "",
                        pretty);
+
+                if (ifindex <= 0) {
+                        char name[IF_NAMESIZE+1];
+
+                        if (if_indextoname(local[i].ifindex, name)) {
+                                fputs(" on ", stdout);
+                                fputs(name, stdout);
+                        } else
+                                printf(" on %%%i", local[i].ifindex);
+                }
+
+                fputc('\n', stdout);
         }
 
         return 0;
@@ -443,12 +493,16 @@ static void dump_list(const char *prefix, char **l) {
         }
 }
 
-static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
+static int link_status_one(
+                sd_rtnl *rtnl,
+                struct udev *udev,
+                sd_hwdb *hwdb,
+                const char *name) {
+
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_hwdb_unref_ struct udev_hwdb *hwdb = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -534,9 +588,6 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         sprintf(devid, "n%i", ifindex);
         d = udev_device_new_from_device_id(udev, devid);
-
-        link_get_type_string(iftype, d, &t);
-
         if (d) {
                 link = udev_device_get_property_value(d, "ID_NET_LINK_FILE");
                 driver = udev_device_get_property_value(d, "ID_NET_DRIVER");
@@ -550,6 +601,8 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                 if (!model)
                         model = udev_device_get_property_value(d, "ID_MODEL");
         }
+
+        link_get_type_string(iftype, d, &t);
 
         sd_network_link_get_network_file(ifindex, &network);
 
@@ -575,18 +628,22 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                 printf("       Model: %s\n", model);
 
         if (have_mac) {
+                _cleanup_free_ char *description = NULL;
                 char ea[ETHER_ADDR_TO_STRING_MAX];
-                printf("  HW Address: %s\n", ether_addr_to_string(&e, ea));
+
+                ieee_oui(hwdb, &e, &description);
+
+                if (description)
+                        printf("  HW Address: %s (%s)\n", ether_addr_to_string(&e, ea), description);
+                else
+                        printf("  HW Address: %s\n", ether_addr_to_string(&e, ea));
         }
 
         if (mtu > 0)
                 printf("         MTU: %u\n", mtu);
 
-        hwdb = udev_hwdb_new(udev);
-
-        dump_gateways(rtnl, hwdb, "     Gateway: ", ifindex);
-
         dump_addresses(rtnl, "     Address: ", ifindex);
+        dump_gateways(rtnl, hwdb, "     Gateway: ", ifindex);
 
         if (!strv_isempty(dns))
                 dump_list("         DNS: ", dns);
@@ -598,7 +655,8 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         return 0;
 }
 
-static int link_status(char **args, unsigned n) {
+static int link_status(int argc, char *argv[], void *userdata) {
+        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **name;
@@ -612,29 +670,24 @@ static int link_status(char **args, unsigned n) {
         if (!udev)
                 return log_error_errno(errno, "Failed to connect to udev: %m");
 
-        if (n <= 1 && !arg_all) {
+        r = sd_hwdb_new(&hwdb);
+        if (r < 0)
+                log_debug_errno(r, "Failed to open hardware database: %m");
+
+        if (argc <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
-                _cleanup_free_ struct local_address *addresses = NULL;
                 const char *on_color_operational, *off_color_operational;
-                int i, c;
 
                 sd_network_get_operational_state(&operational_state);
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-                printf("       State: %s%s%s\n", on_color_operational, strna(operational_state), off_color_operational);
+                printf("%s%s%s      State: %s%s%s\n",
+                       on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
+                       on_color_operational, strna(operational_state), off_color_operational);
 
-                c = local_addresses(rtnl, 0, AF_UNSPEC, &addresses);
-                for (i = 0; i < c; i++) {
-                        _cleanup_free_ char *pretty = NULL;
-
-                        r = in_addr_to_string(addresses[i].family, &addresses[i].address, &pretty);
-                        if (r < 0)
-                                return log_oom();
-
-                        printf("%13s %s\n",
-                               i > 0 ? "" : "Address:", pretty);
-                }
+                dump_addresses(rtnl, "     Address: ", 0);
+                dump_gateways(rtnl, hwdb, "     Gateway: ", 0);
 
                 sd_network_get_dns(&dns);
                 if (!strv_isempty(dns))
@@ -678,15 +731,278 @@ static int link_status(char **args, unsigned n) {
                         if (i > 0)
                                 fputc('\n', stdout);
 
-                        link_status_one(rtnl, udev, links[i].name);
+                        link_status_one(rtnl, udev, hwdb, links[i].name);
+                }
+        } else {
+                STRV_FOREACH(name, argv + 1) {
+                        if (name != argv + 1)
+                                fputc('\n', stdout);
+
+                        link_status_one(rtnl, udev, hwdb, *name);
                 }
         }
 
-        STRV_FOREACH(name, args + 1) {
-                if (name != args+1)
-                        fputc('\n', stdout);
+        return 0;
+}
 
-                link_status_one(rtnl, udev, *name);
+const char *lldp_system_capability_to_string(LLDPSystemCapabilities d) _const_;
+LLDPSystemCapabilities lldp_system_capability_from_string(const char *d) _pure_;
+
+static const char* const lldp_system_capability_table[_LLDP_SYSTEM_CAPABILITIES_MAX + 1] = {
+        [LLDP_SYSTEM_CAPABILITIES_OTHER] = "O",
+        [LLDP_SYSTEM_CAPABILITIES_REPEATER] = "P",
+        [LLDP_SYSTEM_CAPABILITIES_BRIDGE] = "B",
+        [LLDP_SYSTEM_CAPABILITIES_WLAN_AP] = "W",
+        [LLDP_SYSTEM_CAPABILITIES_ROUTER] = "R",
+        [LLDP_SYSTEM_CAPABILITIES_PHONE] = "T",
+        [LLDP_SYSTEM_CAPABILITIES_DOCSIS] = "D",
+        [LLDP_SYSTEM_CAPABILITIES_STATION] = "A",
+        [LLDP_SYSTEM_CAPABILITIES_CVLAN] = "C",
+        [LLDP_SYSTEM_CAPABILITIES_SVLAN] = "S",
+        [LLDP_SYSTEM_CAPABILITIES_TPMR] = "M",
+        [_LLDP_SYSTEM_CAPABILITIES_MAX] = "N/A",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(lldp_system_capability, LLDPSystemCapabilities);
+
+static char *lldp_system_caps(uint16_t cap) {
+        _cleanup_free_ char *s = NULL, *t = NULL;
+        char *capability;
+
+        t = strdup("[ ");
+        if (!t)
+                return NULL;
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_OTHER) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_OTHER), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_REPEATER) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_REPEATER), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_BRIDGE) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_BRIDGE), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_WLAN_AP) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_WLAN_AP), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_ROUTER) {
+                s =  strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_ROUTER), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_PHONE) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_PHONE), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_DOCSIS) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_DOCSIS), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_STATION) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_STATION), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_CVLAN) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_CVLAN), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_SVLAN) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_SVLAN), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_TPMR) {
+                s = strappend(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_TPMR));
+                if (!s)
+                        return NULL;
+
+                free(t);
+        }
+
+        if (!s) {
+                s = strappend(t, lldp_system_capability_to_string(_LLDP_SYSTEM_CAPABILITIES_MAX));
+                if (!s)
+                        return NULL;
+
+                free(t);
+        }
+
+        t = strappend(s, "]");
+        if (!t)
+                return NULL;
+
+        free(s);
+        capability = t;
+
+        s = NULL;
+        t = NULL;
+
+        return capability;
+}
+
+static int link_lldp_status(int argc, char *argv[], void *userdata) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_free_ LinkInfo *links = NULL;
+        const char *state, *word;
+
+        double ttl = -1;
+        uint32_t capability;
+        int i, r, c, j;
+        size_t ll;
+        char **s;
+
+        pager_open_if_enabled();
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate links: %m");
+
+        c = decode_and_sort_links(reply, &links);
+        if (c < 0)
+                return rtnl_log_parse_error(c);
+
+        if (arg_legend)
+                printf("%s %16s %24s %16s %16s\n", "Local Intf", "Device ID", "Port ID", "TTL", "Capability");
+
+        for (i = j = 0; i < c; i++) {
+                _cleanup_free_ char *chassis = NULL, *port = NULL, *cap = NULL, *lldp = NULL;
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_network_link_get_lldp(links[i].ifindex, &lldp);
+                if (r < 0)
+                        continue;
+
+                l = strv_split_newlines(lldp);
+                if (!l)
+                        return -ENOMEM;
+
+                STRV_FOREACH(s, l) {
+                        FOREACH_WORD_QUOTED(word, ll, *s, state) {
+                                _cleanup_free_ char *t = NULL, *a = NULL, *b = NULL;
+
+                                t = strndup(word, ll);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                r = split_pair(t, "=", &a, &b);
+                                if (r < 0)
+                                        continue;
+
+                                if (streq(a, "_Chassis")) {
+                                        chassis = strdup(b);
+                                        if (!chassis)
+                                                return -ENOMEM;
+
+                                } else if (streq(a, "_Port")) {
+                                        port = strdup(b);
+                                        if (!port)
+                                                return -ENOMEM;
+
+                                } else if (streq(a, "_TTL")) {
+                                        long long unsigned x;
+                                        usec_t time;
+
+                                        r = safe_atollu(b, &x);
+                                        if (r < 0 || (usec_t) x != x)
+                                                return log_warning_errno(r < 0 ? r : ERANGE,
+                                                                         "Failed to parse TTL \"%s\": %m", b);
+
+                                        time = now(CLOCK_BOOTTIME);
+                                        if (x < time)
+                                                continue;
+
+                                        ttl = (double) (x - time) / USEC_PER_SEC;
+
+                                } else if (streq(a, "_CAP")) {
+                                        sscanf(b, "%x", &capability);
+
+                                        cap = lldp_system_caps(capability);
+                                }
+
+                        }
+
+                        if (ttl >= 0) {
+                                printf("%10s %24s %16s %16f %16s\n",
+                                       links[i].name,
+                                       strna(chassis), strna(port),
+                                       ttl, cap);
+                                j++;
+                        }
+                }
+        }
+
+        if (arg_legend) {
+                printf("\nCapability Codes:\n"
+                       "(O) - Other, (P) - Repeater,  (B) - Bridge , (W) - WLAN Access Point, (R) = Router,\n"
+                       "(T) - Telephone, (D) - Data Over Cable Service Interface Specifications, (A) - Station,\n"
+                       "(C) - Customer VLAN, (S) - Service VLAN, (M) - Two-port MAC Relay (TPMR)\n\n");
+
+                printf("Total entries displayed: %d\n", j);
         }
 
         return 0;
@@ -702,7 +1018,8 @@ static void help(void) {
                "  -a --all              Show status for all links\n\n"
                "Commands:\n"
                "  list                  List links\n"
-               "  status LINK           Show link status\n"
+               "  status [LINK...]      Show link status\n"
+               "  lldp                  Show lldp information\n"
                , program_invocation_short_name);
 }
 
@@ -765,79 +1082,14 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int networkctl_main(int argc, char *argv[]) {
-
-        static const struct {
-                const char* verb;
-                const enum {
-                        MORE,
-                        LESS,
-                        EQUAL
-                } argc_cmp;
-                const int argc;
-                int (* const dispatch)(char **args, unsigned n);
-        } verbs[] = {
-                { "list",   LESS, 1, list_links  },
-                { "status", MORE, 1, link_status },
+        const Verb verbs[] = {
+                { "list", VERB_ANY, 1, VERB_DEFAULT, list_links },
+                { "status", 1, VERB_ANY, 0, link_status },
+                { "lldp", VERB_ANY, 1, VERB_DEFAULT, link_lldp_status },
+                {}
         };
 
-        int left;
-        unsigned i;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        left = argc - optind;
-
-        if (left <= 0)
-                /* Special rule: no arguments means "list" */
-                i = 0;
-        else {
-                if (streq(argv[optind], "help")) {
-                        help();
-                        return 0;
-                }
-
-                for (i = 0; i < ELEMENTSOF(verbs); i++)
-                        if (streq(argv[optind], verbs[i].verb))
-                                break;
-
-                if (i >= ELEMENTSOF(verbs)) {
-                        log_error("Unknown operation %s", argv[optind]);
-                        return -EINVAL;
-                }
-        }
-
-        switch (verbs[i].argc_cmp) {
-
-        case EQUAL:
-                if (left != verbs[i].argc) {
-                        log_error("Invalid number of arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case MORE:
-                if (left < verbs[i].argc) {
-                        log_error("Too few arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case LESS:
-                if (left > verbs[i].argc) {
-                        log_error("Too many arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Unknown comparison operator.");
-        }
-
-        return verbs[i].dispatch(argv + optind, left);
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 int main(int argc, char* argv[]) {

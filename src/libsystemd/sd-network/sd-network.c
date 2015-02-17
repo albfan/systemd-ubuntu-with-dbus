@@ -24,7 +24,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/inotify.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <net/if.h>
 
 #include "util.h"
@@ -191,6 +191,32 @@ _public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
 
         return 0;
 }
+
+_public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        size_t size;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(lldp, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/lldp/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = read_full_file(p, &s, &size);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (size <= 0)
+                return -ENODATA;
+
+        *lldp = s;
+        s = NULL;
+
+        return 0;
+}
+
 
 static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;

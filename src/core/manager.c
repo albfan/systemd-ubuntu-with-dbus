@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <sys/epoll.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
 #include <linux/kd.h>
@@ -90,6 +90,8 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
+static int manager_run_generators(Manager *m);
+static void manager_undo_generators(Manager *m);
 
 static int manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
@@ -162,6 +164,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         uint64_t x;
 
         assert(m);
+        assert(m->n_running_jobs > 0);
 
         manager_flip_auto_status(m, true);
 
@@ -184,8 +187,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         m->jobs_in_progress_iteration++;
 
         if (m->n_running_jobs > 1)
-                if (asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs) < 0)
-                        job_of_n = NULL;
+                asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
 
         format_timespan(time, sizeof(time), now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
         if (job_get_timeout(j, &x) > 0)
@@ -197,7 +199,6 @@ static void manager_print_jobs_in_progress(Manager *m) {
                               job_type_to_string(j->type),
                               unit_description(j->unit),
                               time, limit);
-
 }
 
 static int have_ask_password(void) {
@@ -440,7 +441,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
                         SIGRTMIN+27, /* systemd: set log target to console */
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
-                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete)*/
+                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
                         /* ... one free signal here SIGRTMIN+30 ... */
 #endif
@@ -547,6 +548,9 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
         m->have_ask_password = -EINVAL; /* we don't know */
 
         m->test_run = test_run;
+
+        /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
+        RATELIMIT_INIT(m->ctrl_alt_del_ratelimit, 2 * USEC_PER_SEC, 7);
 
         r = manager_default_environment(m);
         if (r < 0)
@@ -704,7 +708,7 @@ static int manager_setup_kdbus(Manager *m) {
         if (m->test_run || m->kdbus_fd >= 0)
                 return 0;
 
-        if (getpid() == 1)
+        if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0)
                 bus_kernel_fix_attach_mask();
 
         m->kdbus_fd = bus_kernel_create_bus(
@@ -946,19 +950,28 @@ Manager* manager_free(Manager *m) {
 }
 
 int manager_enumerate(Manager *m) {
-        int r = 0, q;
+        int r = 0;
         UnitType c;
 
         assert(m);
 
         /* Let's ask every type to load all units from disk/kernel
          * that it might know */
-        for (c = 0; c < _UNIT_TYPE_MAX; c++)
-                if (unit_vtable[c]->enumerate) {
-                        q = unit_vtable[c]->enumerate(m);
-                        if (q < 0)
-                                r = q;
+        for (c = 0; c < _UNIT_TYPE_MAX; c++) {
+                int q;
+
+                if (unit_vtable[c]->supported && !unit_vtable[c]->supported(m)) {
+                        log_info("Unit type .%s is not supported on this system.", unit_type_to_string(c));
+                        continue;
                 }
+
+                if (!unit_vtable[c]->enumerate)
+                        continue;
+
+                q = unit_vtable[c]->enumerate(m);
+                if (q < 0)
+                        r = q;
+        }
 
         manager_dispatch_load_queue(m);
         return r;
@@ -1019,7 +1032,7 @@ static void manager_build_unit_path_cache(Manager *m) {
                 while ((de = readdir(d))) {
                         char *p;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
                         p = strjoin(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
@@ -1075,8 +1088,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         assert(m);
 
         dual_timestamp_get(&m->generators_start_timestamp);
-        manager_run_generators(m);
+        r = manager_run_generators(m);
         dual_timestamp_get(&m->generators_finish_timestamp);
+        if (r < 0)
+                return r;
 
         r = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
@@ -1441,7 +1456,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         return n;
 }
 
-static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *buf, size_t n) {
+static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *buf, size_t n, FDSet *fds) {
         _cleanup_strv_free_ char **tags = NULL;
 
         assert(m);
@@ -1458,12 +1473,13 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *
         log_unit_debug(u->id, "Got notification message for unit %s", u->id);
 
         if (UNIT_VTABLE(u)->notify_message)
-                UNIT_VTABLE(u)->notify_message(u, pid, tags);
+                UNIT_VTABLE(u)->notify_message(u, pid, tags, fds);
 }
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         ssize_t n;
+        int r;
 
         assert(m);
         assert(m->notify_fd == fd);
@@ -1474,73 +1490,99 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         for (;;) {
-                char buf[4096];
+                _cleanup_fdset_free_ FDSet *fds = NULL;
+                char buf[NOTIFY_BUFFER_MAX+1];
                 struct iovec iovec = {
                         .iov_base = buf,
                         .iov_len = sizeof(buf)-1,
                 };
-                bool found = false;
-
                 union {
                         struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                                    CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
                 } control = {};
-
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),
                 };
-                struct ucred *ucred;
+                struct cmsghdr *cmsg;
+                struct ucred *ucred = NULL;
+                bool found = false;
                 Unit *u1, *u2, *u3;
+                int *fd_array = NULL;
+                unsigned n_fds = 0;
 
-                n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT);
-                if (n <= 0) {
-                        if (n == 0)
-                                return -EIO;
-
+                n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (n < 0) {
                         if (errno == EAGAIN || errno == EINTR)
                                 break;
 
                         return -errno;
                 }
 
-                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||
-                    control.cmsghdr.cmsg_level != SOL_SOCKET ||
-                    control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
-                    control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
-                        log_warning("Received notify message without credentials. Ignoring.");
+                for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+
+                                fd_array = (int*) CMSG_DATA(cmsg);
+                                n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                                   cmsg->cmsg_type == SCM_CREDENTIALS &&
+                                   cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                                ucred = (struct ucred*) CMSG_DATA(cmsg);
+                        }
+                }
+
+                if (n_fds > 0) {
+                        assert(fd_array);
+
+                        r = fdset_new_array(&fds, fd_array, n_fds);
+                        if (r < 0) {
+                                close_many(fd_array, n_fds);
+                                return log_oom();
+                        }
+                }
+
+                if (!ucred || ucred->pid <= 0) {
+                        log_warning("Received notify message without valid credentials. Ignoring.");
                         continue;
                 }
 
-                ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+                if ((size_t) n >= sizeof(buf)) {
+                        log_warning("Received notify message exceeded maximum size. Ignoring.");
+                        continue;
+                }
 
-                assert((size_t) n < sizeof(buf));
                 buf[n] = 0;
 
                 /* Notify every unit that might be interested, but try
                  * to avoid notifying the same one multiple times. */
                 u1 = manager_get_unit_by_pid(m, ucred->pid);
                 if (u1) {
-                        manager_invoke_notify_message(m, u1, ucred->pid, buf, n);
+                        manager_invoke_notify_message(m, u1, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
                 u2 = hashmap_get(m->watch_pids1, LONG_TO_PTR(ucred->pid));
                 if (u2 && u2 != u1) {
-                        manager_invoke_notify_message(m, u2, ucred->pid, buf, n);
+                        manager_invoke_notify_message(m, u2, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
                 u3 = hashmap_get(m->watch_pids2, LONG_TO_PTR(ucred->pid));
                 if (u3 && u3 != u2 && u3 != u1) {
-                        manager_invoke_notify_message(m, u3, ucred->pid, buf, n);
+                        manager_invoke_notify_message(m, u3, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
                 if (!found)
                         log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
+
+                if (fdset_size(fds) > 0)
+                        log_warning("Got auxiliary fds with notification message, closing all.");
         }
 
         return 0;
@@ -1682,7 +1724,19 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case SIGINT:
                         if (m->running_as == SYSTEMD_SYSTEM) {
-                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+
+                                /* If the user presses C-A-D more than
+                                 * 7 times within 2s, we reboot
+                                 * immediately. */
+
+                                if (ratelimit_test(&m->ctrl_alt_del_ratelimit))
+                                        manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+                                else {
+                                        log_notice("Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
+                                        status_printf(NULL, true, false, "Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
+                                        m->exit_code = MANAGER_REBOOT;
+                                }
+
                                 break;
                         }
 
@@ -2052,8 +2106,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 return;
         }
 
-        msg = strappenda("unit=", p);
-
+        msg = strjoina("unit=", p);
         if (audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
                 if (errno == EPERM)
                         /* We aren't allowed to send audit messages?
@@ -2171,7 +2224,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
         m->n_reloading ++;
 
-        fprintf(f, "current-job-id=%i\n", m->current_job_id);
+        fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
         fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
         fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);
@@ -2477,7 +2530,9 @@ int manager_reload(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
 
         /* Find new unit paths */
-        manager_run_generators(m);
+        q = manager_run_generators(m);
+        if (q < 0 && r >= 0)
+                r = q;
 
         q = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
@@ -2485,19 +2540,19 @@ int manager_reload(Manager *m) {
                         m->generator_unit_path,
                         m->generator_unit_path_early,
                         m->generator_unit_path_late);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
         q = manager_enumerate(m);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         /* Second, deserialize our stored data */
         q = manager_deserialize(m, f, fds);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         fclose(f);
@@ -2505,12 +2560,12 @@ int manager_reload(Manager *m) {
 
         /* Re-register notify_fd as event source */
         q = manager_setup_notify(m);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         /* Third, fire things up! */
         q = manager_coldplug(m);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         assert(m->n_reloading > 0);
@@ -2626,9 +2681,6 @@ void manager_check_finished(Manager *m) {
 
         assert(m);
 
-        if (m->n_running_jobs == 0)
-                m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
-
         if (hashmap_size(m->jobs) > 0) {
 
                 if (m->jobs_in_progress_event_source)
@@ -2738,28 +2790,33 @@ static void trim_generator_dir(Manager *m, char **generator) {
         return;
 }
 
-void manager_run_generators(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
-        const char *generator_path;
+static int manager_run_generators(Manager *m) {
+        _cleanup_free_ char **paths = NULL;
         const char *argv[5];
+        char **path;
         int r;
 
         assert(m);
 
         if (m->test_run)
-                return;
+                return 0;
 
-        generator_path = m->running_as == SYSTEMD_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
-        d = opendir(generator_path);
-        if (!d) {
-                if (errno == ENOENT)
-                        return;
+        paths = generator_paths(m->running_as);
+        if (!paths)
+                return log_oom();
 
-                log_error_errno(errno, "Failed to enumerate generator directory %s: %m",
-                          generator_path);
-                return;
+        /* Optimize by skipping the whole process by not creating output directories
+         * if no generators are found. */
+        STRV_FOREACH(path, paths) {
+                r = access(*path, F_OK);
+                if (r == 0)
+                        goto found;
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
         }
+        return 0;
 
+ found:
         r = create_generator_dir(m, &m->generator_unit_path, "generator");
         if (r < 0)
                 goto finish;
@@ -2779,12 +2836,13 @@ void manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                execute_directory(generator_path, d, DEFAULT_TIMEOUT_USEC, (char**) argv);
+                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
 
 finish:
         trim_generator_dir(m, &m->generator_unit_path);
         trim_generator_dir(m, &m->generator_unit_path_early);
         trim_generator_dir(m, &m->generator_unit_path_late);
+        return r;
 }
 
 static void remove_generator_dir(Manager *m, char **generator) {
@@ -2801,7 +2859,7 @@ static void remove_generator_dir(Manager *m, char **generator) {
         *generator = NULL;
 }
 
-void manager_undo_generators(Manager *m) {
+static void manager_undo_generators(Manager *m) {
         assert(m);
 
         remove_generator_dir(m, &m->generator_unit_path);

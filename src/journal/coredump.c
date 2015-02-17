@@ -31,9 +31,8 @@
 #  include <elfutils/libdwfl.h>
 #endif
 
-#include "systemd/sd-journal.h"
-#include "systemd/sd-login.h"
-
+#include "sd-journal.h"
+#include "sd-login.h"
 #include "log.h"
 #include "util.h"
 #include "fileio.h"
@@ -42,18 +41,15 @@
 #include "mkdir.h"
 #include "special.h"
 #include "cgroup-util.h"
-#include "journald-native.h"
 #include "conf-parser.h"
 #include "copy.h"
 #include "stacktrace.h"
 #include "path-util.h"
 #include "compress.h"
+#include "acl-util.h"
+#include "capability.h"
+#include "journald-native.h"
 #include "coredump-vacuum.h"
-
-#ifdef HAVE_ACL
-#  include <sys/acl.h>
-#  include "acl-util.h"
-#endif
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
@@ -306,9 +302,9 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        tmp = tempfn_random(fn);
-        if (!tmp)
-                return log_oom();
+        r = tempfn_random(fn, &tmp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine temporary file name: %m");
 
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
@@ -316,7 +312,7 @@ static int save_external_coredump(
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
 
-        r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
+        r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max, false);
         if (r == -EFBIG) {
                 log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
@@ -352,9 +348,9 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                tmp_compressed = tempfn_random(fn_compressed);
-                if (!tmp_compressed) {
-                        log_oom();
+                r = tempfn_random(fn_compressed, &tmp_compressed);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine temporary file name for %s: %m", fn_compressed);
                         goto uncompressed;
                 }
 
@@ -638,11 +634,11 @@ int main(int argc, char* argv[]) {
                         goto finish;
                 }
 
-                core_unit = strappenda("COREDUMP_UNIT=", t);
+                core_unit = strjoina("COREDUMP_UNIT=", t);
                 free(t);
 
         } else if (cg_pid_get_user_unit(pid, &t) >= 0) {
-                core_unit = strappenda("COREDUMP_USER_UNIT=", t);
+                core_unit = strjoina("COREDUMP_USER_UNIT=", t);
                 free(t);
         }
 
@@ -654,20 +650,20 @@ int main(int argc, char* argv[]) {
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_open();
 
-        core_pid = strappenda("COREDUMP_PID=", info[INFO_PID]);
+        core_pid = strjoina("COREDUMP_PID=", info[INFO_PID]);
         IOVEC_SET_STRING(iovec[j++], core_pid);
 
-        core_uid = strappenda("COREDUMP_UID=", info[INFO_UID]);
+        core_uid = strjoina("COREDUMP_UID=", info[INFO_UID]);
         IOVEC_SET_STRING(iovec[j++], core_uid);
 
-        core_gid = strappenda("COREDUMP_GID=", info[INFO_GID]);
+        core_gid = strjoina("COREDUMP_GID=", info[INFO_GID]);
         IOVEC_SET_STRING(iovec[j++], core_gid);
 
-        core_signal = strappenda("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
+        core_signal = strjoina("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
         IOVEC_SET_STRING(iovec[j++], core_signal);
 
         if (sd_pid_get_session(pid, &t) >= 0) {
-                core_session = strappenda("COREDUMP_SESSION=", t);
+                core_session = strjoina("COREDUMP_SESSION=", t);
                 free(t);
 
                 IOVEC_SET_STRING(iovec[j++], core_session);
@@ -681,31 +677,31 @@ int main(int argc, char* argv[]) {
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0) {
-                core_slice = strappenda("COREDUMP_SLICE=", t);
+                core_slice = strjoina("COREDUMP_SLICE=", t);
                 free(t);
 
                 IOVEC_SET_STRING(iovec[j++], core_slice);
         }
 
         if (comm) {
-                core_comm = strappenda("COREDUMP_COMM=", comm);
+                core_comm = strjoina("COREDUMP_COMM=", comm);
                 IOVEC_SET_STRING(iovec[j++], core_comm);
         }
 
         if (exe) {
-                core_exe = strappenda("COREDUMP_EXE=", exe);
+                core_exe = strjoina("COREDUMP_EXE=", exe);
                 IOVEC_SET_STRING(iovec[j++], core_exe);
         }
 
         if (get_process_cmdline(pid, 0, false, &t) >= 0) {
-                core_cmdline = strappenda("COREDUMP_CMDLINE=", t);
+                core_cmdline = strjoina("COREDUMP_CMDLINE=", t);
                 free(t);
 
                 IOVEC_SET_STRING(iovec[j++], core_cmdline);
         }
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0) {
-                core_cgroup = strappenda("COREDUMP_CGROUP=", t);
+                core_cgroup = strjoina("COREDUMP_CGROUP=", t);
                 free(t);
 
                 IOVEC_SET_STRING(iovec[j++], core_cgroup);
@@ -756,14 +752,14 @@ int main(int argc, char* argv[]) {
         }
 
         if (get_process_cwd(pid, &t) >= 0) {
-                core_cwd = strappenda("COREDUMP_CWD=", t);
+                core_cwd = strjoina("COREDUMP_CWD=", t);
                 free(t);
 
                 IOVEC_SET_STRING(iovec[j++], core_cwd);
         }
 
         if (get_process_root(pid, &t) >= 0) {
-                core_root = strappenda("COREDUMP_ROOT=", t);
+                core_root = strjoina("COREDUMP_ROOT=", t);
                 free(t);
 
                 IOVEC_SET_STRING(iovec[j++], core_root);
@@ -803,7 +799,7 @@ int main(int argc, char* argv[]) {
         if (r == 0) {
                 const char *coredump_filename;
 
-                coredump_filename = strappenda("COREDUMP_FILENAME=", filename);
+                coredump_filename = strjoina("COREDUMP_FILENAME=", filename);
                 IOVEC_SET_STRING(iovec[j++], coredump_filename);
         }
 
@@ -814,11 +810,12 @@ int main(int argc, char* argv[]) {
          * segfaulted process and allocate the coredump memory under
          * the user's uid. This also ensures that the credentials
          * journald will see are the ones of the coredumping user,
-         * thus making sure the user gets access to the core dump. */
-        if (setresgid(gid, gid, gid) < 0 ||
-            setresuid(uid, uid, uid) < 0) {
-                log_error_errno(errno, "Failed to drop privileges: %m");
-                r = -errno;
+         * thus making sure the user gets access to the core
+         * dump. Let's also get rid of all capabilities, if we run as
+         * root, we won't need them anymore. */
+        r = drop_privileges(uid, gid, 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to drop privileges: %m");
                 goto finish;
         }
 

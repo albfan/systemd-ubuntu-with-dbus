@@ -39,20 +39,21 @@
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
 #include <sys/mount.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/inotify.h>
 #include <sys/utsname.h>
 
-#include "udev.h"
-#include "udev-util.h"
-#include "rtnl-util.h"
 #include "sd-daemon.h"
+#include "rtnl-util.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
 #include "fileio.h"
+#include "selinux-util.h"
+#include "udev.h"
+#include "udev-util.h"
 
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
@@ -157,7 +158,7 @@ static void worker_unref(struct worker *worker) {
         worker->refcount--;
         if (worker->refcount > 0)
                 return;
-        log_debug("worker [%u] cleaned up", worker->pid);
+        log_debug("worker ["PID_FMT"] cleaned up", worker->pid);
         worker_cleanup(worker);
 }
 
@@ -413,7 +414,7 @@ out:
                 event->state = EVENT_RUNNING;
                 udev_list_node_append(&worker->node, &worker_list);
                 children++;
-                log_debug("seq %llu forked new worker [%u]", udev_device_get_seqnum(event->dev), pid);
+                log_debug("seq %llu forked new worker ["PID_FMT"]", udev_device_get_seqnum(event->dev), pid);
                 break;
         }
 }
@@ -430,7 +431,8 @@ static void event_run(struct event *event) {
 
                 count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
                 if (count < 0) {
-                        log_error_errno(errno, "worker [%u] did not accept message %zi (%m), kill it", worker->pid, count);
+                        log_error_errno(errno, "worker ["PID_FMT"] did not accept message %zi (%m), kill it",
+                                        worker->pid, count);
                         kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -816,11 +818,11 @@ static int synthesize_change(struct udev_device *dev) {
 }
 
 static int handle_inotify(struct udev *udev) {
-        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+        union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
 
-        l = read(fd_inotify, buffer, sizeof(buffer));
+        l = read(fd_inotify, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
@@ -868,26 +870,26 @@ static void handle_signal(struct udev *udev, int signo) {
 
                                 if (worker->pid != pid)
                                         continue;
-                                log_debug("worker [%u] exit", pid);
+                                log_debug("worker ["PID_FMT"] exit", pid);
 
                                 if (WIFEXITED(status)) {
                                         if (WEXITSTATUS(status) != 0)
-                                                log_error("worker [%u] exit with return code %i",
+                                                log_error("worker ["PID_FMT"] exit with return code %i",
                                                           pid, WEXITSTATUS(status));
                                 } else if (WIFSIGNALED(status)) {
-                                        log_error("worker [%u] terminated by signal %i (%s)",
+                                        log_error("worker ["PID_FMT"] terminated by signal %i (%s)",
                                                   pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                 } else if (WIFSTOPPED(status)) {
-                                        log_error("worker [%u] stopped", pid);
+                                        log_error("worker ["PID_FMT"] stopped", pid);
                                 } else if (WIFCONTINUED(status)) {
-                                        log_error("worker [%u] continued", pid);
+                                        log_error("worker ["PID_FMT"] continued", pid);
                                 } else {
-                                        log_error("worker [%u] exit with status 0x%04x", pid, status);
+                                        log_error("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
                                 }
 
                                 if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
                                         if (worker->event) {
-                                                log_error("worker [%u] failed while handling '%s'",
+                                                log_error("worker ["PID_FMT"] failed while handling '%s'",
                                                           pid, worker->event->devpath);
                                                 worker->event->exitcode = -32;
                                                 event_queue_delete(worker->event);
@@ -1003,14 +1005,15 @@ static void kernel_cmdline_options(struct udev *udev) {
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Manages devices.\n\n"
-               "  --daemon\n"
-               "  --debug\n"
-               "  --children-max=<maximum number of workers>\n"
-               "  --exec-delay=<seconds to wait before executing RUN=>\n"
-               "  --event-timeout=<seconds to wait before terminating an event>\n"
-               "  --resolve-names=early|late|never\n"
-               "  --version\n"
-               "  --help\n"
+               "  -h --help                   Print this message\n"
+               "     --version                Print version of the program\n"
+               "     --daemon                 Detach and run in the background\n"
+               "     --debug                  Enable debug output\n"
+               "     --children-max=INT       Set maximum number of workers\n"
+               "     --exec-delay=SECONDS     Seconds to wait before executing RUN=\n"
+               "     --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
+               "     --resolve-names=early|late|never\n"
+               "                              When to resolve users and groups\n"
                , program_invocation_short_name);
 }
 
@@ -1407,7 +1410,7 @@ int main(int argc, char *argv[]) {
 
                                 if ((ts - worker->event_start_usec) > arg_event_timeout_warn_usec) {
                                         if ((ts - worker->event_start_usec) > arg_event_timeout_usec) {
-                                                log_error("worker [%u] %s timeout; kill it", worker->pid, worker->event->devpath);
+                                                log_error("worker ["PID_FMT"] %s timeout; kill it", worker->pid, worker->event->devpath);
                                                 kill(worker->pid, SIGKILL);
                                                 worker->state = WORKER_KILLED;
 
@@ -1418,7 +1421,7 @@ int main(int argc, char *argv[]) {
                                                 event_queue_delete(worker->event);
                                                 worker->event = NULL;
                                         } else if (!worker->event_warned) {
-                                                log_warning("worker [%u] %s is taking a long time", worker->pid, worker->event->devpath);
+                                                log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, worker->event->devpath);
                                                 worker->event_warned = true;
                                         }
                                 }

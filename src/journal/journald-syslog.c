@@ -85,12 +85,12 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 return;
         }
 
-        if (ucred && errno == ESRCH) {
+        if (ucred && (errno == ESRCH || errno == EPERM)) {
                 struct ucred u;
 
                 /* Hmm, presumably the sender process vanished
-                 * by now, so let's fix it as good as we
-                 * can, and retry */
+                 * by now, or we don't have CAP_SYS_AMDIN, so
+                 * let's fix it as good as we can, and retry */
 
                 u = *ucred;
                 u.pid = getpid();
@@ -124,7 +124,8 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, cons
 
 void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec[5];
-        char header_priority[6], header_time[64], header_pid[16];
+        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_time[64],
+             header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         time_t t;
         struct tm *tm;
@@ -139,8 +140,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
                 return;
 
         /* First: priority field */
-        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
-        char_array_0(header_priority);
+        xsprintf(header_priority, "<%i>", priority);
         IOVEC_SET_STRING(iovec[n++], header_priority);
 
         /* Second: timestamp */
@@ -159,8 +159,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
                         identifier = ident_buf;
                 }
 
-                snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", ucred->pid);
-                char_array_0(header_pid);
+                xsprintf(header_pid, "["PID_FMT"]: ", ucred->pid);
 
                 if (identifier)
                         IOVEC_SET_STRING(iovec[n++], identifier);
@@ -236,46 +235,6 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         e += strspn(p + e, WHITESPACE);
         *buf = p + e;
         return e;
-}
-
-void syslog_parse_priority(const char **p, int *priority, bool with_facility) {
-        int a = 0, b = 0, c = 0;
-        int k;
-
-        assert(p);
-        assert(*p);
-        assert(priority);
-
-        if ((*p)[0] != '<')
-                return;
-
-        if (!strchr(*p, '>'))
-                return;
-
-        if ((*p)[2] == '>') {
-                c = undecchar((*p)[1]);
-                k = 3;
-        } else if ((*p)[3] == '>') {
-                b = undecchar((*p)[1]);
-                c = undecchar((*p)[2]);
-                k = 4;
-        } else if ((*p)[4] == '>') {
-                a = undecchar((*p)[1]);
-                b = undecchar((*p)[2]);
-                c = undecchar((*p)[3]);
-                k = 5;
-        } else
-                return;
-
-        if (a < 0 || b < 0 || c < 0 ||
-            (!with_facility && (a || b || c > 7)))
-                return;
-
-        if (with_facility)
-                *priority = a*100 + b*10 + c;
-        else
-                *priority = (*priority & LOG_FACMASK) | c;
-        *p += k;
 }
 
 static void syslog_skip_date(char **buf) {
@@ -397,18 +356,18 @@ void server_process_syslog_message(
         }
 
         if (identifier) {
-                syslog_identifier = strappenda("SYSLOG_IDENTIFIER=", identifier);
+                syslog_identifier = strjoina("SYSLOG_IDENTIFIER=", identifier);
                 if (syslog_identifier)
                         IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         if (pid) {
-                syslog_pid = strappenda("SYSLOG_PID=", pid);
+                syslog_pid = strjoina("SYSLOG_PID=", pid);
                 if (syslog_pid)
                         IOVEC_SET_STRING(iovec[n++], syslog_pid);
         }
 
-        message = strappenda("MESSAGE=", buf);
+        message = strjoina("MESSAGE=", buf);
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
@@ -457,7 +416,7 @@ int server_open_syslog_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 
-        r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, process_datagram, s);
+        r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add syslog server fd to event loop: %m");
 

@@ -25,7 +25,6 @@
 #include <getopt.h>
 #include <locale.h>
 #include <sys/utsname.h>
-#include <fnmatch.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"
@@ -975,56 +974,35 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
+        bool match_patterns;
 
         assert(u);
         assert(prop);
         assert(color);
+
+        match_patterns = strv_fnmatch(patterns, u->id, 0);
+
+        if (!strv_isempty(arg_dot_from_patterns) &&
+            !match_patterns &&
+            !strv_fnmatch(arg_dot_from_patterns, u->id, 0))
+                        return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(unit, units) {
-                char **p;
-                bool match_found;
+                bool match_patterns2;
 
-                if (!strv_isempty(arg_dot_from_patterns)) {
-                        match_found = false;
+                match_patterns2 = strv_fnmatch(patterns, *unit, 0);
 
-                        STRV_FOREACH(p, arg_dot_from_patterns)
-                                if (fnmatch(*p, u->id, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
+                if (!strv_isempty(arg_dot_to_patterns) &&
+                    !match_patterns2 &&
+                    !strv_fnmatch(arg_dot_to_patterns, *unit, 0))
+                        continue;
 
-                        if (!match_found)
-                                continue;
-                }
-
-                if (!strv_isempty(arg_dot_to_patterns)) {
-                        match_found = false;
-
-                        STRV_FOREACH(p, arg_dot_to_patterns)
-                                if (fnmatch(*p, *unit, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-
-                        if (!match_found)
-                                continue;
-                }
-
-                if (!strv_isempty(patterns)) {
-                        match_found = false;
-
-                        STRV_FOREACH(p, patterns)
-                                if (fnmatch(*p, u->id, 0) == 0 || fnmatch(*p, *unit, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-                        if (!match_found)
-                                continue;
-                }
+                if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
+                        continue;
 
                 printf("\t\"%s\"->\"%s\" [color=\"%s\"];\n", u->id, *unit, color);
         }
@@ -1195,18 +1173,15 @@ static void help(void) {
                "     --user               Operate on user systemd instance\n"
                "  -H --host=[USER@]HOST   Operate on remote host\n"
                "  -M --machine=CONTAINER  Operate on local container\n"
-               "     --order              When generating a dependency graph, show only order\n"
-               "     --require            When generating a dependency graph, show only requirement\n"
-               "     --from-pattern=GLOB, --to-pattern=GLOB\n"
-               "                          When generating a dependency graph, filter only origins\n"
-               "                          or destinations, respectively\n"
-               "     --fuzz=TIMESPAN      When printing the tree of the critical chain, print also\n"
-               "                          services, which finished TIMESPAN earlier, than the\n"
-               "                          latest in the branch. The unit of TIMESPAN is seconds\n"
-               "                          unless specified with a different unit, i.e. 50ms\n"
+               "     --order              Show only order in the graph\n"
+               "     --require            Show only requirement in the graph\n"
+               "     --from-pattern=GLOB  Show only origins in the graph\n"
+               "     --to-pattern=GLOB    Show only destinations in the graph\n"
+               "     --fuzz=SECONDS       Also print also services which finished SECONDS\n"
+               "                          earlier than the latest in the branch\n"
                "     --man[=BOOL]         Do [not] check for existence of man pages\n\n"
                "Commands:\n"
-               "  time                    Print time spent in the kernel before reaching userspace\n"
+               "  time                    Print time spent in the kernel\n"
                "  blame                   Print list of running units ordered by time to init\n"
                "  critical-chain          Print a tree of the time critical chain of units\n"
                "  plot                    Output SVG graphic showing service initialization\n"
@@ -1313,7 +1288,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
 

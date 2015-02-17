@@ -35,15 +35,20 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BOND] = &bond_vtable,
         [NETDEV_KIND_VLAN] = &vlan_vtable,
         [NETDEV_KIND_MACVLAN] = &macvlan_vtable,
+        [NETDEV_KIND_IPVLAN] = &ipvlan_vtable,
         [NETDEV_KIND_VXLAN] = &vxlan_vtable,
         [NETDEV_KIND_IPIP] = &ipip_vtable,
         [NETDEV_KIND_GRE] = &gre_vtable,
+        [NETDEV_KIND_GRETAP] = &gretap_vtable,
+        [NETDEV_KIND_IP6GRE] = &ip6gre_vtable,
+        [NETDEV_KIND_IP6GRETAP] = &ip6gretap_vtable,
         [NETDEV_KIND_SIT] = &sit_vtable,
         [NETDEV_KIND_VTI] = &vti_vtable,
         [NETDEV_KIND_VETH] = &veth_vtable,
         [NETDEV_KIND_DUMMY] = &dummy_vtable,
         [NETDEV_KIND_TUN] = &tun_vtable,
         [NETDEV_KIND_TAP] = &tap_vtable,
+        [NETDEV_KIND_IP6TNL] = &ip6tnl_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -51,15 +56,20 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
         [NETDEV_KIND_MACVLAN] = "macvlan",
+        [NETDEV_KIND_IPVLAN] = "ipvlan",
         [NETDEV_KIND_VXLAN] = "vxlan",
         [NETDEV_KIND_IPIP] = "ipip",
         [NETDEV_KIND_GRE] = "gre",
+        [NETDEV_KIND_GRETAP] = "gretap",
+        [NETDEV_KIND_IP6GRE] = "ip6gre",
+        [NETDEV_KIND_IP6GRETAP] = "ip6gretap",
         [NETDEV_KIND_SIT] = "sit",
         [NETDEV_KIND_VETH] = "veth",
         [NETDEV_KIND_VTI] = "vti",
         [NETDEV_KIND_DUMMY] = "dummy",
         [NETDEV_KIND_TUN] = "tun",
         [NETDEV_KIND_TAP] = "tap",
+        [NETDEV_KIND_IP6TNL] = "ip6tnl",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -275,7 +285,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
                 if (r < 0)
                         return r;
         } else {
-                /* the netdev is not yet read, save this request for when it is*/
+                /* the netdev is not yet read, save this request for when it is */
                 netdev_join_callback *cb;
 
                 cb = new0(netdev_join_callback, 1);

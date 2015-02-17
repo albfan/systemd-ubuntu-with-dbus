@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <byteswap.h>
 #include <sys/mman.h>
 #include <pthread.h>
@@ -756,7 +756,7 @@ static int parse_kernel_address(sd_bus *b, const char **p, char **guid) {
 }
 
 static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) {
-        _cleanup_free_ char *machine = NULL;
+        _cleanup_free_ char *machine = NULL, *pid = NULL;
         int r;
 
         assert(b);
@@ -777,18 +777,36 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 else if (r > 0)
                         continue;
 
+                r = parse_address_key(p, "pid", &pid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
                 skip_address_key(p);
         }
 
-        if (!machine)
+        if (!machine == !pid)
                 return -EINVAL;
 
-        if (!machine_name_is_valid(machine))
-                return -EINVAL;
+        if (machine) {
+                if (!machine_name_is_valid(machine))
+                        return -EINVAL;
 
-        free(b->machine);
-        b->machine = machine;
-        machine = NULL;
+                free(b->machine);
+                b->machine = machine;
+                machine = NULL;
+        } else {
+                free(b->machine);
+                b->machine = NULL;
+        }
+
+        if (pid) {
+                r = parse_pid(pid, &b->nspid);
+                if (r < 0)
+                        return r;
+        } else
+                b->nspid = 0;
 
         b->sockaddr.un.sun_family = AF_UNIX;
         strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
@@ -798,7 +816,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
 }
 
 static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid) {
-        _cleanup_free_ char *machine = NULL;
+        _cleanup_free_ char *machine = NULL, *pid = NULL;
         int r;
 
         assert(b);
@@ -819,18 +837,36 @@ static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid
                 else if (r > 0)
                         continue;
 
+                r = parse_address_key(p, "pid", &pid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
                 skip_address_key(p);
         }
 
-        if (!machine)
+        if (!machine == !pid)
                 return -EINVAL;
 
-        if (!machine_name_is_valid(machine))
-                return -EINVAL;
+        if (machine) {
+                if (!machine_name_is_valid(machine))
+                        return -EINVAL;
 
-        free(b->machine);
-        b->machine = machine;
-        machine = NULL;
+                free(b->machine);
+                b->machine = machine;
+                machine = NULL;
+        } else {
+                free(b->machine);
+                b->machine = NULL;
+        }
+
+        if (pid) {
+                r = parse_pid(pid, &b->nspid);
+                if (r < 0)
+                        return r;
+        } else
+                b->nspid = 0;
 
         free(b->kernel);
         b->kernel = strdup("/sys/fs/kdbus/0-system/bus");
@@ -854,6 +890,7 @@ static void bus_reset_parsed_address(sd_bus *b) {
         b->kernel = NULL;
         free(b->machine);
         b->machine = NULL;
+        b->nspid = 0;
 }
 
 static int bus_parse_next_address(sd_bus *b) {
@@ -913,17 +950,17 @@ static int bus_parse_next_address(sd_bus *b) {
                                 return r;
 
                         break;
-                } else if (startswith(a, "x-container-unix:")) {
+                } else if (startswith(a, "x-machine-unix:")) {
 
-                        a += 17;
+                        a += 15;
                         r = parse_container_unix_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
 
                         break;
-                } else if (startswith(a, "x-container-kernel:")) {
+                } else if (startswith(a, "x-machine-kernel:")) {
 
-                        a += 19;
+                        a += 17;
                         r = parse_container_kernel_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
@@ -958,9 +995,9 @@ static int bus_start_address(sd_bus *b) {
 
                 if (b->exec_path)
                         r = bus_socket_exec(b);
-                else if (b->machine && b->kernel)
+                else if ((b->nspid > 0 || b->machine) && b->kernel)
                         r = bus_container_connect_kernel(b);
-                else if (b->machine && b->sockaddr.sa.sa_family != AF_UNSPEC)
+                else if ((b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC)
                         r = bus_container_connect_socket(b);
                 else if (b->kernel)
                         r = bus_kernel_connect(b);
@@ -1249,7 +1286,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         if (!e)
                                 return -ENOMEM;
 
-                        c = strappenda(",argv4=--machine=", m);
+                        c = strjoina(",argv4=--machine=", m);
                 }
         }
 
@@ -1297,7 +1334,7 @@ fail:
         return r;
 }
 
-int bus_set_address_system_container(sd_bus *b, const char *machine) {
+int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         _cleanup_free_ char *e = NULL;
 
         assert(b);
@@ -1308,9 +1345,9 @@ int bus_set_address_system_container(sd_bus *b, const char *machine) {
                 return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-        b->address = strjoin("x-container-kernel:machine=", e, ";x-container-unix:machine=", e, NULL);
+        b->address = strjoin("x-machine-kernel:machine=", e, ";x-machine-unix:machine=", e, NULL);
 #else
-        b->address = strjoin("x-container-unix:machine=", e, NULL);
+        b->address = strjoin("x-machine-unix:machine=", e, NULL);
 #endif
         if (!b->address)
                 return -ENOMEM;
@@ -1318,7 +1355,7 @@ int bus_set_address_system_container(sd_bus *b, const char *machine) {
         return 0;
 }
 
-_public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
+_public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
         sd_bus *bus;
         int r;
 
@@ -1330,7 +1367,7 @@ _public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
         if (r < 0)
                 return r;
 
-        r = bus_set_address_system_container(bus, machine);
+        r = bus_set_address_system_machine(bus, machine);
         if (r < 0)
                 goto fail;
 
@@ -1491,6 +1528,16 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
         assert(b);
         assert(m);
 
+        /* Fake some timestamps, if they were requested, and not
+         * already initialized */
+        if (b->attach_flags & KDBUS_ATTACH_TIMESTAMP) {
+                if (m->realtime <= 0)
+                        m->realtime = now(CLOCK_REALTIME);
+
+                if (m->monotonic <= 0)
+                        m->monotonic = now(CLOCK_MONOTONIC);
+        }
+
         /* The bus specification says the serial number cannot be 0,
          * hence let's fill something in for synthetic messages. Since
          * synthetic messages might have a fake sender and we don't
@@ -1498,7 +1545,6 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * pick a fixed, artificial one. We use (uint32_t) -1 rather
          * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
          * even though kdbus can do 64bit. */
-
         return bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
 
@@ -1658,8 +1704,8 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
 
         /* If this is a reply and no reply was requested, then let's
          * suppress this, if we can */
-        if (m->dont_send && !cookie)
-                return 1;
+        if (m->dont_send)
+                goto finish;
 
         if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
@@ -1672,7 +1718,9 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                         }
 
                         return r;
-                } else if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
+                }
+
+                if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so
@@ -1682,6 +1730,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                         bus->wqueue_size = 1;
                         bus->windex = idx;
                 }
+
         } else {
                 /* Just append it to the queue. */
 
@@ -1694,6 +1743,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                 bus->wqueue[bus->wqueue_size ++] = sd_bus_message_ref(m);
         }
 
+finish:
         if (cookie)
                 *cookie = BUS_MESSAGE_COOKIE(m);
 
@@ -2103,8 +2153,6 @@ static int process_timeout(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        m->sender = "org.freedesktop.DBus";
-
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
                 return r;
@@ -2201,6 +2249,11 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                                 &synthetic_reply);
                 if (r < 0)
                         return r;
+
+                /* Copy over original timestamp */
+                synthetic_reply->realtime = m->realtime;
+                synthetic_reply->monotonic = m->monotonic;
+                synthetic_reply->seqnum = m->seqnum;
 
                 r = bus_seal_synthetic_message(bus, synthetic_reply);
                 if (r < 0)
@@ -2507,15 +2560,6 @@ null_message:
         return r;
 }
 
-static void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m) {
-        assert(bus);
-        assert(m);
-
-        m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus.Local";
-        m->creds.well_known_names_local = true;
-        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
-}
-
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         struct reply_callback *c;
@@ -2713,7 +2757,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         if (need_more)
                 /* The caller really needs some more data, he doesn't
                  * care about what's already read, or any timeouts
-                 * except its own.*/
+                 * except its own. */
                 e |= POLLIN;
         else {
                 usec_t until;

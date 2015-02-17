@@ -166,7 +166,7 @@ bluetooth:v0035*
  ID_VENDOR_FROM_DATABASE=Eclipse (HQ Espana) S.L.
 
 bluetooth:v0036*
- ID_VENDOR_FROM_DATABASE=Renesas Technology Corp.
+ ID_VENDOR_FROM_DATABASE=Renesas Electronics Corporation
 
 bluetooth:v0037*
  ID_VENDOR_FROM_DATABASE=Mobilian Corporation
@@ -937,7 +937,7 @@ bluetooth:v0135*
  ID_VENDOR_FROM_DATABASE=Airewear LLC
 
 bluetooth:v0136*
- ID_VENDOR_FROM_DATABASE=ETC sp. z.o.o.
+ ID_VENDOR_FROM_DATABASE=Seed Labs, Inc. (formerly ETC sp. z.o.o.)
 
 bluetooth:v0137*
  ID_VENDOR_FROM_DATABASE=Prestigio Plaza Ltd.
@@ -1277,3 +1277,156 @@ bluetooth:v01A6*
 
 bluetooth:v01A7*
  ID_VENDOR_FROM_DATABASE=ENERGOUS CORPORATION
+
+bluetooth:v01A8*
+ ID_VENDOR_FROM_DATABASE=Taobao
+
+bluetooth:v01A9*
+ ID_VENDOR_FROM_DATABASE=Canon Inc.
+
+bluetooth:v01AA*
+ ID_VENDOR_FROM_DATABASE=Geophysical Technology Inc.
+
+bluetooth:v01AB*
+ ID_VENDOR_FROM_DATABASE=Facebook, Inc.
+
+bluetooth:v01AC*
+ ID_VENDOR_FROM_DATABASE=Nipro Diagnostics, Inc.
+
+bluetooth:v01AD*
+ ID_VENDOR_FROM_DATABASE=FlightSafety International
+
+bluetooth:v01AE*
+ ID_VENDOR_FROM_DATABASE=Earlens Corporation
+
+bluetooth:v01AF*
+ ID_VENDOR_FROM_DATABASE=Sunrise Micro Devices, Inc.
+
+bluetooth:v01B0*
+ ID_VENDOR_FROM_DATABASE=Star Micronics Co., Ltd.
+
+bluetooth:v01B1*
+ ID_VENDOR_FROM_DATABASE=Netizens Sp. z o.o.
+
+bluetooth:v01B2*
+ ID_VENDOR_FROM_DATABASE=Nymi Inc.
+
+bluetooth:v01B3*
+ ID_VENDOR_FROM_DATABASE=Nytec, Inc.
+
+bluetooth:v01B4*
+ ID_VENDOR_FROM_DATABASE=Trineo Sp. z o.o.
+
+bluetooth:v01B5*
+ ID_VENDOR_FROM_DATABASE=Nest Labs Inc.
+
+bluetooth:v01B6*
+ ID_VENDOR_FROM_DATABASE=LM Technologies Ltd
+
+bluetooth:v01B7*
+ ID_VENDOR_FROM_DATABASE=General Electric Company
+
+bluetooth:v01B8*
+ ID_VENDOR_FROM_DATABASE=i+D3 S.L.
+
+bluetooth:v01B9*
+ ID_VENDOR_FROM_DATABASE=HANA Micron
+
+bluetooth:v01BA*
+ ID_VENDOR_FROM_DATABASE=Stages Cycling LLC
+
+bluetooth:v01BB*
+ ID_VENDOR_FROM_DATABASE=Cochlear Bone Anchored Solutions AB
+
+bluetooth:v01BC*
+ ID_VENDOR_FROM_DATABASE=SenionLab AB
+
+bluetooth:v01BD*
+ ID_VENDOR_FROM_DATABASE=Syszone Co., Ltd
+
+bluetooth:v01BE*
+ ID_VENDOR_FROM_DATABASE=Pulsate Mobile Ltd.
+
+bluetooth:v01BF*
+ ID_VENDOR_FROM_DATABASE=Hong Kong HunterSun Electronic Limited
+
+bluetooth:v01C0*
+ ID_VENDOR_FROM_DATABASE=pironex GmbH
+
+bluetooth:v01C1*
+ ID_VENDOR_FROM_DATABASE=BRADATECH Corp.
+
+bluetooth:v01C2*
+ ID_VENDOR_FROM_DATABASE=Transenergooil AG
+
+bluetooth:v01C3*
+ ID_VENDOR_FROM_DATABASE=Bunch
+
+bluetooth:v01C4*
+ ID_VENDOR_FROM_DATABASE=DME Microelectronics
+
+bluetooth:v01C5*
+ ID_VENDOR_FROM_DATABASE=Bitcraze AB
+
+bluetooth:v01C6*
+ ID_VENDOR_FROM_DATABASE=HASWARE Inc.
+
+bluetooth:v01C7*
+ ID_VENDOR_FROM_DATABASE=Abiogenix Inc.
+
+bluetooth:v01C8*
+ ID_VENDOR_FROM_DATABASE=Poly-Control ApS
+
+bluetooth:v01C9*
+ ID_VENDOR_FROM_DATABASE=Avi-on
+
+bluetooth:v01CA*
+ ID_VENDOR_FROM_DATABASE=Laerdal Medical AS
+
+bluetooth:v01CB*
+ ID_VENDOR_FROM_DATABASE=Fetch My Pet
+
+bluetooth:v01CC*
+ ID_VENDOR_FROM_DATABASE=Sam Labs Ltd.
+
+bluetooth:v01CD*
+ ID_VENDOR_FROM_DATABASE=Chengdu Synwing Technology Ltd
+
+bluetooth:v01CE*
+ ID_VENDOR_FROM_DATABASE=HOUWA SYSTEM DESIGN, k.k.
+
+bluetooth:v01CF*
+ ID_VENDOR_FROM_DATABASE=BSH
+
+bluetooth:v01D0*
+ ID_VENDOR_FROM_DATABASE=Primus Inter Pares Ltd
+
+bluetooth:v01D1*
+ ID_VENDOR_FROM_DATABASE=August
+
+bluetooth:v01D2*
+ ID_VENDOR_FROM_DATABASE=Gill Electronics
+
+bluetooth:v01D3*
+ ID_VENDOR_FROM_DATABASE=Sky Wave Design
+
+bluetooth:v01D4*
+ ID_VENDOR_FROM_DATABASE=Newlab S.r.l.
+
+bluetooth:v01D5*
+ ID_VENDOR_FROM_DATABASE=ELAD srl
+
+bluetooth:v01D6*
+ ID_VENDOR_FROM_DATABASE=G-wearables inc.
+
+bluetooth:v01D7*
+ ID_VENDOR_FROM_DATABASE=Squadrone Systems Inc.
+
+bluetooth:v01D8*
+ ID_VENDOR_FROM_DATABASE=Code Corporation
+
+bluetooth:v01D9*
+ ID_VENDOR_FROM_DATABASE=Savant Systems LLC
+
+bluetooth:v01DA*
+ ID_VENDOR_FROM_DATABASE=Logitech International SA

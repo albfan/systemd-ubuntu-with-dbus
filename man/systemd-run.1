@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RUN" "1" "" "systemd 218" "systemd-run"
+.TH "SYSTEMD\-RUN" "1" "" "systemd 219" "systemd-run"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -154,27 +154,16 @@ in
 \fBsystemd.exec\fR(5)\&.
 .RE
 .PP
-\fB\-\-user\fR
+\fB\-\-pty\fR, \fB\-t\fR
 .RS 4
-Talk to the service manager of the calling user, rather than the service manager of the system\&.
+When invoking a command as service connects its standard input and output to the invoking tty via a pseudo TTY device\&. This allows invoking binaries as services that expect interactive user input, such as interactive command shells\&.
 .RE
 .PP
-\fB\-\-system\fR
+\fB\-\-quiet\fR, \fB\-q\fR
 .RS 4
-Talk to the service manager of the system\&. This is the implied default\&.
-.RE
-.PP
-\fB\-H\fR, \fB\-\-host=\fR
-.RS 4
-Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
-"@", to connect to\&. The hostname may optionally be suffixed by a container name, separated by
-":", which connects directly to a specific container on the specified host\&. This will use SSH to talk to the remote machine manager instance\&. Container names may be enumerated with
-\fBmachinectl \-H \fR\fB\fIHOST\fR\fR\&.
-.RE
-.PP
-\fB\-M\fR, \fB\-\-machine=\fR
-.RS 4
-Execute operation on a local container\&. Specify a container name to connect to\&.
+Suppresses additional informational output while running\&. This is particularly useful in combination with
+\fB\-\-pty\fR
+when it will suppress the initial message explaining how to terminate the TTY connection\&.
 .RE
 .PP
 \fB\-\-on\-active=\fR, \fB\-\-on\-boot=\fR, \fB\-\-on\-startup=\fR, \fB\-\-on\-unit\-active=\fR, \fB\-\-on\-unit\-inactive=\fR
@@ -214,6 +203,29 @@ but only for created timer unit\&. This option only has effect in conjunction wi
 \fBsystemctl\fR(1)\*(Aqs
 \fBset\-property\fR
 command\&.
+.RE
+.PP
+\fB\-\-user\fR
+.RS 4
+Talk to the service manager of the calling user, rather than the service manager of the system\&.
+.RE
+.PP
+\fB\-\-system\fR
+.RS 4
+Talk to the service manager of the system\&. This is the implied default\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
+"@", to connect to\&. The hostname may optionally be suffixed by a container name, separated by
+":", which connects directly to a specific container on the specified host\&. This will use SSH to talk to the remote machine manager instance\&. Container names may be enumerated with
+\fBmachinectl \-H \fR\fB\fIHOST\fR\fR\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR
@@ -287,6 +299,20 @@ Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo\&.
 \-\- Logs begin at Fri 2014\-12\-05 19:09:21 KST, end at Mon 2014\-12\-08 20:44:54 KST\&. \-\-
 Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo\&.\&.\&.
 Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo\&.
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+The following command invokes
+/bin/bash
+as a service passing its standard input, output and error to the calling TTY\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# systemd\-run \-t /bin/bash
 .fi
 .if n \{\
 .RE

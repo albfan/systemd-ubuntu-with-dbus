@@ -28,7 +28,8 @@
 #include "conf-files.h"
 
 #include "udev.h"
-#include "libudev-hwdb-def.h"
+#include "hwdb-internal.h"
+#include "hwdb-util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.
@@ -400,7 +401,7 @@ static int trie_store(struct trie *trie, const char *filename) {
         }
 
         log_debug("=== trie on-disk ===");
-        log_debug("size:             %8"PRIu64" bytes", size);
+        log_debug("size:             %8"PRIi64" bytes", size);
         log_debug("header:           %8zu bytes", sizeof(struct trie_header_f));
         log_debug("nodes:            %8"PRIu64" bytes (%8"PRIu64")",
                   t.nodes_count * sizeof(struct trie_node_f), t.nodes_count);
@@ -662,14 +663,15 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         }
 
         if (test) {
-                struct udev_hwdb *hwdb = udev_hwdb_new(udev);
+                _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+                int r;
 
-                if (hwdb) {
-                        struct udev_list_entry *entry;
+                r = sd_hwdb_new(&hwdb);
+                if (r >= 0) {
+                        const char *key, *value;
 
-                        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, test, 0))
-                                printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
-                        udev_hwdb_unref(hwdb);
+                        SD_HWDB_FOREACH_PROPERTY(hwdb, test, key, value)
+                                printf("%s=%s\n", key, value);
                 }
         }
 out:
@@ -685,5 +687,4 @@ out:
 const struct udevadm_cmd udevadm_hwdb = {
         .name = "hwdb",
         .cmd = adm_hwdb,
-        .help = "maintain the hardware database index",
 };

@@ -69,7 +69,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
         if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
                 fprintf(f,
-                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%lli",
+                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%"PRIi64,
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
                         m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", draw_special_char(DRAW_TRIANGULAR_BULLET), ansi_highlight_off(),
@@ -77,7 +77,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         m->header->endian,
                         m->header->flags,
                         m->header->version,
-                        (long long) m->priority);
+                        m->priority);
 
                 /* Display synthetic message serial number in a more readable
                  * format than (uint32_t) -1 */
@@ -129,8 +129,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %m");
 
-        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
-                fprintf(f, "%sMESSAGE \"%s\" {\n", indent(0, flags), strempty(m->root_container.signature));
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                _cleanup_free_ char *prefix = NULL;
+
+                prefix = indent(0, flags);
+                if (!prefix)
+                        return log_oom();
+
+                fprintf(f, "%sMESSAGE \"%s\" {\n", prefix, strempty(m->root_container.signature));
+        }
 
         for (;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -259,8 +266,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 }
         }
 
-        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
-                fprintf(f, "%s};\n\n", indent(0, flags));
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                _cleanup_free_ char *prefix = NULL;
+
+                prefix = indent(0, flags);
+                if (!prefix)
+                        return log_oom();
+
+                fprintf(f, "%s};\n\n", prefix);
+        }
 
         return 0;
 }
@@ -340,7 +354,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 color = ansi_highlight();
 
                 off = ansi_highlight_off();
-                suffix = strappenda(off, "\n");
+                suffix = strjoina(off, "\n");
         }
 
         if (c->mask & SD_BUS_CREDS_PID)
@@ -419,16 +433,16 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         if (c->mask & SD_BUS_CREDS_CGROUP)
                 fprintf(f, "%sCGroup=%s%s%s", prefix, color, c->cgroup, suffix);
-        sd_bus_creds_get_unit(c, &u);
+        (void) sd_bus_creds_get_unit(c, &u);
         if (u)
                 fprintf(f, "%sUnit=%s%s%s", prefix, color, u, suffix);
-        sd_bus_creds_get_user_unit(c, &uu);
+        (void) sd_bus_creds_get_user_unit(c, &uu);
         if (uu)
                 fprintf(f, "%sUserUnit=%s%s%s", prefix, color, uu, suffix);
-        sd_bus_creds_get_slice(c, &sl);
+        (void) sd_bus_creds_get_slice(c, &sl);
         if (sl)
                 fprintf(f, "%sSlice=%s%s%s", prefix, color, sl, suffix);
-        sd_bus_creds_get_session(c, &s);
+        (void) sd_bus_creds_get_session(c, &s);
         if (s)
                 fprintf(f, "%sSession=%s%s%s", prefix, color, s, suffix);
 

@@ -368,7 +368,7 @@ static int contains_uint64(MMapCache *m, int fd, uint64_t n, uint64_t p) {
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_get(m, fd, PROT_READ|PROT_WRITE, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, NULL);
+                r = mmap_cache_get(m, fd, PROT_READ|PROT_WRITE, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
                 if (r < 0)
                         return r;
 
@@ -427,7 +427,7 @@ static int entry_points_to_data(
 
         /* Check if this entry is also in main entry array. Since the
          * main entry array has already been verified we can rely on
-         * its consistency.*/
+         * its consistency. */
 
         i = 0;
         n = le64toh(f->header->n_entries);
@@ -865,7 +865,7 @@ int journal_file_verify(
                 if (show_progress)
                         draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
 
-                r = journal_file_move_to_object(f, -1, p, &o);
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0) {
                         error(p, "invalid object");
                         goto fail;
@@ -1085,11 +1085,11 @@ int journal_file_verify(
                                         q = last_tag;
 
                                 while (q <= p) {
-                                        r = journal_file_move_to_object(f, -1, q, &o);
+                                        r = journal_file_move_to_object(f, OBJECT_UNUSED, q, &o);
                                         if (r < 0)
                                                 goto fail;
 
-                                        r = journal_file_hmac_put_object(f, -1, o, q);
+                                        r = journal_file_hmac_put_object(f, OBJECT_UNUSED, o, q);
                                         if (r < 0)
                                                 goto fail;
 
@@ -1097,7 +1097,7 @@ int journal_file_verify(
                                 }
 
                                 /* Position might have changed, let's reposition things */
-                                r = journal_file_move_to_object(f, -1, p, &o);
+                                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                                 if (r < 0)
                                         goto fail;
 

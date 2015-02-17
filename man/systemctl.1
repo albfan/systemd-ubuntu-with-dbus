@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMCTL" "1" "" "systemd 218" "systemctl"
+.TH "SYSTEMCTL" "1" "" "systemd 219" "systemctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -102,7 +102,7 @@ Note that any
 \fIAfter=\fR
 dependency is automatically mirrored to create a
 \fIBefore=\fR
-dependency\&. Temporal dependencies may be specified explictly, but are also created implicitly for units which are
+dependency\&. Temporal dependencies may be specified explicitly, but are also created implicitly for units which are
 \fIWantedBy=\fR
 targets (see
 \fBsystemd.target\fR(5)), and as a result of other directives (for example
@@ -206,11 +206,6 @@ and
 Do not synchronously wait for the requested operation to finish\&. If this is not specified, the job will be verified, enqueued and
 \fBsystemctl\fR
 will wait until it is completed\&. By passing this argument, it is only verified and enqueued\&.
-.RE
-.PP
-\fB\-\-no\-legend\fR
-.RS 4
-Do not print the legend, i\&.e\&. the column headers and the footer with hints\&.
 .RE
 .PP
 \fB\-\-user\fR
@@ -373,6 +368,16 @@ Execute the operation remotely\&. Specify a hostname, or a username and hostname
 Execute operation on a local container\&. Specify a container name to connect to\&.
 .RE
 .PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.PP
+\fB\-\-no\-legend\fR
+.RS 4
+Do not print the legend, i\&.e\&. column headers and the footer with hints\&.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print a short help text and exit\&.
@@ -381,11 +386,6 @@ Print a short help text and exit\&.
 \fB\-\-version\fR
 .RS 4
 Print a short version string and exit\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
 .RE
 .SH "COMMANDS"
 .PP
@@ -684,6 +684,43 @@ in a similar way as
 \fBenable\fR\&.
 .RE
 .PP
+\fBreenable \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
+.RS 4
+Reenable one or more unit files, as specified on the command line\&. This is a combination of
+\fBdisable\fR
+and
+\fBenable\fR
+and is useful to reset the symlinks a unit is enabled with to the defaults configured in the
+"[Install]"
+section of the unit file\&.
+.RE
+.PP
+\fBpreset \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
+.RS 4
+Reset one or more unit files, as specified on the command line, to the defaults configured in the preset policy files\&. This has the same effect as
+\fBdisable\fR
+or
+\fBenable\fR, depending how the unit is listed in the preset files\&.
+.sp
+Use
+\fB\-\-preset\-mode=\fR
+to control whether units shall be enabled and disabled, or only enabled, or only disabled\&.
+.sp
+For more information on the preset policy format, see
+\fBsystemd.preset\fR(5)\&. For more information on the concept of presets, please consult the
+\m[blue]\fBPreset\fR\m[]\&\s-2\u[1]\d\s+2
+document\&.
+.RE
+.PP
+\fBpreset\-all\fR
+.RS 4
+Resets all installed unit files to the defaults configured in the preset policy file (see above)\&.
+.sp
+Use
+\fB\-\-preset\-mode=\fR
+to control whether units shall be enabled and disabled, or only enabled, or only disabled\&.
+.RE
+.PP
 \fBis\-enabled \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
 .RS 4
 Checks whether any of the specified unit files are enabled (as with
@@ -770,43 +807,6 @@ T}
 .sp 1
 .RE
 .PP
-\fBreenable \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
-.RS 4
-Reenable one or more unit files, as specified on the command line\&. This is a combination of
-\fBdisable\fR
-and
-\fBenable\fR
-and is useful to reset the symlinks a unit is enabled with to the defaults configured in the
-"[Install]"
-section of the unit file\&.
-.RE
-.PP
-\fBpreset \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
-.RS 4
-Reset one or more unit files, as specified on the command line, to the defaults configured in the preset policy files\&. This has the same effect as
-\fBdisable\fR
-or
-\fBenable\fR, depending how the unit is listed in the preset files\&.
-.sp
-Use
-\fB\-\-preset\-mode=\fR
-to control whether units shall be enabled and disabled, or only enabled, or only disabled\&.
-.sp
-For more information on the preset policy format, see
-\fBsystemd.preset\fR(5)\&. For more information on the concept of presets, please consult the
-\m[blue]\fBPreset\fR\m[]\&\s-2\u[1]\d\s+2
-document\&.
-.RE
-.PP
-\fBpreset\-all\fR
-.RS 4
-Resets all installed unit files to the defaults configured in the preset policy file (see above)\&.
-.sp
-Use
-\fB\-\-preset\-mode=\fR
-to control whether units shall be enabled and disabled, or only enabled, or only disabled\&.
-.RE
-.PP
 \fBmask \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
 .RS 4
 Mask one or more unit files, as specified on the command line\&. This will link these units to
@@ -820,6 +820,14 @@ option to only mask temporarily until the next reboot of the system\&.
 .RS 4
 Unmask one or more unit files, as specified on the command line\&. This will undo the effect of
 \fBmask\fR\&.
+.RE
+.PP
+\fBlink \fR\fB\fIFILENAME\fR\fR\fB\&.\&.\&.\fR
+.RS 4
+Link a unit file that is not in the unit file search paths into the unit file search path\&. This requires an absolute path to a unit file\&. The effect of this can be undone with
+\fBdisable\fR\&. The effect of this command is that a unit file is available for
+\fBstart\fR
+and other commands although it is not installed directly in the unit search path\&.
 .RE
 .PP
 \fBadd\-wants \fR\fB\fITARGET\fR\fR\fB \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR, \fBadd\-requires \fR\fB\fITARGET\fR\fR\fB \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
@@ -840,28 +848,6 @@ and
 \fB\-\-global\fR
 in a similar way as
 \fBenable\fR\&.
-.RE
-.PP
-\fBlink \fR\fB\fIFILENAME\fR\fR\fB\&.\&.\&.\fR
-.RS 4
-Link a unit file that is not in the unit file search paths into the unit file search path\&. This requires an absolute path to a unit file\&. The effect of this can be undone with
-\fBdisable\fR\&. The effect of this command is that a unit file is available for
-\fBstart\fR
-and other commands although it is not installed directly in the unit search path\&.
-.RE
-.PP
-\fBget\-default\fR
-.RS 4
-Get the default target specified via
-default\&.target
-link\&.
-.RE
-.PP
-\fBset\-default \fR\fB\fINAME\fR\fR
-.RS 4
-Set the default target to boot into\&. Command links
-default\&.target
-to the given unit\&.
 .RE
 .PP
 \fBedit \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
@@ -896,6 +882,20 @@ Note that this command cannot be used to remotely edit units and that you cannot
 /etc
 since they take precedence over
 /run\&.
+.RE
+.PP
+\fBget\-default\fR
+.RS 4
+Return the default target to boot into\&. This returns the target unit name
+default\&.target
+is aliased (symlinked) to\&.
+.RE
+.PP
+\fBset\-default \fR\fB\fINAME\fR\fR
+.RS 4
+Set the default target to boot into\&. This sets (symlinks) the
+default\&.target
+alias to the given target unit\&.
 .RE
 .SS "Machine Commands"
 .PP
@@ -953,7 +953,7 @@ Set one or more systemd manager environment variables, as specified on the comma
 Unset one or more systemd manager environment variables\&. If only a variable name is specified, it will be removed regardless of its value\&. If a variable and a value are specified, the variable is only removed if it has the specified value\&.
 .RE
 .PP
-\fBimport\-environment \fR\fB\fIVARIABLE\fR\fR\fB\&.\&.\&.\fR
+\fBimport\-environment\fR [\fIVARIABLE\&.\&.\&.\fR]
 .RS 4
 Import all, one or more environment variables set on the client into the systemd manager environment block\&. If no arguments are passed, the entire environment block is imported\&. Otherwise, a list of one or more environment variable names should be passed, whose client\-side values are then imported into the manager\*(Aqs environment block\&.
 .RE
@@ -961,7 +961,8 @@ Import all, one or more environment variables set on the client into the systemd
 .PP
 \fBdaemon\-reload\fR
 .RS 4
-Reload systemd manager configuration\&. This will reload all unit files and recreate the entire dependency tree\&. While the daemon is being reloaded, all sockets systemd listens on behalf of user configuration will stay accessible\&.
+Reload systemd manager configuration\&. This will rerun all generators (see
+\fBsystemd.generator\fR(7)), reload all unit files, and recreate the entire dependency tree\&. While the daemon is being reloaded, all sockets systemd listens on behalf of user configuration will stay accessible\&.
 .sp
 This command should not be confused with the
 \fBreload\fR
@@ -1110,6 +1111,11 @@ Ask the systemd manager to quit\&. This is only supported for user service manag
 option) and will fail otherwise\&.
 .RE
 .PP
+\fBswitch\-root \fR\fB\fIROOT\fR\fR\fB \fR\fB[\fIINIT\fR]\fR
+.RS 4
+Switches to a different root directory and executes a new system manager process below it\&. This is intended for usage in initial RAM disks ("initrd"), and will transition from the initrd\*(Aqs system manager process (a\&.k\&.a "init" process) to the main system manager process\&. This call takes two arguments: the directory that is to become the new root directory, and the path to the new system manager binary below it to execute as PID 1\&. If the latter is omitted or the empty string, a systemd binary will automatically be searched for and used as init\&. If the system manager path is omitted or equal to the empty string, the state of the initrd\*(Aqs system manager process is passed to the main system manager, which allows later introspection of the state of the services involved in the initrd boot\&.
+.RE
+.PP
 \fBsuspend\fR
 .RS 4
 Suspend the system\&. This will trigger activation of the special
@@ -1129,11 +1135,6 @@ target\&.
 Hibernate and suspend the system\&. This will trigger activation of the special
 hybrid\-sleep\&.target
 target\&.
-.RE
-.PP
-\fBswitch\-root \fR\fB\fIROOT\fR\fR\fB \fR\fB[\fIINIT\fR]\fR
-.RS 4
-Switches to a different root directory and executes a new system manager process below it\&. This is intended for usage in initial RAM disks ("initrd"), and will transition from the initrd\*(Aqs system manager process (a\&.k\&.a "init" process) to the main system manager process\&. This call takes two arguments: the directory that is to become the new root directory, and the path to the new system manager binary below it to execute as PID 1\&. If the latter is omitted or the empty string, a systemd binary will automatically be searched for and used as init\&. If the system manager path is omitted or equal to the empty string, the state of the initrd\*(Aqs system manager process is passed to the main system manager, which allows later introspection of the state of the services involved in the initrd boot\&.
 .RE
 .SS "Parameter Syntax"
 .PP
@@ -1308,14 +1309,15 @@ Override the default options passed to
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemadm\fR(1),
 \fBjournalctl\fR(1),
 \fBloginctl\fR(1),
+\fBmachinectl\fR(1),
 \fBsystemd.unit\fR(5),
 \fBsystemd.resource-management\fR(5),
 \fBsystemd.special\fR(7),
 \fBwall\fR(1),
 \fBsystemd.preset\fR(5),
+\fBsystemd.generator\fR(7),
 \fBglob\fR(7)
 .SH "NOTES"
 .IP " 1." 4

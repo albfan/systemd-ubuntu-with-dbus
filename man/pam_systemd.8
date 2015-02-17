@@ -1,5 +1,5 @@
 '\" t
-.TH "PAM_SYSTEMD" "8" "" "systemd 218" "pam_systemd"
+.TH "PAM_SYSTEMD" "8" "" "systemd 219" "pam_systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -101,7 +101,8 @@ If the last concurrent session of a user ends, the
 directory and all its contents are removed, too\&.
 .RE
 .PP
-If the system was not booted up with systemd as init system, this module does nothing and immediately returns PAM_SUCCESS\&.
+If the system was not booted up with systemd as init system, this module does nothing and immediately returns
+\fBPAM_SUCCESS\fR\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:

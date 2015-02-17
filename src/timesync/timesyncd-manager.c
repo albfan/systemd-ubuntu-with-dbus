@@ -98,7 +98,7 @@
  * "NTP timestamps are represented as a 64-bit unsigned fixed-point number,
  * in seconds relative to 0h on 1 January 1900."
  */
-#define OFFSET_1900_1970        2208988800UL
+#define OFFSET_1900_1970        UINT64_C(2208988800)
 
 #define RETRY_USEC (30*USEC_PER_SEC)
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
@@ -145,10 +145,6 @@ static double ntp_ts_to_d(const struct ntp_ts *ts) {
 
 static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
-}
-
-static double square(double d) {
-        return d * d;
 }
 
 static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
@@ -289,7 +285,7 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
         }
 
         /* resync */
-        log_info("System time changed. Resyncing.");
+        log_debug("System time changed. Resyncing.");
         m->poll_resync = true;
 
         return manager_send_request(m);
@@ -428,7 +424,7 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
 
         j = 0;
         for (i = 0; i < ELEMENTSOF(m->samples); i++)
-                j += square(m->samples[i].offset - m->samples[idx_min].offset);
+                j += pow(m->samples[i].offset - m->samples[idx_min].offset, 2);
         m->samples_jitter = sqrt(j / (ELEMENTSOF(m->samples) - 1));
 
         /* ignore samples when resyncing */
@@ -529,7 +525,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        if (iov.iov_len < sizeof(struct ntp_msg)) {
+        /* Too short or too long packet? */
+        if (iov.iov_len < sizeof(struct ntp_msg) || (msghdr.msg_flags & MSG_TRUNC)) {
                 log_warning("Invalid response from server. Disconnecting.");
                 return manager_connect(m);
         }
@@ -679,9 +676,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error_errno(errno, "Failed to call clock_adjtime(): %m");
         }
 
-        log_info("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                 m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
-                 spike ? " (ignored)" : "");
+        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
+                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+                  spike ? " (ignored)" : "");
 
         r = manager_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
@@ -743,7 +740,7 @@ static int manager_begin(Manager *m) {
                 m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         server_address_pretty(m->current_server_address, &pretty);
-        log_info("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
+        log_debug("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
         sd_notifyf(false, "STATUS=Using Time Server %s (%s).", strna(pretty), m->current_server_name->string);
 
         r = manager_clock_watch_setup(m);

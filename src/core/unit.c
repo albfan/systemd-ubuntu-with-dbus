@@ -24,7 +24,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -278,13 +278,8 @@ int unit_set_description(Unit *u, const char *description) {
 }
 
 bool unit_check_gc(Unit *u) {
+        UnitActiveState state;
         assert(u);
-
-        if (UNIT_VTABLE(u)->no_gc)
-                return true;
-
-        if (u->no_gc)
-                return true;
 
         if (u->job)
                 return true;
@@ -292,7 +287,23 @@ bool unit_check_gc(Unit *u) {
         if (u->nop_job)
                 return true;
 
-        if (unit_active_state(u) != UNIT_INACTIVE)
+        state = unit_active_state(u);
+
+        /* If the unit is inactive and failed and no job is queued for
+         * it, then release its runtime resources */
+        if (UNIT_IS_INACTIVE_OR_FAILED(state) &&
+            UNIT_VTABLE(u)->release_resources)
+                UNIT_VTABLE(u)->release_resources(u);
+
+        /* But we keep the unit object around for longer when it is
+         * referenced or configured to not be gc'ed */
+        if (state != UNIT_INACTIVE)
+                return true;
+
+        if (UNIT_VTABLE(u)->no_gc)
+                return true;
+
+        if (u->no_gc)
                 return true;
 
         if (u->refs)
@@ -609,7 +620,7 @@ static int reserve_dependencies(Unit *u, Unit *other, UnitDependency d) {
 
         /*
          * If u does not have this dependency set allocated, there is no need
-         * to reserve anything. In that case other's set will be transfered
+         * to reserve anything. In that case other's set will be transferred
          * as a whole to u by complete_move().
          */
         if (!u->dependencies[d])
@@ -857,7 +868,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         assert(u->type >= 0);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
                 "%s-> Unit %s:\n"
@@ -1388,7 +1399,6 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
-        char_array_0(buf);
         REENABLE_WARNING;
 
         mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
@@ -1412,6 +1422,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -1450,8 +1461,8 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
-        unit_status_log_starting_stopping_reloading(u, JOB_START);
-        unit_status_print_starting_stopping(u, JOB_START);
+        if (UNIT_VTABLE(u)->supported && !UNIT_VTABLE(u)->supported(u->manager))
+                return -ENOTSUP;
 
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
@@ -1465,7 +1476,14 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        return UNIT_VTABLE(u)->start(u);
+        r = UNIT_VTABLE(u)->start(u);
+        if (r <= 0)
+                return r;
+
+        /* Log if the start function actually did something */
+        unit_status_log_starting_stopping_reloading(u, JOB_START);
+        unit_status_print_starting_stopping(u, JOB_START);
+        return r;
 }
 
 bool unit_can_start(Unit *u) {
@@ -1489,6 +1507,7 @@ bool unit_can_isolate(Unit *u) {
 int unit_stop(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -1496,21 +1515,24 @@ int unit_stop(Unit *u) {
         if (UNIT_IS_INACTIVE_OR_FAILED(state))
                 return -EALREADY;
 
-        if ((following = unit_following(u))) {
-                log_unit_debug(u->id, "Redirecting stop request from %s to %s.",
-                               u->id, following->id);
+        following = unit_following(u);
+        if (following) {
+                log_unit_debug(u->id, "Redirecting stop request from %s to %s.", u->id, following->id);
                 return unit_stop(following);
         }
-
-        unit_status_log_starting_stopping_reloading(u, JOB_STOP);
-        unit_status_print_starting_stopping(u, JOB_STOP);
 
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
 
-        return UNIT_VTABLE(u)->stop(u);
+        r = UNIT_VTABLE(u)->stop(u);
+        if (r <= 0)
+                return r;
+
+        unit_status_log_starting_stopping_reloading(u, JOB_STOP);
+        unit_status_print_starting_stopping(u, JOB_STOP);
+        return r;
 }
 
 /* Errors:
@@ -1521,6 +1543,7 @@ int unit_stop(Unit *u) {
 int unit_reload(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -1535,22 +1558,24 @@ int unit_reload(Unit *u) {
                 return -EALREADY;
 
         if (state != UNIT_ACTIVE) {
-                log_unit_warning(u->id, "Unit %s cannot be reloaded because it is inactive.",
-                                 u->id);
+                log_unit_warning(u->id, "Unit %s cannot be reloaded because it is inactive.", u->id);
                 return -ENOEXEC;
         }
 
         following = unit_following(u);
         if (following) {
-                log_unit_debug(u->id, "Redirecting reload request from %s to %s.",
-                               u->id, following->id);
+                log_unit_debug(u->id, "Redirecting reload request from %s to %s.", u->id, following->id);
                 return unit_reload(following);
         }
 
-        unit_status_log_starting_stopping_reloading(u, JOB_RELOAD);
-
         unit_add_to_dbus_queue(u);
-        return UNIT_VTABLE(u)->reload(u);
+
+        r = UNIT_VTABLE(u)->reload(u);
+        if (r <= 0)
+                return r;
+
+        unit_status_log_starting_stopping_reloading(u, JOB_RELOAD);
+        return r;
 }
 
 bool unit_can_reload(Unit *u) {
@@ -1628,7 +1653,7 @@ static void unit_check_binds_to(Unit *u) {
         if (!stop)
                 return;
 
-        log_unit_info(u->id, "Unit %s is bound to inactive service. Stopping, too.", u->id);
+        log_unit_info(u->id, "Unit %s is bound to inactive unit. Stopping, too.", u->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -2673,7 +2698,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 if (streq(l, "job")) {
                         if (v[0] == '\0') {
                                 /* new-style serialized job */
-                                Job *j = job_new_raw(u);
+                                Job *j;
+
+                                j = job_new_raw(u);
                                 if (!j)
                                         return -ENOMEM;
 
@@ -2695,12 +2722,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         job_free(j);
                                         return r;
                                 }
-
-                                if (j->state == JOB_RUNNING)
-                                        u->manager->n_running_jobs++;
                         } else {
                                 /* legacy */
-                                JobType type = job_type_from_string(v);
+                                JobType type;
+
+                                type = job_type_from_string(v);
                                 if (type < 0)
                                         log_debug("Failed to parse job type value %s", v);
                                 else
@@ -2893,7 +2919,7 @@ bool unit_need_daemon_reload(Unit *u) {
                         return true;
         }
 
-        t = unit_find_dropin_paths(u);
+        (void) unit_find_dropin_paths(u, &t);
         loaded_cnt = strv_length(t);
         current_cnt = strv_length(u->dropin_paths);
 
@@ -3152,6 +3178,10 @@ int unit_patch_contexts(Unit *u) {
                         r = get_home_dir(&ec->working_directory);
                         if (r < 0)
                                 return r;
+
+                        /* Allow user services to run, even if the
+                         * home directory is missing */
+                        ec->working_directory_missing_ok = true;
                 }
 
                 if (u->manager->running_as == SYSTEMD_USER &&

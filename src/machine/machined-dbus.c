@@ -23,7 +23,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
-#include <sys/capability.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
@@ -39,7 +38,10 @@
 #include "bus-common-errors.h"
 #include "time-util.h"
 #include "cgroup-util.h"
+#include "machine-image.h"
+#include "image-dbus.h"
 #include "machined.h"
+#include "machine-dbus.h"
 
 static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
@@ -61,6 +63,33 @@ static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userda
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         p = machine_bus_path(machine);
+        if (!p)
+                return -ENOMEM;
+
+        return sd_bus_reply_method_return(message, "o", p);
+}
+
+static int method_get_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *p = NULL;
+        Manager *m = userdata;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = image_find(name, NULL);
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+        if (r < 0)
+                return r;
+
+        p = image_bus_path(name);
         if (!p)
                 return -ENOMEM;
 
@@ -325,8 +354,6 @@ static int method_register_machine_internal(sd_bus *bus, sd_bus_message *message
                 goto fail;
         }
 
-        m->registered = true;
-
         r = machine_start(m, NULL, error);
         if (r < 0)
                 goto fail;
@@ -436,11 +463,201 @@ static int method_get_machine_os_release(sd_bus *bus, sd_bus_message *message, v
         return bus_machine_method_get_os_release(bus, message, machine, error);
 }
 
+static int method_list_images(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        Manager *m = userdata;
+        Image *image;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        images = hashmap_new(&string_hash_ops);
+        if (!images)
+                return -ENOMEM;
+
+        r = image_discover(images);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssbttto)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(image, images, i) {
+                _cleanup_free_ char *p = NULL;
+
+                p = image_bus_path(image->name);
+                if (!p)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(ssbttto)",
+                                          image->name,
+                                          image_type_to_string(image->type),
+                                          image->read_only,
+                                          image->crtime,
+                                          image->mtime,
+                                          image->usage,
+                                          p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_open_machine_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_open_pty(bus, message, machine, error);
+}
+
+static int method_open_machine_login(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_open_login(bus, message, machine, error);
+}
+
+static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image* i = NULL;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
+
+        r = image_find(name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+
+        return bus_image_method_remove(bus, message, i, error);
+}
+
+static int method_rename_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image* i = NULL;
+        const char *old_name;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &old_name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(old_name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
+
+        r = image_find(old_name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
+
+        return bus_image_method_rename(bus, message, i, error);
+}
+
+static int method_clone_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image *i = NULL;
+        const char *old_name;
+        int r;
+
+        assert(bus);
+        r = sd_bus_message_read(message, "s", &old_name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(old_name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
+
+        r = image_find(old_name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
+
+        return bus_image_method_clone(bus, message, i, error);
+}
+
+static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image *i = NULL;
+        const char *name;
+        int r;
+
+        assert(bus);
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
+
+        r = image_find(name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+
+        return bus_image_method_mark_read_only(bus, message, i, error);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("GetMachine", "s", "o", method_get_machine, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetImage", "s", "o", method_get_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineByPID", "u", "o", method_get_machine_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListMachines", NULL, "a(ssso)", method_list_machines, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListImages", NULL, "a(ssbttto)", method_list_images, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CreateMachine", "sayssusa(sv)", "o", method_create_machine, 0),
         SD_BUS_METHOD("CreateMachineWithNetwork", "sayssusaia(sv)", "o", method_create_machine_with_network, 0),
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
@@ -449,6 +666,12 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("GetMachineAddresses", "s", "a(iay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenMachinePTY", "s", "hs", method_open_machine_pty, 0),
+        SD_BUS_METHOD("OpenMachineLogin", "s", "hs", method_open_machine_login, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, 0),
+        SD_BUS_METHOD("RenameImage", "ss", NULL, method_rename_image, 0),
+        SD_BUS_METHOD("CloneImage", "ssb", NULL, method_clone_image, 0),
+        SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, 0),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END
@@ -513,6 +736,8 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
                 return 0;
 
         r = unit_name_from_dbus_path(path, &unit);
+        if (r == -EINVAL) /* not for a unit */
+                return 0;
         if (r < 0)
                 return r;
 

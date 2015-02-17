@@ -22,7 +22,7 @@
 #include <time.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <string.h>
 #include <fcntl.h>
@@ -1033,10 +1033,10 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         assert(j);
         assert(unit);
 
-        m1 = strappenda("_SYSTEMD_UNIT=", unit);
-        m2 = strappenda("COREDUMP_UNIT=", unit);
-        m3 = strappenda("UNIT=", unit);
-        m4 = strappenda("OBJECT_SYSTEMD_UNIT=", unit);
+        m1 = strjoina("_SYSTEMD_UNIT=", unit);
+        m2 = strjoina("COREDUMP_UNIT=", unit);
+        m3 = strjoina("UNIT=", unit);
+        m4 = strjoina("OBJECT_SYSTEMD_UNIT=", unit);
 
         (void)(
             /* Look for messages from the service itself */
@@ -1080,10 +1080,10 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         assert(j);
         assert(unit);
 
-        m1 = strappenda("_SYSTEMD_USER_UNIT=", unit);
-        m2 = strappenda("USER_UNIT=", unit);
-        m3 = strappenda("COREDUMP_USER_UNIT=", unit);
-        m4 = strappenda("OBJECT_SYSTEMD_USER_UNIT=", unit);
+        m1 = strjoina("_SYSTEMD_USER_UNIT=", unit);
+        m2 = strjoina("USER_UNIT=", unit);
+        m3 = strjoina("COREDUMP_USER_UNIT=", unit);
+        m4 = strjoina("OBJECT_SYSTEMD_USER_UNIT=", unit);
         sprintf(muid, "_UID="UID_FMT, uid);
 
         (void) (
@@ -1234,12 +1234,12 @@ int show_journal_by_unit(
                 unsigned how_many,
                 uid_t uid,
                 OutputFlags flags,
-                bool system,
+                int journal_open_flags,
+                bool system_unit,
                 bool *ellipsized) {
 
         _cleanup_journal_close_ sd_journal*j = NULL;
         int r;
-        int jflags = SD_JOURNAL_LOCAL_ONLY | system * SD_JOURNAL_SYSTEM;
 
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
@@ -1248,7 +1248,7 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        r = sd_journal_open(&j, jflags);
+        r = sd_journal_open(&j, journal_open_flags);
         if (r < 0)
                 return r;
 
@@ -1256,14 +1256,14 @@ int show_journal_by_unit(
         if (r < 0)
                 return r;
 
-        if (system)
+        if (system_unit)
                 r = add_matches_for_unit(j, unit);
         else
                 r = add_matches_for_user_unit(j, unit, uid);
         if (r < 0)
                 return r;
 
-        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

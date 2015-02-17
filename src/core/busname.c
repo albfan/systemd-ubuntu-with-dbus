@@ -26,9 +26,10 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "service.h"
+#include "kdbus.h"
+#include "bus-policy.h"
 #include "dbus-busname.h"
 #include "busname.h"
-#include "kdbus.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,
@@ -204,7 +205,7 @@ static int busname_verify(BusName *n) {
                 return -EINVAL;
         }
 
-        e = strappenda(n->name, ".busname");
+        e = strjoina(n->name, ".busname");
         if (!unit_has_name(UNIT(n), e)) {
                 log_unit_error(UNIT(n)->id, "%s's Name= setting doesn't match unit name. Refusing.", UNIT(n)->id);
                 return -EINVAL;
@@ -614,7 +615,7 @@ static int busname_start(Unit *u) {
         n->result = BUSNAME_SUCCESS;
         busname_enter_making(n);
 
-        return 0;
+        return 1;
 }
 
 static int busname_stop(Unit *u) {
@@ -637,7 +638,7 @@ static int busname_stop(Unit *u) {
         assert(IN_SET(n->state, BUSNAME_REGISTERED, BUSNAME_LISTENING, BUSNAME_RUNNING));
 
         busname_enter_dead(n, BUSNAME_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int busname_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -727,9 +728,12 @@ _pure_ static const char *busname_sub_state_to_string(Unit *u) {
 
 static int busname_peek_message(BusName *n) {
         struct kdbus_cmd_recv cmd_recv = {
+                .size = sizeof(cmd_recv),
                 .flags = KDBUS_RECV_PEEK,
         };
-        struct kdbus_cmd_free cmd_free = {};
+        struct kdbus_cmd_free cmd_free = {
+                .size = sizeof(cmd_free),
+        };
         const char *comm = NULL;
         struct kdbus_item *d;
         struct kdbus_msg *k;
@@ -750,7 +754,7 @@ static int busname_peek_message(BusName *n) {
         if (log_get_max_level() < LOG_DEBUG)
                 return 0;
 
-        r = ioctl(n->starter_fd, KDBUS_CMD_MSG_RECV, &cmd_recv);
+        r = ioctl(n->starter_fd, KDBUS_CMD_RECV, &cmd_recv);
         if (r < 0) {
                 if (errno == EINTR || errno == EAGAIN)
                         return 0;
@@ -766,9 +770,9 @@ static int busname_peek_message(BusName *n) {
          * longer than necessary. */
 
         ps = page_size();
-        start = (cmd_recv.offset / ps) * ps;
-        delta = cmd_recv.offset - start;
-        sz = PAGE_ALIGN(delta + cmd_recv.msg_size);
+        start = (cmd_recv.msg.offset / ps) * ps;
+        delta = cmd_recv.msg.offset - start;
+        sz = PAGE_ALIGN(delta + cmd_recv.msg.msg_size);
 
         p = mmap(NULL, sz, PROT_READ, MAP_SHARED, n->starter_fd, start);
         if (p == MAP_FAILED) {
@@ -800,7 +804,7 @@ finish:
         if (p)
                 (void) munmap(p, sz);
 
-        cmd_free.offset = cmd_recv.offset;
+        cmd_free.offset = cmd_recv.msg.offset;
         if (ioctl(n->starter_fd, KDBUS_CMD_FREE, &cmd_free) < 0)
                 log_unit_warning(UNIT(n)->id, "Failed to free peeked message, ignoring: %m");
 
@@ -970,6 +974,16 @@ static int busname_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
+static bool busname_supported(Manager *m) {
+        static int supported = -1;
+        assert(m);
+
+        if (supported < 0)
+                supported = access("/sys/fs/kdbus", F_OK) >= 0;
+
+        return supported;
+}
+
 static const char* const busname_state_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = "dead",
         [BUSNAME_MAKING] = "making",
@@ -1030,6 +1044,8 @@ const UnitVTable busname_vtable = {
         .trigger_notify = busname_trigger_notify,
 
         .reset_failed = busname_reset_failed,
+
+        .supported = busname_supported,
 
         .bus_interface = "org.freedesktop.systemd1.BusName",
         .bus_vtable = bus_busname_vtable,

@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_EVENT_ADD_SIGNAL" "3" "" "systemd 218" "sd_event_add_signal"
+.TH "SD_EVENT_ADD_SIGNAL" "3" "" "systemd 219" "sd_event_add_signal"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -52,7 +52,7 @@ pointer, which may be chosen freely by the caller\&. The handler also receives a
 const struct signalfd_siginfo
 containing the information about the received signal\&. See
 \fBsignalfd\fR(2)
-for futher information\&.
+for further information\&.
 .PP
 Only a single handler may be installed for a specific signal\&. The signal will be unblocked, and must be blocked when the function is called\&. If the handler is not specified (\fIhandler\fR
 is

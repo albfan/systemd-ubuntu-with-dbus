@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NOTIFY" "1" "" "systemd 218" "systemd-notify"
+.TH "SYSTEMD\-NOTIFY" "1" "" "systemd 219" "systemd-notify"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -100,12 +100,12 @@ mkfifo /tmp/waldo
 systemd\-notify \-\-ready \-\-status="Waiting for data\&.\&.\&."
 
 while : ; do
-        read a < /tmp/waldo
-        systemd\-notify \-\-status="Processing $a"
+  read a < /tmp/waldo
+  systemd\-notify \-\-status="Processing $a"
 
-        # Do something with $a \&.\&.\&.
+  # Do something with $a \&.\&.\&.
 
-        systemd\-notify \-\-status="Waiting for data\&.\&.\&."
+  systemd\-notify \-\-status="Waiting for data\&.\&.\&."
 done
 .fi
 .if n \{\

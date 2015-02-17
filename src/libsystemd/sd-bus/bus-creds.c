@@ -20,8 +20,10 @@
 ***/
 
 #include <stdlib.h>
+#include <linux/capability.h>
 
 #include "util.h"
+#include "capability.h"
 #include "cgroup-util.h"
 #include "fileio.h"
 #include "audit.h"
@@ -218,7 +220,7 @@ _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
         assert_return(c, -EINVAL);
         assert_return(gid, -EINVAL);
 
-        if (!(c->mask & SD_BUS_CREDS_UID))
+        if (!(c->mask & SD_BUS_CREDS_GID))
                 return -ENODATA;
 
         *gid = c->gid;
@@ -588,13 +590,14 @@ static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
         size_t sz;
 
         assert(c);
+        assert(capability >= 0);
         assert(c->capability);
 
-        sz = c->capability_size / 4;
-        if ((size_t) capability >= sz*8)
+        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
+        if ((unsigned)capability > cap_last_cap())
                 return 0;
 
-        return !!(c->capability[offset * sz + (capability / 8)] & (1 << (capability % 8)));
+        return !!(c->capability[offset * sz + CAP_TO_INDEX(capability)] & CAP_TO_MASK(capability));
 }
 
 _public_ int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability) {
@@ -638,37 +641,43 @@ _public_ int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability) {
 }
 
 static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
-        size_t sz;
-        unsigned i;
+        size_t sz, max;
+        unsigned i, j;
 
         assert(c);
         assert(p);
 
+        max = DIV_ROUND_UP(cap_last_cap(), 32U);
         p += strspn(p, WHITESPACE);
 
         sz = strlen(p);
-        if (sz % 2 != 0)
+        if (sz % 8 != 0)
                 return -EINVAL;
 
-        sz /= 2;
+        sz /= 8;
+        if (sz > max)
+                return -EINVAL;
+
         if (!c->capability) {
-                c->capability = new0(uint8_t, sz * 4);
+                c->capability = new0(uint32_t, max * 4);
                 if (!c->capability)
                         return -ENOMEM;
-
-                c->capability_size = sz * 4;
         }
 
         for (i = 0; i < sz; i ++) {
-                int x, y;
+                uint32_t v = 0;
 
-                x = unhexchar(p[i*2]);
-                y = unhexchar(p[i*2+1]);
+                for (j = 0; j < 8; ++j) {
+                        int t;
 
-                if (x < 0 || y < 0)
-                        return -EINVAL;
+                        t = unhexchar(*p++);
+                        if (t < 0)
+                                return -EINVAL;
 
-                c->capability[offset * sz + (sz - i - 1)] = (uint8_t) x << 4 | (uint8_t) y;
+                        v = (v << 4) | t;
+                }
+
+                c->capability[offset * max + (sz - i - 1)] = v;
         }
 
         return 0;
@@ -1073,11 +1082,10 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)) {
-                n->capability = memdup(c->capability, c->capability_size);
+                n->capability = memdup(c->capability, DIV_ROUND_UP(cap_last_cap(), 32U) * 4 * 4);
                 if (!n->capability)
                         return -ENOMEM;
 
-                n->capability_size = c->capability_size;
                 n->mask |= c->mask & mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS);
         }
 

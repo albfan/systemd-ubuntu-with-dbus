@@ -112,6 +112,27 @@ static int add_symlink(const char *service, const char *where) {
         return 1;
 }
 
+static int add_alias(const char *service, const char *alias) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        assert(service);
+        assert(alias);
+
+        link = strjoin(arg_dest, "/", alias, NULL);
+        if (!link)
+                return log_oom();
+
+        r = symlink(service, link);
+        if (r < 0) {
+                if (errno == EEXIST)
+                        return 0;
+                return -errno;
+        }
+
+        return 1;
+}
+
 static int generate_unit_file(SysvStub *s) {
         char **p;
         _cleanup_fclose_ FILE *f = NULL;
@@ -141,6 +162,14 @@ static int generate_unit_file(SysvStub *s) {
         unit = strjoin(arg_dest, "/", s->name, NULL);
         if (!unit)
                 return log_oom();
+
+        /* We might already have a symlink with the same name from a Provides:,
+         * or from backup files like /etc/init.d/foo.bak. Real scripts always win,
+         * so remove an existing link */
+        if (is_symlink(unit)) {
+                log_warning("Overwriting existing symlink %s with real service", unit);
+                (void) unlink(unit);
+        }
 
         f = fopen(unit, "wxe");
         if (!f)
@@ -239,9 +268,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "time",                 SPECIAL_TIME_SYNC_TARGET,
         };
 
-        unsigned i;
-        char *r;
+        char *filename_no_sh, *e, *r;
         const char *n;
+        unsigned i;
 
         assert(name);
         assert(_r);
@@ -263,6 +292,14 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 goto finish;
         }
 
+        /* strip ".sh" suffix from file name for comparison */
+        filename_no_sh = strdupa(filename);
+        e = endswith(filename_no_sh, ".sh");
+        if (e) {
+                *e = '\0';
+                filename = filename_no_sh;
+        }
+
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or a service alias. */
 
@@ -272,13 +309,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
-        } else if (filename && streq(name, filename))
+        } else if (streq_ptr(n, filename))
                 /* Names equaling the file name of the services are redundant */
                 return 0;
         else
                 /* Everything else we assume to be normal service names */
                 r = sysv_translate_name(n);
-
         if (!r)
                 return -ENOMEM;
 
@@ -308,6 +344,8 @@ static int load_sysv(SysvStub *s) {
         f = fopen(s->path, "re");
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
+
+        log_debug("Loading SysV script %s", s->path);
 
         while (!feof(f)) {
                 char l[LINE_MAX], *t;
@@ -450,14 +488,15 @@ static int load_sysv(SysvStub *s) {
                                                 return -ENOMEM;
 
                                         r = sysv_translate_facility(n, basename(s->path), &m);
-
                                         if (r < 0)
                                                 return r;
-
                                         if (r == 0)
                                                 continue;
 
-                                        if (unit_name_to_type(m) != UNIT_SERVICE) {
+                                        if (unit_name_to_type(m) == UNIT_SERVICE) {
+                                                log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
+                                                r = add_alias(s->name, m);
+                                        } else {
                                                 /* NB: SysV targets
                                                  * which are provided
                                                  * by a service are
@@ -699,22 +738,23 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                 }
 
                 while ((de = readdir(d))) {
-                        SysvStub *service;
-                        struct stat st;
                         _cleanup_free_ char *fpath = NULL, *name = NULL;
+                        _cleanup_free_ SysvStub *service = NULL;
+                        struct stat st;
                         int r;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
-                        fpath = strjoin(*path, "/", de->d_name, NULL);
-                        if (!fpath)
-                                return log_oom();
-
-                        if (stat(fpath, &st) < 0)
+                        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                log_warning_errno(errno, "stat() failed on %s/%s: %m", *path, de->d_name);
                                 continue;
+                        }
 
                         if (!(st.st_mode & S_IXUSR))
+                                continue;
+
+                        if (!S_ISREG(st.st_mode))
                                 continue;
 
                         name = sysv_translate_name(de->d_name);
@@ -723,6 +763,15 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
 
                         if (hashmap_contains(all_services, name))
                                 continue;
+
+                        fpath = strjoin(*path, "/", de->d_name, NULL);
+                        if (!fpath)
+                                return log_oom();
+
+                        if (unit_file_get_state(UNIT_FILE_SYSTEM, NULL, name) >= 0) {
+                                log_debug("Native unit for %s already exists, skipping", name);
+                                continue;
+                        }
 
                         service = new0(SysvStub, 1);
                         if (!service)
@@ -737,6 +786,7 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                                 return log_oom();
 
                         name = fpath = NULL;
+                        service = NULL;
                 }
         }
 
@@ -777,7 +827,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                         while ((de = readdir(d))) {
                                 int a, b;
 
-                                if (ignore_file(de->d_name))
+                                if (hidden_file(de->d_name))
                                         continue;
 
                                 if (de->d_name[0] != 'S' && de->d_name[0] != 'K')
@@ -807,7 +857,8 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
 
                                 service = hashmap_get(all_services, name);
                                 if (!service){
-                                        log_warning("Could not find init script for %s", name);
+                                        log_debug("Ignoring %s symlink in %s, not generating %s.",
+                                                  de->d_name, rcnd_table[i].path, name);
                                         continue;
                                 }
 
@@ -919,7 +970,9 @@ int main(int argc, char *argv[]) {
                 q = load_sysv(service);
                 if (q < 0)
                         continue;
+        }
 
+        HASHMAP_FOREACH(service, all_services, j) {
                 q = fix_order(service, all_services);
                 if (q < 0)
                         continue;

@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # Simple udev rules syntax checker
 #
 # (C) 2010 Canonical Ltd.
@@ -19,10 +18,20 @@
 
 import re
 import sys
+import os
+from glob import glob
 
-if len(sys.argv) < 2:
-    print >> sys.stderr, 'Usage: %s <rules file> [...]' % sys.argv[0]
-    sys.exit(2)
+if len(sys.argv) > 1:
+    # explicit rule file list
+    rules_files = sys.argv[1:]
+else:
+    # take them from the build dir
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    rules_dir = os.path.join(os.environ.get('top_srcdir', root_dir), 'rules')
+    if not os.path.isdir(rules_dir):
+        sys.stderr.write('No rules files given, and %s does not exist, aborting' % rules_dir)
+        sys.exit(2)
+    rules_files = glob(os.path.join(rules_dir, '*.rules'))
 
 no_args_tests = re.compile('(ACTION|DEVPATH|KERNELS?|NAME|SYMLINK|SUBSYSTEMS?|DRIVERS?|TAG|RESULT|TEST)\s*(?:=|!)=\s*"([^"]*)"$')
 args_tests = re.compile('(ATTRS?|ENV|TEST){([a-zA-Z0-9/_.*%-]+)}\s*(?:=|!)=\s*"([^"]*)"$')
@@ -31,7 +40,7 @@ args_assign = re.compile('(ATTR|ENV|IMPORT|RUN){([a-zA-Z0-9/_.*%-]+)}\s*(=|\+=)\
 
 result = 0
 buffer = ''
-for path in sys.argv[1:]:
+for path in rules_files:
     lineno = 0
     for line in open(path):
         lineno += 1
@@ -55,8 +64,8 @@ for path in sys.argv[1:]:
                     no_args_assign.match(clause) or args_assign.match(clause)):
 
                 print('Invalid line %s:%i: %s' % (path, lineno, line))
-                print('  clause:', clause)
-                print()
+                print('  clause: %s' % clause)
+                print('')
                 result = 1
                 break
 

@@ -159,6 +159,7 @@ static int test_unit_printf(void) {
 
         /* normal unit */
         expect(u, "%n", "blah.service");
+        expect(u, "%f", "/blah");
         expect(u, "%N", "blah");
         expect(u, "%p", "blah");
         expect(u, "%P", "blah");
@@ -178,6 +179,7 @@ static int test_unit_printf(void) {
 
         expect(u2, "%n", "blah@foo-foo.service");
         expect(u2, "%N", "blah@foo-foo");
+        expect(u2, "%f", "/foo/foo");
         expect(u2, "%p", "blah");
         expect(u2, "%P", "blah");
         expect(u2, "%i", "foo-foo");
@@ -191,6 +193,7 @@ static int test_unit_printf(void) {
         expect(u2, "%t", "/run/user/*");
 
         manager_free(m);
+#undef expect
 
         return 0;
 }
@@ -260,6 +263,7 @@ static void test_unit_name_is_instance(void) {
         assert_se(unit_name_is_instance("a-c_c01Aj@b05Dii_-oioi.service"));
 
         assert_se(!unit_name_is_instance("a.service"));
+        assert_se(!unit_name_is_instance("a@.service"));
         assert_se(!unit_name_is_instance("junk"));
         assert_se(!unit_name_is_instance(""));
 }
@@ -291,6 +295,11 @@ static void test_unit_name_to_instance(void) {
         assert_se(streq(instance, "bar"));
         free(instance);
 
+        r = unit_name_to_instance("foo@.service", &instance);
+        assert_se(r >= 0);
+        assert_se(streq(instance, ""));
+        free(instance);
+
         r = unit_name_to_instance("fo0-stUff_b@b.e", &instance);
         assert_se(r >= 0);
         assert_se(streq(instance, "b"));
@@ -302,6 +311,9 @@ static void test_unit_name_to_instance(void) {
 
         r = unit_name_to_instance("fooj@unk", &instance);
         assert_se(r < 0);
+
+        r = unit_name_to_instance("foo@", &instance);
+        assert_se(r < 0);
 }
 
 static void test_unit_name_escape(void) {
@@ -310,6 +322,29 @@ static void test_unit_name_escape(void) {
         r = unit_name_escape("ab+-c.a/bc@foo.service");
         assert_se(r);
         assert_se(streq(r, "ab\\x2b\\x2dc.a-bc\\x40foo.service"));
+}
+
+static void test_unit_name_template(void) {
+#define expect(name, expected) \
+        { \
+                _cleanup_free_ char *f = NULL; \
+                f = unit_name_template(name); \
+                assert_se(f); \
+                printf("got: %s, expected: %s\n", f, expected); \
+                assert_se(streq(f, expected)); \
+        }
+        expect("foo@bar.service", "foo@.service")
+        expect("foo.mount", "foo.mount")
+#undef expect
+}
+
+static void test_unit_name_is_template(void) {
+        assert_se(unit_name_is_template("foo@.service"));
+        assert_se(unit_name_is_template("bar@.path"));
+
+        assert_se(!unit_name_is_template("bar@i.mount"));
+        assert_se(!unit_name_is_template("bar@foobbbb.service"));
+        assert_se(!unit_name_is_template("barfoo.service"));
 }
 
 int main(int argc, char* argv[]) {
@@ -324,6 +359,8 @@ int main(int argc, char* argv[]) {
         test_build_subslice();
         test_unit_name_to_instance();
         test_unit_name_escape();
+        test_unit_name_template();
+        test_unit_name_is_template();
 
         return rc;
 }

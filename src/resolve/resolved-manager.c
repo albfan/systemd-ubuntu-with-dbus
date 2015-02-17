@@ -23,7 +23,7 @@
 #include <resolv.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <netinet/in.h>
 
 #include "rtnl-util.h"
@@ -196,7 +196,7 @@ static int manager_rtnl_listen(Manager *m) {
 
         assert(m);
 
-        /* First, subscibe to interfaces coming and going */
+        /* First, subscribe to interfaces coming and going */
         r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
         if (r < 0)
                 return r;
@@ -666,6 +666,16 @@ int manager_read_resolv_conf(Manager *m) {
         LIST_FOREACH_SAFE(servers, s, nx, m->dns_servers)
                 if (s->marked)
                         dns_server_free(s);
+
+        /* Whenever /etc/resolv.conf changes, start using the first
+         * DNS server of it. This is useful to deal with broken
+         * network managing implementations (like NetworkManager),
+         * that when connecting to a VPN place both the VPN DNS
+         * servers and the local ones in /etc/resolv.conf. Without
+         * resetting the DNS server to use back to the first entry we
+         * will continue to use the local one thus being unable to
+         * resolve VPN domains. */
+        manager_set_dns_server(m, m->dns_servers);
 
         return 0;
 

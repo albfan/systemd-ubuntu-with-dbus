@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SWAP" "5" "" "systemd 218" "systemd.swap"
+.TH "SYSTEMD\&.SWAP" "5" "" "systemd 219" "systemd.swap"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -84,14 +84,12 @@ swap\&.target\&. This means that it will not be activated automatically during b
 has the opposite meaning and is the default\&.
 .RE
 .PP
-\fBnofail\fR, \fBfail\fR
+\fBnofail\fR
 .RS 4
 With
 \fBnofail\fR
 the swap unit will be only wanted, not required by
-swap\&.target\&. This means that the boot will continue even if this swap device is not activated successfully\&. Option
-\fBfail\fR
-has the opposite meaning and is the default\&.
+swap\&.target\&. This means that the boot will continue even if this swap device is not activated successfully\&.
 .RE
 .SH "OPTIONS"
 .PP

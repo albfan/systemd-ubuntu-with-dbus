@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_ADD_MATCH" "3" "" "systemd 218" "sd_journal_add_match"
+.TH "SD_JOURNAL_ADD_MATCH" "3" "" "systemd 219" "sd_journal_add_match"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -108,13 +108,13 @@ The following example adds matches to a journal context object to iterate only t
 .nf
 \&.\&.\&.
 int add_matches(sd_journal *j) {
-        sd_journal_add_match(j, "_SYSTEMD_UNIT=avahi\-daemon\&.service", 0);
-        sd_journal_add_match(j, "PRIORITY=0", 0);
-        sd_journal_add_match(j, "PRIORITY=1", 0);
-        sd_journal_add_match(j, "PRIORITY=2", 0);
-        sd_journal_add_match(j, "PRIORITY=3", 0);
-        sd_journal_add_disjunction(j);
-        sd_journal_add_match(j, "MESSAGE_ID=03bb1dab98ab4ecfbf6fff2738bdd964", 0);
+  sd_journal_add_match(j, "_SYSTEMD_UNIT=avahi\-daemon\&.service", 0);
+  sd_journal_add_match(j, "PRIORITY=0", 0);
+  sd_journal_add_match(j, "PRIORITY=1", 0);
+  sd_journal_add_match(j, "PRIORITY=2", 0);
+  sd_journal_add_match(j, "PRIORITY=3", 0);
+  sd_journal_add_disjunction(j);
+  sd_journal_add_match(j, "MESSAGE_ID=03bb1dab98ab4ecfbf6fff2738bdd964", 0);
 }
 .fi
 .if n \{\

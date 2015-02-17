@@ -37,11 +37,9 @@
 #include <sys/mount.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <glob.h>
 #include <sys/personality.h>
-#include <libgen.h>
-#undef basename
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -84,7 +82,7 @@
 #include "mkdir.h"
 #include "apparmor-util.h"
 #include "smack-util.h"
-#include "bus-kernel.h"
+#include "bus-endpoint.h"
 #include "label.h"
 #include "cap-list.h"
 
@@ -130,7 +128,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         fds[i] = nfd;
 
                         /* Hmm, the fd we wanted isn't free? Then
-                         * let's remember that and try again from here*/
+                         * let's remember that and try again from here */
                         if (nfd != i+3 && restart_from < 0)
                                 restart_from = i;
                 }
@@ -219,12 +217,52 @@ static int open_null_as(int flags, int nfd) {
         return r;
 }
 
-static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, const char *unit_id, int nfd) {
-        int fd, r;
+static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/stdout",
         };
+        uid_t olduid = UID_INVALID;
+        gid_t oldgid = GID_INVALID;
+        int r;
+
+        if (gid != GID_INVALID) {
+                oldgid = getgid();
+
+                r = setegid(gid);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (uid != UID_INVALID) {
+                olduid = getuid();
+
+                r = seteuid(uid);
+                if (r < 0) {
+                        r = -errno;
+                        goto restore_gid;
+                }
+        }
+
+        r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        if (r < 0)
+                r = -errno;
+
+        /* If we fail to restore the uid or gid, things will likely
+           fail later on. This should only happen if an LSM interferes. */
+
+        if (uid != UID_INVALID)
+                (void) seteuid(olduid);
+
+ restore_gid:
+        if (gid != GID_INVALID)
+                (void) setegid(oldgid);
+
+        return r;
+}
+
+static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, const char *unit_id, int nfd, uid_t uid, gid_t gid) {
+        int fd, r;
 
         assert(context);
         assert(output < _EXEC_OUTPUT_MAX);
@@ -235,11 +273,9 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
         if (fd < 0)
                 return -errno;
 
-        r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
-        if (r < 0) {
-                safe_close(fd);
-                return -errno;
-        }
+        r = connect_journal_socket(fd, uid, gid);
+        if (r < 0)
+                return r;
 
         if (shutdown(fd, SHUT_RD) < 0) {
                 safe_close(fd);
@@ -358,7 +394,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(const ExecContext *context, int fileno, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
+static int setup_output(const ExecContext *context, int fileno, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin, uid_t uid, gid_t gid) {
         ExecOutput o;
         ExecInput i;
         int r;
@@ -425,10 +461,10 @@ static int setup_output(const ExecContext *context, int fileno, int socket_fd, c
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(context, o, ident, unit_id, fileno);
+                r = connect_logger_as(context, o, ident, unit_id, fileno, uid, gid);
                 if (r < 0) {
                         log_unit_struct(unit_id,
-                                        LOG_CRIT,
+                                        LOG_ERR,
                                         LOG_MESSAGE("Failed to connect %s of %s to the journal socket: %s",
                                                     fileno == STDOUT_FILENO ? "stdout" : "stderr",
                                                     unit_id, strerror(-r)),
@@ -759,7 +795,7 @@ static int setup_pam(
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
 
-        if (log_get_max_level() < LOG_PRI(LOG_DEBUG))
+        if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
 
         pam_code = pam_start(name, user, &conv, &handle);
@@ -1228,15 +1264,16 @@ static int build_environment(
         return 0;
 }
 
-static int exec_child(ExecCommand *command,
-                      const ExecContext *context,
-                      const ExecParameters *params,
-                      ExecRuntime *runtime,
-                      char **argv,
-                      int socket_fd,
-                      int *fds, unsigned n_fds,
-                      char **files_env,
-                      int *error) {
+static int exec_child(
+                ExecCommand *command,
+                const ExecContext *context,
+                const ExecParameters *params,
+                ExecRuntime *runtime,
+                char **argv,
+                int socket_fd,
+                int *fds, unsigned n_fds,
+                char **files_env,
+                int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
@@ -1245,12 +1282,12 @@ static int exec_child(ExecCommand *command,
         int dont_close[n_fds + 4];
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        int i, err;
+        int i, r;
 
         assert(command);
         assert(context);
         assert(params);
-        assert(error);
+        assert(exit_status);
 
         rename_process_from_path(command->path);
 
@@ -1265,10 +1302,10 @@ static int exec_child(ExecCommand *command,
         if (context->ignore_sigpipe)
                 ignore_signals(SIGPIPE, -1);
 
-        err = reset_signal_mask();
-        if (err < 0) {
-                *error = EXIT_SIGNAL_MASK;
-                return err;
+        r = reset_signal_mask();
+        if (r < 0) {
+                *exit_status = EXIT_SIGNAL_MASK;
+                return r;
         }
 
         if (params->idle_pipe)
@@ -1277,6 +1314,7 @@ static int exec_child(ExecCommand *command,
         /* Close sockets very early to make sure we don't
          * block init reexecution because it cannot bind its
          * sockets */
+
         log_forget_fds();
 
         if (socket_fd >= 0)
@@ -1294,15 +1332,15 @@ static int exec_child(ExecCommand *command,
                         dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
         }
 
-        err = close_all_fds(dont_close, n_dont_close);
-        if (err < 0) {
-                *error = EXIT_FDS;
-                return err;
+        r = close_all_fds(dont_close, n_dont_close);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return r;
         }
 
         if (!context->same_pgrp)
                 if (setsid() < 0) {
-                        *error = EXIT_SETSID;
+                        *exit_status = EXIT_SETSID;
                         return -errno;
                 }
 
@@ -1311,19 +1349,28 @@ static int exec_child(ExecCommand *command,
         if (params->confirm_spawn) {
                 char response;
 
-                err = ask_for_confirmation(&response, argv);
-                if (err == -ETIMEDOUT)
+                r = ask_for_confirmation(&response, argv);
+                if (r == -ETIMEDOUT)
                         write_confirm_message("Confirmation question timed out, assuming positive response.\n");
-                else if (err < 0)
-                        write_confirm_message("Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-err));
+                else if (r < 0)
+                        write_confirm_message("Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-r));
                 else if (response == 's') {
                         write_confirm_message("Skipping execution.\n");
-                        *error = EXIT_CONFIRM;
+                        *exit_status = EXIT_CONFIRM;
                         return -ECANCELED;
                 } else if (response == 'n') {
                         write_confirm_message("Failing execution.\n");
-                        *error = 0;
+                        *exit_status = 0;
                         return 0;
+                }
+        }
+
+        if (context->user) {
+                username = context->user;
+                r = get_user_creds(&username, &uid, &gid, &home, &shell);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return r;
                 }
         }
 
@@ -1332,47 +1379,55 @@ static int exec_child(ExecCommand *command,
         if (socket_fd >= 0)
                 fd_nonblock(socket_fd, false);
 
-        err = setup_input(context, socket_fd, params->apply_tty_stdin);
-        if (err < 0) {
-                *error = EXIT_STDIN;
-                return err;
+        r = setup_input(context, socket_fd, params->apply_tty_stdin);
+        if (r < 0) {
+                *exit_status = EXIT_STDIN;
+                return r;
         }
 
-        err = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin);
-        if (err < 0) {
-                *error = EXIT_STDOUT;
-                return err;
+        r = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin, uid, gid);
+        if (r < 0) {
+                *exit_status = EXIT_STDOUT;
+                return r;
         }
 
-        err = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin);
-        if (err < 0) {
-                *error = EXIT_STDERR;
-                return err;
+        r = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin, uid, gid);
+        if (r < 0) {
+                *exit_status = EXIT_STDERR;
+                return r;
         }
 
         if (params->cgroup_path) {
-                err = cg_attach_everywhere(params->cgroup_supported, params->cgroup_path, 0, NULL, NULL);
-                if (err < 0) {
-                        *error = EXIT_CGROUP;
-                        return err;
+                r = cg_attach_everywhere(params->cgroup_supported, params->cgroup_path, 0, NULL, NULL);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return r;
                 }
         }
 
         if (context->oom_score_adjust_set) {
-                char t[16];
+                char t[DECIMAL_STR_MAX(context->oom_score_adjust)];
 
-                snprintf(t, sizeof(t), "%i", context->oom_score_adjust);
-                char_array_0(t);
+                /* When we can't make this change due to EPERM, then
+                 * let's silently skip over it. User namespaces
+                 * prohibit write access to this file, and we
+                 * shouldn't trip up over that. */
 
-                if (write_string_file("/proc/self/oom_score_adj", t) < 0) {
-                        *error = EXIT_OOM_ADJUST;
+                sprintf(t, "%i", context->oom_score_adjust);
+                r = write_string_file("/proc/self/oom_score_adj", t);
+                if (r == -EPERM || r == -EACCES) {
+                        log_open();
+                        log_unit_debug_errno(params->unit_id, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                        log_close();
+                } else if (r < 0) {
+                        *exit_status = EXIT_OOM_ADJUST;
                         return -errno;
                 }
         }
 
         if (context->nice_set)
                 if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
-                        *error = EXIT_NICE;
+                        *exit_status = EXIT_NICE;
                         return -errno;
                 }
 
@@ -1381,58 +1436,49 @@ static int exec_child(ExecCommand *command,
                         .sched_priority = context->cpu_sched_priority,
                 };
 
-                err = sched_setscheduler(0,
-                                         context->cpu_sched_policy |
-                                         (context->cpu_sched_reset_on_fork ?
-                                          SCHED_RESET_ON_FORK : 0),
-                                         &param);
-                if (err < 0) {
-                        *error = EXIT_SETSCHEDULER;
+                r = sched_setscheduler(0,
+                                       context->cpu_sched_policy |
+                                       (context->cpu_sched_reset_on_fork ?
+                                        SCHED_RESET_ON_FORK : 0),
+                                       &param);
+                if (r < 0) {
+                        *exit_status = EXIT_SETSCHEDULER;
                         return -errno;
                 }
         }
 
         if (context->cpuset)
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(context->cpuset_ncpus), context->cpuset) < 0) {
-                        *error = EXIT_CPUAFFINITY;
+                        *exit_status = EXIT_CPUAFFINITY;
                         return -errno;
                 }
 
         if (context->ioprio_set)
                 if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
-                        *error = EXIT_IOPRIO;
+                        *exit_status = EXIT_IOPRIO;
                         return -errno;
                 }
 
         if (context->timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
-                        *error = EXIT_TIMERSLACK;
+                        *exit_status = EXIT_TIMERSLACK;
                         return -errno;
                 }
 
         if (context->personality != 0xffffffffUL)
                 if (personality(context->personality) < 0) {
-                        *error = EXIT_PERSONALITY;
+                        *exit_status = EXIT_PERSONALITY;
                         return -errno;
                 }
 
         if (context->utmp_id)
                 utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path);
 
-        if (context->user) {
-                username = context->user;
-                err = get_user_creds(&username, &uid, &gid, &home, &shell);
-                if (err < 0) {
-                        *error = EXIT_USER;
-                        return err;
-                }
-
-                if (is_terminal_input(context->std_input)) {
-                        err = chown_terminal(STDIN_FILENO, uid);
-                        if (err < 0) {
-                                *error = EXIT_STDIN;
-                                return err;
-                        }
+        if (context->user && is_terminal_input(context->std_input)) {
+                r = chown_terminal(STDIN_FILENO, uid);
+                if (r < 0) {
+                        *exit_status = EXIT_STDIN;
+                        return r;
                 }
         }
 
@@ -1440,10 +1486,10 @@ static int exec_child(ExecCommand *command,
         if (params->bus_endpoint_fd >= 0 && context->bus_endpoint) {
                 uid_t ep_uid = (uid == UID_INVALID) ? 0 : uid;
 
-                err = bus_kernel_set_endpoint_policy(params->bus_endpoint_fd, ep_uid, context->bus_endpoint);
-                if (err < 0) {
-                        *error = EXIT_BUS_ENDPOINT;
-                        return err;
+                r = bus_kernel_set_endpoint_policy(params->bus_endpoint_fd, ep_uid, context->bus_endpoint);
+                if (r < 0) {
+                        *exit_status = EXIT_BUS_ENDPOINT;
+                        return r;
                 }
         }
 #endif
@@ -1452,17 +1498,17 @@ static int exec_child(ExecCommand *command,
          * (but only in systemd's own controller hierarchy!) to the
          * user of the new process. */
         if (params->cgroup_path && context->user && params->cgroup_delegate) {
-                err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, 0644, uid, gid);
-                if (err < 0) {
-                        *error = EXIT_CGROUP;
-                        return err;
+                r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, 0644, uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return r;
                 }
 
 
-                err = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, 0755, uid, gid);
-                if (err < 0) {
-                        *error = EXIT_CGROUP;
-                        return err;
+                r = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, 0755, uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return r;
                 }
         }
 
@@ -1474,23 +1520,23 @@ static int exec_child(ExecCommand *command,
 
                         p = strjoin(params->runtime_prefix, "/", *rt, NULL);
                         if (!p) {
-                                *error = EXIT_RUNTIME_DIRECTORY;
+                                *exit_status = EXIT_RUNTIME_DIRECTORY;
                                 return -ENOMEM;
                         }
 
-                        err = mkdir_safe(p, context->runtime_directory_mode, uid, gid);
-                        if (err < 0) {
-                                *error = EXIT_RUNTIME_DIRECTORY;
-                                return err;
+                        r = mkdir_safe_label(p, context->runtime_directory_mode, uid, gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_RUNTIME_DIRECTORY;
+                                return r;
                         }
                 }
         }
 
         if (params->apply_permissions) {
-                err = enforce_groups(context, username, gid);
-                if (err < 0) {
-                        *error = EXIT_GROUP;
-                        return err;
+                r = enforce_groups(context, username, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
                 }
         }
 
@@ -1498,19 +1544,19 @@ static int exec_child(ExecCommand *command,
 
 #ifdef HAVE_PAM
         if (params->apply_permissions && context->pam_name && username) {
-                err = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
-                if (err < 0) {
-                        *error = EXIT_PAM;
-                        return err;
+                r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
+                if (r < 0) {
+                        *exit_status = EXIT_PAM;
+                        return r;
                 }
         }
 #endif
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
-                err = setup_netns(runtime->netns_storage_socket);
-                if (err < 0) {
-                        *error = EXIT_NETWORK;
-                        return err;
+                r = setup_netns(runtime->netns_storage_socket);
+                if (r < 0) {
+                        *exit_status = EXIT_NETWORK;
+                        return r;
                 }
         }
 
@@ -1534,12 +1580,12 @@ static int exec_child(ExecCommand *command,
 
                 if (context->private_tmp && runtime) {
                         if (runtime->tmp_dir)
-                                tmp = strappenda(runtime->tmp_dir, "/tmp");
+                                tmp = strjoina(runtime->tmp_dir, "/tmp");
                         if (runtime->var_tmp_dir)
-                                var = strappenda(runtime->var_tmp_dir, "/tmp");
+                                var = strjoina(runtime->var_tmp_dir, "/tmp");
                 }
 
-                err = setup_namespace(
+                r = setup_namespace(
                                 context->read_write_dirs,
                                 context->read_only_dirs,
                                 context->inaccessible_dirs,
@@ -1551,47 +1597,54 @@ static int exec_child(ExecCommand *command,
                                 context->protect_system,
                                 context->mount_flags);
 
-                if (err == -EPERM)
-                        log_unit_warning_errno(params->unit_id, err, "Failed to set up file system namespace due to lack of privileges. Execution sandbox will not be in effect: %m");
-                else if (err < 0) {
-                        *error = EXIT_NAMESPACE;
-                        return err;
+                /* If we couldn't set up the namespace this is
+                 * probably due to a missing capability. In this case,
+                 * silently proceeed. */
+                if (r == -EPERM || r == -EACCES) {
+                        log_open();
+                        log_unit_debug_errno(params->unit_id, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
+                        log_close();
+                } else if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return r;
                 }
         }
 
         if (params->apply_chroot) {
                 if (context->root_directory)
                         if (chroot(context->root_directory) < 0) {
-                                *error = EXIT_CHROOT;
+                                *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
 
-                if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
-                        *error = EXIT_CHDIR;
+                if (chdir(context->working_directory ?: "/") < 0 &&
+                    !context->working_directory_missing_ok) {
+                        *exit_status = EXIT_CHDIR;
                         return -errno;
                 }
         } else {
                 _cleanup_free_ char *d = NULL;
 
                 if (asprintf(&d, "%s/%s",
-                             context->root_directory ? context->root_directory : "",
-                             context->working_directory ? context->working_directory : "") < 0) {
-                        *error = EXIT_MEMORY;
+                             context->root_directory ?: "",
+                             context->working_directory ?: "") < 0) {
+                        *exit_status = EXIT_MEMORY;
                         return -ENOMEM;
                 }
 
-                if (chdir(d) < 0) {
-                        *error = EXIT_CHDIR;
+                if (chdir(d) < 0 &&
+                    !context->working_directory_missing_ok) {
+                        *exit_status = EXIT_CHDIR;
                         return -errno;
                 }
         }
 
 #ifdef HAVE_SELINUX
         if (params->apply_permissions && mac_selinux_use() && params->selinux_context_net && socket_fd >= 0) {
-                err = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
-                if (err < 0) {
-                        *error = EXIT_SELINUX_CONTEXT;
-                        return err;
+                r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
+                if (r < 0) {
+                        *exit_status = EXIT_SELINUX_CONTEXT;
+                        return r;
                 }
         }
 #endif
@@ -1602,14 +1655,14 @@ static int exec_child(ExecCommand *command,
          * and the netns fds we don't need anymore. The custom
          * endpoint fd was needed to upload the policy and can
          * now be closed as well. */
-        err = close_all_fds(fds, n_fds);
-        if (err >= 0)
-                err = shift_fds(fds, n_fds);
-        if (err >= 0)
-                err = flags_fds(fds, n_fds, context->non_blocking);
-        if (err < 0) {
-                *error = EXIT_FDS;
-                return err;
+        r = close_all_fds(fds, n_fds);
+        if (r >= 0)
+                r = shift_fds(fds, n_fds);
+        if (r >= 0)
+                r = flags_fds(fds, n_fds, context->non_blocking);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return r;
         }
 
         if (params->apply_permissions) {
@@ -1619,34 +1672,34 @@ static int exec_child(ExecCommand *command,
                                 continue;
 
                         if (setrlimit_closest(i, context->rlimit[i]) < 0) {
-                                *error = EXIT_LIMITS;
+                                *exit_status = EXIT_LIMITS;
                                 return -errno;
                         }
                 }
 
                 if (context->capability_bounding_set_drop) {
-                        err = capability_bounding_set_drop(context->capability_bounding_set_drop, false);
-                        if (err < 0) {
-                                *error = EXIT_CAPABILITIES;
-                                return err;
+                        r = capability_bounding_set_drop(context->capability_bounding_set_drop, false);
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return r;
                         }
                 }
 
 #ifdef HAVE_SMACK
                 if (context->smack_process_label) {
-                        err = mac_smack_apply_pid(0, context->smack_process_label);
-                        if (err < 0) {
-                                *error = EXIT_SMACK_PROCESS_LABEL;
-                                return err;
+                        r = mac_smack_apply_pid(0, context->smack_process_label);
+                        if (r < 0) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
                         }
                 }
 #endif
 
                 if (context->user) {
-                        err = enforce_user(context, uid);
-                        if (err < 0) {
-                                *error = EXIT_USER;
-                                return err;
+                        r = enforce_user(context, uid);
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return r;
                         }
                 }
 
@@ -1656,39 +1709,39 @@ static int exec_child(ExecCommand *command,
                  * PR_SET_SECUREBITS unless necessary. */
                 if (prctl(PR_GET_SECUREBITS) != context->secure_bits)
                         if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
-                                *error = EXIT_SECUREBITS;
+                                *exit_status = EXIT_SECUREBITS;
                                 return -errno;
                         }
 
                 if (context->capabilities)
                         if (cap_set_proc(context->capabilities) < 0) {
-                                *error = EXIT_CAPABILITIES;
+                                *exit_status = EXIT_CAPABILITIES;
                                 return -errno;
                         }
 
                 if (context->no_new_privileges)
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
-                                *error = EXIT_NO_NEW_PRIVILEGES;
+                                *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
                         }
 
 #ifdef HAVE_SECCOMP
                 if (context->address_families_whitelist ||
                     !set_isempty(context->address_families)) {
-                        err = apply_address_families(context);
-                        if (err < 0) {
-                                *error = EXIT_ADDRESS_FAMILIES;
-                                return err;
+                        r = apply_address_families(context);
+                        if (r < 0) {
+                                *exit_status = EXIT_ADDRESS_FAMILIES;
+                                return r;
                         }
                 }
 
                 if (context->syscall_whitelist ||
                     !set_isempty(context->syscall_filter) ||
                     !set_isempty(context->syscall_archs)) {
-                        err = apply_seccomp(context);
-                        if (err < 0) {
-                                *error = EXIT_SECCOMP;
-                                return err;
+                        r = apply_seccomp(context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
                         }
                 }
 #endif
@@ -1698,10 +1751,10 @@ static int exec_child(ExecCommand *command,
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
                         if (exec_context) {
-                                err = setexeccon(exec_context);
-                                if (err < 0) {
-                                        *error = EXIT_SELINUX_CONTEXT;
-                                        return err;
+                                r = setexeccon(exec_context);
+                                if (r < 0) {
+                                        *exit_status = EXIT_SELINUX_CONTEXT;
+                                        return r;
                                 }
                         }
                 }
@@ -1709,19 +1762,19 @@ static int exec_child(ExecCommand *command,
 
 #ifdef HAVE_APPARMOR
                 if (context->apparmor_profile && mac_apparmor_use()) {
-                        err = aa_change_onexec(context->apparmor_profile);
-                        if (err < 0 && !context->apparmor_profile_ignore) {
-                                *error = EXIT_APPARMOR_PROFILE;
+                        r = aa_change_onexec(context->apparmor_profile);
+                        if (r < 0 && !context->apparmor_profile_ignore) {
+                                *exit_status = EXIT_APPARMOR_PROFILE;
                                 return -errno;
                         }
                 }
 #endif
         }
 
-        err = build_environment(context, n_fds, params->watchdog_usec, home, username, shell, &our_env);
-        if (err < 0) {
-                *error = EXIT_MEMORY;
-                return err;
+        r = build_environment(context, n_fds, params->watchdog_usec, home, username, shell, &our_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return r;
         }
 
         final_env = strv_env_merge(5,
@@ -1732,19 +1785,19 @@ static int exec_child(ExecCommand *command,
                                    pam_env,
                                    NULL);
         if (!final_env) {
-                *error = EXIT_MEMORY;
+                *exit_status = EXIT_MEMORY;
                 return -ENOMEM;
         }
 
         final_argv = replace_env_argv(argv, final_env);
         if (!final_argv) {
-                *error = EXIT_MEMORY;
+                *exit_status = EXIT_MEMORY;
                 return -ENOMEM;
         }
 
         final_env = strv_env_clean(final_env);
 
-        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *line;
 
                 line = exec_command_line(final_argv);
@@ -1759,7 +1812,7 @@ static int exec_child(ExecCommand *command,
                 }
         }
         execve(command->path, final_argv, final_env);
-        *error = EXIT_EXEC;
+        *exit_status = EXIT_EXEC;
         return -errno;
 }
 
@@ -1771,10 +1824,10 @@ int exec_spawn(ExecCommand *command,
 
         _cleanup_strv_free_ char **files_env = NULL;
         int *fds = NULL; unsigned n_fds = 0;
-        char *line, **argv;
-        int socket_fd;
+        _cleanup_free_ char *line = NULL;
+        int socket_fd, r;
+        char **argv;
         pid_t pid;
-        int err;
 
         assert(command);
         assert(context);
@@ -1786,8 +1839,10 @@ int exec_spawn(ExecCommand *command,
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_fds != 1)
+                if (params->n_fds != 1) {
+                        log_unit_error(params->unit_id, "Got more than one socket.");
                         return -EINVAL;
+                }
 
                 socket_fd = params->fds[0];
         } else {
@@ -1796,18 +1851,11 @@ int exec_spawn(ExecCommand *command,
                 n_fds = params->n_fds;
         }
 
-        err = exec_context_load_environment(context, params->unit_id, &files_env);
-        if (err < 0) {
-                log_unit_struct(params->unit_id,
-                                LOG_ERR,
-                                LOG_MESSAGE("Failed to load environment files: %s", strerror(-err)),
-                                LOG_ERRNO(-err),
-                                NULL);
-                return err;
-        }
+        r = exec_context_load_environment(context, params->unit_id, &files_env);
+        if (r < 0)
+                return log_unit_error_errno(params->unit_id, r, "Failed to load environment files: %m");
 
         argv = params->argv ?: command->argv;
-
         line = exec_command_line(argv);
         if (!line)
                 return log_oom();
@@ -1817,45 +1865,39 @@ int exec_spawn(ExecCommand *command,
                         "EXECUTABLE=%s", command->path,
                         LOG_MESSAGE("About to execute: %s", line),
                         NULL);
-        free(line);
-
         pid = fork();
         if (pid < 0)
-                return -errno;
+                return log_unit_error_errno(params->unit_id, r, "Failed to fork: %m");
 
         if (pid == 0) {
-                int r;
+                int exit_status;
 
-                err = exec_child(command,
-                                 context,
-                                 params,
-                                 runtime,
-                                 argv,
-                                 socket_fd,
-                                 fds, n_fds,
-                                 files_env,
-                                 &r);
-                if (r != 0) {
+                r = exec_child(command,
+                               context,
+                               params,
+                               runtime,
+                               argv,
+                               socket_fd,
+                               fds, n_fds,
+                               files_env,
+                               &exit_status);
+                if (r < 0) {
                         log_open();
-                        log_struct(LOG_ERR,
-                                   LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
-                                   "EXECUTABLE=%s", command->path,
-                                   LOG_MESSAGE("Failed at step %s spawning %s: %s",
-                                               exit_status_to_string(r, EXIT_STATUS_SYSTEMD),
-                                               command->path, strerror(-err)),
-                                   LOG_ERRNO(-err),
-                                   NULL);
-                        log_close();
+                        log_unit_struct(params->unit_id,
+                                        LOG_ERR,
+                                        LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                        "EXECUTABLE=%s", command->path,
+                                        LOG_MESSAGE("Failed at step %s spawning %s: %s",
+                                                    exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
+                                                    command->path, strerror(-r)),
+                                        LOG_ERRNO(r),
+                                        NULL);
                 }
 
-                _exit(r);
+                _exit(exit_status);
         }
 
-        log_unit_struct(params->unit_id,
-                        LOG_DEBUG,
-                        LOG_MESSAGE("Forked %s as "PID_FMT,
-                                    command->path, pid),
-                        NULL);
+        log_unit_debug(params->unit_id, "Forked %s as "PID_FMT, command->path, pid);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed
@@ -1984,7 +2026,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
                 /* We execute this synchronously, since we need to be
                  * sure this is gone when we start the service
                  * next. */
-                rm_rf_dangerous(p, false, true, false);
+                rm_rf(p, false, true, false);
         }
 
         return 0;
@@ -2007,7 +2049,7 @@ void exec_command_done_array(ExecCommand *c, unsigned n) {
                 exec_command_done(c+i);
 }
 
-void exec_command_free_list(ExecCommand *c) {
+ExecCommand* exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
         while ((i = c)) {
@@ -2015,15 +2057,26 @@ void exec_command_free_list(ExecCommand *c) {
                 exec_command_done(i);
                 free(i);
         }
+
+        return NULL;
 }
 
 void exec_command_free_array(ExecCommand **c, unsigned n) {
         unsigned i;
 
-        for (i = 0; i < n; i++) {
-                exec_command_free_list(c[i]);
-                c[i] = NULL;
-        }
+        for (i = 0; i < n; i++)
+                c[i] = exec_command_free_list(c[i]);
+}
+
+typedef struct InvalidEnvInfo {
+        const char *unit_id;
+        const char *path;
+} InvalidEnvInfo;
+
+static void invalid_env(const char *p, void *userdata) {
+        InvalidEnvInfo *info = userdata;
+
+        log_unit_error(info->unit_id, "Ignoring invalid environment assignment '%s': %s", p, info->path);
 }
 
 int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l) {
@@ -2082,8 +2135,14 @@ int exec_context_load_environment(const ExecContext *c, const char *unit_id, cha
                                 return k;
                         }
                         /* Log invalid environment variables with filename */
-                        if (p)
-                                p = strv_env_clean_log(p, unit_id, pglob.gl_pathv[n]);
+                        if (p) {
+                                InvalidEnvInfo info = {
+                                        .unit_id = unit_id,
+                                        .path = pglob.gl_pathv[n]
+                                };
+
+                                p = strv_env_clean_with_callback(p, invalid_env, &info);
+                        }
 
                         if (r == NULL)
                                 r = p;
@@ -2529,7 +2588,7 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         assert(f);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         cmd = exec_command_line(c->argv);
         fprintf(f,

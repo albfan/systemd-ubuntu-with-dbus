@@ -10,6 +10,8 @@ Name=ve-*
 Driver=veth
 
 [Network]
+# Default to using a /28 prefix, giving up to 13 addresses per container.
 Address=0.0.0.0/28
-IPv4LL=yes
+LinkLocalAddressing=yes
 DHCPServer=yes
+IPMasquerade=yes

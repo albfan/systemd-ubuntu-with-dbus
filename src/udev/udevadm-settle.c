@@ -28,7 +28,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -37,20 +37,23 @@
 #include "util.h"
 
 static void help(void) {
-        printf("Usage: udevadm settle OPTIONS\n"
-               "  -t,--timeout=<seconds>     maximum time to wait for events\n"
-               "  -E,--exit-if-exists=<file> stop waiting if file exists\n"
-               "  -h,--help\n\n");
+        printf("%s settle OPTIONS\n\n"
+               "Wait for pending udev events.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "  -t --timeout=SECONDS      Maximum time to wait for events\n"
+               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n"
+               , program_invocation_short_name);
 }
 
 static int adm_settle(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
-                { "seq-start",      required_argument, NULL, '\0' }, /* removed */
-                { "seq-end",        required_argument, NULL, '\0' }, /* removed */
                 { "timeout",        required_argument, NULL, 't' },
                 { "exit-if-exists", required_argument, NULL, 'E' },
-                { "quiet",          no_argument,       NULL, 'q' },  /* removed */
                 { "help",           no_argument,       NULL, 'h' },
+                { "seq-start",      required_argument, NULL, 's' }, /* removed */
+                { "seq-end",        required_argument, NULL, 'e' }, /* removed */
+                { "quiet",          no_argument,       NULL, 'q' }, /* removed */
                 {}
         };
         const char *exists = NULL;
@@ -60,8 +63,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
         struct udev_queue *queue;
         int rc = EXIT_FAILURE;
 
-        while ((c = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "t:E:hs:e:q", options, NULL)) >= 0) {
                 switch (c) {
+
                 case 't': {
                         int r;
 
@@ -73,14 +77,24 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                         };
                         break;
                 }
+
                 case 'E':
                         exists = optarg;
                         break;
+
                 case 'h':
                         help();
                         return EXIT_SUCCESS;
+
+                case 's':
+                case 'e':
+                case 'q':
+                        log_info("Option -%c no longer supported.", c);
+                        return EXIT_FAILURE;
+
                 case '?':
                         return EXIT_FAILURE;
+
                 default:
                         assert_not_reached("Unknown argument");
                 }
@@ -145,5 +159,5 @@ out:
 const struct udevadm_cmd udevadm_settle = {
         .name = "settle",
         .cmd = adm_settle,
-        .help = "wait for pending udev events",
+        .help = "Wait for pending udev events",
 };

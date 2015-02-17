@@ -27,7 +27,7 @@ static link_config_ctx *ctx = NULL;
 
 static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
-        const char *name;
+        const char *name = NULL;
         link_config *link;
         int r;
 
@@ -103,6 +103,6 @@ const struct udev_builtin udev_builtin_net_setup_link = {
         .init = builtin_net_setup_link_init,
         .exit = builtin_net_setup_link_exit,
         .validate = builtin_net_setup_link_validate,
-        .help = "configure network link",
+        .help = "Configure network link",
         .run_once = false,
 };

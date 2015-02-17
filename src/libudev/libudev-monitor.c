@@ -24,7 +24,7 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -109,10 +109,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 /* we consider udev running when /dev is on devtmpfs */
 static bool udev_has_devtmpfs(struct udev *udev) {
 
-        union file_handle_union h = {
-                .handle.handle_bytes = MAX_HANDLE_SZ
-        };
-
+        union file_handle_union h = FILE_HANDLE_INIT;
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX], *e;
         int mount_id;
@@ -582,9 +579,13 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         struct cmsghdr *cmsg;
         union sockaddr_union snl;
         struct ucred *cred;
-        char buf[8192];
+        union {
+                struct udev_monitor_netlink_header nlh;
+                char raw[8192];
+        } buf;
         ssize_t buflen;
         ssize_t bufpos;
+        bool is_initialized = false;
 
 retry:
         if (udev_monitor == NULL)
@@ -606,7 +607,7 @@ retry:
                 return NULL;
         }
 
-        if (buflen < 32 || (size_t)buflen >= sizeof(buf)) {
+        if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC)) {
                 log_debug("invalid message length");
                 return NULL;
         }
@@ -620,8 +621,8 @@ retry:
                 }
         } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
                 if (snl.nl.nl_pid > 0) {
-                        log_debug("multicast kernel netlink message from pid %d ignored",
-                             snl.nl.nl_pid);
+                        log_debug("multicast kernel netlink message from PID %"PRIu32" ignored",
+                                  snl.nl.nl_pid);
                         return NULL;
                 }
         }
@@ -634,70 +635,46 @@ retry:
 
         cred = (struct ucred *)CMSG_DATA(cmsg);
         if (cred->uid != 0) {
-                log_debug("sender uid=%d, message ignored", cred->uid);
+                log_debug("sender uid="UID_FMT", message ignored", cred->uid);
                 return NULL;
         }
 
-        udev_device = udev_device_new(udev_monitor->udev);
-        if (udev_device == NULL)
-                return NULL;
-
-        if (memcmp(buf, "libudev", 8) == 0) {
-                struct udev_monitor_netlink_header *nlh;
-
+        if (memcmp(buf.raw, "libudev", 8) == 0) {
                 /* udev message needs proper version magic */
-                nlh = (struct udev_monitor_netlink_header *) buf;
-                if (nlh->magic != htonl(UDEV_MONITOR_MAGIC)) {
+                if (buf.nlh.magic != htonl(UDEV_MONITOR_MAGIC)) {
                         log_debug("unrecognized message signature (%x != %x)",
-                                 nlh->magic, htonl(UDEV_MONITOR_MAGIC));
-                        udev_device_unref(udev_device);
+                                 buf.nlh.magic, htonl(UDEV_MONITOR_MAGIC));
                         return NULL;
                 }
-                if (nlh->properties_off+32 > (size_t)buflen) {
-                        udev_device_unref(udev_device);
+                if (buf.nlh.properties_off+32 > (size_t)buflen) {
                         return NULL;
                 }
 
-                bufpos = nlh->properties_off;
+                bufpos = buf.nlh.properties_off;
 
                 /* devices received from udev are always initialized */
-                udev_device_set_is_initialized(udev_device);
+                is_initialized = true;
         } else {
                 /* kernel message with header */
-                bufpos = strlen(buf) + 1;
+                bufpos = strlen(buf.raw) + 1;
                 if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
                         log_debug("invalid message length");
-                        udev_device_unref(udev_device);
                         return NULL;
                 }
 
                 /* check message header */
-                if (strstr(buf, "@/") == NULL) {
+                if (strstr(buf.raw, "@/") == NULL) {
                         log_debug("unrecognized message header");
-                        udev_device_unref(udev_device);
                         return NULL;
                 }
         }
 
-        udev_device_set_info_loaded(udev_device);
-
-        while (bufpos < buflen) {
-                char *key;
-                size_t keylen;
-
-                key = &buf[bufpos];
-                keylen = strlen(key);
-                if (keylen == 0)
-                        break;
-                bufpos += keylen + 1;
-                udev_device_add_property_from_string_parse(udev_device, key);
-        }
-
-        if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
-                log_debug("missing values, invalid device");
-                udev_device_unref(udev_device);
+        udev_device = udev_device_new_from_nulstr(udev_monitor->udev, &buf.raw[bufpos], buflen - bufpos);
+        if (!udev_device)
                 return NULL;
-        }
+
+        if (is_initialized)
+                udev_device_set_is_initialized(udev_device);
 
         /* skip device, if it does not pass the current filter */
         if (!passes_filter(udev_monitor, udev_device)) {

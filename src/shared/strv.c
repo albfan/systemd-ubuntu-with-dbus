@@ -69,7 +69,7 @@ char *strv_find_startswith(char **l, const char *name) {
         return NULL;
 }
 
-void strv_free(char **l) {
+void strv_clear(char **l) {
         char **k;
 
         if (!l)
@@ -78,6 +78,11 @@ void strv_free(char **l) {
         for (k = l; *k; k++)
                 free(*k);
 
+        *l = NULL;
+}
+
+void strv_free(char **l) {
+        strv_clear(l);
         free(l);
 }
 
@@ -519,6 +524,16 @@ char **strv_uniq(char **l) {
         return l;
 }
 
+bool strv_is_uniq(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                if (strv_find(i+1, *i))
+                        return false;
+
+        return true;
+}
+
 char **strv_remove(char **l, const char *s) {
         char **f, **t;
 
@@ -658,4 +673,32 @@ int strv_extendf(char ***l, const char *format, ...) {
                 return -ENOMEM;
 
         return strv_consume(l, x);
+}
+
+char **strv_reverse(char **l) {
+        unsigned n, i;
+
+        n = strv_length(l);
+        if (n <= 1)
+                return l;
+
+        for (i = 0; i < n / 2; i++) {
+                char *t;
+
+                t = l[i];
+                l[i] = l[n-1-i];
+                l[n-1-i] = t;
+        }
+
+        return l;
+}
+
+bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
+        char* const* p;
+
+        STRV_FOREACH(p, patterns)
+                if (fnmatch(*p, s, 0) == 0)
+                        return true;
+
+        return false;
 }

@@ -1,5 +1,5 @@
 '\" t
-.TH "LOGINCTL" "1" "" "systemd 218" "loginctl"
+.TH "LOGINCTL" "1" "" "systemd 219" "loginctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,11 +34,6 @@ login manager
 .SH "OPTIONS"
 .PP
 The following options are understood:
-.PP
-\fB\-\-no\-legend\fR
-.RS 4
-Do not print the legend, i\&.e\&. the column headers and the footer\&.
-.RE
 .PP
 \fB\-\-no\-ask\-password\fR
 .RS 4
@@ -84,6 +79,24 @@ or
 \fBSIGTERM\fR\&.
 .RE
 .PP
+\fB\-n\fR, \fB\-\-lines=\fR
+.RS 4
+When used with
+\fBuser\-status\fR
+and
+\fBsession\-status\fR, controls the number of journal lines to show, counting from the most recent ones\&. Takes a positive integer argument\&. Defaults to 10\&.
+.RE
+.PP
+\fB\-o\fR, \fB\-\-output=\fR
+.RS 4
+When used with
+\fBuser\-status\fR
+and
+\fBsession\-status\fR, controls the formatting of the journal entries that are shown\&. For the available choices, see
+\fBjournalctl\fR(1)\&. Defaults to
+"short"\&.
+.RE
+.PP
 \fB\-H\fR, \fB\-\-host=\fR
 .RS 4
 Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
@@ -97,6 +110,16 @@ Execute the operation remotely\&. Specify a hostname, or a username and hostname
 Execute operation on a local container\&. Specify a container name to connect to\&.
 .RE
 .PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.PP
+\fB\-\-no\-legend\fR
+.RS 4
+Do not print the legend, i\&.e\&. column headers and the footer with hints\&.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print a short help text and exit\&.
@@ -106,22 +129,19 @@ Print a short help text and exit\&.
 .RS 4
 Print a short version string and exit\&.
 .RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
-.RE
+.SH "COMMANDS"
 .PP
 The following commands are understood:
+.SS "Session Commands"
 .PP
 \fBlist\-sessions\fR
 .RS 4
 List current sessions\&.
 .RE
 .PP
-\fBsession\-status\fR \fIID\fR\&.\&.\&.
+\fBsession\-status\fR [\fIID\fR\&.\&.\&.]
 .RS 4
-Show terse runtime status information about one or more sessions\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
+Show terse runtime status information about one or more sessions, followed by the most recent log data from the journal\&. Takes one or more session identifiers as parameters\&. If no session identifiers are passed the status of the caller\*(Aqs session is shown\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
 \fBshow\-session\fR
 instead\&.
 .RE
@@ -136,14 +156,14 @@ to show those too\&. To select specific properties to show, use
 if you are looking for formatted human\-readable output\&.
 .RE
 .PP
-\fBactivate\fR \fIID\fR\&.\&.\&.
+\fBactivate\fR [\fIID\fR]
 .RS 4
-Activate one or more sessions\&. This brings one or more sessions into the foreground, if another session is currently in the foreground on the respective seat\&.
+Activate a session\&. This brings a session into the foreground, if another session is currently in the foreground on the respective seat\&. Takes a session identifier as argument\&. If no argument is specified the session of the caller is put into foreground\&.
 .RE
 .PP
-\fBlock\-session\fR \fIID\fR\&.\&.\&., \fBunlock\-session\fR \fIID\fR\&.\&.\&.
+\fBlock\-session\fR [\fIID\fR\&.\&.\&.], \fBunlock\-session\fR [\fIID\fR\&.\&.\&.]
 .RS 4
-Activates/deactivates the screen lock on one or more sessions, if the session supports it\&.
+Activates/deactivates the screen lock on one or more sessions, if the session supports it\&. Takes one or more session identifiers as arguments\&. If no argument is specified the session of the caller is locked/unlocked\&.
 .RE
 .PP
 \fBlock\-sessions\fR, \fBunlock\-sessions\fR
@@ -164,15 +184,16 @@ to select which process to kill\&. Use
 \fB\-\-signal=\fR
 to select the signal to send\&.
 .RE
+.SS "User Commands"
 .PP
 \fBlist\-users\fR
 .RS 4
 List currently logged in users\&.
 .RE
 .PP
-\fBuser\-status\fR \fIUSER\fR\&.\&.\&.
+\fBuser\-status\fR [\fIUSER\fR\&.\&.\&.]
 .RS 4
-Show terse runtime status information about one or more logged in users\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
+Show terse runtime status information about one or more logged in users, followed by the most recent log data from the journal\&. Takes one or more user names or numeric user IDs as parameters\&. If no parameters are passed the status of the caller\*(Aqs user is shown\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
 \fBshow\-user\fR
 instead\&. Users may be specified by their usernames or numeric user IDs\&.
 .RE
@@ -187,9 +208,9 @@ to show those too\&. To select specific properties to show, use
 if you are looking for formatted human\-readable output\&.
 .RE
 .PP
-\fBenable\-linger\fR \fIUSER\fR\&.\&.\&., \fBdisable\-linger\fR \fIUSER\fR\&.\&.\&.
+\fBenable\-linger\fR [\fIUSER\fR\&.\&.\&.], \fBdisable\-linger\fR [\fIUSER\fR\&.\&.\&.]
 .RS 4
-Enable/disable user lingering for one or more users\&. If enabled for a specific user, a user manager is spawned for the user at boot and kept around after logouts\&. This allows users who are not logged in to run long\-running services\&.
+Enable/disable user lingering for one or more users\&. If enabled for a specific user, a user manager is spawned for the user at boot and kept around after logouts\&. This allows users who are not logged in to run long\-running services\&. Takes one or more user names or numeric UIDs as argument\&. If no argument is specified enables/disables lingering for the user of the session of the caller\&.
 .RE
 .PP
 \fBterminate\-user\fR \fIUSER\fR\&.\&.\&.
@@ -203,20 +224,21 @@ Send a signal to all processes of a user\&. Use
 \fB\-\-signal=\fR
 to select the signal to send\&.
 .RE
+.SS "Seat Commands"
 .PP
 \fBlist\-seats\fR
 .RS 4
 List currently available seats on the local system\&.
 .RE
 .PP
-\fBseat\-status\fR \fINAME\fR\&.\&.\&.
+\fBseat\-status\fR [\fINAME\fR\&.\&.\&.]
 .RS 4
-Show terse runtime status information about one or more seats\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
+Show terse runtime status information about one or more seats\&. Takes one or more seat names as parameters\&. If no seat names are passed the status of the caller\*(Aqs session\*(Aqs seat is shown\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
 \fBshow\-seat\fR
 instead\&.
 .RE
 .PP
-\fBshow\-seat\fR \fINAME\fR\&.\&.\&.
+\fBshow\-seat\fR [\fINAME\fR\&.\&.\&.]
 .RS 4
 Show properties of one or more seats or the manager itself\&. If no argument is specified, properties of the manager will be shown\&. If a seat is specified, properties of the seat are shown\&. By default, empty properties are suppressed\&. Use
 \fB\-\-all\fR

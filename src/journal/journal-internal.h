@@ -32,6 +32,7 @@
 #include "hashmap.h"
 #include "set.h"
 #include "journal-file.h"
+#include "sd-journal.h"
 
 typedef struct Match Match;
 typedef struct Location Location;
@@ -56,20 +57,6 @@ struct Match {
         /* For terms */
         LIST_HEAD(Match, matches);
 };
-
-typedef enum LocationType {
-        /* The first and last entries, resp. */
-        LOCATION_HEAD,
-        LOCATION_TAIL,
-
-        /* We already read the entry we currently point to, and the
-         * next one to read should probably not be this one again. */
-        LOCATION_DISCRETE,
-
-        /* We should seek to the precise location specified, and
-         * return it, as we haven't read it yet. */
-        LOCATION_SEEK
-} LocationType;
 
 struct Location {
         LocationType type;

@@ -134,8 +134,8 @@ void server_process_native_message(
 
                 /* A property follows */
 
-                /* n received properties, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS + !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
+                /* n existing properties, 1 new, +1 for _TRANSPORT */
+                if (!GREEDY_REALLOC(iovec, m, n + 2 + N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS)) {
                         log_oom();
                         break;
                 }
@@ -350,7 +350,7 @@ void server_process_native_file(
                         return;
                 }
 
-                if (!filename_is_safe(e)) {
+                if (!filename_is_valid(e)) {
                         log_error("Received file in subdirectory of allowed directories. Refusing.");
                         return;
                 }
@@ -453,7 +453,7 @@ int server_open_native_socket(Server*s) {
         if (r < 0)
                 return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 
-        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, process_datagram, s);
+        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add native server fd to event loop: %m");
 

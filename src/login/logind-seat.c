@@ -201,7 +201,7 @@ int seat_preallocate_vts(Seat *s) {
 
                 q = vt_allocate(i);
                 if (q < 0) {
-                        log_error_errno(q, "Failed to preallocate VT %i: %m", i);
+                        log_error_errno(q, "Failed to preallocate VT %u: %m", i);
                         r = q;
                 }
         }
@@ -340,11 +340,23 @@ int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
 
         log_debug("VT changed to %u", vtnr);
 
+        /* we might have earlier closing sessions on the same VT, so try to
+         * find a running one first */
         LIST_FOREACH(sessions_by_seat, i, s->sessions)
-                if (i->vtnr == vtnr) {
+                if (i->vtnr == vtnr && !i->stopping) {
                         new_active = i;
                         break;
                 }
+
+        if (!new_active) {
+                /* no running one? then we can't decide which one is the
+                 * active one, let the first one win */
+                LIST_FOREACH(sessions_by_seat, i, s->sessions)
+                        if (i->vtnr == vtnr) {
+                                new_active = i;
+                                break;
+                        }
+        }
 
         r = seat_set_active(s, new_active);
         manager_spawn_autovt(s->manager, vtnr);

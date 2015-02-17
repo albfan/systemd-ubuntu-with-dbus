@@ -406,7 +406,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 static int add_raw_socket(RemoteServer *s, int fd) {
         int r;
         _cleanup_close_ int fd_ = fd;
-        char name[strlen("raw-socket-") + DECIMAL_STR_MAX(int)];
+        char name[sizeof("raw-socket-")-1 + DECIMAL_STR_MAX(int) + 1];
 
         assert(fd >= 0);
 
@@ -416,7 +416,7 @@ static int add_raw_socket(RemoteServer *s, int fd) {
         if (r < 0)
                 return r;
 
-        snprintf(name, sizeof(name), "raw-socket-%d", fd);
+        xsprintf(name, "raw-socket-%d", fd);
 
         r = sd_event_source_set_description(s->listen_event, name);
         if (r < 0)
@@ -885,7 +885,7 @@ static int remoteserver_init(RemoteServer *s,
         if (arg_url) {
                 const char *url, *hostname;
 
-                url = strappenda(arg_url, "/entries");
+                url = strjoina(arg_url, "/entries");
 
                 if (arg_getter) {
                         log_info("Spawning getter %s...", url);
@@ -1021,7 +1021,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
                 if (remaining > 0)
                         log_warning("Premature EOF. %zu bytes lost.", remaining);
                 remove_source(s, source->fd);
-                log_info("%zd active sources remaining", s->active);
+                log_info("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
                 log_error("Entry too big, skipped");
@@ -1469,13 +1469,13 @@ static int setup_gnutls_logger(char **categories) {
 
                 gnutls_global_set_log_function(log_func_gnutls);
 
-                if (categories)
+                if (categories) {
                         STRV_FOREACH(cat, categories) {
                                 r = log_enable_gnutls_category(*cat);
                                 if (r < 0)
                                         return r;
                         }
-                else
+                } else
                         log_reset_gnutls_level();
         }
 #endif

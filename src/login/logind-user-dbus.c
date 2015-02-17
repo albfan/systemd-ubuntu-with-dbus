@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <sys/capability.h>
 
 #include "strv.h"
 #include "bus-util.h"
@@ -236,6 +235,7 @@ const sd_bus_vtable user_vtable[] = {
 
 int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
+        uid_t uid;
         User *user;
         int r;
 
@@ -248,39 +248,31 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (streq(path, "/org/freedesktop/login1/user/self")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
-                pid_t pid;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                r = manager_get_user_by_pid(m, pid, &user);
-                if (r <= 0)
-                        return 0;
+                r = sd_bus_creds_get_owner_uid(creds, &uid);
         } else {
-                unsigned long lu;
                 const char *p;
 
                 p = startswith(path, "/org/freedesktop/login1/user/_");
                 if (!p)
                         return 0;
 
-                r = safe_atolu(p, &lu);
-                if (r < 0)
-                        return 0;
-
-                user = hashmap_get(m->users, ULONG_TO_PTR(lu));
-                if (!user)
-                        return 0;
+                r = parse_uid(p, &uid);
         }
+        if (r < 0)
+                return 0;
+
+        user = hashmap_get(m->users, UID_TO_PTR(uid));
+        if (!user)
+                return 0;
 
         *found = user;
         return 1;
@@ -299,6 +291,7 @@ char *user_bus_path(User *u) {
 
 int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
+        sd_bus_message *message;
         Manager *m = userdata;
         User *user;
         Iterator i;
@@ -318,6 +311,25 @@ int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                 r = strv_consume(&l, p);
                 if (r < 0)
                         return r;
+        }
+
+        message = sd_bus_get_current_message(bus);
+        if (message) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                uid_t uid;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+                if (r >= 0) {
+                        r = sd_bus_creds_get_owner_uid(creds, &uid);
+                        if (r >= 0) {
+                                user = hashmap_get(m->users, UID_TO_PTR(uid));
+                                if (user) {
+                                        r = strv_extend(&l, "/org/freedesktop/login1/user/self");
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+                }
         }
 
         *nodes = l;

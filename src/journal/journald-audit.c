@@ -206,7 +206,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
         return r;
 }
 
-/* Kernel fields are those occuring in the audit string before
+/* Kernel fields are those occurring in the audit string before
  * msg='. All of these fields are trusted, hence carry the "_" prefix.
  * We try to translate the fields we know into our native names. The
  * other's are generically mapped to _AUDIT_FIELD_XYZ= */
@@ -240,7 +240,7 @@ static const MapField map_fields_kernel[] = {
         {}
 };
 
-/* Userspace fields are thos occuring in the audit string after
+/* Userspace fields are those occurring in the audit string after
  * msg='. All of these fields are untrusted, hence carry no "_"
  * prefix. We map the fields we don't know to AUDIT_FIELD_XYZ= */
 static const MapField map_fields_userspace[] = {
@@ -360,7 +360,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (!p)
                 return;
 
-        if (sscanf(p, "(%" PRIi64 ".%" PRIi64 ":%" PRIi64 "):%n",
+        if (sscanf(p, "(%" PRIu64 ".%" PRIu64 ":%" PRIu64 "):%n",
                    &seconds,
                    &msec,
                    &id,
@@ -538,7 +538,7 @@ int server_open_audit(Server *s) {
         if (r < 0)
                 return log_error_errno(errno, "Failed to set SO_PASSCRED on audit socket: %m");
 
-        r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, process_datagram, s);
+        r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 

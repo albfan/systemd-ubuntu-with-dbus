@@ -449,7 +449,9 @@ int automount_send_ready(Automount *a, int status) {
 static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
-        char name[32], options[128];
+        char name[sizeof("systemd-")-1 + DECIMAL_STR_MAX(pid_t) + 1];
+        char options[sizeof("fd=,pgrp=,minproto=5,maxproto=5,direct")-1
+                     + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
         bool mounted = false;
         int r, dev_autofs_fd;
         struct stat st;
@@ -477,12 +479,8 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        snprintf(options, sizeof(options), "fd=%i,pgrp=%u,minproto=5,maxproto=5,direct", p[1], (unsigned) getpgrp());
-        char_array_0(options);
-
-        snprintf(name, sizeof(name), "systemd-%u", (unsigned) getpid());
-        char_array_0(name);
-
+        xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
+        xsprintf(name, "systemd-"PID_FMT, getpid());
         if (mount(name, a->where, "autofs", 0, options) < 0) {
                 r = -errno;
                 goto fail;
@@ -603,7 +601,7 @@ static int automount_start(Unit *u) {
 
         a->result = AUTOMOUNT_SUCCESS;
         automount_enter_waiting(a);
-        return 0;
+        return 1;
 }
 
 static int automount_stop(Unit *u) {
@@ -613,7 +611,7 @@ static int automount_stop(Unit *u) {
         assert(a->state == AUTOMOUNT_WAITING || a->state == AUTOMOUNT_RUNNING);
 
         automount_enter_dead(a, AUTOMOUNT_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -758,7 +756,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                         get_process_comm(packet.v5_packet.pid, &p);
                         log_unit_info(UNIT(a)->id,
-                                       "Got automount request for %s, triggered by "PID_FMT" (%s)",
+                                       "Got automount request for %s, triggered by %"PRIu32" (%s)",
                                        a->where, packet.v5_packet.pid, strna(p));
                 } else
                         log_unit_debug(UNIT(a)->id, "Got direct mount request on %s", a->where);
@@ -805,6 +803,17 @@ static void automount_reset_failed(Unit *u) {
                 automount_set_state(a, AUTOMOUNT_DEAD);
 
         a->result = AUTOMOUNT_SUCCESS;
+}
+
+static bool automount_supported(Manager *m) {
+        static int supported = -1;
+
+        assert(m);
+
+        if (supported < 0)
+                supported = access("/dev/autofs", F_OK) >= 0;
+
+        return supported;
 }
 
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
@@ -859,6 +868,7 @@ const UnitVTable automount_vtable = {
         .bus_vtable = bus_automount_vtable,
 
         .shutdown = automount_shutdown,
+        .supported = automount_supported,
 
         .status_message_formats = {
                 .finished_start_job = {

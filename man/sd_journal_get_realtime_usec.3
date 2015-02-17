@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_REALTIME_USEC" "3" "" "systemd 218" "sd_journal_get_realtime_usec"
+.TH "SD_JOURNAL_GET_REALTIME_USEC" "3" "" "systemd 219" "sd_journal_get_realtime_usec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -55,7 +55,9 @@ and
 \fBsd_journal_get_monotonic_usec()\fR
 returns 0 on success or a negative errno\-style error code\&. If the boot ID parameter was passed
 \fBNULL\fR
-and the monotonic timestamp of the current journal entry is not of the current system boot, \-ESTALE is returned by
+and the monotonic timestamp of the current journal entry is not of the current system boot,
+\fB\-ESTALE\fR
+is returned by
 \fBsd_journal_get_monotonic_usec()\fR\&.
 .SH "NOTES"
 .PP

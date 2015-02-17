@@ -33,6 +33,8 @@
 typedef struct Manager Manager;
 
 #include "machine.h"
+#include "machine-dbus.h"
+#include "image-dbus.h"
 
 struct Manager {
         sd_event *event;
@@ -41,6 +43,11 @@ struct Manager {
         Hashmap *machines;
         Hashmap *machine_units;
         Hashmap *machine_leaders;
+
+        Hashmap *polkit_registry;
+
+        Hashmap *image_cache;
+        sd_event_source *image_cache_defer_event;
 
         LIST_HEAD(Machine, machine_gc_queue);
 };

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-TIMESYNCD\&.SERVICE" "8" "" "systemd 218" "systemd-timesyncd.service"
+.TH "SYSTEMD\-TIMESYNCD\&.SERVICE" "8" "" "systemd 219" "systemd-timesyncd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,6 +37,12 @@ The NTP servers contacted are determined from the global settings in
 files, and the per\-link dynamic settings received over DHCP\&. See
 \fBsystemd.network\fR(5)
 for more details\&.
+.SH "FILES"
+.PP
+/var/lib/systemd/clock
+.RS 4
+This file contains the timestamp of last successful synchronization\&.
+.RE
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

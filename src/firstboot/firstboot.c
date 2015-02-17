@@ -50,7 +50,7 @@ static bool arg_copy_locale = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
 
-#define prefix_roota(p) (arg_root ? (const char*) strappenda(arg_root, p) : (const char*) p)
+#define prefix_roota(p) (arg_root ? (const char*) strjoina(arg_root, p) : (const char*) p)
 
 static void clear_string(char *x) {
 
@@ -256,7 +256,7 @@ static int process_locale(void) {
         if (arg_copy_locale && arg_root) {
 
                 mkdir_parents(etc_localeconf, 0755);
-                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644);
+                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy %s: %m", etc_localeconf);
@@ -271,9 +271,9 @@ static int process_locale(void) {
                 return r;
 
         if (!isempty(arg_locale))
-                locales[i++] = strappenda("LANG=", arg_locale);
+                locales[i++] = strjoina("LANG=", arg_locale);
         if (!isempty(arg_locale_messages) && !streq(arg_locale_messages, arg_locale))
-                locales[i++] = strappenda("LC_MESSAGES=", arg_locale_messages);
+                locales[i++] = strjoina("LC_MESSAGES=", arg_locale_messages);
 
         if (i == 0)
                 return 0;
@@ -351,7 +351,7 @@ static int process_timezone(void) {
         if (isempty(arg_timezone))
                 return 0;
 
-        e = strappenda("../usr/share/zoneinfo/", arg_timezone);
+        e = strjoina("../usr/share/zoneinfo/", arg_timezone);
 
         mkdir_parents(etc_localtime, 0755);
         if (symlink(e, etc_localtime) < 0)
@@ -460,8 +460,8 @@ static int prompt_root_password(void) {
         print_welcome();
         putchar('\n');
 
-        msg1 = strappenda(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip): ");
-        msg2 = strappenda(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter new root password again: ");
+        msg1 = strjoina(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip): ");
+        msg2 = strjoina(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter new root password again: ");
 
         for (;;) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
@@ -631,7 +631,7 @@ static void help(void) {
                "     --prompt-timezone         Prompt the user for timezone\n"
                "     --prompt-hostname         Prompt the user for hostname\n"
                "     --prompt-root-password    Prompt the user for root password\n"
-               "     --prompt                  Prompt for locale, timezone, hostname, root password\n"
+               "     --prompt                  Prompt for all of the above\n"
                "     --copy-locale             Copy locale from host\n"
                "     --copy-timezone           Copy timezone from host\n"
                "     --copy-root-password      Copy root password from host\n"

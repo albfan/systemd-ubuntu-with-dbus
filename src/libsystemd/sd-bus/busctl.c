@@ -28,6 +28,7 @@
 #include "pager.h"
 #include "xml.h"
 #include "path-util.h"
+#include "set.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -159,7 +160,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 r = sd_bus_get_name_creds(
                                 bus, *i,
                                 (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
-                                SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
+                                SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
                                 SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
                                 SD_BUS_CREDS_DESCRIPTION, &creds);
                 if (r >= 0) {
@@ -177,7 +178,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         } else
                                 fputs("          - -              ", stdout);
 
-                        r = sd_bus_creds_get_uid(creds, &uid);
+                        r = sd_bus_creds_get_euid(creds, &uid);
                         if (r >= 0) {
                                 _cleanup_free_ char *u = NULL;
 
@@ -255,8 +256,8 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                 l++;
         }
 
-        vertical = strappenda(prefix, draw_special_char(DRAW_TREE_VERTICAL));
-        space = strappenda(prefix, draw_special_char(DRAW_TREE_SPACE));
+        vertical = strjoina(prefix, draw_special_char(DRAW_TREE_VERTICAL));
+        space = strjoina(prefix, draw_special_char(DRAW_TREE_SPACE));
 
         for (;;) {
                 bool has_more = false;
@@ -882,10 +883,16 @@ static int introspect(sd_bus *bus, char **argv) {
         int r;
         unsigned name_width,  type_width, signature_width, result_width;
         Member **sorted = NULL;
-        unsigned k = 0, j;
+        unsigned k = 0, j, n_args;
 
-        if (strv_length(argv) != 3) {
+        n_args = strv_length(argv);
+        if (n_args < 3) {
                 log_error("Requires service and object path argument.");
+                return -EINVAL;
+        }
+
+        if (n_args > 4) {
+                log_error("Too many arguments.");
                 return -EINVAL;
         }
 
@@ -915,6 +922,9 @@ static int introspect(sd_bus *bus, char **argv) {
                         continue;
 
                 if (m->value)
+                        continue;
+
+                if (argv[3] && !streq(argv[3], m->interface))
                         continue;
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
@@ -994,6 +1004,10 @@ static int introspect(sd_bus *bus, char **argv) {
         sorted = newa(Member*, set_size(members));
 
         SET_FOREACH(m, members, i) {
+
+                if (argv[3] && !streq(argv[3], m->interface))
+                        continue;
+
                 if (m->interface)
                         name_width = MAX(name_width, strlen(m->interface));
                 if (m->name)
@@ -1013,7 +1027,6 @@ static int introspect(sd_bus *bus, char **argv) {
         if (result_width > 40)
                 result_width = 40;
 
-        assert(k == set_size(members));
         qsort(sorted, k, sizeof(Member*), member_compare_funcp);
 
         if (arg_legend) {
@@ -1032,7 +1045,13 @@ static int introspect(sd_bus *bus, char **argv) {
 
                 m = sorted[j];
 
+                if (argv[3] && !streq(argv[3], m->interface))
+                        continue;
+
                 is_interface = streq(m->type, "interface");
+
+                if (argv[3] && is_interface)
+                        continue;
 
                 if (m->value) {
                         ellipsized = ellipsize(m->value, result_width, 100);
@@ -1108,6 +1127,8 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         return log_error_errno(r, "Failed to add match: %m");
         }
 
+        log_info("Monitoring bus message stream.");
+
         for (;;) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
 
@@ -1117,6 +1138,12 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
 
                 if (m) {
                         dump(m, stdout);
+
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
+                                log_info("Connection terminated, exiting.");
+                                return 0;
+                        }
+
                         continue;
                 }
 
@@ -1685,7 +1712,7 @@ static int help(void) {
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  tree [SERVICE...]       Show object tree of service\n"
-               "  introspect SERVICE OBJECT\n"
+               "  introspect SERVICE OBJECT [INTERFACE]\n"
                "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
                "                          Call a method\n"
                "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
@@ -1835,7 +1862,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
 
@@ -2016,8 +2043,8 @@ int main(int argc, char *argv[]) {
                         r = bus_set_address_system_remote(bus, arg_host);
                         break;
 
-                case BUS_TRANSPORT_CONTAINER:
-                        r = bus_set_address_system_container(bus, arg_host);
+                case BUS_TRANSPORT_MACHINE:
+                        r = bus_set_address_system_machine(bus, arg_host);
                         break;
 
                 default:

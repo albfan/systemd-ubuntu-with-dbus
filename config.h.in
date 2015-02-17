@@ -6,14 +6,20 @@
 /* Canonical host string. */
 #undef CANONICAL_HOST
 
+/* Default index URL to use for image downloads */
+#undef DEFAULT_DKR_INDEX_URL
+
 /* Default DNS Servers */
 #undef DNS_SERVERS
 
+/* Define if hashmap debugging is to be enabled */
+#undef ENABLE_DEBUG_HASHMAP
+
+/* Define if mmap cache debugging is to be enabled */
+#undef ENABLE_DEBUG_MMAP_CACHE
+
 /* Define if EFI support is to be enabled */
 #undef ENABLE_EFI
-
-/* Define if hashmap debugging is to be enabled */
-#undef ENABLE_HASHMAP_DEBUG
 
 /* Define if kdbus support is to be enabled */
 #undef ENABLE_KDBUS
@@ -45,6 +51,12 @@
 /* Define if blkid is available */
 #undef HAVE_BLKID
 
+/* Define in BZIP2 is available */
+#undef HAVE_BZIP2
+
+/* Define to 1 if you have the <bzlib.h> header file. */
+#undef HAVE_BZLIB_H
+
 /* Define if CHKCONFIG is available */
 #undef HAVE_CHKCONFIG
 
@@ -71,9 +83,17 @@
    to 0 if you don't. */
 #undef HAVE_DECL_IFLA_BRPORT_UNICAST_FLOOD
 
+/* Define to 1 if you have the declaration of `IFLA_INET6_ADDR_GEN_MODE', and
+   to 0 if you don't. */
+#undef HAVE_DECL_IFLA_INET6_ADDR_GEN_MODE
+
 /* Define to 1 if you have the declaration of
    `IFLA_IPTUN_6RD_RELAY_PREFIXLEN', and to 0 if you don't. */
 #undef HAVE_DECL_IFLA_IPTUN_6RD_RELAY_PREFIXLEN
+
+/* Define to 1 if you have the declaration of `IFLA_IPVLAN_MODE', and to 0 if
+   you don't. */
+#undef HAVE_DECL_IFLA_IPVLAN_MODE
 
 /* Define to 1 if you have the declaration of `IFLA_MACVLAN_FLAGS', and to 0
    if you don't. */
@@ -95,6 +115,10 @@
    you don't. */
 #undef HAVE_DECL_IFLA_VXLAN_LOCAL6
 
+/* Define to 1 if you have the declaration of `kcmp', and to 0 if you don't.
+   */
+#undef HAVE_DECL_KCMP
+
 /* Define to 1 if you have the declaration of `LO_FLAGS_PARTSCAN', and to 0 if
    you don't. */
 #undef HAVE_DECL_LO_FLAGS_PARTSCAN
@@ -106,6 +130,10 @@
 /* Define to 1 if you have the declaration of `pivot_root', and to 0 if you
    don't. */
 #undef HAVE_DECL_PIVOT_ROOT
+
+/* Define to 1 if you have the declaration of `renameat2', and to 0 if you
+   don't. */
+#undef HAVE_DECL_RENAMEAT2
 
 /* Define to 1 if you have the declaration of `setns', and to 0 if you don't.
    */
@@ -144,6 +172,9 @@
 /* Define if IMA is available */
 #undef HAVE_IMA
 
+/* Importd support available */
+#undef HAVE_IMPORTD
+
 /* Define to 1 if you have the `inet_ntoa' function. */
 #undef HAVE_INET_NTOA
 
@@ -167,6 +198,9 @@
 
 /* Define if libidn is available */
 #undef HAVE_LIBIDN
+
+/* Define if libiptc is available */
+#undef HAVE_LIBIPTC
 
 /* Define if libmount is available */
 #undef HAVE_LIBMOUNT
@@ -327,6 +361,9 @@
 
 /* Define if XZ is available */
 #undef HAVE_XZ
+
+/* Define if ZLIB is available */
+#undef HAVE_ZLIB
 
 /* Define to 1 if you have the `__secure_getenv' function. */
 #undef HAVE___SECURE_GETENV

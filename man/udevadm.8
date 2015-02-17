@@ -1,5 +1,5 @@
 '\" t
-.TH "UDEVADM" "8" "" "systemd 218" "udevadm"
+.TH "UDEVADM" "8" "" "systemd 219" "udevadm"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,8 +34,6 @@ udevadm \- udev management tool
 \fBudevadm control \fR\fB\fIcommand\fR\fR
 .HP \w'\fBudevadm\ monitor\ \fR\fB[options]\fR\ 'u
 \fBudevadm monitor \fR\fB[options]\fR
-.HP \w'\fBudevadm\ hwdb\ \fR\fB[options]\fR\ 'u
-\fBudevadm hwdb \fR\fB[options]\fR
 .HP \w'\fBudevadm\ test\ \fR\fB[options]\fR\fB\ \fR\fB\fIdevpath\fR\fR\ 'u
 \fBudevadm test \fR\fB[options]\fR\fB \fR\fB\fIdevpath\fR\fR
 .HP \w'\fBudevadm\ test\-builtin\ \fR\fB[options]\fR\fB\ \fR\fB\fIcommand\fR\fR\fB\ \fR\fB\fIdevpath\fR\fR\ 'u
@@ -343,41 +341,6 @@ Filter events by subsystem[/devtype]\&. Only udev events with a matching subsyst
 \fB\-t\fR, \fB\-\-tag\-match=\fR\fB\fIstring\fR\fR
 .RS 4
 Filter events by property\&. Only udev events with a given tag attached will pass\&.
-.RE
-.PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Print help text\&.
-.RE
-.SS "udevadm hwdb [\fIoptions\fR]"
-.PP
-Maintain the hardware database index in
-/etc/udev/hwdb\&.bin\&.
-.PP
-\fB\-u\fR, \fB\-\-update\fR
-.RS 4
-Compile the hardware database information located in /usr/lib/udev/hwdb\&.d/, /etc/udev/hwdb\&.d/ and store it in
-/etc/udev/hwdb\&.bin\&. This should be done after any update to the source files; it will not be called automatically\&. The running udev daemon will detect a new database on its own and does not need to be notified about it\&.
-.RE
-.PP
-\fB\-\-usr\fR
-.RS 4
-Put the compiled database into
-/usr/lib/udev/hwdb\&.bin
-instead\&. Use this if you want to ship a pre\-compiled database in immutable system images, or don\*(Aqt use
-/etc/udev/hwdb\&.d
-and want to avoid large binary files in
-/etc\&.
-.RE
-.PP
-\fB\-t\fR, \fB\-\-test=\fR\fB\fIstring\fR\fR
-.RS 4
-Query the database with a modalias string, and print the retrieved properties\&.
-.RE
-.PP
-\fB\-r\fR, \fB\-\-root=\fR\fB\fIstring\fR\fR
-.RS 4
-Alternative root path in the file system for reading and writing files\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

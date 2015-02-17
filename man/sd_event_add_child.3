@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_EVENT_ADD_CHILD" "3" "" "systemd 218" "sd_event_add_child"
+.TH "SD_EVENT_ADD_CHILD" "3" "" "systemd 219" "sd_event_add_child"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -58,7 +58,7 @@ parameter determines which state changes will be watched for\&. It must contain 
 \fBWCONTINUED\fR
 (watch for the child being resumed by a signal)\&. See
 \fBwaitid\fR(2)
-for futher information\&.
+for further information\&.
 .PP
 Only a single handler may be installed for a specific child\&. The handler is enabled for a single event (\fBSD_EVENT_ONESHOT\fR), but this may be changed with
 \fBsd_event_source_set_enabled\fR(3)\&. If the handler function returns a negative error code, it will be disabled after the invocation, even if
@@ -88,9 +88,9 @@ Not enough memory to allocate an object\&.
 .PP
 \fB\-EINVAL\fR
 .RS 4
-An invalid argument has been passed\&. This includes specyfing an empty mask in
+An invalid argument has been passed\&. This includes specifying an empty mask in
 \fIoptions\fR
-or a mask which constains values different than a combination of
+or a mask which contains values different than a combination of
 \fBWEXITED\fR,
 \fBWSTOPPED\fR, and
 \fBWCONTINUED\fR\&.

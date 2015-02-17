@@ -26,13 +26,13 @@
 #include <getopt.h>
 
 #include "sd-daemon.h"
-
 #include "log.h"
 #include "util.h"
 #include "build.h"
 #include "fileio.h"
 #include "mkdir.h"
 #include "conf-parser.h"
+#include "sigbus.h"
 #include "journal-upload.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
@@ -40,14 +40,10 @@
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 #define DEFAULT_PORT  19532
 
-static const char* arg_url;
-
-static void close_fd_input(Uploader *u);
-
+static const char* arg_url = NULL;
 static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
-
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static const char *arg_cursor = NULL;
@@ -57,6 +53,8 @@ static const char *arg_machine = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
+
+static void close_fd_input(Uploader *u);
 
 #define SERVER_ANSWER_KEEP 2048
 
@@ -238,8 +236,9 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_HTTPHEADER, u->header,
                             LOG_ERR, return -EXFULL);
 
-                /* enable verbose for easier tracing */
-                easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
+                if (_unlikely_(log_get_max_level() >= LOG_DEBUG))
+                        /* enable verbose for easier tracing */
+                        easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
 
                 easy_setopt(curl, CURLOPT_USERAGENT,
                             "systemd-journal-upload " PACKAGE_STRING,
@@ -297,7 +296,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
                 return 0;
 
         r = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zu", __func__, size*nmemb, r);
+        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, r);
 
         if (r > 0)
                 return r;
@@ -506,15 +505,15 @@ static int perform_upload(Uploader *u) {
         }
 
         if (status >= 300) {
-                log_error("Upload to %s failed with code %lu: %s",
+                log_error("Upload to %s failed with code %ld: %s",
                           u->url, status, strna(u->answer));
                 return -EIO;
         } else if (status < 200) {
-                log_error("Upload to %s finished with unexpected code %lu: %s",
+                log_error("Upload to %s finished with unexpected code %ld: %s",
                           u->url, status, strna(u->answer));
                 return -EIO;
         } else
-                log_debug("Upload finished successfully with code %lu: %s",
+                log_debug("Upload finished successfully with code %ld: %s",
                           status, strna(u->answer));
 
         free(u->last_cursor);
@@ -791,6 +790,8 @@ int main(int argc, char **argv) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        sigbus_install();
 
         r = setup_uploader(&u, arg_url, arg_save_state);
         if (r < 0)

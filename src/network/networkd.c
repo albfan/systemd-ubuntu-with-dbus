@@ -64,6 +64,12 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Could not create runtime directory 'leases': %m");
 
+        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid);
+        if (r < 0)
+                log_error("Could not create runtime directory 'lldp': %s",
+                          strerror(-r));
+
+
         r = drop_privileges(uid, gid,
                             (1ULL << CAP_NET_ADMIN) |
                             (1ULL << CAP_NET_BIND_SERVICE) |
@@ -80,21 +86,9 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = manager_udev_listen(m);
+        r = manager_connect_bus(m);
         if (r < 0) {
-                log_error_errno(r, "Could not connect to udev: %m");
-                goto out;
-        }
-
-        r = manager_rtnl_listen(m);
-        if (r < 0) {
-                log_error_errno(r, "Could not connect to rtnl: %m");
-                goto out;
-        }
-
-        r = manager_bus_listen(m);
-        if (r < 0) {
-                log_error_errno(r, "Could not connect to system bus: %m");
+                log_error_errno(r, "Could not connect to bus: %m");
                 goto out;
         }
 
@@ -116,11 +110,13 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        log_info("Enumeration completed");
+
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
-        r = sd_event_loop(m->event);
+        r = manager_run(m);
         if (r < 0) {
                 log_error_errno(r, "Event loop failed: %m");
                 goto out;

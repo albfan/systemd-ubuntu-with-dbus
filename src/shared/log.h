@@ -34,6 +34,7 @@
 
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
+        LOG_TARGET_CONSOLE_PREFIXED,
         LOG_TARGET_KMSG,
         LOG_TARGET_JOURNAL,
         LOG_TARGET_JOURNAL_OR_KMSG,
@@ -158,7 +159,7 @@ void log_assert_failed_return(
 #define log_full_errno(level, error, ...)                                         \
         ({                                                                        \
                 int _l = (level), _e = (error);                                   \
-                (log_get_max_level() >= _l)                                       \
+                (log_get_max_level() >= LOG_PRI(_l))                              \
                 ? log_internal(_l, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
                 : -abs(_e); \
         })

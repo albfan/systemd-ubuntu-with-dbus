@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.EXEC" "5" "" "systemd 218" "systemd.exec"
+.TH "SYSTEMD\&.EXEC" "5" "" "systemd 219" "systemd.exec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -660,7 +660,9 @@ for details\&. Note that this option will disconnect all socket families from th
 Takes a boolean argument or
 "full"\&. If true, mounts the
 /usr
-directory read\-only for processes invoked by this unit\&. If set to
+and
+/boot
+directories read\-only for processes invoked by this unit\&. If set to
 "full", the
 /etc
 directory is mounted read\-only, too\&. This setting ensures that any modification of the vendor supplied operating system (and optionally its configuration) is prohibited for the service\&. It is recommended to enable this setting for all long\-running services, unless they are involved with system updates or need to modify the operating system in other ways\&. Note however that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with

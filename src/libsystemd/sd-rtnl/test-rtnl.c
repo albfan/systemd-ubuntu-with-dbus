@@ -31,8 +31,26 @@
 #include "missing.h"
 #include "rtnl-internal.h"
 
+static void test_message_link_bridge(sd_rtnl *rtnl) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
+        uint32_t cost;
+
+        assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 1) >= 0);
+        assert_se(sd_rtnl_message_link_set_family(message, PF_BRIDGE) >= 0);
+        assert_se(sd_rtnl_message_open_container(message, IFLA_PROTINFO) >= 0);
+        assert_se(sd_rtnl_message_append_u32(message, IFLA_BRPORT_COST, 10) >= 0);
+        assert_se(sd_rtnl_message_close_container(message) >= 0);
+
+        assert_se(sd_rtnl_message_rewind(message) >= 0);
+
+        assert_se(sd_rtnl_message_enter_container(message, IFLA_PROTINFO) >= 0);
+        assert_se(sd_rtnl_message_read_u32(message, IFLA_BRPORT_COST, &cost) >= 0);
+        assert_se(cost == 10);
+        assert_se(sd_rtnl_message_exit_container(message) >= 0);
+}
+
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *message;
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         char buffer[ETHER_ADDR_TO_STRING_MAX];
         unsigned int mtu = 1450, mtu_out;
@@ -353,6 +371,13 @@ static void test_get_addresses(sd_rtnl *rtnl) {
         }
 }
 
+static void test_message(void) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+
+        assert_se(rtnl_message_new_synthetic_error(-ETIMEDOUT, 1, &m) >= 0);
+        assert_se(sd_rtnl_message_get_errno(m) == -ETIMEDOUT);
+}
+
 int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
@@ -360,6 +385,8 @@ int main(void) {
         const char *string_data;
         int if_loopback;
         uint16_t type;
+
+        test_message();
 
         test_match();
 
@@ -384,6 +411,8 @@ int main(void) {
         test_link_configure(rtnl, if_loopback);
 
         test_get_addresses(rtnl);
+
+        test_message_link_bridge(rtnl);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, if_loopback) >= 0);
         assert_se(m);
