@@ -13,6 +13,8 @@ systemd (219-1) UNRELEASED; urgency=medium
     - Fix ThinkPad X1 Carbon 20BT trackpad buttons (LP: #1414930)
     - Drop all backported patches and port the others to new upstream release.
   * Bump libblkid-dev build dependency as per upstream configure.ac.
+  * debian/systemd.install: Add new systemd-hwdb and language-fallback-map
+    files.
   * /lib/lsb/init-functions.d/40-systemd: Call systemctl is-system-running
     with --quiet. (LP: #1421058)
   * debian/systemd.postrm: Clean getty@tty1.service and remote-fs.target
