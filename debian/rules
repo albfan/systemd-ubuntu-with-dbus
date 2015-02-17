@@ -177,10 +177,14 @@ override_dh_install:
 	# files shipped by udev
 	rm -r debian/systemd/etc/udev/
 	rm debian/systemd/lib/systemd/system/systemd-udev*
+	rm debian/systemd/lib/systemd/system/systemd-hwdb*
 	rm debian/systemd/lib/systemd/system/*.target.wants/systemd-udev*
+	rm debian/systemd/lib/systemd/system/*.target.wants/*hwdb*
 	rm debian/systemd/lib/systemd/systemd-udevd
 	rm debian/systemd/usr/share/man/man7/udev.7
+	rm debian/systemd/usr/share/man/man7/*hwdb*.7
 	rm debian/systemd/usr/share/man/man8/*udev*.8
+	rm debian/systemd/usr/share/man/man8/*hwdb*.8
 	rm debian/systemd/usr/share/bash-completion/completions/udevadm
 	# files systemd by cryptsetup
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
