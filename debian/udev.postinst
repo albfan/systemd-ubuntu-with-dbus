@@ -119,7 +119,7 @@ upgrade_fixes() {
 }
 
 update_hwdb() {
-  udevadm hwdb --update --usr || true
+  systemd-hwdb --usr update || true
 }
 
 # In udev-204, we ship systemd-udevd.service (upstream name), whereas previous

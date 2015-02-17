@@ -32,6 +32,7 @@ systemd (219-1) UNRELEASED; urgency=medium
     openntpd, or chrony is installed. (Closes: #755722)
   * debian/systemd.links: Drop obsolete hwclockfirst.service mask link, this
     was dropped in wheezy's util-linux already.
+  * debian/udev.postinst: Call systemd-hwdb instead of udevadm hwdb.
 
   [ Michael Biebl ]
   * Stop removing firstboot man pages. They are now installed conditionally.
