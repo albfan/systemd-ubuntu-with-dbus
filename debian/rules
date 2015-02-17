@@ -50,6 +50,7 @@ CONFFLAGS_deb = \
 	--enable-gtk-doc \
 	--enable-compat-libs \
 	--enable-hwdb \
+	--enable-libiptc \
 	PYTHON=python3
 
 CONFFLAGS_udeb = \
@@ -82,6 +83,7 @@ CONFFLAGS_udeb = \
 	--disable-gudev \
 	--disable-rfkill \
 	--disable-hwdb \
+	--disable-libiptc \
 	--disable-manpages \
 	--without-python
 
