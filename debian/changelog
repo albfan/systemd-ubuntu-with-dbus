@@ -19,6 +19,8 @@ systemd (219-1) UNRELEASED; urgency=medium
   * debian/libsystemd0.symbols: Add new symbols from this release.
   * tmpfiles.d/systemd.conf: Drop "wheel" ACL (that group does not exist in
     Debian) to make the ACL for "adm" actually work.
+  * debian/rules: Explicitly disable importd for now; it should still mature a
+    bit. Explicitly enable hwdb support.
   * /lib/lsb/init-functions.d/40-systemd: Call systemctl is-system-running
     with --quiet. (LP: #1421058)
   * debian/systemd.postrm: Clean getty@tty1.service and remote-fs.target

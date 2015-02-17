@@ -33,6 +33,7 @@ CONFFLAGS = \
 	--disable-coredump \
 	--disable-xkbcommon \
 	--disable-myhostname \
+	--disable-importd \
 	--disable-silent-rules \
 	--with-ntp-servers="0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org"  \
 	--with-system-uid-max=999 \
@@ -48,6 +49,7 @@ CONFFLAGS_deb = \
 	--enable-introspection \
 	--enable-gtk-doc \
 	--enable-compat-libs \
+	--enable-hwdb \
 	PYTHON=python3
 
 CONFFLAGS_udeb = \
@@ -79,6 +81,7 @@ CONFFLAGS_udeb = \
 	--disable-gcrypt \
 	--disable-gudev \
 	--disable-rfkill \
+	--disable-hwdb \
 	--disable-manpages \
 	--without-python
 
