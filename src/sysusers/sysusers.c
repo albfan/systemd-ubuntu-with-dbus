@@ -39,6 +39,7 @@
 #include "label.h"
 #include "fileio-label.h"
 #include "uid-range.h"
+#include "selinux-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -80,13 +81,7 @@ static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
-#define UID_TO_PTR(u) (ULONG_TO_PTR(u+1))
-#define PTR_TO_UID(u) ((uid_t) (PTR_TO_ULONG(u)-1))
-
-#define GID_TO_PTR(g) (ULONG_TO_PTR(g+1))
-#define PTR_TO_GID(g) ((gid_t) (PTR_TO_ULONG(g)-1))
-
-#define fix_root(x) (arg_root ? strappenda(arg_root, x) : x)
+#define fix_root(x) (arg_root ? strjoina(arg_root, x) : x)
 
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -215,14 +210,14 @@ static int make_backup(const char *target, const char *x) {
         if (r < 0)
                 return r;
 
-        r = copy_bytes(src, fileno(dst), (off_t) -1);
+        r = copy_bytes(src, fileno(dst), (off_t) -1, true);
         if (r < 0)
                 goto fail;
 
         /* Don't fail on chmod() or chown(). If it stays owned by us
          * and/or unreadable by others, then it isn't too bad... */
 
-        backup = strappenda(x, "-");
+        backup = strjoina(x, "-");
 
         /* Copy over the access mask */
         if (fchmod(fileno(dst), st.st_mode & 07777) < 0)

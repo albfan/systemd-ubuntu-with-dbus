@@ -21,16 +21,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_ACL
+
 #include <stdbool.h>
+#include <sys/acl.h>
+#include <acl/libacl.h>
+
+#include "macro.h"
 
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry);
 int calc_acl_mask_if_needed(acl_t *acl_p);
+int add_base_acls_if_needed(acl_t *acl_p, const char *path);
 int search_acl_groups(char*** dst, const char* path, bool* belong);
+int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask);
+int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl);
 
-static inline void acl_freep(acl_t *acl) {
+/* acl_free takes multiple argument types.
+ * Multiple cleanup functions are necessary. */
+DEFINE_TRIVIAL_CLEANUP_FUNC(acl_t, acl_free);
+#define acl_free_charp acl_free
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, acl_free_charp);
 
-        if (!*acl)
-                return;
-
-        acl_free(*acl);
-}
+#endif

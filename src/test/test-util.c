@@ -145,6 +145,39 @@ static void test_alloca(void) {
         assert_se(!memcmp(t, zero, 997));
 }
 
+static void test_div_round_up(void) {
+        int div;
+
+        /* basic tests */
+        assert_se(DIV_ROUND_UP(0, 8) == 0);
+        assert_se(DIV_ROUND_UP(1, 8) == 1);
+        assert_se(DIV_ROUND_UP(8, 8) == 1);
+        assert_se(DIV_ROUND_UP(12, 8) == 2);
+        assert_se(DIV_ROUND_UP(16, 8) == 2);
+
+        /* test multiple evaluation */
+        div = 0;
+        assert_se(DIV_ROUND_UP(div++, 8) == 0 && div == 1);
+        assert_se(DIV_ROUND_UP(++div, 8) == 1 && div == 2);
+        assert_se(DIV_ROUND_UP(8, div++) == 4 && div == 3);
+        assert_se(DIV_ROUND_UP(8, ++div) == 2 && div == 4);
+
+        /* overflow test with exact division */
+        assert_se(sizeof(0U) == 4);
+        assert_se(0xfffffffaU % 10U == 0U);
+        assert_se(0xfffffffaU / 10U == 429496729U);
+        assert_se(DIV_ROUND_UP(0xfffffffaU, 10U) == 429496729U);
+        assert_se((0xfffffffaU + 10U - 1U) / 10U == 0U);
+        assert_se(0xfffffffaU / 10U + !!(0xfffffffaU % 10U) == 429496729U);
+
+        /* overflow test with rounded division */
+        assert_se(0xfffffffdU % 10U == 3U);
+        assert_se(0xfffffffdU / 10U == 429496729U);
+        assert_se(DIV_ROUND_UP(0xfffffffdU, 10U) == 429496730U);
+        assert_se((0xfffffffdU + 10U - 1U) / 10U == 0U);
+        assert_se(0xfffffffdU / 10U + !!(0xfffffffdU % 10U) == 429496730U);
+}
+
 static void test_first_word(void) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
@@ -383,8 +416,24 @@ static void test_cescape(void) {
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
 
-        assert_se(unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00"));
-        assert_se(streq(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+        unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00");
+        assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+
+        /* incomplete sequences */
+        unescaped = cunescape("\\x0");
+        assert_se(streq_ptr(unescaped, "\\x0"));
+
+        unescaped = cunescape("\\x");
+        assert_se(streq_ptr(unescaped, "\\x"));
+
+        unescaped = cunescape("\\");
+        assert_se(streq_ptr(unescaped, "\\"));
+
+        unescaped = cunescape("\\11");
+        assert_se(streq_ptr(unescaped, "\\11"));
+
+        unescaped = cunescape("\\1");
+        assert_se(streq_ptr(unescaped, "\\1"));
 }
 
 static void test_foreach_word(void) {
@@ -406,28 +455,12 @@ static void test_foreach_word(void) {
                 assert_se(strneq(expected[i++], word, l));
 }
 
-static void test_foreach_word_quoted(void) {
+static void check(const char *test, char** expected, bool trailing) {
         const char *word, *state;
         size_t l;
         int i = 0;
-        const char test[] = "test a b c 'd' e '' '' hhh '' '' \"a b c\"";
-        const char * const expected[] = {
-                "test",
-                "a",
-                "b",
-                "c",
-                "d",
-                "e",
-                "",
-                "",
-                "hhh",
-                "",
-                "",
-                "a b c",
-                NULL
-        };
 
-        printf("<%s>\n", test);
+        printf("<<<%s>>>\n", test);
         FOREACH_WORD_QUOTED(word, l, test, state) {
                 _cleanup_free_ char *t = NULL;
 
@@ -435,7 +468,34 @@ static void test_foreach_word_quoted(void) {
                 assert_se(strneq(expected[i++], word, l));
                 printf("<%s>\n", t);
         }
-        assert_se(isempty(state));
+        printf("<<<%s>>>\n", state);
+        assert_se(expected[i] == NULL);
+        assert_se(isempty(state) == !trailing);
+}
+
+static void test_foreach_word_quoted(void) {
+        check("test a b c 'd' e '' '' hhh '' '' \"a b c\"",
+              STRV_MAKE("test",
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "e",
+                        "",
+                        "",
+                        "hhh",
+                        "",
+                        "",
+                        "a b c"),
+              false);
+
+        check("test \"xxx",
+              STRV_MAKE("test"),
+              true);
+
+        check("test\\",
+              STRV_MAKE_EMPTY,
+              true);
 }
 
 static void test_default_term_for_tty(void) {
@@ -543,7 +603,7 @@ static void test_get_process_comm(void) {
 
         r = get_process_environ(me, &env);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("self strlen(environ): '%zd'", strlen(env));
+        log_info("self strlen(environ): '%zu'", strlen(env));
 
         if (!detect_container(NULL))
                 assert_se(get_ctty_devnr(1, &h) == -ENOENT);
@@ -802,24 +862,24 @@ static void test_foreach_string(void) {
                 assert_se(streq(x, "zzz"));
 }
 
-static void test_filename_is_safe(void) {
+static void test_filename_is_valid(void) {
         char foo[FILENAME_MAX+2];
         int i;
 
-        assert_se(!filename_is_safe(""));
-        assert_se(!filename_is_safe("/bar/foo"));
-        assert_se(!filename_is_safe("/"));
-        assert_se(!filename_is_safe("."));
-        assert_se(!filename_is_safe(".."));
+        assert_se(!filename_is_valid(""));
+        assert_se(!filename_is_valid("/bar/foo"));
+        assert_se(!filename_is_valid("/"));
+        assert_se(!filename_is_valid("."));
+        assert_se(!filename_is_valid(".."));
 
         for (i=0; i<FILENAME_MAX+1; i++)
                 foo[i] = 'a';
         foo[FILENAME_MAX+1] = '\0';
 
-        assert_se(!filename_is_safe(foo));
+        assert_se(!filename_is_valid(foo));
 
-        assert_se(filename_is_safe("foo_bar-333"));
-        assert_se(filename_is_safe("o.o"));
+        assert_se(filename_is_valid("foo_bar-333"));
+        assert_se(filename_is_valid("o.o"));
 }
 
 static void test_string_has_cc(void) {
@@ -858,15 +918,15 @@ static void test_files_same(void) {
 }
 
 static void test_is_valid_documentation_url(void) {
-        assert_se(is_valid_documentation_url("http://www.freedesktop.org/wiki/Software/systemd"));
-        assert_se(is_valid_documentation_url("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));
-        assert_se(is_valid_documentation_url("file:foo"));
-        assert_se(is_valid_documentation_url("man:systemd.special(7)"));
-        assert_se(is_valid_documentation_url("info:bar"));
+        assert_se(documentation_url_is_valid("http://www.freedesktop.org/wiki/Software/systemd"));
+        assert_se(documentation_url_is_valid("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));
+        assert_se(documentation_url_is_valid("file:/foo/foo"));
+        assert_se(documentation_url_is_valid("man:systemd.special(7)"));
+        assert_se(documentation_url_is_valid("info:bar"));
 
-        assert_se(!is_valid_documentation_url("foo:"));
-        assert_se(!is_valid_documentation_url("info:"));
-        assert_se(!is_valid_documentation_url(""));
+        assert_se(!documentation_url_is_valid("foo:"));
+        assert_se(!documentation_url_is_valid("info:"));
+        assert_se(!documentation_url_is_valid(""));
 }
 
 static void test_file_in_same_dir(void) {
@@ -1012,17 +1072,29 @@ static void test_strshorten(void) {
         assert_se(strlen(strshorten(s, 0)) == 0);
 }
 
-static void test_strappenda(void) {
+static void test_strjoina(void) {
         char *actual;
 
-        actual = strappenda("", "foo", "bar");
+        actual = strjoina("", "foo", "bar");
         assert_se(streq(actual, "foobar"));
 
-        actual = strappenda("foo", "bar", "baz");
+        actual = strjoina("foo", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
 
-        actual = strappenda("foo", "", "bar", "baz");
+        actual = strjoina("foo", "", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
+
+        actual = strjoina("foo");
+        assert_se(streq(actual, "foo"));
+
+        actual = strjoina(NULL);
+        assert_se(streq(actual, ""));
+
+        actual = strjoina(NULL, "foo");
+        assert_se(streq(actual, ""));
+
+        actual = strjoina("foo", NULL, "bar");
+        assert_se(streq(actual, "foo"));
 }
 
 static void test_is_symlink(void) {
@@ -1163,23 +1235,47 @@ static void test_glob_exists(void) {
 }
 
 static void test_execute_directory(void) {
-        char name[] = "/tmp/test-execute_directory/script1";
-        char name2[] = "/tmp/test-execute_directory/script2";
-        char name3[] = "/tmp/test-execute_directory/useless";
-        char tempdir[] = "/tmp/test-execute_directory/";
+        char template_lo[] = "/tmp/test-readlink_and_make_absolute-lo.XXXXXXX";
+        char template_hi[] = "/tmp/test-readlink_and_make_absolute-hi.XXXXXXX";
+        const char * dirs[] = {template_hi, template_lo, NULL};
+        const char *name, *name2, *name3, *overridden, *override, *masked, *mask;
 
-        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid()) >= 0);
-        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch /tmp/test-execute_directory/it_works") == 0);
-        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch /tmp/test-execute_directory/it_works2") == 0);
+        assert_se(mkdtemp(template_lo));
+        assert_se(mkdtemp(template_hi));
+
+        name = strjoina(template_lo, "/script");
+        name2 = strjoina(template_hi, "/script2");
+        name3 = strjoina(template_lo, "/useless");
+        overridden = strjoina(template_lo, "/overridden");
+        override = strjoina(template_hi, "/overridden");
+        masked = strjoina(template_lo, "/masked");
+        mask = strjoina(template_hi, "/masked");
+
+        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works") == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2") == 0);
+        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
+        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0") == 0);
+        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
+        assert_se(symlink("/dev/null", mask) == 0);
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
+        assert_se(chmod(overridden, 0755) == 0);
+        assert_se(chmod(override, 0755) == 0);
+        assert_se(chmod(masked, 0755) == 0);
         assert_se(touch(name3) >= 0);
 
-        execute_directory(tempdir, NULL, DEFAULT_TIMEOUT_USEC, NULL);
-        assert_se(access("/tmp/test-execute_directory/it_works", F_OK) >= 0);
-        assert_se(access("/tmp/test-execute_directory/it_works2", F_OK) >= 0);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL);
 
-        rm_rf_dangerous(tempdir, false, true, false);
+        assert_se(chdir(template_lo) == 0);
+        assert_se(access("it_works", F_OK) >= 0);
+        assert_se(access("failed", F_OK) < 0);
+
+        assert_se(chdir(template_hi) == 0);
+        assert_se(access("it_works2", F_OK) >= 0);
+        assert_se(access("failed", F_OK) < 0);
+
+        rm_rf_dangerous(template_lo, false, true, false);
+        rm_rf_dangerous(template_hi, false, true, false);
 }
 
 static void test_unquote_first_word(void) {
@@ -1312,6 +1408,110 @@ static void test_parse_proc_cmdline(void) {
         assert_se(parse_proc_cmdline(parse_item) >= 0);
 }
 
+static void test_raw_clone(void) {
+        pid_t parent, pid, pid2;
+
+        parent = getpid();
+        log_info("before clone: getpid()→"PID_FMT, parent);
+        assert_se(raw_getpid() == parent);
+
+        pid = raw_clone(0, NULL);
+        assert_se(pid >= 0);
+
+        pid2 = raw_getpid();
+        log_info("raw_clone: "PID_FMT" getpid()→"PID_FMT" raw_getpid()→"PID_FMT,
+                 pid, getpid(), pid2);
+        if (pid == 0) {
+                assert_se(pid2 != parent);
+                _exit(EXIT_SUCCESS);
+        } else {
+                int status;
+
+                assert_se(pid2 == parent);
+                waitpid(pid, &status, __WCLONE);
+                assert_se(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
+        }
+}
+
+static void test_same_fd(void) {
+        _cleanup_close_pair_ int p[2] = { -1, -1 };
+        _cleanup_close_ int a = -1, b = -1, c = -1;
+
+        assert_se(pipe2(p, O_CLOEXEC) >= 0);
+        assert_se((a = dup(p[0])) >= 0);
+        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((c = dup(a)) >= 0);
+
+        assert_se(same_fd(p[0], p[0]) > 0);
+        assert_se(same_fd(p[1], p[1]) > 0);
+        assert_se(same_fd(a, a) > 0);
+        assert_se(same_fd(b, b) > 0);
+
+        assert_se(same_fd(a, p[0]) > 0);
+        assert_se(same_fd(p[0], a) > 0);
+        assert_se(same_fd(c, p[0]) > 0);
+        assert_se(same_fd(p[0], c) > 0);
+        assert_se(same_fd(a, c) > 0);
+        assert_se(same_fd(c, a) > 0);
+
+        assert_se(same_fd(p[0], p[1]) == 0);
+        assert_se(same_fd(p[1], p[0]) == 0);
+        assert_se(same_fd(p[0], b) == 0);
+        assert_se(same_fd(b, p[0]) == 0);
+        assert_se(same_fd(p[1], a) == 0);
+        assert_se(same_fd(a, p[1]) == 0);
+        assert_se(same_fd(p[1], b) == 0);
+        assert_se(same_fd(b, p[1]) == 0);
+
+        assert_se(same_fd(a, b) == 0);
+        assert_se(same_fd(b, a) == 0);
+}
+
+static void test_uid_ptr(void) {
+
+        assert_se(UID_TO_PTR(0) != NULL);
+        assert_se(UID_TO_PTR(1000) != NULL);
+
+        assert_se(PTR_TO_UID(UID_TO_PTR(0)) == 0);
+        assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
+}
+
+static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
+        char check[n];
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(sparse_write(fd, buffer, n, 4) == (ssize_t) n);
+
+        assert_se(lseek(fd, 0, SEEK_CUR) == (off_t) n);
+        assert_se(ftruncate(fd, n) >= 0);
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(read(fd, check, n) == (ssize_t) n);
+
+        assert_se(memcmp(buffer, check, n) == 0);
+}
+
+static void test_sparse_write(void) {
+        const char test_a[] = "test";
+        const char test_b[] = "\0\0\0\0test\0\0\0\0";
+        const char test_c[] = "\0\0test\0\0\0\0";
+        const char test_d[] = "\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0\0\0\0";
+        const char test_e[] = "test\0\0\0\0test";
+        _cleanup_close_ int fd = -1;
+        char fn[] = "/tmp/sparseXXXXXX";
+
+        fd = mkostemp(fn, O_CLOEXEC);
+        assert_se(fd >= 0);
+        unlink(fn);
+
+        test_sparse_write_one(fd, test_a, sizeof(test_a));
+        test_sparse_write_one(fd, test_b, sizeof(test_b));
+        test_sparse_write_one(fd, test_c, sizeof(test_c));
+        test_sparse_write_one(fd, test_d, sizeof(test_d));
+        test_sparse_write_one(fd, test_e, sizeof(test_e));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1321,6 +1521,7 @@ int main(int argc, char *argv[]) {
         test_max();
         test_container_of();
         test_alloca();
+        test_div_round_up();
         test_first_word();
         test_close_many();
         test_parse_boolean();
@@ -1360,7 +1561,7 @@ int main(int argc, char *argv[]) {
         test_hexdump();
         test_log2i();
         test_foreach_string();
-        test_filename_is_safe();
+        test_filename_is_valid();
         test_string_has_cc();
         test_ascii_strlower();
         test_files_same();
@@ -1373,7 +1574,7 @@ int main(int argc, char *argv[]) {
         test_read_one_char();
         test_ignore_signals();
         test_strshorten();
-        test_strappenda();
+        test_strjoina();
         test_is_symlink();
         test_pid_is_unwaited();
         test_pid_is_alive();
@@ -1384,6 +1585,10 @@ int main(int argc, char *argv[]) {
         test_unquote_first_word();
         test_unquote_many_words();
         test_parse_proc_cmdline();
+        test_raw_clone();
+        test_same_fd();
+        test_uid_ptr();
+        test_sparse_write();
 
         return 0;
 }

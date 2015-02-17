@@ -37,23 +37,20 @@
 #include <sys/inotify.h>
 #include <linux/fs.h>
 
-#ifdef HAVE_ACL
-#include <sys/acl.h>
-#include "acl-util.h"
-#endif
-
 #include "sd-journal.h"
 #include "sd-bus.h"
 
 #include "log.h"
 #include "logs-show.h"
 #include "util.h"
+#include "acl-util.h"
 #include "path-util.h"
 #include "fileio.h"
 #include "build.h"
 #include "pager.h"
 #include "strv.h"
 #include "set.h"
+#include "sigbus.h"
 #include "journal-internal.h"
 #include "journal-def.h"
 #include "journal-verify.h"
@@ -197,19 +194,19 @@ static void help(void) {
                "     --system              Show the system journal\n"
                "     --user                Show the user journal for the current user\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --since=DATE          Start showing entries on or newer than the specified date\n"
-               "     --until=DATE          Stop showing entries on or newer than the specified date\n"
-               "  -c --cursor=CURSOR       Start showing entries from the specified cursor\n"
-               "     --after-cursor=CURSOR Start showing entries from after the specified cursor\n"
+               "     --since=DATE          Show entries not older than the specified date\n"
+               "     --until=DATE          Show entries not newer than the specified date\n"
+               "  -c --cursor=CURSOR       Show entries starting at the specified cursor\n"
+               "     --after-cursor=CURSOR Show entries after the specified cursor\n"
                "     --show-cursor         Print the cursor after all the entries\n"
-               "  -b --boot[=ID]           Show data only from ID or, if unspecified, the current boot\n"
+               "  -b --boot[=ID]           Show current boot or the specified boot\n"
                "     --list-boots          Show terse information about recorded boots\n"
                "  -k --dmesg               Show kernel message log from the current boot\n"
-               "  -u --unit=UNIT           Show data only from the specified unit\n"
-               "     --user-unit=UNIT      Show data only from the specified user session unit\n"
-               "  -t --identifier=STRING   Show only messages with the specified syslog identifier\n"
-               "  -p --priority=RANGE      Show only messages within the specified priority range\n"
-               "  -e --pager-end           Immediately jump to end of the journal in the pager\n"
+               "  -u --unit=UNIT           Show logs from the specified unit\n"
+               "     --user-unit=UNIT      Show logs from the specified user unit\n"
+               "  -t --identifier=STRING   Show entries with the specified syslog identifier\n"
+               "  -p --priority=RANGE      Show entries with the specified priority\n"
+               "  -e --pager-end           Immediately jump to the end in the pager\n"
                "  -f --follow              Follow the journal\n"
                "  -n --lines[=INTEGER]     Number of journal entries to show\n"
                "     --no-tail             Show all lines, even in follow mode\n"
@@ -230,7 +227,7 @@ static void help(void) {
 #ifdef HAVE_GCRYPT
                "     --interval=TIME       Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY      Specify FSS verification key\n"
-               "     --force               Force overriding of the FSS key pair with --setup-keys\n"
+               "     --force               Override of the FSS key pair with --setup-keys\n"
 #endif
                "\nCommands:\n"
                "  -h --help                Show this help text\n"
@@ -238,11 +235,11 @@ static void help(void) {
                "  -F --field=FIELD         List all values that a specified field takes\n"
                "     --new-id128           Generate a new 128-bit ID\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
-               "     --vacuum-size=BYTES   Remove old journals until disk space drops below size\n"
-               "     --vacuum-time=TIME    Remove old journals until none left older than\n"
+               "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
+               "     --vacuum-time=TIME    Remove journal files older than specified date\n"
                "     --flush               Flush all journal data from /run into /var\n"
                "     --header              Show journal header information\n"
-               "     --list-catalog        Show message IDs of all entries in the message catalog\n"
+               "     --list-catalog        Show all message IDs in the catalog\n"
                "     --dump-catalog        Show entries in the message catalog\n"
                "     --update-catalog      Update the message catalog database\n"
 #ifdef HAVE_GCRYPT
@@ -1272,7 +1269,7 @@ static int add_syslog_identifier(sd_journal *j) {
         STRV_FOREACH(i, arg_syslog_identifier) {
                 char *u;
 
-                u = strappenda("SYSLOG_IDENTIFIER=", *i);
+                u = strjoina("SYSLOG_IDENTIFIER=", *i);
                 r = sd_journal_add_match(j, u, 0);
                 if (r < 0)
                         return r;
@@ -1293,7 +1290,7 @@ static int setup_keys(void) {
         size_t mpk_size, seed_size, state_size, i;
         uint8_t *mpk, *seed, *state;
         ssize_t l;
-        int fd = -1, r, attr = 0;
+        int fd = -1, r;
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
         struct FSSHeader h;
@@ -1388,13 +1385,9 @@ static int setup_keys(void) {
 
         /* Enable secure remove, exclusion from dump, synchronous
          * writing and in-place updating */
-        if (ioctl(fd, FS_IOC_GETFLAGS, &attr) < 0)
-                log_warning_errno(errno, "FS_IOC_GETFLAGS failed: %m");
-
-        attr |= FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL;
-
-        if (ioctl(fd, FS_IOC_SETFLAGS, &attr) < 0)
-                log_warning_errno(errno, "FS_IOC_SETFLAGS failed: %m");
+        r = chattr_fd(fd, true, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL);
+        if (r < 0)
+                log_warning_errno(errno, "Failed to set file attributes: %m");
 
         zero(h);
         memcpy(h.signature, "KSHHRHLP", 8);
@@ -1691,7 +1684,7 @@ static int flush_to_var(void) {
                         break;
 
                 if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to check for existance of /run/systemd/journal/flushed: %m");
+                        return log_error_errno(errno, "Failed to check for existence of /run/systemd/journal/flushed: %m");
 
                 r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
                 if (r < 0)
@@ -1723,6 +1716,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         signal(SIGWINCH, columns_lines_cache_reset);
+        sigbus_install();
+
+        /* Increase max number of open files to 16K if we can, we
+         * might needs this when browsing journal files, which might
+         * be split up into many files. */
+        setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
         if (arg_action == ACTION_NEW_ID128) {
                 r = generate_new_id128();
@@ -1873,7 +1872,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

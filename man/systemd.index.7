@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 218" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 219" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -80,6 +80,9 @@ systemd.index \- List all manpages from the systemd project
 \fBhostnamectl\fR(1)
 \-\- Control the system hostname
 .br
+\fBhwdb\fR(7)
+\-\- Hardware Database
+.br
 
 .SH "I"
 .PP
@@ -110,6 +113,12 @@ systemd.index \- List all manpages from the systemd project
 
 .SH "L"
 .PP
+\fBlibnss_myhostname.so.2\fR(8)
+\-\- Provide hostname resolution for the locally configured system hostname\&.
+.br
+\fBlibnss_mymachines.so.2\fR(8)
+\-\- Provide hostname resolution for local container instances\&.
+.br
 \fBlocale.conf\fR(5)
 \-\- Configuration file for locale settings
 .br
@@ -146,8 +155,14 @@ systemd.index \- List all manpages from the systemd project
 
 .SH "N"
 .PP
+\fBnetworkctl\fR(1)
+\-\- Query the status of network links
+.br
 \fBnss-myhostname\fR(8)
 \-\- Provide hostname resolution for the locally configured system hostname\&.
+.br
+\fBnss-mymachines\fR(8)
+\-\- Provide hostname resolution for local container instances\&.
 .br
 
 .SH "O"
@@ -803,6 +818,15 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_pid_get_user_unit\fR(3)
 \-\- Determine session, service, owner of a session, container/VM or slice of a specific PID or socket peer
 .br
+\fBsd_pid_notify\fR(3)
+\-\- Notify service manager about start\-up completion and other service status changes
+.br
+\fBsd_pid_notify_with_fds\fR(3)
+\-\- Notify service manager about start\-up completion and other service status changes
+.br
+\fBsd_pid_notifyf\fR(3)
+\-\- Notify service manager about start\-up completion and other service status changes
+.br
 \fBsd_seat_can_graphical\fR(3)
 \-\- Determine state of a specific seat
 .br
@@ -1024,6 +1048,9 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-hostnamed.service\fR(8)
 \-\- Host name bus mechanism
+.br
+\fBsystemd-hwdb\fR(8)
+\-\- hardware database management tool
 .br
 \fBsystemd-hybrid-sleep.service\fR(8)
 \-\- System sleep state logic
@@ -1292,6 +1319,9 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd.exec\fR(5)
 \-\- Execution environment configuration
 .br
+\fBsystemd.generator\fR(7)
+\-\- Systemd unit generators
+.br
 \fBsystemd.journal-fields\fR(7)
 \-\- Special journal fields
 .br
@@ -1399,4 +1429,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 440 entries, referring to 194 individual manual pages\&.
+This index contains 450 entries, referring to 199 individual manual pages\&.

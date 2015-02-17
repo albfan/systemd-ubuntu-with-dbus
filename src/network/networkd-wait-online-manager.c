@@ -21,6 +21,7 @@
 
 #include <netinet/ether.h>
 #include <linux/if.h>
+#include <fnmatch.h>
 
 #include "rtnl-util.h"
 
@@ -30,6 +31,23 @@
 #include "networkd-wait-online.h"
 
 #include "util.h"
+#include "time-util.h"
+
+bool manager_ignore_link(Manager *m, Link *link) {
+        char **ignore;
+
+        assert(m);
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return true;
+
+        STRV_FOREACH(ignore, m->ignore)
+                if (fnmatch(*ignore, link->ifname, 0) == 0)
+                        return true;
+
+        return false;
+}
 
 bool manager_all_configured(Manager *m) {
         Iterator i;
@@ -49,8 +67,8 @@ bool manager_all_configured(Manager *m) {
         /* wait for all links networkd manages to be in admin state 'configured'
            and at least one link to gain a carrier */
         HASHMAP_FOREACH(l, m->links, i) {
-                if (!link_relevant(l)) {
-                        log_info("ignore irrelevant link: %s", l->ifname);
+                if (manager_ignore_link(m, l)) {
+                        log_info("ignoring: %s", l->ifname);
                         continue;
                 }
 
@@ -159,7 +177,7 @@ static int manager_rtnl_listen(Manager *m) {
 
         assert(m);
 
-        /* First, subscibe to interfaces coming and going */
+        /* First, subscribe to interfaces coming and going */
         r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
         if (r < 0)
                 return r;
@@ -245,7 +263,7 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, char **interfaces) {
+int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -256,6 +274,7 @@ int manager_new(Manager **ret, char **interfaces) {
                 return -ENOMEM;
 
         m->interfaces = interfaces;
+        m->ignore = ignore;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -263,6 +282,16 @@ int manager_new(Manager **ret, char **interfaces) {
 
         sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+
+        if (timeout > 0) {
+                usec_t usec;
+
+                usec = now(clock_boottime_or_monotonic()) + timeout;
+
+                r = sd_event_add_time(m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                if (r < 0)
+                        return r;
+        }
 
         sd_event_set_watchdog(m->event, true);
 

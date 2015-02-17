@@ -137,7 +137,7 @@ typedef uint8_t dib_raw_t;
 
 #define DIB_FREE UINT_MAX
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
 struct hashmap_debug_info {
         LIST_FIELDS(struct hashmap_debug_info, debug_list);
         unsigned max_entries;  /* high watermark of n_entries */
@@ -158,9 +158,9 @@ static LIST_HEAD(struct hashmap_debug_info, hashmap_debug_list);
 
 #define HASHMAP_DEBUG_FIELDS struct hashmap_debug_info debug;
 
-#else /* !ENABLE_HASHMAP_DEBUG */
+#else /* !ENABLE_DEBUG_HASHMAP */
 #define HASHMAP_DEBUG_FIELDS
-#endif /* ENABLE_HASHMAP_DEBUG */
+#endif /* ENABLE_DEBUG_HASHMAP */
 
 enum HashmapType {
         HASHMAP_TYPE_PLAIN,
@@ -482,7 +482,7 @@ static unsigned skip_free_buckets(HashmapBase *h, unsigned idx) {
 }
 
 static void bucket_mark_free(HashmapBase *h, unsigned idx) {
-        memset(bucket_at(h, idx), 0, hashmap_type_info[h->type].entry_size);
+        memzero(bucket_at(h, idx), hashmap_type_info[h->type].entry_size);
         bucket_set_dib(h, idx, DIB_FREE);
 }
 
@@ -552,7 +552,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
         dibs = dib_raw_ptr(h);
         assert(dibs[idx] != DIB_RAW_FREE);
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         h->debug.rem_count++;
         h->debug.last_rem_idx = idx;
 #endif
@@ -631,7 +631,7 @@ static unsigned hashmap_iterate_in_insertion_order(OrderedHashmap *h, Iterator *
                 assert(e->p.b.key == i->next_key);
         }
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         i->prev_idx = idx;
 #endif
 
@@ -688,7 +688,7 @@ static unsigned hashmap_iterate_in_internal_order(HashmapBase *h, Iterator *i) {
         }
 
         idx = i->idx;
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         i->prev_idx = idx;
 #endif
 
@@ -711,7 +711,7 @@ static unsigned hashmap_iterate_entry(HashmapBase *h, Iterator *i) {
                 return IDX_NIL;
         }
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         if (i->idx == IDX_FIRST) {
                 i->put_count = h->debug.put_count;
                 i->rem_count = h->debug.rem_count;
@@ -799,7 +799,7 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
                 shared_hash_key_initialized= true;
         }
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         LIST_PREPEND(debug_list, hashmap_debug_list, &h->debug);
         h->debug.func = func;
         h->debug.file = file;
@@ -854,7 +854,7 @@ static void hashmap_free_no_clear(HashmapBase *h) {
         assert(!h->has_indirect);
         assert(!h->n_direct_entries);
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         LIST_REMOVE(debug_list, hashmap_debug_list, &h->debug);
 #endif
 
@@ -961,7 +961,7 @@ static bool hashmap_put_robin_hood(HashmapBase *h, unsigned idx,
         dib_raw_t raw_dib, *dibs;
         unsigned dib, distance;
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         h->debug.put_count++;
 #endif
 
@@ -1055,7 +1055,7 @@ static int hashmap_base_put_boldly(HashmapBase *h, unsigned idx,
         assert_se(hashmap_put_robin_hood(h, idx, swap) == false);
 
         n_entries_inc(h);
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         h->debug.max_entries = MAX(h->debug.max_entries, n_entries(h));
 #endif
 
@@ -1066,7 +1066,7 @@ static int hashmap_base_put_boldly(HashmapBase *h, unsigned idx,
 
 /*
  * Returns 0 if resize is not needed.
- *         1 if succesfully resized.
+ *         1 if successfully resized.
  *         -ENOMEM on allocation failure.
  */
 static int resize_buckets(HashmapBase *h, unsigned entries_add) {
@@ -1154,7 +1154,7 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
         }
 
         /* Zero the area of newly added entries (including the old DIB area) */
-        memset(bucket_at(h, old_n_buckets), 0,
+        memzero(bucket_at(h, old_n_buckets),
                (n_buckets(h) - old_n_buckets) * hi->entry_size);
 
         /* The upper half of the new DIB array needs initialization */
@@ -1182,7 +1182,7 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
                 new_dibs[idx] = DIB_RAW_FREE;
                 bucket_move_entry(h, &swap, idx, IDX_PUT);
                 /* bucket_move_entry does not clear the source */
-                memset(bucket_at(h, idx), 0, hi->entry_size);
+                memzero(bucket_at(h, idx), hi->entry_size);
 
                 do {
                         /*
@@ -1283,7 +1283,7 @@ int hashmap_replace(Hashmap *h, const void *key, void *value) {
         idx = bucket_scan(h, hash, key);
         if (idx != IDX_NIL) {
                 e = plain_bucket_at(h, idx);
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
                 /* Although the key is equal, the key pointer may have changed,
                  * and this would break our assumption for iterating. So count
                  * this operation as incompatible with iteration. */

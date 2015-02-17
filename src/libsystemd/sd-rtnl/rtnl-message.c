@@ -43,7 +43,7 @@ static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret) {
 
         assert_return(ret, -EINVAL);
 
-        /* Note that 'rtnl' is curretly unused, if we start using it internally
+        /* Note that 'rtnl' is currently unused, if we start using it internally
            we must take care to avoid problems due to mutual references between
            busses and their queued messages. See sd-bus.
          */
@@ -70,8 +70,6 @@ int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type) {
         r = type_system_get_type(NULL, &nl_type, type);
         if (r < 0)
                 return r;
-
-        assert(nl_type->type == NLA_NESTED);
 
         r = message_new_empty(rtnl, &m);
         if (r < 0)
@@ -220,6 +218,58 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_neigh_set_flags(sd_rtnl_message *m, uint8_t flags) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        ndm->ndm_flags |= flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_set_state(sd_rtnl_message *m, uint16_t state) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        ndm->ndm_state |= state;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_get_flags(sd_rtnl_message *m, uint8_t *flags) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        *flags = ndm->ndm_flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_get_state(sd_rtnl_message *m, uint16_t *state) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        *state = ndm->ndm_state;
+
+        return 0;
+}
+
 int sd_rtnl_message_neigh_get_family(sd_rtnl_message *m, int *family) {
         struct ndmsg *ndm;
 
@@ -255,7 +305,9 @@ int sd_rtnl_message_new_neigh(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlm
         int r;
 
         assert_return(rtnl_message_type_is_neigh(nlmsg_type), -EINVAL);
-        assert_return(ndm_family == AF_INET || ndm_family == AF_INET6, -EINVAL);
+        assert_return(ndm_family == AF_INET  ||
+                      ndm_family == AF_INET6 ||
+                      ndm_family == PF_BRIDGE, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -532,7 +584,7 @@ sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m) {
 }
 
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
-        if (m && REFCNT_DEC(m->n_ref) <= 0) {
+        if (m && REFCNT_DEC(m->n_ref) == 0) {
                 unsigned i;
 
                 free(m->hdr);
@@ -555,6 +607,49 @@ int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type) {
         *type = m->hdr->nlmsg_type;
 
         return 0;
+}
+
+int sd_rtnl_message_get_family(sd_rtnl_message *m, int *family) {
+        assert_return(m, -EINVAL);
+        assert_return(family, -EINVAL);
+
+        assert(m->hdr);
+
+        if (rtnl_message_type_is_link(m->hdr->nlmsg_type)) {
+                struct ifinfomsg *ifi;
+
+                ifi = NLMSG_DATA(m->hdr);
+
+                *family = ifi->ifi_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_route(m->hdr->nlmsg_type)) {
+                struct rtmsg *rtm;
+
+                rtm = NLMSG_DATA(m->hdr);
+
+                *family = rtm->rtm_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_neigh(m->hdr->nlmsg_type)) {
+                struct ndmsg *ndm;
+
+                ndm = NLMSG_DATA(m->hdr);
+
+                *family = ndm->ndm_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_addr(m->hdr->nlmsg_type)) {
+                struct ifaddrmsg *ifa;
+
+                ifa = NLMSG_DATA(m->hdr);
+
+                *family = ifa->ifa_family;
+
+                return 0;
+        }
+
+        return -ENOTSUP;
 }
 
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m) {
@@ -846,16 +941,37 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         assert_return(m->n_containers < RTNL_CONTAINER_DEPTH, -ERANGE);
 
         r = message_attribute_has_type(m, type, NLA_NESTED);
-        if (r < 0)
-                return r;
-        else
+        if (r < 0) {
+                const NLTypeSystemUnion *type_system_union;
+                int family;
+
+                r = message_attribute_has_type(m, type, NLA_UNION);
+                if (r < 0)
+                        return r;
+                size = (size_t) r;
+
+                r = sd_rtnl_message_get_family(m, &family);
+                if (r < 0)
+                        return r;
+
+                r = type_system_get_type_system_union(m->container_type_system[m->n_containers], &type_system_union, type);
+                if (r < 0)
+                        return r;
+
+                r = type_system_union_protocol_get_type_system(type_system_union,
+                                                               &m->container_type_system[m->n_containers + 1],
+                                                               family);
+                if (r < 0)
+                        return r;
+        } else {
                 size = (size_t)r;
 
-        r = type_system_get_type_system(m->container_type_system[m->n_containers],
-                                        &m->container_type_system[m->n_containers + 1],
-                                        type);
-        if (r < 0)
-                return r;
+                r = type_system_get_type_system(m->container_type_system[m->n_containers],
+                                                &m->container_type_system[m->n_containers + 1],
+                                                type);
+                if (r < 0)
+                        return r;
+        }
 
         r = add_rtattr(m, type | NLA_F_NESTED, NULL, size);
         if (r < 0)
@@ -1129,7 +1245,6 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                         return r;
         } else if (nl_type->type == NLA_UNION) {
                 const NLTypeSystemUnion *type_system_union;
-                const char *key;
 
                 r = type_system_get_type_system_union(m->container_type_system[m->n_containers],
                                                       &type_system_union,
@@ -1137,15 +1252,42 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                 if (r < 0)
                         return r;
 
-                r = sd_rtnl_message_read_string(m, type_system_union->match, &key);
-                if (r < 0)
-                        return r;
+                switch (type_system_union->match_type) {
+                case NL_MATCH_SIBLING:
+                {
+                        const char *key;
 
-                r = type_system_union_get_type_system(type_system_union,
-                                                      &type_system,
-                                                      key);
-                if (r < 0)
-                        return r;
+                        r = sd_rtnl_message_read_string(m, type_system_union->match, &key);
+                        if (r < 0)
+                                return r;
+
+                        r = type_system_union_get_type_system(type_system_union,
+                                                              &type_system,
+                                                              key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+                case NL_MATCH_PROTOCOL:
+                {
+                        int family;
+
+                        r = sd_rtnl_message_get_family(m, &family);
+                        if (r < 0)
+                                return r;
+
+                        r = type_system_union_protocol_get_type_system(type_system_union,
+                                                                       &type_system,
+                                                                       family);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+                default:
+                        assert_not_reached("sd-rtnl: invalid type system union type");
+                }
         } else
                 return -EINVAL;
 
@@ -1294,11 +1436,11 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 /* no data */
                 if (errno == ENOBUFS)
                         log_debug("rtnl: kernel receive buffer overrun");
+                else if (errno == EAGAIN)
+                        log_debug("rtnl: no data in socket");
 
-                return (errno == EAGAIN) ? 0 : -errno;
-        } else if (r == 0)
-                /* connection was closed by the kernel */
-                return -ECONNRESET;
+                return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
+        }
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -1307,8 +1449,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                         struct ucred *ucred = (void *)CMSG_DATA(cmsg);
 
                         /* from the kernel */
-                        if (ucred->uid == 0 && ucred->pid == 0)
+                        if (ucred->pid == 0)
                                 auth = true;
+                        else
+                                log_debug("rtnl: ignoring message from PID "PID_FMT, ucred->pid);
                 } else if (cmsg->cmsg_level == SOL_NETLINK &&
                            cmsg->cmsg_type == NETLINK_PKTINFO &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
@@ -1319,9 +1463,17 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 }
         }
 
-        if (!auth)
+        if (!auth) {
                 /* not from the kernel, ignore */
+                if (peek) {
+                        /* drop the message */
+                        r = recvmsg(fd, &msg, 0);
+                        if (r < 0)
+                                return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
+                }
+
                 return 0;
+        }
 
         if (group)
                 *_group = group;
@@ -1410,7 +1562,7 @@ int socket_read_message(sd_rtnl *rtnl) {
                 r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
                         if (r == -ENOTSUP)
-                                log_debug("sd-rtnl: ignored message with unknown type: %u",
+                                log_debug("sd-rtnl: ignored message with unknown type: %i",
                                           new_msg->nlmsg_type);
 
                         continue;

@@ -1,5 +1,5 @@
 '\" t
-.TH "CRYPTTAB" "5" "" "systemd 218" "crypttab"
+.TH "CRYPTTAB" "5" "" "systemd 219" "crypttab"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -74,6 +74,13 @@ for possible values and the default value of this option\&. A cipher with unpred
 \fBhash=\fR
 .RS 4
 Specifies the hash to use for password hashing\&. See
+\fBcryptsetup\fR(8)
+for possible values and the default value of this option\&.
+.RE
+.PP
+\fBheader=\fR
+.RS 4
+Use a detached (separated) metadata device or file where the LUKS header is stored\&. This option is only relevant for LUKS devices\&. See
 \fBcryptsetup\fR(8)
 for possible values and the default value of this option\&.
 .RE
@@ -198,7 +205,7 @@ Specifies the timeout for querying for a password\&. If no unit is specified, se
 .PP
 \fBx\-systemd\&.device\-timeout=\fR
 .RS 4
-Specifies how long systemd should wait for a device to show up before giving up on the entry\&. The argument is a time in seconds or explicitly specifified units of
+Specifies how long systemd should wait for a device to show up before giving up on the entry\&. The argument is a time in seconds or explicitly specified units of
 "s",
 "min",
 "h",
@@ -240,9 +247,9 @@ Set up four encrypted block devices\&. One using LUKS for normal storage, anothe
 .\}
 .nf
 luks       UUID=2505567a\-9e27\-4efe\-a4d5\-15ad146c258b
-swap       /dev/sda7       /dev/urandom             swap
+swap       /dev/sda7       /dev/urandom       swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
-hidden     /mnt/tc_hidden  /dev/null                tcrypt\-hidden,tcrypt\-keyfile=/etc/keyfile
+hidden     /mnt/tc_hidden  /dev/null    tcrypt\-hidden,tcrypt\-keyfile=/etc/keyfile
 .fi
 .if n \{\
 .RE

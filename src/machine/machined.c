@@ -27,15 +27,15 @@
 #include <sys/epoll.h>
 
 #include "sd-daemon.h"
-
 #include "strv.h"
 #include "conf-parser.h"
 #include "cgroup-util.h"
 #include "mkdir.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "machined.h"
 #include "label.h"
+#include "machine-image.h"
+#include "machined.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -67,6 +67,7 @@ Manager *manager_new(void) {
 
 void manager_free(Manager *m) {
         Machine *machine;
+        Image *i;
 
         assert(m);
 
@@ -76,6 +77,15 @@ void manager_free(Manager *m) {
         hashmap_free(m->machines);
         hashmap_free(m->machine_units);
         hashmap_free(m->machine_leaders);
+
+        while ((i = hashmap_steal_first(m->image_cache)))
+                image_unref(i);
+
+        hashmap_free(m->image_cache);
+
+        sd_event_source_unref(m->image_cache_defer_event);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         sd_bus_unref(m->bus);
         sd_event_unref(m->event);
@@ -151,6 +161,14 @@ static int manager_connect_bus(Manager *m) {
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine enumerator: %m");
+
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/image", "org.freedesktop.machine1.Image", image_vtable, image_object_find, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add image object vtable: %m");
+
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/image", image_node_enumerator, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add image enumerator: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,

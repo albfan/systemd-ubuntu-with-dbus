@@ -100,7 +100,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     being stopped by a signal), and <constant>WCONTINUED</constant>
     (watch for the child being resumed by a signal). See
     <citerefentry><refentrytitle>waitid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for futher information.</para>
+    for further information.</para>
 
     <para>Only a single handler may be installed for a specific
     child. The handler is enabled
@@ -146,8 +146,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An invalid argument has been passed. This includes
-        specyfing an empty mask in <parameter>options</parameter> or a mask
-        which constains values different than a combination of
+        specifying an empty mask in <parameter>options</parameter> or a mask
+        which contains values different than a combination of
         <constant>WEXITED</constant>, <constant>WSTOPPED</constant>, and
         <constant>WCONTINUED</constant>.
         </para></listitem>

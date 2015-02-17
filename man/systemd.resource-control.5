@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 218" "systemd.resource-control"
+.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 219" "systemd.resource-control"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@ systemd.resource-control \- Resource control unit settings
 \fIswap\fR\&.swap
 .SH "DESCRIPTION"
 .PP
-Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset of configuration options for resource control of spawned processes\&. Internally, this relies on the Control Groups kernel concept for organizing processes in a hierarchial tree of named groups for the purpose of resource management\&.
+Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset of configuration options for resource control of spawned processes\&. Internally, this relies on the Control Groups kernel concept for organizing processes in a hierarchical tree of named groups for the purpose of resource management\&.
 .PP
 This man page lists the configuration options shared by those six unit types\&. See
 \fBsystemd.unit\fR(5)
@@ -72,7 +72,7 @@ only applies to the startup phase of the system,
 \fICPUShares=\fR
 applies to normal runtime of the system, and if the former is not set also to the startup phase\&. Using
 \fIStartupCPUShares=\fR
-allows priorizing specific services at boot\-up differently than during normal runtime\&.
+allows prioritizing specific services at boot\-up differently than during normal runtime\&.
 .sp
 Those options imply
 "CPUAccounting=true"\&.
@@ -80,7 +80,7 @@ Those options imply
 .PP
 \fICPUQuota=\fR
 .RS 4
-Assign the specified CPU time quota to the processes executed\&. Takes a percentage value, suffixed with "%"\&. The percentage specifies how much CPU time the unit shall get at maximum, relative to the total CPU time available on one CPU\&. Use values > 100% for alloting CPU time on more than one CPU\&. This controls the
+Assign the specified CPU time quota to the processes executed\&. Takes a percentage value, suffixed with "%"\&. The percentage specifies how much CPU time the unit shall get at maximum, relative to the total CPU time available on one CPU\&. Use values > 100% for allotting CPU time on more than one CPU\&. This controls the
 "cpu\&.cfs_quota_us"
 control group attribute\&. For details about this control group attribute, see
 \m[blue]\fBsched\-design\-CFS\&.txt\fR\m[]\&\s-2\u[2]\d\s+2\&.
@@ -131,7 +131,7 @@ While
 \fIStartupBlockIOWeight=\fR
 only applies to the startup phase of the system,
 \fIBlockIOWeight=\fR
-applies to the later runtime of the system, and if the former is not set also to the startup phase\&. This allows priorizing specific services at boot\-up differently than during runtime\&.
+applies to the later runtime of the system, and if the former is not set also to the startup phase\&. This allows prioritizing specific services at boot\-up differently than during runtime\&.
 .sp
 Implies
 "BlockIOAccounting=true"\&.
@@ -239,9 +239,9 @@ For units of type slice, the only accepted value for this setting is the parent 
 .PP
 \fIDelegate=\fR
 .RS 4
-Turns on delegation of further resource control partitioning to processes of the unit\&. For unpriviliged services (i\&.e\&. those using the
+Turns on delegation of further resource control partitioning to processes of the unit\&. For unprivileged services (i\&.e\&. those using the
 \fIUser=\fR
-setting) this allows processes to create a subhierarchy beneath its control group path\&. For priviliged services and scopes this ensures the processes will have all control group controllers enabled\&.
+setting) this allows processes to create a subhierarchy beneath its control group path\&. For privileged services and scopes this ensures the processes will have all control group controllers enabled\&.
 .RE
 .SH "SEE ALSO"
 .PP

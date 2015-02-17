@@ -502,14 +502,16 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 }
 
 static int check_hierarchy(const char *p) {
-        char *cc;
+        const char *cc;
 
         assert(p);
 
+        if (!filename_is_valid(p))
+                return 0;
+
         /* Check if this controller actually really exists */
-        cc = alloca(strlen("/sys/fs/cgroup/") + strlen(p) + 1);
-        strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
-        if (access(cc, F_OK) < 0)
+        cc = strjoina("/sys/fs/cgroup/", p);
+        if (laccess(cc, F_OK) < 0)
                 return -errno;
 
         return 0;
@@ -1249,17 +1251,15 @@ int cg_path_get_user_unit(const char *path, char **unit) {
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the session scope... */
+        /* Skip the session scope or user manager... */
         t = skip_session(e);
-        if (t)
-                /* ... and skip more slices if there's one */
-                e = skip_slices(t);
-        else {
-                /* ... or require a user manager unit to be there */
-                e = skip_user_manager(e);
-                if (!e)
-                        return -ENOENT;
-        }
+        if (!t)
+                t = skip_user_manager(e);
+        if (!t)
+                return -ENOENT;
+
+        /* ... and skip more slices if there are any */
+        e = skip_slices(t);
 
         return cg_path_decode_unit(e, unit);
 }
@@ -1590,6 +1590,17 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         return write_string_file_no_create(p, value);
 }
 
+int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, attribute, &p);
+        if (r < 0)
+                return r;
+
+        return read_one_line_file(p, ret);
+}
+
 static const char mask_names[] =
         "cpu\0"
         "cpuacct\0"
@@ -1731,4 +1742,55 @@ CGroupControllerMask cg_mask_supported(void) {
         }
 
         return mask;
+}
+
+int cg_kernel_controllers(Set *controllers) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char buf[LINE_MAX];
+        int r;
+
+        assert(controllers);
+
+        f = fopen("/proc/cgroups", "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        /* Ignore the header line */
+        (void) fgets(buf, sizeof(buf), f);
+
+        for (;;) {
+                char *controller;
+                int enabled = 0;
+
+                errno = 0;
+                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
+
+                        if (feof(f))
+                                break;
+
+                        if (ferror(f) && errno)
+                                return -errno;
+
+                        return -EBADMSG;
+                }
+
+                if (!enabled) {
+                        free(controller);
+                        continue;
+                }
+
+                if (!filename_is_valid(controller)) {
+                        free(controller);
+                        return -EBADMSG;
+                }
+
+                r = set_consume(controllers, controller);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }

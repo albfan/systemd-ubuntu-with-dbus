@@ -52,12 +52,7 @@
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"
-
-#ifdef HAVE_ACL
-#include <sys/acl.h>
-#include <acl/libacl.h>
 #include "acl-util.h"
-#endif
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -297,8 +292,13 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         return f;
 }
 
-static int do_rotate(Server *s, JournalFile **f, const char* name,
-                     bool seal, uint32_t uid) {
+static int do_rotate(
+                Server *s,
+                JournalFile **f,
+                const char* name,
+                bool seal,
+                uint32_t uid) {
+
         int r;
         assert(s);
 
@@ -308,13 +308,12 @@ static int do_rotate(Server *s, JournalFile **f, const char* name,
         r = journal_file_rotate(f, s->compress, seal);
         if (r < 0)
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m",
-                                        (*f)->path);
+                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error_errno(r, "Failed to create new %s journal: %m",
-                                        name);
+                        log_error_errno(r, "Failed to create new %s journal: %m", name);
         else
                 server_fix_perms(s, *f, uid);
+
         return r;
 }
 
@@ -366,15 +365,20 @@ void server_sync(Server *s) {
         s->sync_scheduled = false;
 }
 
-static void do_vacuum(Server *s, char *ids, JournalFile *f, const char* path,
-                      JournalMetrics *metrics) {
-        char *p;
+static void do_vacuum(
+                Server *s,
+                const char *id,
+                JournalFile *f,
+                const char* path,
+                JournalMetrics *metrics) {
+
+        const char *p;
         int r;
 
         if (!f)
                 return;
 
-        p = strappenda(path, ids);
+        p = strjoina(path, id);
         r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
         if (r < 0 && r != -ENOENT)
                 log_error_errno(r, "Failed to vacuum %s: %m", p);
@@ -446,18 +450,20 @@ static void server_cache_hostname(Server *s) {
         s->hostname_field = x;
 }
 
-bool shall_try_append_again(JournalFile *f, int r) {
+static bool shall_try_append_again(JournalFile *f, int r) {
 
         /* -E2BIG            Hit configured limit
            -EFBIG            Hit fs limit
            -EDQUOT           Quota limit hit
            -ENOSPC           Disk full
+           -EIO              I/O error of some kind (mmap)
            -EHOSTDOWN        Other machine
            -EBUSY            Unclean shutdown
            -EPROTONOSUPPORT  Unsupported feature
            -EBADMSG          Corrupted
            -ENODATA          Truncated
-           -ESHUTDOWN        Already archived */
+           -ESHUTDOWN        Already archived
+           -EIDRM            Journal file has been deleted */
 
         if (r == -E2BIG || r == -EFBIG || r == -EDQUOT || r == -ENOSPC)
                 log_debug("%s: Allocation limit reached, rotating.", f->path);
@@ -469,6 +475,10 @@ bool shall_try_append_again(JournalFile *f, int r) {
                 log_info("%s: Unsupported feature, rotating.", f->path);
         else if (r == -EBADMSG || r == -ENODATA || r == ESHUTDOWN)
                 log_warning("%s: Journal file corrupted, rotating.", f->path);
+        else if (r == -EIO)
+                log_warning("%s: IO error, rotating.", f->path);
+        else if (r == -EIDRM)
+                log_warning("%s: Journal file has been deleted, rotating.", f->path);
         else
                 return false;
 
@@ -506,12 +516,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                size_t size = 0;
-                unsigned i;
-                for (i = 0; i < n; i++)
-                        size += iovec[i].iov_len;
-
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, size);
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
@@ -524,14 +529,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
-        if (r < 0) {
-                size_t size = 0;
-                unsigned i;
-                for (i = 0; i < n; i++)
-                        size += iovec[i].iov_len;
-
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, size);
-        } else
+        if (r < 0)
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+        else
                 server_schedule_sync(s, priority);
 }
 
@@ -589,28 +589,28 @@ static void dispatch_message_real(
 
                 r = get_process_comm(ucred->pid, &t);
                 if (r >= 0) {
-                        x = strappenda("_COMM=", t);
+                        x = strjoina("_COMM=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_exe(ucred->pid, &t);
                 if (r >= 0) {
-                        x = strappenda("_EXE=", t);
+                        x = strjoina("_EXE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_cmdline(ucred->pid, 0, false, &t);
                 if (r >= 0) {
-                        x = strappenda("_CMDLINE=", t);
+                        x = strjoina("_CMDLINE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_capeff(ucred->pid, &t);
                 if (r >= 0) {
-                        x = strappenda("_CAP_EFFECTIVE=", t);
+                        x = strjoina("_CAP_EFFECTIVE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
@@ -633,12 +633,12 @@ static void dispatch_message_real(
                 if (r >= 0) {
                         char *session = NULL;
 
-                        x = strappenda("_SYSTEMD_CGROUP=", c);
+                        x = strjoina("_SYSTEMD_CGROUP=", c);
                         IOVEC_SET_STRING(iovec[n++], x);
 
                         r = cg_path_get_session(c, &t);
                         if (r >= 0) {
-                                session = strappenda("_SYSTEMD_SESSION=", t);
+                                session = strjoina("_SYSTEMD_SESSION=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], session);
                         }
@@ -651,32 +651,32 @@ static void dispatch_message_real(
                         }
 
                         if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strappenda("_SYSTEMD_UNIT=", t);
+                                x = strjoina("_SYSTEMD_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         } else if (unit_id && !session) {
-                                x = strappenda("_SYSTEMD_UNIT=", unit_id);
+                                x = strjoina("_SYSTEMD_UNIT=", unit_id);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         if (cg_path_get_user_unit(c, &t) >= 0) {
-                                x = strappenda("_SYSTEMD_USER_UNIT=", t);
+                                x = strjoina("_SYSTEMD_USER_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         } else if (unit_id && session) {
-                                x = strappenda("_SYSTEMD_USER_UNIT=", unit_id);
+                                x = strjoina("_SYSTEMD_USER_UNIT=", unit_id);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         if (cg_path_get_slice(c, &t) >= 0) {
-                                x = strappenda("_SYSTEMD_SLICE=", t);
+                                x = strjoina("_SYSTEMD_SLICE=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         free(c);
                 } else if (unit_id) {
-                        x = strappenda("_SYSTEMD_UNIT=", unit_id);
+                        x = strjoina("_SYSTEMD_UNIT=", unit_id);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
@@ -691,7 +691,7 @@ static void dispatch_message_real(
                                 security_context_t con;
 
                                 if (getpidcon(ucred->pid, &con) >= 0) {
-                                        x = strappenda("_SELINUX_CONTEXT=", con);
+                                        x = strjoina("_SELINUX_CONTEXT=", con);
 
                                         freecon(con);
                                         IOVEC_SET_STRING(iovec[n++], x);
@@ -717,21 +717,21 @@ static void dispatch_message_real(
 
                 r = get_process_comm(object_pid, &t);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_COMM=", t);
+                        x = strjoina("OBJECT_COMM=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_exe(object_pid, &t);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_EXE=", t);
+                        x = strjoina("OBJECT_EXE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_cmdline(object_pid, 0, false, &t);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_CMDLINE=", t);
+                        x = strjoina("OBJECT_CMDLINE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
@@ -752,12 +752,12 @@ static void dispatch_message_real(
 
                 r = cg_pid_get_path_shifted(object_pid, s->cgroup_root, &c);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_SYSTEMD_CGROUP=", c);
+                        x = strjoina("OBJECT_SYSTEMD_CGROUP=", c);
                         IOVEC_SET_STRING(iovec[n++], x);
 
                         r = cg_path_get_session(c, &t);
                         if (r >= 0) {
-                                x = strappenda("OBJECT_SYSTEMD_SESSION=", t);
+                                x = strjoina("OBJECT_SYSTEMD_SESSION=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
@@ -768,13 +768,13 @@ static void dispatch_message_real(
                         }
 
                         if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strappenda("OBJECT_SYSTEMD_UNIT=", t);
+                                x = strjoina("OBJECT_SYSTEMD_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         if (cg_path_get_user_unit(c, &t) >= 0) {
-                                x = strappenda("OBJECT_SYSTEMD_USER_UNIT=", t);
+                                x = strjoina("OBJECT_SYSTEMD_USER_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
@@ -811,7 +811,7 @@ static void dispatch_message_real(
                  * realuid is not root, in order not to accidentally
                  * leak privileged information to the user that is
                  * logged by a privileged process that is part of an
-                 * unprivileged session.*/
+                 * unprivileged session. */
                 journal_uid = owner;
         else
                 journal_uid = 0;
@@ -837,12 +837,10 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         va_start(ap, format);
         vsnprintf(buffer + 8, sizeof(buffer) - 8, format, ap);
         va_end(ap);
-        char_array_0(buffer);
         IOVEC_SET_STRING(iovec[n++], buffer);
 
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
                 snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
-                char_array_0(mid);
                 IOVEC_SET_STRING(iovec[n++], mid);
         }
 
@@ -946,10 +944,10 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 if (s->storage == STORAGE_PERSISTENT)
                         (void) mkdir("/var/log/journal/", 0755);
 
-                fn = strappenda("/var/log/journal/", ids);
+                fn = strjoina("/var/log/journal/", ids);
                 (void) mkdir(fn, 0755);
 
-                fn = strappenda(fn, "/system.journal");
+                fn = strjoina(fn, "/system.journal");
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
 
                 if (r >= 0)
@@ -1103,7 +1101,7 @@ finish:
         return r;
 }
 
-int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Server *s = userdata;
 
         assert(s);
@@ -1131,7 +1129,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                          * the SELinux people this will change and it
                          * will probably be identical to NAME_MAX. For
                          * now we use that, but this should be updated
-                         * one day when the final limit is known.*/
+                         * one day when the final limit is known. */
                         uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
                                     CMSG_SPACE(sizeof(struct timeval)) +
                                     CMSG_SPACE(sizeof(int)) + /* fd */
@@ -1158,7 +1156,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                  * don't rely on it. */
                 (void) ioctl(fd, SIOCINQ, &v);
 
-                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful!*/
+                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful! */
                 m = PAGE_ALIGN(MAX3((size_t) v + 1,
                                     (size_t) LINE_MAX,
                                     ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
@@ -1457,6 +1455,7 @@ static int server_open_hostname(Server *s) {
 }
 
 int server_init(Server *s) {
+        _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, fd;
 
         assert(s);
@@ -1553,15 +1552,26 @@ int server_init(Server *s) {
                         s->audit_fd = fd;
 
                 } else {
-                        log_warning("Unknown socket passed as file descriptor %d, ignoring.", fd);
 
-                        /* Let's close the fd, better be safe than
-                           sorry. The fd might reference some resource
-                           that we really want to release if we don't
-                           make use of it. */
+                        if (!fds) {
+                                fds = fdset_new();
+                                if (!fds)
+                                        return log_oom();
+                        }
 
-                        safe_close(fd);
+                        r = fdset_put(fds, fd);
+                        if (r < 0)
+                                return log_oom();
                 }
+        }
+
+        r = server_open_stdout_socket(s, fds);
+        if (r < 0)
+                return r;
+
+        if (fdset_size(fds) > 0) {
+                log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
+                fds = fdset_free(fds);
         }
 
         r = server_open_syslog_socket(s);
@@ -1569,10 +1579,6 @@ int server_init(Server *s) {
                 return r;
 
         r = server_open_native_socket(s);
-        if (r < 0)
-                return r;
-
-        r = server_open_stdout_socket(s);
         if (r < 0)
                 return r;
 

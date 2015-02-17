@@ -25,7 +25,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stddef.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -385,7 +385,7 @@ static bool wall_tty_match(const char *path) {
         _cleanup_free_ char *p = NULL;
 
         if (!path_is_absolute(path))
-                path = strappenda("/dev/", path);
+                path = strjoina("/dev/", path);
 
         r = lstat(path, &st);
         if (r < 0)
@@ -438,7 +438,7 @@ static int show_passwords(void) {
                 if (de->d_type != DT_REG)
                         continue;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 if (!startswith(de->d_name, "ask."))

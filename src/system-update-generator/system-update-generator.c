@@ -37,7 +37,7 @@ static const char *arg_dest = "/tmp";
 static int generate_symlink(void) {
         const char *p = NULL;
 
-        if (access("/system-update", F_OK) < 0) {
+        if (laccess("/system-update", F_OK) < 0) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -45,7 +45,7 @@ static int generate_symlink(void) {
                 return -EINVAL;
         }
 
-        p = strappenda(arg_dest, "/default.target");
+        p = strjoina(arg_dest, "/default.target");
         if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", p);
 

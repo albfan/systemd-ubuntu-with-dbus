@@ -99,6 +99,7 @@ struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory;
+        bool working_directory_missing_ok;
 
         mode_t umask;
         int oom_score_adjust;
@@ -198,6 +199,7 @@ struct ExecContext {
 };
 
 #include "cgroup.h"
+#include "cgroup-util.h"
 
 struct ExecParameters {
         char **argv;
@@ -228,7 +230,7 @@ int exec_spawn(ExecCommand *command,
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, unsigned n);
 
-void exec_command_free_list(ExecCommand *c);
+ExecCommand* exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, unsigned n);
 
 char *exec_command_line(char **argv);

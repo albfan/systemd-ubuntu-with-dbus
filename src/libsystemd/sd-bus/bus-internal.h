@@ -31,6 +31,7 @@
 #include "list.h"
 #include "util.h"
 #include "refcnt.h"
+#include "socket-util.h"
 
 #include "sd-bus.h"
 #include "bus-error.h"
@@ -244,6 +245,7 @@ struct sd_bus {
 
         char *kernel;
         char *machine;
+        pid_t nspid;
 
         sd_id128_t server_id;
 
@@ -384,7 +386,7 @@ char *bus_address_escape(const char *v);
 int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
-int bus_set_address_system_container(sd_bus *b, const char *machine);
+int bus_set_address_system_machine(sd_bus *b, const char *machine);
 
 int bus_remove_match_by_string(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);
 

@@ -49,6 +49,7 @@
 #include "cgroup-util.h"
 #include "def.h"
 #include "switch-root.h"
+#include "strv.h"
 
 #define FINALIZE_ATTEMPTS 50
 
@@ -144,7 +145,7 @@ static int switch_root_initramfs(void) {
         if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
 
-        /* switch_root with MS_BIND, because there might still be processes lurking around, which have open file desriptors.
+        /* switch_root with MS_BIND, because there might still be processes lurking around, which have open file descriptors.
          * /run/initramfs/shutdown will take care of these.
          * Also do not detach the old root, because /run/initramfs/shutdown needs to access it.
          */
@@ -159,6 +160,7 @@ int main(int argc, char *argv[]) {
         char *arguments[3];
         unsigned retries;
         int cmd, r;
+        static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
         log_parse_environment();
         r = parse_argv(argc, argv);
@@ -308,7 +310,7 @@ int main(int argc, char *argv[]) {
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
-        execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, arguments);
 
         if (!in_container && !in_initrd() &&
             access("/run/initramfs/shutdown", X_OK) == 0) {

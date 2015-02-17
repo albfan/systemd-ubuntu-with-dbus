@@ -61,7 +61,7 @@ int log_syntax_internal(
 
         if (unit)
                 r = log_struct_internal(level,
-                                        error > 0 ? error : EINVAL,
+                                        error,
                                         file, line, func,
                                         getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
                                         LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
@@ -71,7 +71,7 @@ int log_syntax_internal(
                                         NULL);
         else
                 r = log_struct_internal(level,
-                                        error > 0 ? error : EINVAL,
+                                        error,
                                         file, line, func,
                                         LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
                                         "CONFIG_FILE=%s", config_file,
@@ -823,8 +823,7 @@ int config_parse_log_facility(
 
         x = log_facility_unshifted_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Failed to parse log facility, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse log facility, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -855,8 +854,7 @@ int config_parse_log_level(
 
         x = log_level_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Failed to parse log level, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse log level, ignoring: %s", rvalue);
                 return 0;
         }
 

@@ -42,9 +42,7 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 #include "sd-bus.h"
-#include "manager.h"
 #include "log.h"
-#include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
@@ -64,9 +62,12 @@
 #include "env-util.h"
 #include "clock-util.h"
 #include "fileio.h"
-#include "dbus-manager.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "selinux-util.h"
+#include "manager.h"
+#include "dbus-manager.h"
+#include "load-fragment.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -142,7 +143,7 @@ noreturn static void crash(int sig) {
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
                 sigaction(SIGCHLD, &sa, NULL);
 
-                pid = fork();
+                pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
                         log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
 
@@ -163,11 +164,11 @@ noreturn static void crash(int sig) {
                         chdir("/");
 
                         /* Raise the signal again */
-                        raise(sig);
+                        pid = raw_getpid();
+                        kill(pid, sig); /* raise() would kill the parent */
 
                         assert_not_reached("We shouldn't be here...");
                         _exit(1);
-
                 } else {
                         siginfo_t status;
                         int r;
@@ -177,7 +178,13 @@ noreturn static void crash(int sig) {
                         if (r < 0)
                                 log_emergency_errno(r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
                         else if (status.si_code != CLD_DUMPED)
-                                log_emergency("Caught <%s>, core dump failed.", signal_to_string(sig));
+                                log_emergency("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",
+                                              signal_to_string(sig),
+                                              pid, sigchld_code_to_string(status.si_code),
+                                              status.si_status,
+                                              strna(status.si_code == CLD_EXITED
+                                                    ? exit_status_to_string(status.si_status, EXIT_STATUS_FULL)
+                                                    : signal_to_string(status.si_status)));
                         else
                                 log_emergency("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
                 }
@@ -199,18 +206,17 @@ noreturn static void crash(int sig) {
                 /* Let the kernel reap children for us */
                 assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-                pid = fork();
+                pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
                         log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
                         make_console_stdio();
-                        execl("/bin/sh", "/bin/sh", NULL);
+                        execle("/bin/sh", "/bin/sh", NULL, environ);
 
-                        log_emergency_errno(errno, "execl() failed: %m");
+                        log_emergency_errno(errno, "execle() failed: %m");
                         _exit(1);
-                }
-
-                log_info("Successfully spawned crash shell as pid "PID_FMT".", pid);
+                } else
+                        log_info("Successfully spawned crash shell as PID "PID_FMT".", pid);
         }
 
         log_emergency("Freezing execution.");
@@ -218,12 +224,17 @@ noreturn static void crash(int sig) {
 }
 
 static void install_crash_handler(void) {
-        struct sigaction sa = {
+        static const struct sigaction sa = {
                 .sa_handler = crash,
-                .sa_flags = SA_NODEFER,
+                .sa_flags = SA_NODEFER, /* So that we can raise the signal again from the signal handler */
         };
+        int r;
 
-        sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
+        /* We ignore the return value here, since, we don't mind if we
+         * cannot set up a crash handler */
+        r = sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
+        if (r < 0)
+                log_debug_errno(r, "I had trouble setting up the crash handler, ignoring: %m");
 }
 
 static int console_setup(void) {
@@ -355,8 +366,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 
         } else if (streq(key, "quiet") && !value) {
-
-                log_set_max_level(LOG_NOTICE);
 
                 if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
@@ -1098,7 +1107,7 @@ static void test_usr(void) {
         if (dir_is_empty("/usr") <= 0)
                 return;
 
-        log_warning("/usr appears to be on its own filesytem and is not already mounted. This is not a supported setup. "
+        log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
@@ -1106,7 +1115,7 @@ static void test_usr(void) {
 static int initialize_join_controllers(void) {
         /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
          * + "net_prio". We'd like to add "cpuset" to the mix, but
-         * "cpuset" does't really work for groups with no initialized
+         * "cpuset" doesn't really work for groups with no initialized
          * attributes. */
 
         arg_join_controllers = new(char**, 3);
@@ -1206,11 +1215,11 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
         bool reexecute = false;
         const char *shutdown_verb = NULL;
-        dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
-        dual_timestamp userspace_timestamp = { 0ULL, 0ULL };
-        dual_timestamp kernel_timestamp = { 0ULL, 0ULL };
-        dual_timestamp security_start_timestamp = { 0ULL, 0ULL };
-        dual_timestamp security_finish_timestamp = { 0ULL, 0ULL };
+        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp userspace_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp kernel_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp security_start_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         static char systemd[] = "systemd";
         bool skip_setup = false;
         unsigned j;
@@ -1219,7 +1228,7 @@ int main(int argc, char *argv[]) {
         bool queue_default_job = false;
         bool empty_etc = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
-        static struct rlimit saved_rlimit_nofile = { 0, 0 };
+        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0);
         const char *error_message = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
@@ -1543,7 +1552,7 @@ int main(int argc, char *argv[]) {
                  * managers and installers to provision a couple of
                  * files already. If the container manager wants to
                  * provision the machine ID itself it should pass
-                 * $container_uuid to PID 1.*/
+                 * $container_uuid to PID 1. */
 
                 empty_etc = access("/etc/machine-id", F_OK) < 0;
                 if (empty_etc)
@@ -1818,6 +1827,8 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
+        if (m)
+                arg_shutdown_watchdog = m->shutdown_watchdog;
         m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
@@ -1870,7 +1881,7 @@ finish:
                 args = newa(const char*, args_size);
 
                 if (!switch_root_init) {
-                        char sfd[16];
+                        char sfd[DECIMAL_STR_MAX(int) + 1];
 
                         /* First try to spawn ourselves with the right
                          * path, and with full serialization. We do
@@ -1880,8 +1891,7 @@ finish:
                         assert(arg_serialization);
                         assert(fds);
 
-                        snprintf(sfd, sizeof(sfd), "%i", fileno(arg_serialization));
-                        char_array_0(sfd);
+                        xsprintf(sfd, "%i", fileno(arg_serialization));
 
                         i = 0;
                         args[i++] = SYSTEMD_BINARY_PATH;
@@ -1982,7 +1992,7 @@ finish:
                 assert(command_line[pos] == NULL);
                 env_block = strv_copy(environ);
 
-                snprintf(log_level, sizeof(log_level), "%d", log_get_max_level());
+                xsprintf(log_level, "%d", log_get_max_level());
 
                 switch (log_get_target()) {
                 case LOG_TARGET_KMSG:
@@ -2011,8 +2021,8 @@ finish:
                         /* If we reboot let's set the shutdown
                          * watchdog and tell the shutdown binary to
                          * repeatedly ping it */
-                        watchdog_set_timeout(&arg_shutdown_watchdog);
-                        watchdog_close(false);
+                        r = watchdog_set_timeout(&arg_shutdown_watchdog);
+                        watchdog_close(r < 0);
 
                         /* Tell the binary how often to ping, ignore failure */
                         if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)

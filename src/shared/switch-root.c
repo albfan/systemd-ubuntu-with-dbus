@@ -51,7 +51,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
         if (path_equal(new_root, "/"))
                 return 0;
 
-        temporary_old_root = strappenda(new_root, oldroot);
+        temporary_old_root = strjoina(new_root, oldroot);
         mkdir_p_label(temporary_old_root, 0755);
 
         old_root_remove = in_initrd();
@@ -72,7 +72,6 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 struct stat sb;
 
                 snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
-                char_array_0(new_mount);
 
                 mkdir_p_label(new_mount, 0755);
 

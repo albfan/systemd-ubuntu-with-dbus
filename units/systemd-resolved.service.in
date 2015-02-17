@@ -10,6 +10,11 @@ Description=Network Name Resolution
 Documentation=man:systemd-resolved.service(8)
 After=systemd-networkd.service network.service
 
+# On kdbus systems we pull in the busname explicitly, because it
+# carries policy that allows the daemon to acquire its name.
+Wants=org.freedesktop.resolve1.busname
+After=org.freedesktop.resolve1.busname
+
 [Service]
 Type=notify
 Restart=always
@@ -18,6 +23,7 @@ ExecStart=@rootlibexecdir@/systemd-resolved
 CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
 ProtectSystem=full
 ProtectHome=yes
+WatchdogSec=1min
 
 [Install]
 WantedBy=multi-user.target

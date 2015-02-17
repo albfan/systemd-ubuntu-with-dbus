@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 218" "systemd-bootchart"
+.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 219" "systemd-bootchart"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -56,7 +56,7 @@ The kernel can invoke
 instead of the init process\&. In turn,
 \fBsystemd\-bootchart\fR
 will invoke
-\fB/sbin/init\fR\&.
+\fB/usr/lib/systemd/systemd\fR\&.
 .RE
 .PP
 \fIStarted as a standalone program\fR
@@ -121,7 +121,7 @@ Specify the output directory for the graphs\&. By default, bootchart writes the 
 \fB\-i\fR, \fB\-\-init \fR\fB\fIpath\fR\fR
 .RS 4
 Use this init binary\&. Defaults to
-\fB/sbin/init\fR\&.
+\fB/usr/lib/systemd/systemd\fR\&.
 .RE
 .PP
 \fB\-p\fR, \fB\-\-pss\fR

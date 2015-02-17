@@ -44,6 +44,9 @@
 #include "bus-common-errors.h"
 #include "exit-status.h"
 #include "def.h"
+#include "fstab-util.h"
+
+#define RETRY_UMOUNT_MAX 32
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
@@ -68,7 +71,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 static bool mount_needs_network(const char *options, const char *fstype) {
-        if (mount_test_option(options, "_netdev"))
+        if (fstab_test_option(options, "_netdev\0"))
                 return true;
 
         if (fstype && fstype_is_network(fstype))
@@ -86,16 +89,10 @@ static bool mount_is_network(const MountParameters *p) {
 static bool mount_is_bind(const MountParameters *p) {
         assert(p);
 
-        if (mount_test_option(p->options, "bind"))
+        if (fstab_test_option(p->options, "bind\0" "rbind\0"))
                 return true;
 
-        if (p->fstype && streq(p->fstype, "bind"))
-                return true;
-
-        if (mount_test_option(p->options, "rbind"))
-                return true;
-
-        if (p->fstype && streq(p->fstype, "rbind"))
+        if (p->fstype && STR_IN_SET(p->fstype, "bind", "rbind"))
                 return true;
 
         return false;
@@ -104,7 +101,7 @@ static bool mount_is_bind(const MountParameters *p) {
 static bool mount_is_auto(const MountParameters *p) {
         assert(p);
 
-        return !mount_test_option(p->options, "noauto");
+        return !fstab_test_option(p->options, "noauto\0");
 }
 
 static bool needs_quota(const MountParameters *p) {
@@ -116,11 +113,8 @@ static bool needs_quota(const MountParameters *p) {
         if (mount_is_bind(p))
                 return false;
 
-        return mount_test_option(p->options, "usrquota") ||
-                mount_test_option(p->options, "grpquota") ||
-                mount_test_option(p->options, "quota") ||
-                mount_test_option(p->options, "usrjquota") ||
-                mount_test_option(p->options, "grpjquota");
+        return fstab_test_option(p->options,
+                                 "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0");
 }
 
 static void mount_init(Unit *u) {
@@ -306,7 +300,7 @@ static int mount_add_device_links(Mount *m) {
 
         assert(m);
 
-        p = get_mount_parameters_fragment(m);
+        p = get_mount_parameters(m);
         if (!p)
                 return 0;
 
@@ -367,7 +361,7 @@ static bool should_umount(Mount *m) {
                 return false;
 
         p = get_mount_parameters(m);
-        if (p && mount_test_option(p->options, "x-initrd.mount") &&
+        if (p && fstab_test_option(p->options, "x-initrd.mount\0") &&
             !in_initrd())
                 return false;
 
@@ -384,13 +378,20 @@ static int mount_add_default_dependencies(Mount *m) {
         if (UNIT(m)->manager->running_as != SYSTEMD_SYSTEM)
                 return 0;
 
-        p = get_mount_parameters(m);
-
-        if (!p)
+        /* We do not add any default dependencies to / and /usr, since
+         * they are guaranteed to stay mounted the whole time, since
+         * our system is on it. Also, don't bother with anything
+         * mounted below virtual file systems, it's also going to be
+         * virtual, and hence not worth the effort. */
+        if (path_equal(m->where, "/") ||
+            path_equal(m->where, "/usr") ||
+            path_startswith(m->where, "/proc") ||
+            path_startswith(m->where, "/sys") ||
+            path_startswith(m->where, "/dev"))
                 return 0;
 
-        if (path_equal(m->where, "/") ||
-            path_equal(m->where, "/usr"))
+        p = get_mount_parameters(m);
+        if (!p)
                 return 0;
 
         if (mount_is_network(p)) {
@@ -867,20 +868,26 @@ static void mount_enter_unmounting(Mount *m) {
 
         assert(m);
 
+        /* Start counting our attempts */
+        if (!IN_SET(m->state,
+                    MOUNT_UNMOUNTING,
+                    MOUNT_UNMOUNTING_SIGTERM,
+                    MOUNT_UNMOUNTING_SIGKILL))
+                m->n_retry_umount = 0;
+
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
-        if ((r = exec_command_set(
-                             m->control_command,
-                             "/bin/umount",
-                             "-n",
-                             m->where,
-                             NULL)) < 0)
+        r = exec_command_set(m->control_command, "/bin/umount", m->where, NULL);
+        if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                r = exec_command_append(m->control_command, "-n", NULL);
+        if (r < 0)
                 goto fail;
 
         mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
+        r = mount_spawn(m, m->control_command, &m->control_pid);
+        if (r < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_UNMOUNTING);
@@ -916,17 +923,25 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
-        if (m->from_fragment)
-                r = exec_command_set(
-                                m->control_command,
-                                "/bin/mount",
-                                m->sloppy_options ? "-ns" : "-n",
-                                m->parameters_fragment.what,
-                                m->where,
-                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
-                                m->parameters_fragment.options ? "-o" : NULL, m->parameters_fragment.options,
-                                NULL);
-        else
+        if (m->from_fragment) {
+                _cleanup_free_ char *opts = NULL;
+
+                r = fstab_filter_options(m->parameters_fragment.options,
+                                         "nofail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
+                if (r < 0)
+                        goto fail;
+
+                r = exec_command_set(m->control_command, "/bin/mount",
+                                     m->parameters_fragment.what, m->where, NULL);
+                if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                        r = exec_command_append(m->control_command, "-n", NULL);
+                if (r >= 0 && m->sloppy_options)
+                        r = exec_command_append(m->control_command, "-s", NULL);
+                if (r >= 0 && m->parameters_fragment.fstype)
+                        r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
+                if (r >= 0 && !isempty(opts))
+                        r = exec_command_append(m->control_command, "-o", opts, NULL);
+        } else
                 r = -ENOENT;
 
         if (r < 0)
@@ -961,19 +976,19 @@ static void mount_enter_remounting(Mount *m) {
                 const char *o;
 
                 if (m->parameters_fragment.options)
-                        o = strappenda("remount,", m->parameters_fragment.options);
+                        o = strjoina("remount,", m->parameters_fragment.options);
                 else
                         o = "remount";
 
-                r = exec_command_set(
-                                m->control_command,
-                                "/bin/mount",
-                                m->sloppy_options ? "-ns" : "-n",
-                                m->parameters_fragment.what,
-                                m->where,
-                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
-                                "-o", o,
-                                NULL);
+                r = exec_command_set(m->control_command, "/bin/mount",
+                                     m->parameters_fragment.what, m->where,
+                                     "-o", o, NULL);
+                if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                        r = exec_command_append(m->control_command, "-n", NULL);
+                if (r >= 0 && m->sloppy_options)
+                        r = exec_command_append(m->control_command, "-s", NULL);
+                if (r >= 0 && m->parameters_fragment.fstype)
+                        r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
         } else
                 r = -ENOENT;
 
@@ -1022,7 +1037,7 @@ static int mount_start(Unit *u) {
         m->reload_result = MOUNT_SUCCESS;
 
         mount_enter_mounting(m);
-        return 0;
+        return 1;
 }
 
 static int mount_stop(Unit *u) {
@@ -1046,7 +1061,7 @@ static int mount_stop(Unit *u) {
                m->state == MOUNT_REMOUNTING_SIGKILL);
 
         mount_enter_unmounting(m);
-        return 0;
+        return 1;
 }
 
 static int mount_reload(Unit *u) {
@@ -1239,9 +1254,31 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
 
-                if (f == MOUNT_SUCCESS)
-                        mount_enter_dead(m, f);
-                else if (m->from_proc_self_mountinfo)
+                if (f == MOUNT_SUCCESS) {
+
+                        if (m->from_proc_self_mountinfo) {
+
+                                /* Still a mount point? If so, let's
+                                 * try again. Most likely there were
+                                 * multiple mount points stacked on
+                                 * top of each other. Note that due to
+                                 * the io event priority logic we can
+                                 * be sure the new mountinfo is loaded
+                                 * before we process the SIGCHLD for
+                                 * the mount command. */
+
+                                if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
+                                        log_unit_debug(u->id, "%s: mount still present, trying again.", u->id);
+                                        m->n_retry_umount++;
+                                        mount_enter_unmounting(m);
+                                } else {
+                                        log_unit_debug(u->id, "%s: mount still present after %u attempts to unmount, giving up.", u->id, m->n_retry_umount);
+                                        mount_enter_mounted(m, f);
+                                }
+                        } else
+                                mount_enter_dead(m, f);
+
+                } else if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, f);
                 else
                         mount_enter_dead(m, f);
@@ -1414,7 +1451,6 @@ static int mount_add_one(
                         r = -ENOMEM;
                         goto fail;
                 }
-
 
                 if (m->running_as == SYSTEMD_SYSTEM) {
                         const char* target;
@@ -1670,11 +1706,11 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                  * internal behaviour of libmount here. */
 
                 for (;;) {
-                        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+                        union inotify_event_buffer buffer;
                         struct inotify_event *e;
                         ssize_t l;
 
-                        l = read(fd, buffer, sizeof(buffer));
+                        l = read(fd, &buffer, sizeof(buffer));
                         if (l < 0) {
                                 if (errno == EAGAIN || errno == EINTR)
                                         break;

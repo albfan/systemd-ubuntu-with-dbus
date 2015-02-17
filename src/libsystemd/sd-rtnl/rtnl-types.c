@@ -31,6 +31,7 @@
 #include <linux/if.h>
 
 #include <linux/ip.h>
+#include <linux/if_link.h>
 #include <linux/if_tunnel.h>
 
 #include "macro.h"
@@ -45,6 +46,9 @@ static const NLType rtnl_link_info_data_veth_types[VETH_INFO_MAX + 1] = {
         [VETH_INFO_PEER]  = { .type = NLA_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
 };
 
+static const NLType rtnl_link_info_data_ipvlan_types[IFLA_IPVLAN_MAX + 1] = {
+        [IFLA_IPVLAN_MODE]  = { .type = NLA_U16 },
+};
 
 static const NLType rtnl_link_info_data_macvlan_types[IFLA_MACVLAN_MAX + 1] = {
         [IFLA_MACVLAN_MODE]  = { .type = NLA_U32 },
@@ -149,6 +153,17 @@ static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
         [IFLA_VTI_REMOTE]       = { .type = NLA_IN_ADDR  },
 };
 
+static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
+        [IFLA_IPTUN_LINK]                = { .type = NLA_U32 },
+        [IFLA_IPTUN_LOCAL]               = { .type = NLA_IN_ADDR },
+        [IFLA_IPTUN_REMOTE]              = { .type = NLA_IN_ADDR },
+        [IFLA_IPTUN_TTL]                 = { .type = NLA_U8 },
+        [IFLA_IPTUN_FLAGS]               = { .type = NLA_U32 },
+        [IFLA_IPTUN_PROTO]               = { .type = NLA_U8 },
+        [IFLA_IPTUN_ENCAP_LIMIT]         = { .type = NLA_U8 },
+        [IFLA_IPTUN_FLOWINFO]            = { .type = NLA_U32},
+};
+
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_MAX] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -157,11 +172,16 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
         [NL_UNION_LINK_INFO_DATA_DUMMY] = "dummy",
         [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
+        [NL_UNION_LINK_INFO_DATA_IPVLAN] = "ipvlan",
         [NL_UNION_LINK_INFO_DATA_VXLAN] = "vxlan",
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
+        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] = "gretap",
+        [NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL] = "ip6gre",
+        [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] = "ip6gretap",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
+        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] = "ip6tnl",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -177,22 +197,34 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
                                                   .types = rtnl_link_info_data_veth_types },
         [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .max = ELEMENTSOF(rtnl_link_info_data_macvlan_types) - 1,
                                                   .types = rtnl_link_info_data_macvlan_types },
+        [NL_UNION_LINK_INFO_DATA_IPVLAN] =      { .max = ELEMENTSOF(rtnl_link_info_data_ipvlan_types) - 1,
+                                                  .types = rtnl_link_info_data_ipvlan_types },
         [NL_UNION_LINK_INFO_DATA_VXLAN] =       { .max = ELEMENTSOF(rtnl_link_info_data_vxlan_types) - 1,
                                                   .types = rtnl_link_info_data_vxlan_types },
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
                                                     .types = rtnl_link_info_data_ipgre_types },
+        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+                                                    .types = rtnl_link_info_data_ipgre_types },
+        [NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+                                                    .types = rtnl_link_info_data_ipgre_types },
+        [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+                                                    .types = rtnl_link_info_data_ipgre_types },
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
                                                   .types = rtnl_link_info_data_ipvti_types },
+        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types) - 1,
+                                                     .types = rtnl_link_info_data_ip6tnl_types },
+
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
         .num = _NL_UNION_LINK_INFO_DATA_MAX,
         .lookup = nl_union_link_info_data_from_string,
         .type_systems = rtnl_link_info_data_type_systems,
+        .match_type = NL_MATCH_SIBLING,
         .match = IFLA_INFO_KIND,
 };
 
@@ -211,7 +243,7 @@ static const NLTypeSystem rtnl_link_info_type_system = {
         .types = rtnl_link_info_types,
 };
 
-static const struct NLType rtnl_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
+static const struct NLType rtnl_prot_info_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
         [IFLA_BRPORT_STATE]     = { .type = NLA_U8 },
         [IFLA_BRPORT_COST]      = { .type = NLA_U32 },
         [IFLA_BRPORT_PRIORITY]  = { .type = NLA_U16 },
@@ -222,9 +254,42 @@ static const struct NLType rtnl_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
         [IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
 };
 
-static const NLTypeSystem rtnl_bridge_port_type_system = {
-        .max = ELEMENTSOF(rtnl_bridge_port_types) - 1,
-        .types = rtnl_bridge_port_types,
+static const NLTypeSystem rtnl_prot_info_type_systems[AF_MAX] = {
+        [AF_BRIDGE] =   { .max = ELEMENTSOF(rtnl_prot_info_bridge_port_types) - 1,
+                          .types = rtnl_prot_info_bridge_port_types },
+};
+
+static const NLTypeSystemUnion rtnl_prot_info_type_system_union = {
+        .num = AF_MAX,
+        .type_systems = rtnl_prot_info_type_systems,
+        .match_type = NL_MATCH_PROTOCOL,
+};
+
+static const struct NLType rtnl_af_spec_inet6_types[IFLA_INET6_MAX + 1] = {
+        [IFLA_INET6_FLAGS]              = { .type = NLA_U32 },
+/*
+        IFLA_INET6_CONF,
+        IFLA_INET6_STATS,
+        IFLA_INET6_MCAST,
+        IFLA_INET6_CACHEINFO,
+        IFLA_INET6_ICMP6STATS,
+*/
+        [IFLA_INET6_TOKEN]              = { .type = NLA_IN_ADDR },
+        [IFLA_INET6_ADDR_GEN_MODE]      = { .type = NLA_U8 },
+};
+
+static const NLTypeSystem rtnl_af_spec_inet6_type_system = {
+        .max = ELEMENTSOF(rtnl_af_spec_inet6_types) - 1,
+        .types = rtnl_af_spec_inet6_types,
+};
+
+static const NLType rtnl_af_spec_types[AF_MAX + 1] = {
+        [AF_INET6] =    { .type = NLA_NESTED, .type_system = &rtnl_af_spec_inet6_type_system },
+};
+
+static const NLTypeSystem rtnl_af_spec_type_system = {
+        .max = ELEMENTSOF(rtnl_af_spec_types) - 1,
+        .types = rtnl_af_spec_types,
 };
 
 static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
@@ -242,9 +307,8 @@ static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
         [IFLA_MASTER]           = { .type = NLA_U32 },
 /*
         [IFLA_WIRELESS],
-        [IFLA_PROTINFO],
 */
-        [IFLA_PROTINFO]         = { .type = NLA_NESTED, .type_system = &rtnl_bridge_port_type_system },
+        [IFLA_PROTINFO]         = { .type = NLA_UNION, .type_system_union = &rtnl_prot_info_type_system_union },
         [IFLA_TXQLEN]           = { .type = NLA_U32 },
 /*
         [IFLA_MAP]              = { .len = sizeof(struct rtnl_link_ifmap) },
@@ -261,7 +325,9 @@ static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
         [IFLA_STATS64],
         [IFLA_VF_PORTS]         = { .type = NLA_NESTED },
         [IFLA_PORT_SELF]        = { .type = NLA_NESTED },
-        [IFLA_AF_SPEC]          = { .type = NLA_NESTED },
+*/
+        [IFLA_AF_SPEC]          = { .type = NLA_NESTED, .type_system = &rtnl_af_spec_type_system },
+/*
         [IFLA_VF_PORTS],
         [IFLA_PORT_SELF],
         [IFLA_AF_SPEC],
@@ -332,15 +398,12 @@ static const NLTypeSystem rtnl_route_type_system = {
 static const NLType rtnl_neigh_types[NDA_MAX + 1] = {
         [NDA_DST]               = { .type = NLA_IN_ADDR },
         [NDA_LLADDR]            = { .type = NLA_ETHER_ADDR },
-/*
-        NDA_CACHEINFO,
-        NDA_PROBES,
-        NDA_VLAN,
-        NDA_PORT
-        NDA_VNI
-        NDA_IFINDEX
-        NDA_MASTER
-*/
+        [NDA_CACHEINFO]         = { .type = NLA_CACHE_INFO, .size = sizeof(struct nda_cacheinfo) },
+        [NDA_PROBES]            = { .type = NLA_U32 },
+        [NDA_VLAN]              = { .type = NLA_U16 },
+        [NDA_PORT]              = { .type = NLA_U16 },
+        [NDA_VNI]               = { .type = NLA_U32 },
+        [NDA_IFINDEX]           = { .type = NLA_U32 },
 };
 
 static const NLTypeSystem rtnl_neigh_type_system = {
@@ -435,6 +498,7 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         int type;
 
         assert(type_system_union);
+        assert_return(type_system_union->match_type == NL_MATCH_SIBLING, -EINVAL);
         assert(type_system_union->lookup);
         assert(type_system_union->type_systems);
         assert(ret);
@@ -447,6 +511,28 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         assert(type < type_system_union->num);
 
         *ret = &type_system_union->type_systems[type];
+
+        return 0;
+}
+
+int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol) {
+        const NLTypeSystem *type_system;
+
+        assert(type_system_union);
+        assert(type_system_union->type_systems);
+        assert(ret);
+        assert_return(type_system_union->match_type == NL_MATCH_PROTOCOL, -EINVAL);
+        assert_return(protocol < type_system_union->num, -EINVAL);
+
+        if (protocol >= type_system_union->num)
+                return -ENOTSUP;
+
+        type_system = &type_system_union->type_systems[protocol];
+
+        if (!type_system)
+                return -ENOTSUP;
+
+        *ret = type_system;
 
         return 0;
 }

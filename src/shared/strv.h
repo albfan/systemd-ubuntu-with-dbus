@@ -23,6 +23,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <fnmatch.h>
 
 #include "util.h"
 
@@ -33,6 +34,8 @@ char *strv_find_startswith(char **l, const char *name) _pure_;
 void strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
+
+void strv_clear(char **l);
 
 char **strv_copy(char * const *l);
 unsigned strv_length(char * const *l) _pure_;
@@ -50,6 +53,7 @@ int strv_consume_prepend(char ***l, char *value);
 
 char **strv_remove(char **l, const char *s);
 char **strv_uniq(char **l);
+bool strv_is_uniq(char **l);
 
 bool strv_equal(char **a, char **b);
 
@@ -139,3 +143,13 @@ void strv_print(char **l);
                 _l ++;                                       \
                 _l[0];                                       \
         }))
+
+char **strv_reverse(char **l);
+
+bool strv_fnmatch(char* const* patterns, const char *s, int flags);
+
+static inline bool strv_fnmatch_or_empty(char* const* patterns, const char *s, int flags) {
+        assert(s);
+        return strv_isempty(patterns) ||
+               strv_fnmatch(patterns, s, flags);
+}

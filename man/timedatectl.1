@@ -1,5 +1,5 @@
 '\" t
-.TH "TIMEDATECTL" "1" "" "systemd 218" "timedatectl"
+.TH "TIMEDATECTL" "1" "" "systemd 219" "timedatectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -152,20 +152,20 @@ Show current settings:
 $ timedatectl
       Local time: Fri, 2012\-11\-02 09:26:46 CET
   Universal time: Fri, 2012\-11\-02 08:26:46 UTC
-        RTC time: Fri, 2012\-11\-02 08:26:45
-        Timezone: Europe/Warsaw
+  RTC time: Fri, 2012\-11\-02 08:26:45
+  Timezone: Europe/Warsaw
       UTC offset: +0100
      NTP enabled: no
 NTP synchronized: no
  RTC in local TZ: no
       DST active: no
  Last DST change: CEST → CET, DST became inactive
-                  Sun, 2012\-10\-28 02:59:59 CEST
-                  Sun, 2012\-10\-28 02:00:00 CET
+      Sun, 2012\-10\-28 02:59:59 CEST
+      Sun, 2012\-10\-28 02:00:00 CET
  Next DST change: CET → CEST, DST will become active
-                  the clock will jump one hour forward
-                  Sun, 2013\-03\-31 01:59:59 CET
-                  Sun, 2013\-03\-31 03:00:00 CEST
+      the clock will jump one hour forward
+      Sun, 2013\-03\-31 01:59:59 CET
+      Sun, 2013\-03\-31 03:00:00 CEST
 .fi
 .if n \{\
 .RE
@@ -194,8 +194,8 @@ Password: ********
 .nf
 $ systemctl status chronyd\&.service
 chronyd\&.service \- NTP client/server
-          Loaded: loaded (/usr/lib/systemd/system/chronyd\&.service; enabled)
-          Active: active (running) since Fri, 2012\-11\-02 09:36:25 CET; 5s ago
+    Loaded: loaded (/usr/lib/systemd/system/chronyd\&.service; enabled)
+    Active: active (running) since Fri, 2012\-11\-02 09:36:25 CET; 5s ago
 \&.\&.\&.
 .fi
 .if n \{\

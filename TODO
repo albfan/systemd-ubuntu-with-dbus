@@ -6,8 +6,6 @@ Bugfixes:
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
 
-* properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
-
 * ExecStart with unicode characters fails in strv_split_quoted:
 
           [Service]
@@ -18,11 +16,12 @@ Bugfixes:
   str_split_quoted() should return a real return code, so spawn_child can
   report the failure properly.
 
+* When systemctl --host is used, underlying ssh connection can remain open.
+  bus_close does not kill children?
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
-
-* Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
 * Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
 
@@ -35,13 +34,140 @@ External:
 
 Features:
 
+* journalctl --verify: don't show files that are currently being
+  written to as FAIL, but instead show that their are being written
+  to.
+
+* nspawn: allow configuring cgroup (and other) properties via
+  --property= when invoking from the command line.
+
+* add udev rule construct SYSCTL{} to write to sysctls
+
+* assign MESSAGE_ID to log messages about failed services
+
+* coredump: make the handler check /proc/$PID/rlimits for RLIMIT_CORE,
+  and supress coredump if turned off. Then change RLIMIT_CORE to
+  infinity by default for all services. This then allows per-service
+  control of coredumping.
+
+* introduce some call that iterates through cmsg and closes all fds
+  passed in, and use it everywhere...
+
+* generate better errors when people try to set transient properties
+  that are not supported...
+  http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
+
+* nspawn, if stdout/stderr/stdin are non-ttys, don't set up
+  /dev/console, but instead just pass the fds through directly.
+
+* When runlevel3.target is used to define dependencies on other units,
+  then we don't pick it up currently, since nothing ever references
+  runlevel3.target, and never figure out it actually is just an alias
+  for multi-user.target. A hackish fix could be to add a .wants link
+  from multi-user.target to runlevel3.target, if it is a symlink to
+  it. Best would be to create this .wants/ symlink from
+  sysv-generator. systemd would then load the referenced unit, figure
+  out it is just an alias and that the dependency would be on itself
+  and suppress it. Thus the alias and its deps would be loaded as
+  desired.
+
+* PID 1: when invoking systemctl preset-all on first boots, operate in
+  an exclusively additive way, i.e. never remove any pre-existing
+  symlinks, only add new ones.
+
+* Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
+  colon separated list of identifiers for the fds passed.
+
+* networkd: implement BindCarrier= logic to .network units that binds
+  application of the file to the carrier sense on another interface,
+  in order to implement uplink/downlink logic.
+
+* make networkd subscribe to PrepareForSleep(false) and refresh all
+  DHCP leases then.
+
+* when the fstab-generator runs in the initrd, it should create a /dev/null mask for systemd-fsck-root.service, to avoid that the the root fs is fsck'ed twice.
+
+* maybe introduce WantsMountsFor=? Usecase:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
+
+* rework kexec logic to use new kexec_file_load() syscall, so that we
+  don't have to call kexec tool anymore.
+
+* The udev blkid built-in should expose a property that reflects
+  whether media was sensed in USB CF/SD card readers. This should then
+  be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
+  picked up by systemd unless they contain a medium. This would mirror
+  the behaviour we already have for CD drives.
+
+* We should remove really old cruft from cdrom_id
+
+* nspawn: emulate /dev/kmsg using CUSE and turn off the syslog syscall
+  with seccomp. That should provide us with a useful log buffer that
+  systemd can log to during early boot, and disconnect container logs
+  from the kernel's logs.
+
+* networkd/udev: implement SR_IOV configuration in .link files:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-January/027451.html
+
+* When RLIMIT_NPROC is set from a unit file it currently always is set
+  for root, not for the user set in User=, which makes it
+  useless. After fixing this, set RLIMIT_NPROC for
+  systemd-journal-xyz, and all other of our services that run under
+  their own user ids, and use User= (but only in a world where userns
+  is ubiquitous since otherwise we cannot invoke those daemons on the
+  host AND in a container anymore). Also, if LimitNPROC= is used
+  without User= we should warn and refuse operation.
+
+* logind: maybe allow configuration of the StopTimeout for session scopes
+
+* Set NoNewPriviliges= on all of our own services, where that makes sense
+
+* Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
+
+* rework journald sigbus stuff to use mutex
+
+* import-dkr: support tarsum checksum verification, if it becomes reality one day...
+
+* import-dkr: convert json bits to nspawn configuration
+
+* import: support import from local files, and export to local files
+
+* core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
+
+* introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
+
+* logind,machined: add generic catch-all polkit verbs for most privileged operations, similar to systemd itself
+
+* "machinectl status" should also show internal logs of the container in question
+
+* "machinectl list-images" should show os-release data, as well as machine-info data (including deployment level)
+
+* nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
+
+* Port various tools to make use of verbs.[ch], where applicable
+
+* "machinectl history"
+
+* "machinectl diff"
+
+* "machinectl commit" that takes a writable snapshot of a tree, invokes a shell in it, and marks it read-only after use
+
+* "machinectl status" should show 10 most recent log lines of both the host logs of the unit of the machine, plus the logs generated in the machine
+
+* add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
+
+* systemd-nspawn -x should support ephemeral instances of gpt images
+
+* move machinectl's mount and copy commands into machined
+
+* hostnamectl: show root image uuid
+
+* sysfs set api in libudev is not const
+
+* Find a solution for SMACK capabilities stuff:
+  http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
+
 * port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
-
-* bash completion for busctl, to make it truly useful
-
-* journald: broken file systems are real (btrfs), we need to handle
-  SIGBUS in some way if we cannot write or read from the disk.
-  https://bugzilla.redhat.com/show_bug.cgi?id=1151848
 
 * "systemctl preset-all" should probably order the unit files it
   operates on lexicographically before starting to work, in order to
@@ -54,7 +180,7 @@ Features:
 
 * systemd-journal-upload (or a new, related tool): allow pushing out
   journal messages onto the network in BSD syslog protocol,
-  continously. Default to some link-local IP mcast group, to make this
+  continuously. Default to some link-local IP mcast group, to make this
   useful as a one-stop debugging tool.
 
 * synchronize console access with BSD locks:
@@ -74,10 +200,6 @@ Features:
 
 * timedated should compensate on SetTime for the time spent in polkit
 
-* figure out what to do with libmount and utab?
-
-* We really should have a FOREACH macro to iterate through inotify events we read, similar to KDBUS_FOREACH_ITEM
-
 * figure out when we can use the coarse timers
 
 * sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
@@ -91,8 +213,6 @@ Features:
 
 * timesyncd + resolved: add ugly bus calls to set NTP and DNS servers per-interface, for usage by NM
 
-* networkd-wait-online really should have a timeout by default
-
 * add infrastructure to allocate dynamic/transient users and UID ranges, for use in user-namespaced containers, per-seat gdm login screens and gdm guest sessions
 
 * machined: add an API so that libvirt-lxc can inform us about network interfaces being removed or added to an existing machine
@@ -104,8 +224,6 @@ Features:
 * introduce systemd-timesync-wait.service or so to sync on an NTP fix?
 
 * systemd --user should issue sd_notify() upon reaching basic.target, not on becoming idle
-
-* configure.ac pretends dbus was optional but actually hardcodes use of dbus' pkg-config file to determine various dbus dirs such as policy and activation dirs
 
 * consider showing the unit names during boot up in the status output, not just the unit descriptions
 
@@ -128,7 +246,10 @@ Features:
 
 * systemctl: if some operation fails, show log output?
 
-* systemctl edit: add commented help text to the end, like git commit
+* systemctl edit:
+- allow creation of units from scratch
+- use equvalent of cat() to insert existing config as a comment, prepended with #.
+  Upon editor exit, lines with one # are removed, lines with two # are left with one #, etc.
 
 * refcounting in sd-resolve is borked
 
@@ -164,6 +285,7 @@ Features:
     for all routes to it. possibly a second default for DHCP routes.
   - allow Name= to be specified repeatedly in the [Match] section. Maybe also
     support Name=foo*|bar*|baz ?
+  - duplicate address check for static IPs (like ARPCHECK in network-scripts)
 
 * resolved:
   - put networkd events and rtnl events at a higher priority, so that
@@ -249,9 +371,6 @@ Features:
   desktop UIs such as gnome-shell to freeze apps that are not visible
   on screen, not unlike how job control works on the shell
 
-* completions:
- - manager property enumeration was broken when systemd moved to /usr/lib/
-
 * cgroups:
   - implement per-slice CPUFairScheduling=1 switch
   - handle jointly mounted controllers correctly
@@ -300,21 +419,12 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - GetAllProperties() on a non-existing object does not result in a failure currently
   - kdbus: process fd=-1 for incoming msgs
-  - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
-  - kdbus: remove NameOwnerChanged kernel messages for monitors
-  - kdbus: PID/TID goes missing for method calls from outside the PID namespace?
-  - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
-  - kdbus: timestamps on kernel's NameOwnerChanged messages?
-  - kdbus' busnames.target should get pulled in by basic.target
-  - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
-    without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
-    pull-in the policy.
   - port to sd-resolve for connecting to TCP dbus servers
-  - kdbus: maybe add controlling tty and ppid metadata fields
+  - kdbus: maybe add controlling tty metadata fields
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
   - when kdbus does not take our message without memfds, try again with memfds
-  - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
   - make AddMatch calls on dbus1 transports async?
@@ -368,9 +478,6 @@ Features:
   all units we stop before the isolating unit...
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
-
-* after all byte-wise realloc() is slow, even on glibc, so i guess we
-  need manual exponential loops after all
 
 * BootLoaderSpec: Clarify that the kernel has to be in $BOOT. Clarify
   that the boot loader should be installed to the ESP. Define a way
@@ -464,11 +571,11 @@ Features:
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
-  - journal: send out marker messages every now and then, and immediately sync with fdatasync() afterwards, in order to have hourly guaranteed syncs.
+  - journal: store timestamp of journal_file_set_offline() int he header,
+    so it is possible to display when the file was last synced.
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
-  - journal live copy, based on libneon (client) and libmicrohttpd (server)
   - journald: add kernel cmdline option to disable ratelimiting for debug purposes
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
@@ -561,12 +668,7 @@ Features:
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
-  - bind mount read-only the cgroup tree higher than nspawn
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
-  - support taking a btrfs snapshot at startup and dropping it afterwards
-  - introduce machines.target to order after all nspawn instances
-  - systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
-  - PID 1 doesn't apply nspawns devices cgroup policy
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
@@ -629,6 +731,7 @@ Features:
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
   - reimport udev db after MOVE events for devices without dev_t
+  - don't keep stale db in case event processing fails (also notify userspace about the failure)
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
@@ -653,6 +756,8 @@ Features:
 
 * tmpfiles:
   - apply "x" on "D" too (see patch from William Douglas)
+  - replace F with f+.
+  - instead of ignoring unknown fields, reject them.
 
 * for services: do not set $HOME in services unless requested
 
@@ -763,7 +868,6 @@ Features:
    - write more test cases
    - implement and do duplicate address detection, see rfc 4862, 5.4.
    - implement reconfigure support, see 5.3., 15.11. and 22.20.
-   - implement information request, see 1.2. and 18.1.5.
    - implement support for temporary adressess (IA_TA)
    - implement dhcpv6 authentication
    - investigate the usefulness of Confirm messages; i.e. are there any

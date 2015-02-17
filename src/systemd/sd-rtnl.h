@@ -41,7 +41,9 @@ typedef struct sd_rtnl_message sd_rtnl_message;
 typedef int (*sd_rtnl_message_handler_t)(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 
 /* bus */
+int sd_rtnl_new_from_netlink(sd_rtnl **nl, int fd);
 int sd_rtnl_open(sd_rtnl **nl, unsigned n_groups, ...);
+int sd_rtnl_open_fd(sd_rtnl **nl, int fd, unsigned n_groups, ...);
 int sd_rtnl_inc_rcvbuf(const sd_rtnl *const rtnl, const int size);
 
 sd_rtnl *sd_rtnl_ref(sd_rtnl *nl);
@@ -86,6 +88,8 @@ int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m);
 
+int sd_rtnl_message_get_family(sd_rtnl_message *m, int *family);
+
 int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope);
 int sd_rtnl_message_addr_set_flags(sd_rtnl_message *m, unsigned char flags);
@@ -109,8 +113,12 @@ int sd_rtnl_message_route_get_family(sd_rtnl_message *m, int *family);
 int sd_rtnl_message_route_get_dst_prefixlen(sd_rtnl_message *m, unsigned char *dst_len);
 int sd_rtnl_message_route_get_src_prefixlen(sd_rtnl_message *m, unsigned char *src_len);
 
+int sd_rtnl_message_neigh_set_flags(sd_rtnl_message *m, uint8_t flags);
+int sd_rtnl_message_neigh_set_state(sd_rtnl_message *m, uint16_t state);
 int sd_rtnl_message_neigh_get_family(sd_rtnl_message *m, int *family);
 int sd_rtnl_message_neigh_get_ifindex(sd_rtnl_message *m, int *family);
+int sd_rtnl_message_neigh_get_state(sd_rtnl_message *m, uint16_t *state);
+int sd_rtnl_message_neigh_get_flags(sd_rtnl_message *m, uint8_t *flags);
 
 int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const char *data);
 int sd_rtnl_message_append_u8(sd_rtnl_message *m, unsigned short type, uint8_t data);

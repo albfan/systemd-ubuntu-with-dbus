@@ -58,22 +58,6 @@ static int in_search_path(const char *path, char **search) {
         return strv_contains(search, parent);
 }
 
-static int lookup_paths_init_from_scope(LookupPaths *paths,
-                                        UnitFileScope scope,
-                                        const char *root_dir) {
-        assert(paths);
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-
-        zero(*paths);
-
-        return lookup_paths_init(paths,
-                                 scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
-                                 scope == UNIT_FILE_USER,
-                                 root_dir,
-                                 NULL, NULL, NULL);
-}
-
 static int get_config_path(UnitFileScope scope, bool runtime, const char *root_dir, char **ret) {
         char *p = NULL;
         int r;
@@ -240,7 +224,7 @@ static int remove_marked_symlinks_fd(
                 if (!de)
                         break;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -415,7 +399,7 @@ static int find_symlinks_fd(
                 if (!de)
                         return r;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -1064,7 +1048,7 @@ static int unit_file_load(
         assert(path);
 
         if (!isempty(root_dir))
-                path = strappenda(root_dir, "/", path);
+                path = strjoina(root_dir, "/", path);
 
         if (!load) {
                 r = access(path, F_OK) ? -errno : 0;
@@ -1746,7 +1730,7 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        path = strappenda(config_path, "/" SPECIAL_DEFAULT_TARGET);
+        path = strjoina(config_path, "/" SPECIAL_DEFAULT_TARGET);
 
         r = create_symlink(i->path, path, force, changes, n_changes);
         if (r < 0)
@@ -2094,7 +2078,7 @@ int unit_file_preset_all(
                         if (!de)
                                 break;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
                         if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
@@ -2206,7 +2190,7 @@ int unit_file_get_list(
                         if (!de)
                                 break;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
                         if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))

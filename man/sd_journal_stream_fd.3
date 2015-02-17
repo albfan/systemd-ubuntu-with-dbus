@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_STREAM_FD" "3" "" "systemd 218" "sd_journal_stream_fd"
+.TH "SD_JOURNAL_STREAM_FD" "3" "" "systemd 219" "sd_journal_stream_fd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -82,23 +82,23 @@ Creating a log stream suitable for
 #include <systemd/sd\-daemon\&.h>
 
 int main(int argc, char *argv[]) {
-        int fd;
-        FILE *log;
-        fd = sd_journal_stream_fd("test", LOG_INFO, 1);
-        if (fd < 0) {
-                fprintf(stderr, "Failed to create stream fd: %s\en", strerror(\-fd));
-                return 1;
-        }
-        log = fdopen(fd, "w");
-        if (!log) {
-                fprintf(stderr, "Failed to create file object: %m\en");
-                close(fd);
-                return 1;
-        }
-        fprintf(log, "Hello World!\en");
-        fprintf(log, SD_WARNING "This is a warning!\en");
-        fclose(log);
-        return 0;
+  int fd;
+  FILE *log;
+  fd = sd_journal_stream_fd("test", LOG_INFO, 1);
+  if (fd < 0) {
+    fprintf(stderr, "Failed to create stream fd: %s\en", strerror(\-fd));
+    return 1;
+  }
+  log = fdopen(fd, "w");
+  if (!log) {
+    fprintf(stderr, "Failed to create file object: %m\en");
+    close(fd);
+    return 1;
+  }
+  fprintf(log, "Hello World!\en");
+  fprintf(log, SD_WARNING "This is a warning!\en");
+  fclose(log);
+  return 0;
 }
 .fi
 .if n \{\

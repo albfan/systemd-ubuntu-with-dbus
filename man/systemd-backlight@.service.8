@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-BACKLIGHT@\&.SERVICE" "8" "" "systemd 218" "systemd-backlight@.service"
+.TH "SYSTEMD\-BACKLIGHT@\&.SERVICE" "8" "" "systemd 219" "systemd-backlight@.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -30,7 +30,9 @@ systemd\-backlight@\&.service
 .PP
 systemd\-backlight@\&.service
 is a service that restores the display backlight brightness at early boot and saves it at shutdown\&. On disk, the backlight brightness is stored in
-/var/lib/systemd/backlight/\&.
+/var/lib/systemd/backlight/\&. During loading, if udev property
+\fBID_BACKLIGHT_CLAMP\fR
+is not set to false value, the brightness is clamped to a value of at least 1 or 5% of maximum brightness, whichever is greater\&. This restriction will be removed when the kernel allows user space to reliably set a brightness value which does not turn off the display\&.
 .SH "KERNEL COMMAND LINE"
 .PP
 systemd\-backlight

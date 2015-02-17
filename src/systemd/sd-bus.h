@@ -23,6 +23,7 @@
 ***/
 
 #include <inttypes.h>
+#include <stdarg.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -117,7 +118,7 @@ int sd_bus_open(sd_bus **ret);
 int sd_bus_open_user(sd_bus **ret);
 int sd_bus_open_system(sd_bus **ret);
 int sd_bus_open_system_remote(sd_bus **ret, const char *host);
-int sd_bus_open_system_container(sd_bus **ret, const char *machine);
+int sd_bus_open_system_machine(sd_bus **ret, const char *machine);
 
 int sd_bus_new(sd_bus **ret);
 
@@ -310,6 +311,8 @@ int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, con
 int sd_bus_emit_properties_changed_strv(sd_bus *bus, const char *path, const char *interface, char **names);
 int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) _sd_sentinel_;
 
+int sd_bus_emit_object_added(sd_bus *bus, const char *path);
+int sd_bus_emit_object_removed(sd_bus *bus, const char *path);
 int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces);
 int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces);
@@ -368,6 +371,7 @@ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...
 int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_set_errno(sd_bus_error *e, int error);
 int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_(3, 4);
+int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap) _sd_printf_(3,0);
 int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);

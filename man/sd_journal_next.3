@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_NEXT" "3" "" "systemd 218" "sd_journal_next"
+.TH "SD_JOURNAL_NEXT" "3" "" "systemd 219" "sd_journal_next"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -106,27 +106,27 @@ Iterating through the journal:
 #include <systemd/sd\-journal\&.h>
 
 int main(int argc, char *argv[]) {
-        int r;
-        sd_journal *j;
-        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
-        if (r < 0) {
-                fprintf(stderr, "Failed to open journal: %s\en", strerror(\-r));
-                return 1;
-        }
-        SD_JOURNAL_FOREACH(j) {
-                const char *d;
-                size_t l;
+  int r;
+  sd_journal *j;
+  r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+  if (r < 0) {
+    fprintf(stderr, "Failed to open journal: %s\en", strerror(\-r));
+    return 1;
+  }
+  SD_JOURNAL_FOREACH(j) {
+    const char *d;
+    size_t l;
 
-                r = sd_journal_get_data(j, "MESSAGE", (const void **)&d, &l);
-                if (r < 0) {
-                        fprintf(stderr, "Failed to read message field: %s\en", strerror(\-r));
-                        continue;
-                }
+    r = sd_journal_get_data(j, "MESSAGE", (const void **)&d, &l);
+    if (r < 0) {
+      fprintf(stderr, "Failed to read message field: %s\en", strerror(\-r));
+      continue;
+    }
 
-                printf("%\&.*s\en", (int) l, d);
-        }
-        sd_journal_close(j);
-        return 0;
+    printf("%\&.*s\en", (int) l, d);
+  }
+  sd_journal_close(j);
+  return 0;
 }
 .fi
 .if n \{\

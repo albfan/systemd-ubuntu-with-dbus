@@ -41,6 +41,7 @@
 #include "sd-event.h"
 #include "term-internal.h"
 #include "util.h"
+#include "utf8.h"
 
 typedef struct Output Output;
 typedef struct Terminal Terminal;
@@ -160,16 +161,14 @@ static int output_write(Output *o, const void *buf, size_t size) {
 
 _printf_(3,0)
 static int output_vnprintf(Output *o, size_t max, const char *format, va_list args) {
-        char buf[4096];
+        char buf[max];
         int r;
 
         assert_return(o, -EINVAL);
         assert_return(format, -EINVAL);
-        assert_return(max <= sizeof(buf), -EINVAL);
+        assert_return(max <= 4096, -EINVAL);
 
-        r = vsnprintf(buf, max, format, args);
-        if (r > (ssize_t)max)
-                r = max;
+        r = MIN(vsnprintf(buf, max, format, args), (int) max);
 
         return output_write(o, buf, r);
 }
@@ -459,7 +458,7 @@ static int output_draw_cell_fn(term_screen *screen,
                 output_printf(o, " ");
         } else {
                 for (k = 0; k < n_ch; ++k) {
-                        ulen = term_utf8_encode(utf8, ch[k]);
+                        ulen = utf8_encode_unichar(utf8, ch[k]);
                         output_write(o, utf8, ulen);
                 }
         }
@@ -625,7 +624,7 @@ static int terminal_push_tmp(Terminal *t, uint32_t ucs4) {
 
         assert(t);
 
-        len = term_utf8_encode(buf, ucs4);
+        len = utf8_encode_unichar(buf, ucs4);
         if (len < 1)
                 return 0;
 

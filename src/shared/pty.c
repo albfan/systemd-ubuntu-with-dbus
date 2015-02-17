@@ -194,13 +194,13 @@ int pty_get_fd(Pty *pty) {
 }
 
 int pty_make_child(Pty *pty) {
-        char slave_name[1024];
+        _cleanup_free_ char *slave_name = NULL;
         int r, fd;
 
         assert_return(pty, -EINVAL);
         assert_return(pty_is_unknown(pty), -EALREADY);
 
-        r = ptsname_r(pty->fd, slave_name, sizeof(slave_name));
+        r = ptsname_malloc(pty->fd, &slave_name);
         if (r < 0)
                 return -errno;
 
@@ -550,15 +550,14 @@ int pty_signal(Pty *pty, int sig) {
 }
 
 int pty_resize(Pty *pty, unsigned short term_width, unsigned short term_height) {
-        struct winsize ws;
+        struct winsize ws = {
+                .ws_col = term_width,
+                .ws_row = term_height,
+        };
 
         assert_return(pty, -EINVAL);
         assert_return(pty_is_open(pty), -ENODEV);
         assert_return(pty_is_parent(pty), -ENODEV);
-
-        zero(ws);
-        ws.ws_col = term_width;
-        ws.ws_row = term_height;
 
         /*
          * This will send SIGWINCH to the pty slave foreground process group.

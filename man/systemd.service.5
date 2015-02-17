@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 218" "systemd.service"
+.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 219" "systemd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -243,7 +243,7 @@ is specified, then the service must have
 \fIRemainAfterExit=yes\fR
 set\&.
 .sp
-For each of the specified commands, the first argument must be an absolute and literal path to an executable\&. Optionally, if the absolute file name is prefixed with
+For each of the specified commands, the first argument must be an absolute path to an executable\&. Optionally, if this file name is prefixed with
 "@", the second token will be passed as
 "argv[0]"
 to the executed process, followed by the further arguments specified\&. If the absolute filename is prefixed with
@@ -559,7 +559,8 @@ Takes a list of exit status definitions that when returned by the main service p
 .RS 4
 .\}
 .nf
-SuccessExitStatus=1 2 8 SIGKILL
+SuccessExitStatus=1 2 8
+        SIGKILL
 .fi
 .if n \{\
 .RE
@@ -586,7 +587,8 @@ Takes a list of exit status definitions that when returned by the main service p
 .RS 4
 .\}
 .nf
-RestartPreventExitStatus=1 6 SIGABRT
+RestartPreventExitStatus=1 6
+        SIGABRT
 .fi
 .if n \{\
 .RE
@@ -760,6 +762,16 @@ is a reboot action\&. This works just like the optional argument to
 command\&.
 .RE
 .PP
+\fIFileDescriptorStoreMax=\fR
+.RS 4
+Configure how many file descriptors may be stored in the service manager for the service using
+\fBsd_pid_notify_with_fds\fR(3)\*(Aqs
+"FDSTORE=1"
+messages\&. This is useful for implementing service restart schemes where the state is serialized to
+/run
+and the file descriptors passed to the service manager, to allow restarts without losing state\&. Defaults to 0, i\&.e\&. no file descriptors may be stored in the service manager by default\&. All file descriptors passed to the service manager from a specific service are passed back to the service\*(Aqs main process on the next service restart\&. Any file descriptors passed to the service manager are automatically closed when POLLHUP or POLLERR is seen on them, or when the service is fully stopped and no job queued or being executed for it\&.
+.RE
+.PP
 Check
 \fBsystemd.exec\fR(5)
 and
@@ -779,7 +791,7 @@ options\&.
 Multiple command lines may be concatenated in a single directive by separating them with semicolons (these semicolons must be passed as separate words)\&. Lone semicolons may be escaped as
 "\e;"\&.
 .PP
-Each command line is split on whitespace, with the first item being the command to execute, and the subsequent items being the arguments\&. Double quotes ("\&.\&.\&.") and single quotes (\*(Aq\&.\&.\&.\*(Aq) may be used, in which case everything until the next matching quote becomes part of the same argument\&. Quotes themselves are removed after parsing\&. In addition, a trailing backslash ("\e") may be used to merge lines\&.
+Each command line is split on whitespace, with the first item being the command to execute, and the subsequent items being the arguments\&. Double quotes ("\&.\&.\&.") and single quotes (\*(Aq\&.\&.\&.\*(Aq) may be used, in which case everything until the next matching quote becomes part of the same argument\&. C\-style escapes are also supported, see table below\&. Quotes themselves are removed after parsing and escape sequences substituted\&. In addition, a trailing backslash ("\e") may be used to merge lines\&.
 .PP
 This syntax is intended to be very similar to shell syntax, but only the meta\-characters and expansions described in the following paragraphs are understood\&. Specifically, redirection using
 "<",
@@ -789,6 +801,8 @@ This syntax is intended to be very similar to shell syntax, but only the meta\-c
 "|", running programs in the background using
 "&", and
 \fIother elements of shell syntax are not supported\fR\&.
+.PP
+The command to execute must an absolute path name\&. It may contain spaces, but control characters are not allowed\&.
 .PP
 The command line accepts
 "%"
@@ -911,6 +925,343 @@ with five arguments:
 "&",
 ";", and
 "/bin/ls"\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&2.\ \&C escapes supported in command lines and environment variables
+.TS
+allbox tab(:);
+lB lB.
+T{
+Literal
+T}:T{
+Actual value
+T}
+.T&
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l.
+T{
+"\ea"
+T}:T{
+bell
+T}
+T{
+"\eb"
+T}:T{
+backspace
+T}
+T{
+"\ef"
+T}:T{
+form feed
+T}
+T{
+"\en"
+T}:T{
+newline
+T}
+T{
+"\er"
+T}:T{
+carriage return
+T}
+T{
+"\et"
+T}:T{
+tab
+T}
+T{
+"\ev"
+T}:T{
+vertical tab
+T}
+T{
+"\e\e"
+T}:T{
+backslash
+T}
+T{
+"\e""
+T}:T{
+double quotation mark
+T}
+T{
+"\e\*(Aq"
+T}:T{
+single quotation mark
+T}
+T{
+"\es"
+T}:T{
+space
+T}
+T{
+"\ex\fIxx\fR"
+T}:T{
+character number \fIxx\fR in hexadecimal encoding
+T}
+T{
+"\e\fInnn\fR"
+T}:T{
+character number \fInnn\fR in octal encoding
+T}
+.TE
+.sp 1
+.SH "EXAMPLES"
+.PP
+\fBExample\ \&1.\ \&Simple service\fR
+.PP
+The following unit file creates a service that will execute
+/usr/sbin/foo\-daemon\&. Since no
+\fIType=\fR
+is specified, the default
+\fIType=\fR\fBsimple\fR
+will be assumed\&. systemd will assume the unit to be started immediately after the program has begun executing\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Unit]
+Description=Foo
+
+[Service]
+ExecStart=/usr/sbin/foo\-daemon
+
+[Install]
+WantedBy=multi\-user\&.target
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Note that systemd assumes here that the process started by systemd will continue running until the service terminates\&. If the program daemonizes itself (i\&.e\&. forks), please use
+\fIType=\fR\fBforking\fR
+instead\&.
+.PP
+Since no
+\fIExecStop=\fR
+was specified, systemd will send SIGTERM to all processes started from this service, and after a timeout also SIGKILL\&. This behavior can be modified, see
+\fBsystemd.kill\fR(5)
+for details\&.
+.PP
+Note that this unit type does not include any type of notification when a service has completed initialization\&. For this, you should use other unit types, such as
+\fIType=\fR\fBnotify\fR
+if the service understands systemd\*(Aqs notification protocol,
+\fIType=\fR\fBforking\fR
+if the service can background itself or
+\fIType=\fR\fBdbus\fR
+if the unit acquires a DBus name once initialization is complete\&. See below\&.
+.PP
+\fBExample\ \&2.\ \&Oneshot service\fR
+.PP
+Sometimes units should just execute an action without keeping active processes, such as a filesystem check or a cleanup action on boot\&. For this,
+\fIType=\fR\fBoneshot\fR
+exists\&. Units of this type will wait until the process specified terminates and then fall back to being inactive\&. The following unit will perform a clenaup action:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Unit]
+Description=Cleanup old Foo data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/foo\-cleanup
+
+[Install]
+WantedBy=multi\-user\&.target
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Note that systemd will consider the unit to be in the state \*(Aqstarting\*(Aq until the program has terminated, so ordered dependencies will wait for the program to finish before starting themselves\&. The unit will revert to the \*(Aqinactive\*(Aq state after the execution is done, never reaching the \*(Aqactive\*(Aq state\&. That means another request to start the unit will perform the action again\&.
+.PP
+\fIType=\fR\fBoneshot\fR
+are the only service units that may have more than one
+\fIExecStart=\fR
+specified\&. They will be executed in order until either they are all successful or one of them fails\&.
+.PP
+\fBExample\ \&3.\ \&Stoppable oneshot service\fR
+.PP
+Similarly to the oneshot services, there are sometimes units that need to execute a program to set up something and then execute another to shut it down, but no process remains active while they are considered \*(Aqstarted\*(Aq\&. Network configuration can sometimes fall into this category\&. Another use case is if a oneshot service shall not be executed a each time when they are pulled in as a dependency, but only the first time\&.
+.PP
+For this, systemd knows the setting
+\fIRemainAfterExit=\fR\fByes\fR, which causes systemd to consider the unit to be active if the start action exited successfully\&. This directive can be used with all types, but is most useful with
+\fIType=\fR\fBoneshot\fR
+and
+\fIType=\fR\fBsimple\fR\&. With
+\fIType=\fR\fBoneshot\fR
+systemd waits until the start action has completed before it considers the unit to be active, so dependencies start only after the start action has succeeded\&. With
+\fIType=\fR\fBsimple\fR
+dependencies will start immediately after the start action has been dispatched\&. The following unit provides an example for a simple static firewall\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Unit]
+Description=Simple firewall
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/simple\-firewall\-start
+ExecStop=/usr/local/sbin/simple\-firewall\-stop
+
+[Install]
+WantedBy=multi\-user\&.target
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Since the unit is considered to be running after the start action has exited, invoking
+\fBsystemctl start\fR
+on that unit again will cause no action to be taken\&.
+.PP
+\fBExample\ \&4.\ \&Traditional forking services\fR
+.PP
+Many traditional daemons/services background (i\&.e\&. fork, daemonize) themselves when starting\&. Set
+\fIType=\fR\fBforking\fR
+in the service\*(Aqs unit file to support this mode of operation\&. systemd will consider the service to be in the process of initialization while the original program is still running\&. Once it exits successfully and at least a process remains (and
+\fIRemainAfterExit=\fR\fBno\fR), the service is considered started\&.
+.PP
+Often a traditional daemon only consists of one process\&. Therefore, if only one process is left after the original process terminates, systemd will consider that process the main process of the service\&. In that case, the
+\fI$MAINPID\fR
+variable will be available in
+\fIExecReload=\fR,
+\fIExecStop=\fR, etc\&.
+.PP
+In case more than one process remains, systemd will be unable to determine the main process, so it will not assume there is one\&. In that case,
+\fI$MAINPID\fR
+will not expand to anything\&. However, if the process decides to write a traditional PID file, systemd will be able to read the main PID from there\&. Please set
+\fIPIDFile=\fR
+accordingly\&. Note that the daemon should write that file before finishing with its initialization, otherwise systemd might try to read the file before it exists\&.
+.PP
+The following example shows a simple daemon that forks and just starts one process in the background:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Unit]
+Description=Some simple daemon
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/my\-simple\-daemon \-d
+
+[Install]
+WantedBy=multi\-user\&.target
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Please see
+\fBsystemd.kill\fR(5)
+for details on how you can influence the way systemd terminates the service\&.
+.PP
+\fBExample\ \&5.\ \&DBus services\fR
+.PP
+For services that acquire a name on the DBus system bus, use
+\fIType=\fR\fBdbus\fR
+and set
+\fIBusName=\fR
+accordingly\&. The service should not fork (daemonize)\&. systemd will consider the service to be initialized once the name has been acquired on the system bus\&. The following example shows a typical DBus service:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Unit]
+Description=Simple DBus service
+
+[Service]
+Type=dbus
+BusName=org\&.example\&.simple\-dbus\-service
+ExecStart=/usr/sbin/simple\-dbus\-service
+
+[Install]
+WantedBy=multi\-user\&.target
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+For
+\fIbus\-activatable\fR
+services, don\*(Aqt include a
+"[Install]"
+section in the systemd service file, but use the
+\fISystemdService=\fR
+option in the corresponding DBus service file, for example (/usr/share/dbus\-1/system\-services/org\&.example\&.simple\-dbus\-service\&.service):
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[D\-BUS Service]
+Name=org\&.example\&.simple\-dbus\-service
+Exec=/usr/sbin/simple\-dbus\-service
+User=root
+SystemdService=simple\-dbus\-service\&.service
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Please see
+\fBsystemd.kill\fR(5)
+for details on how you can influence the way systemd terminates the service\&.
+.PP
+\fBExample\ \&6.\ \&Services that notify systemd about their initialization\fR
+.PP
+\fIType=\fR\fBsimple\fR
+services are really easy to write, but have the major disadvantage of systemd not being able to tell when initialization of the given service is complete\&. For this reason, systemd supports a simple notification protocol that allows daemons to make systemd aware that they are done initializing\&. Use
+\fIType=\fR\fBnotify\fR
+for this\&. A typical service file for such a daemon would look like this:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Unit]
+Description=Simple notifying service
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/simple\-notifying\-service
+
+[Install]
+WantedBy=multi\-user\&.target
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Note that the daemon has to support systemd\*(Aqs notification protocol, else systemd will think the service hasn\*(Aqt started yet and kill it after a timeout\&. For an example of how to update daemons to support this protocol transparently, take a look at
+\fBsd_notify\fR(3)\&. systemd will consider the unit to be in the \*(Aqstarting\*(Aq state until a readiness notification has arrived\&.
+.PP
+Please see
+\fBsystemd.kill\fR(5)
+for details on how you can influence the way systemd terminates the service\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

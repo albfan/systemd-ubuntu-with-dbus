@@ -48,6 +48,7 @@
 #include "smack-util.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "selinux-util.h"
 #include "dbus-socket.h"
 #include "unit.h"
 #include "socket.h"
@@ -265,7 +266,7 @@ static int socket_add_device_link(Socket *s) {
         if (!s->bind_to_device || streq(s->bind_to_device, "lo"))
                 return 0;
 
-        t = strappenda("/sys/subsystem/net/devices/", s->bind_to_device);
+        t = strjoina("/sys/subsystem/net/devices/", s->bind_to_device);
         return unit_add_node_link(UNIT(s), t, false);
 }
 
@@ -472,7 +473,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         assert(f);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
                 "%sSocket State: %s\n"
@@ -1953,7 +1954,7 @@ static int socket_start(Unit *u) {
         s->result = SOCKET_SUCCESS;
         socket_enter_start_pre(s);
 
-        return 0;
+        return 1;
 }
 
 static int socket_stop(Unit *u) {
@@ -1984,7 +1985,7 @@ static int socket_stop(Unit *u) {
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -2602,10 +2603,6 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_notify_service_dead(s, se->result == SERVICE_FAILURE_START_LIMIT);
 
         if (se->state == SERVICE_DEAD ||
-            se->state == SERVICE_STOP ||
-            se->state == SERVICE_STOP_SIGTERM ||
-            se->state == SERVICE_STOP_SIGKILL ||
-            se->state == SERVICE_STOP_POST ||
             se->state == SERVICE_FINAL_SIGTERM ||
             se->state == SERVICE_FINAL_SIGKILL ||
             se->state == SERVICE_AUTO_RESTART)

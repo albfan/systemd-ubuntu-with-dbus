@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <getopt.h>
 
+#include "selinux-util.h"
 #include "udev.h"
 
 static int adm_version(struct udev *udev, int argc, char *argv[]) {
@@ -59,11 +60,14 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
 static int adm_help(struct udev *udev, int argc, char *argv[]) {
         unsigned int i;
 
-        fprintf(stderr, "Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
+        printf("%s [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n\n"
+               "Send control commands or test the device manager.\n\n"
+               "Commands:\n"
+               , program_invocation_short_name);
+
         for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
                 if (udevadm_cmds[i]->help != NULL)
-                        printf("  %-12s %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
-        fprintf(stderr, "\n");
+                        printf("  %-12s  %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
         return 0;
 }
 

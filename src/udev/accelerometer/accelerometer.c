@@ -195,11 +195,13 @@ static void test_orientation(struct udev *udev,
         puts(text);
 }
 
-static void help(void)
-{
-        printf("Usage: accelerometer [options] <device path>\n"
-               "  --debug         debug to stderr\n"
-               "  --help          print this help text\n\n");
+static void help(void) {
+
+        printf("%s [options] <device path>\n\n"
+               "Accelerometer device identification.\n\n"
+               "  -h --help  Print this message\n"
+               "  -d --debug Debug to stderr\n"
+               , program_invocation_short_name);
 }
 
 int main (int argc, char** argv)
@@ -229,7 +231,7 @@ int main (int argc, char** argv)
         while (1) {
                 int option;
 
-                option = getopt_long(argc, argv, "dxh", options, NULL);
+                option = getopt_long(argc, argv, "dh", options, NULL);
                 if (option == -1)
                         break;
 

@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_FD" "3" "" "systemd 218" "sd_journal_get_fd"
+.TH "SD_JOURNAL_GET_FD" "3" "" "systemd 219" "sd_journal_get_fd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -87,13 +87,13 @@ uint64_t t;
 int msec;
 sd_journal_get_timeout(m, &t);
 if (t == (uint64_t) \-1)
-        msec = \-1;
+  msec = \-1;
 else {
-        struct timespec ts;
-        uint64_t n;
-        clock_getttime(CLOCK_MONOTONIC, &ts);
-        n = (uint64_t) ts\&.tv_sec * 1000000 + ts\&.tv_nsec / 1000;
-        msec = t > n ? (int) ((t \- n + 999) / 1000) : 0;
+  struct timespec ts;
+  uint64_t n;
+  clock_getttime(CLOCK_MONOTONIC, &ts);
+  n = (uint64_t) ts\&.tv_sec * 1000000 + ts\&.tv_nsec / 1000;
+  msec = t > n ? (int) ((t \- n + 999) / 1000) : 0;
 }
 .fi
 .if n \{\
@@ -193,39 +193,39 @@ Iterating through the journal, in a live view tracking all changes:
 #include <systemd/sd\-journal\&.h>
 
 int main(int argc, char *argv[]) {
-        int r;
-        sd_journal *j;
-        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
-        if (r < 0) {
-                fprintf(stderr, "Failed to open journal: %s\en", strerror(\-r));
-                return 1;
-        }
-        for (;;)  {
-                const void *d;
-                size_t l;
-                r = sd_journal_next(j);
-                if (r < 0) {
-                        fprintf(stderr, "Failed to iterate to next entry: %s\en", strerror(\-r));
-                        break;
-                }
-                if (r == 0) {
-                        /* Reached the end, let\*(Aqs wait for changes, and try again */
-                        r = sd_journal_wait(j, (uint64_t) \-1);
-                        if (r < 0) {
-                                fprintf(stderr, "Failed to wait for changes: %s\en", strerror(\-r));
-                                break;
-                        }
-                        continue;
-                }
-                r = sd_journal_get_data(j, "MESSAGE", &d, &l);
-                if (r < 0) {
-                        fprintf(stderr, "Failed to read message field: %s\en", strerror(\-r));
-                        continue;
-                }
-                printf("%\&.*s\en", (int) l, (const char*) d);
-        }
-        sd_journal_close(j);
-        return 0;
+  int r;
+  sd_journal *j;
+  r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+  if (r < 0) {
+    fprintf(stderr, "Failed to open journal: %s\en", strerror(\-r));
+    return 1;
+  }
+  for (;;)  {
+    const void *d;
+    size_t l;
+    r = sd_journal_next(j);
+    if (r < 0) {
+      fprintf(stderr, "Failed to iterate to next entry: %s\en", strerror(\-r));
+      break;
+    }
+    if (r == 0) {
+      /* Reached the end, let\*(Aqs wait for changes, and try again */
+      r = sd_journal_wait(j, (uint64_t) \-1);
+      if (r < 0) {
+        fprintf(stderr, "Failed to wait for changes: %s\en", strerror(\-r));
+        break;
+      }
+      continue;
+    }
+    r = sd_journal_get_data(j, "MESSAGE", &d, &l);
+    if (r < 0) {
+      fprintf(stderr, "Failed to read message field: %s\en", strerror(\-r));
+      continue;
+    }
+    printf("%\&.*s\en", (int) l, (const char*) d);
+  }
+  sd_journal_close(j);
+  return 0;
 }
 .fi
 .if n \{\
@@ -240,28 +240,28 @@ Waiting with
 .RS 4
 .\}
 .nf
-#include <sys/poll\&.h>
+#include <poll\&.h>
 #include <systemd/sd\-journal\&.h>
 
 int wait_for_changes(sd_journal *j) {
-        struct pollfd pollfd;
-        int msec;
+  struct pollfd pollfd;
+  int msec;
 
-        sd_journal_get_timeout(m, &t);
-        if (t == (uint64_t) \-1)
-                msec = \-1;
-        else {
-                struct timespec ts;
-                uint64_t n;
-                clock_getttime(CLOCK_MONOTONIC, &ts);
-                n = (uint64_t) ts\&.tv_sec * 1000000 + ts\&.tv_nsec / 1000;
-                msec = t > n ? (int) ((t \- n + 999) / 1000) : 0;
-        }
+  sd_journal_get_timeout(m, &t);
+  if (t == (uint64_t) \-1)
+    msec = \-1;
+  else {
+    struct timespec ts;
+    uint64_t n;
+    clock_getttime(CLOCK_MONOTONIC, &ts);
+    n = (uint64_t) ts\&.tv_sec * 1000000 + ts\&.tv_nsec / 1000;
+    msec = t > n ? (int) ((t \- n + 999) / 1000) : 0;
+  }
 
-        pollfd\&.fd = sd_journal_get_fd(j);
-        pollfd\&.events = sd_journal_get_events(j);
-        poll(&pollfd, 1, msec);
-        return sd_journal_process(j);
+  pollfd\&.fd = sd_journal_get_fd(j);
+  pollfd\&.events = sd_journal_get_events(j);
+  poll(&pollfd, 1, msec);
+  return sd_journal_process(j);
 }
 .fi
 .if n \{\

@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_NEGOTIATE_FDS" "3" "" "systemd 218" "sd_bus_negotiate_fds"
+.TH "SD_BUS_NEGOTIATE_FDS" "3" "" "systemd 219" "sd_bus_negotiate_fds"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -58,7 +58,7 @@ fail with
 on incoming messages\&. Note that not all transports support timestamping of messages\&. On local transports, the timestamping is applied by the kernel and cannot be manipulated by userspace\&. By default, message timestamping is not negotiated for all connections\&.
 .PP
 \fBsd_bus_negotiate_creds()\fR
-controls whether implicit sender credentials shall be attached automatically to all incoming messages\&. Takes a bus object, a boolean indicating wether to enable or disable the credential parts encoded in the bit mask value argument\&. Note that not all transports support attaching sender credentials to messages, or do not support all types of sender credential parameters, or might suppress them under certain circumstances for individual messages\&. On local transports, the sender credentials are attached by the kernel and cannot be manipulated by userspace\&. By default, no sender credentials are attached\&.
+controls whether implicit sender credentials shall be attached automatically to all incoming messages\&. Takes a bus object, a boolean indicating whether to enable or disable the credential parts encoded in the bit mask value argument\&. Note that not all transports support attaching sender credentials to messages, or do not support all types of sender credential parameters, or might suppress them under certain circumstances for individual messages\&. On local transports, the sender credentials are attached by the kernel and cannot be manipulated by userspace\&. By default, no sender credentials are attached\&.
 .PP
 The
 \fBsd_bus_negotiate_fds()\fR

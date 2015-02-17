@@ -22,6 +22,7 @@ MANPAGES += \
 	man/localtime.5 \
 	man/machine-id.5 \
 	man/machine-info.5 \
+	man/networkctl.1 \
 	man/os-release.5 \
 	man/sd-daemon.3 \
 	man/sd-id128.3 \
@@ -64,7 +65,6 @@ MANPAGES += \
 	man/systemd-detect-virt.1 \
 	man/systemd-efi-boot-generator.8 \
 	man/systemd-escape.1 \
-	man/systemd-firstboot.1 \
 	man/systemd-fsck@.service.8 \
 	man/systemd-fstab-generator.8 \
 	man/systemd-getty-generator.8 \
@@ -99,6 +99,7 @@ MANPAGES += \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
 	man/systemd.exec.5 \
+	man/systemd.generator.7 \
 	man/systemd.journal-fields.7 \
 	man/systemd.kill.5 \
 	man/systemd.link.5 \
@@ -198,12 +199,14 @@ MANPAGES_ALIAS += \
 	man/sd_journal_wait.3 \
 	man/sd_machine_get_ifindices.3 \
 	man/sd_notifyf.3 \
+	man/sd_pid_notify.3 \
+	man/sd_pid_notify_with_fds.3 \
+	man/sd_pid_notifyf.3 \
 	man/sleep.conf.d.5 \
 	man/system.conf.d.5 \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.path.8 \
 	man/systemd-ask-password-wall.service.8 \
-	man/systemd-firstboot.service.1 \
 	man/systemd-fsck-root.service.8 \
 	man/systemd-fsck.8 \
 	man/systemd-hibernate-resume.8 \
@@ -308,12 +311,14 @@ man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
 man/sd_machine_get_ifindices.3: man/sd_machine_get_class.3
 man/sd_notifyf.3: man/sd_notify.3
+man/sd_pid_notify.3: man/sd_notify.3
+man/sd_pid_notify_with_fds.3: man/sd_notify.3
+man/sd_pid_notifyf.3: man/sd_notify.3
 man/sleep.conf.d.5: man/systemd-sleep.conf.5
 man/system.conf.d.5: man/systemd-system.conf.5
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
-man/systemd-firstboot.service.1: man/systemd-firstboot.1
 man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
 man/systemd-fsck.8: man/systemd-fsck@.service.8
 man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
@@ -566,6 +571,15 @@ man/sd_machine_get_ifindices.html: man/sd_machine_get_class.html
 man/sd_notifyf.html: man/sd_notify.html
 	$(html-alias)
 
+man/sd_pid_notify.html: man/sd_notify.html
+	$(html-alias)
+
+man/sd_pid_notify_with_fds.html: man/sd_notify.html
+	$(html-alias)
+
+man/sd_pid_notifyf.html: man/sd_notify.html
+	$(html-alias)
+
 man/sleep.conf.d.html: man/systemd-sleep.conf.html
 	$(html-alias)
 
@@ -579,9 +593,6 @@ man/systemd-ask-password-wall.path.html: man/systemd-ask-password-console.servic
 	$(html-alias)
 
 man/systemd-ask-password-wall.service.html: man/systemd-ask-password-console.service.html
-	$(html-alias)
-
-man/systemd-firstboot.service.html: man/systemd-firstboot.html
 	$(html-alias)
 
 man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
@@ -732,6 +743,17 @@ MANPAGES_ALIAS += \
 
 endif
 
+if ENABLE_FIRSTBOOT
+MANPAGES += \
+	man/systemd-firstboot.1
+MANPAGES_ALIAS += \
+	man/systemd-firstboot.service.1
+man/systemd-firstboot.service.1: man/systemd-firstboot.1
+man/systemd-firstboot.service.html: man/systemd-firstboot.html
+	$(html-alias)
+
+endif
+
 if ENABLE_HOSTNAMED
 MANPAGES += \
 	man/hostnamectl.1 \
@@ -741,6 +763,16 @@ MANPAGES_ALIAS += \
 man/systemd-hostnamed.8: man/systemd-hostnamed.service.8
 man/systemd-hostnamed.html: man/systemd-hostnamed.service.html
 	$(html-alias)
+
+endif
+
+if ENABLE_HWDB
+MANPAGES += \
+	man/hwdb.7 \
+	man/systemd-hwdb.8
+MANPAGES_ALIAS += \
+	#
+
 
 endif
 
@@ -1146,10 +1178,16 @@ endif
 if ENABLE_MACHINED
 MANPAGES += \
 	man/machinectl.1 \
+	man/nss-mymachines.8 \
 	man/systemd-machined.service.8
 MANPAGES_ALIAS += \
+	man/libnss_mymachines.so.2.8 \
 	man/systemd-machined.8
+man/libnss_mymachines.so.2.8: man/nss-mymachines.8
 man/systemd-machined.8: man/systemd-machined.service.8
+man/libnss_mymachines.so.2.html: man/nss-mymachines.html
+	$(html-alias)
+
 man/systemd-machined.html: man/systemd-machined.service.html
 	$(html-alias)
 
@@ -1312,8 +1350,10 @@ if HAVE_MYHOSTNAME
 MANPAGES += \
 	man/nss-myhostname.8
 MANPAGES_ALIAS += \
-	#
-
+	man/libnss_myhostname.so.2.8
+man/libnss_myhostname.so.2.8: man/nss-myhostname.8
+man/libnss_myhostname.so.2.html: man/nss-myhostname.html
+	$(html-alias)
 
 endif
 
@@ -1593,6 +1633,7 @@ EXTRA_DIST += \
 	man/halt.xml \
 	man/hostname.xml \
 	man/hostnamectl.xml \
+	man/hwdb.xml \
 	man/journalctl.xml \
 	man/journald.conf.xml \
 	man/kernel-command-line.xml \
@@ -1608,7 +1649,9 @@ EXTRA_DIST += \
 	man/machine-info.xml \
 	man/machinectl.xml \
 	man/modules-load.d.xml \
+	man/networkctl.xml \
 	man/nss-myhostname.xml \
+	man/nss-mymachines.xml \
 	man/os-release.xml \
 	man/pam_systemd.xml \
 	man/resolved.conf.xml \
@@ -1702,6 +1745,7 @@ EXTRA_DIST += \
 	man/systemd-hibernate-resume-generator.xml \
 	man/systemd-hibernate-resume@.service.xml \
 	man/systemd-hostnamed.service.xml \
+	man/systemd-hwdb.xml \
 	man/systemd-inhibit.xml \
 	man/systemd-initctl.service.xml \
 	man/systemd-journal-gatewayd.service.xml \
@@ -1748,6 +1792,7 @@ EXTRA_DIST += \
 	man/systemd.device.xml \
 	man/systemd.directives.xml \
 	man/systemd.exec.xml \
+	man/systemd.generator.xml \
 	man/systemd.index.xml \
 	man/systemd.journal-fields.xml \
 	man/systemd.kill.xml \

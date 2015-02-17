@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [218],
+        [219],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -34,7 +34,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_PREFIX_DEFAULT([/usr])
 AM_MAINTAINER_MODE([enable])
-AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects])
+AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects parallel-tests])
 AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
@@ -97,6 +97,8 @@ AC_PATH_PROG([KILL], [kill], [/usr/bin/kill], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod], [$PATH:/usr/sbin:/sbin])
 
 AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec], [$PATH:/usr/sbin:/sbin])
+
+AC_PATH_PROG([SULOGIN], [sulogin], [/usr/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
 
 AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
 
@@ -310,7 +312,7 @@ LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, LO_FLAGS_PARTSCAN],
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2, kcmp, LO_FLAGS_PARTSCAN],
                [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
@@ -321,7 +323,9 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, LO_FLAG
 #include <linux/random.h>
 ]])
 
-AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
+AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
+                IFLA_MACVLAN_FLAGS,
+                IFLA_IPVLAN_MODE,
                 IFLA_VTI_REMOTE,
                 IFLA_PHYS_PORT_ID,
                 IFLA_BOND_AD_INFO,
@@ -432,7 +436,7 @@ AM_CONDITIONAL(HAVE_XKBCOMMON, [test "$have_xkbcommon" = "yes"])
 have_blkid=no
 AC_ARG_ENABLE(blkid, AS_HELP_STRING([--disable-blkid], [disable blkid support]))
 if test "x$enable_blkid" != "xno"; then
-        PKG_CHECK_MODULES(BLKID, [ blkid >= 2.20 ],
+        PKG_CHECK_MODULES(BLKID, [ blkid >= 2.24 ],
                 [AC_DEFINE(HAVE_BLKID, 1, [Define if blkid is available]) have_blkid=yes], have_blkid=no)
         if test "x$have_blkid" = xno -a "x$enable_blkid" = xyes; then
                 AC_MSG_ERROR([*** blkid support requested but libraries not found])
@@ -556,7 +560,7 @@ have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
         PKG_CHECK_MODULES(XZ, [ liblzma ],
-                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes])
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
         if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
                 AC_MSG_ERROR([*** XZ support requested but libraries not found])
         fi
@@ -564,9 +568,33 @@ fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_zlib=no
+AC_ARG_ENABLE(zlib, AS_HELP_STRING([--disable-zlib], [Disable optional ZLIB support]))
+if test "x$enable_zlib" != "xno"; then
+        PKG_CHECK_MODULES(ZLIB, [ zlib ],
+                [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available]) have_zlib=yes], have_zlib=no)
+        if test "x$have_zlib" = xno -a "x$enable_zlib" = xyes; then
+                AC_MSG_ERROR([*** ZLIB support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_bzip2=no
+AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Disable optional BZIP2 support]))
+AS_IF([test "x$enable_bzip2" != "xno"], [
+        AC_CHECK_HEADERS(bzlib.h,
+                [AC_DEFINE(HAVE_BZIP2, 1, [Define in BZIP2 is available])
+                 have_bzip2=yes],
+                [AS_IF([test "x$have_bzip2" = xyes], [AC_MSG_ERROR([*** BZIP2 support requested but headers not found])])
+        ])
+])
+AM_CONDITIONAL(HAVE_BZIP2, [test "$have_bzip2" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_lz4=no
 AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
-AS_IF([test "x$enable_lz4" == "xyes"], [
+AS_IF([test "x$enable_lz4" = "xyes"], [
         AC_CHECK_HEADERS(lz4.h,
                [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available]) have_lz4=yes],
                [AC_MSG_ERROR([*** LZ4 support requested but headers not found])])
@@ -643,6 +671,7 @@ if test "x${have_acl}" != xno ; then
         if test "x$have_acl" = xyes ; then
                 ACL_LIBS="-lacl"
                 AC_DEFINE(HAVE_ACL, 1, [ACL available])
+                M4_DEFINES="$M4_DEFINES -DHAVE_ACL"
         else
                 have_acl=no
         fi
@@ -870,6 +899,21 @@ fi
 AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libiptc=no
+AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [Disable optional LIBIPTC support]))
+if test "x$enable_libiptc" != "xno"; then
+        PKG_CHECK_MODULES(LIBIPTC, [libiptc],
+               [AC_DEFINE(HAVE_LIBIPTC, 1, [Define if libiptc is available])
+                have_libiptc=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_LIBIPTC"],
+               [have_libiptc=no])
+        if test "x$have_libiptc" = "xno" -a "x$enable_libiptc" = "xyes"; then
+                AC_MSG_ERROR([*** libiptc support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBIPTC, [test "$have_libiptc" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -966,6 +1010,15 @@ if test "x$enable_machined" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_MACHINED, [test "$have_machined" = "yes"])
 AS_IF([test "$have_machined" = "yes"], [ AC_DEFINE(HAVE_MACHINED, [1], [Machined support available]) ])
+
+# ------------------------------------------------------------------------------
+have_importd=no
+AC_ARG_ENABLE(importd, AS_HELP_STRING([--disable-importd], [disable import daemon]))
+if test "x$enable_importd" != "xno"; then
+        have_importd=yes
+fi
+AM_CONDITIONAL(ENABLE_IMPORTD, [test "$have_importd" = "yes"])
+AS_IF([test "$have_importd" = "yes"], [ AC_DEFINE(HAVE_IMPORTD, [1], [Importd support available]) ])
 
 # ------------------------------------------------------------------------------
 have_hostnamed=no
@@ -1092,16 +1145,25 @@ fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_WITH(unifont,
+        AS_HELP_STRING([--with-unifont=PATH],
+                [Path to unifont.hex]),
+        [UNIFONT="$withval"],
+        [UNIFONT="/usr/share/unifont/unifont.hex"])
+AC_SUBST(UNIFONT)
+
 have_terminal=no
+have_unifont=no
 AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
 if test "x$enable_terminal" = "xyes"; then
         PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.5 libdrm >= 2.4], [have_terminal=yes])
-        AS_IF([test "x$have_terminal" != xyes -a "x$enable_terminal" = xyes],
+        AC_CHECK_FILE($UNIFONT, [have_unifont=yes])
+        AS_IF([test "x$have_terminal" != xyes -o "x$have_unifont" != "xyes" -a "x$enable_terminal" = xyes],
               [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
-              [test "x$have_terminal" = xyes],
+              [test "x$have_terminal" = xyes -a "x$have_unifont" = "xyes"],
               [AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])])
 fi
-AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes"])
+AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes" -a "x$have_unifont" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_kdbus=no
@@ -1191,6 +1253,11 @@ AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
 AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if glib is available]) ])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE(hwdb, [AC_HELP_STRING([--disable-hwdb], [disable hardware database support])],
+       enable_hwdb=$enableval, enable_hwdb=yes)
+AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
+
+# ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
 AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
@@ -1253,22 +1320,17 @@ AC_SUBST(TTY_GID)
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
         [],
-        [with_dbuspolicydir=$($PKG_CONFIG --variable=sysconfdir dbus-1)/dbus-1/system.d])
+        [with_dbuspolicydir=${sysconfdir}/dbus-1/system.d])
 
 AC_ARG_WITH([dbussessionservicedir],
         AS_HELP_STRING([--with-dbussessionservicedir=DIR], [D-Bus session service directory]),
         [],
-        [with_dbussessionservicedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)])
+        [with_dbussessionservicedir=${datadir}/dbus-1/services])
 
 AC_ARG_WITH([dbussystemservicedir],
         AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
         [],
-        [with_dbussystemservicedir=$(readlink -m $($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../system-services)])
-
-AC_ARG_WITH([dbusinterfacedir],
-        AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
-        [],
-        [with_dbusinterfacedir=$(readlink -m $($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../interfaces)])
+        [with_dbussystemservicedir=${datadir}/dbus-1/system-services])
 
 AC_ARG_WITH([bashcompletiondir],
         AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
@@ -1311,6 +1373,14 @@ AC_ARG_ENABLE([split-usr],
                 enable_split_usr=no
         ])])
 
+AC_ARG_WITH([dkr-index-url],
+        [AS_HELP_STRING([--dkr-index-url=URL], [Specify the default index URL to use for image downloads])],
+        [DEFAULT_DKR_INDEX_URL="\"$withval\""],
+        [DEFAULT_DKR_INDEX_URL="NULL"])
+
+AC_DEFINE_UNQUOTED(DEFAULT_DKR_INDEX_URL, [$DEFAULT_DKR_INDEX_URL], [Default index URL to use for image downloads])
+AC_SUBST(DEFAULT_DKR_INDEX_URL)
+
 AS_IF([test "x${enable_split_usr}" = "xyes"], [
         AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
 ])
@@ -1323,21 +1393,43 @@ AS_IF([test "x$0" != "x./configure"], [
 ])
 
 AC_ARG_ENABLE(tests,
-       [AC_HELP_STRING([--disable-tests], [disable tests])],
-       enable_tests=$enableval, enable_tests=yes)
+        [AC_HELP_STRING([--disable-tests], [disable tests])],
+        enable_tests=$enableval, enable_tests=yes)
 AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
 
-AC_ARG_ENABLE(hashmap-debug,
-       [AC_HELP_STRING([--enable-hashmap-debug], [enable hashmap debugging])],
-       enable_hashmap_debug=$enableval, enable_hashmap_debug=no)
-AS_IF([test x$enable_hashmap_debug = xyes], [
-        AC_DEFINE(ENABLE_HASHMAP_DEBUG, 1, [Define if hashmap debugging is to be enabled])
+AC_ARG_ENABLE(debug,
+        [AC_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap,mmap-cache)])],
+        [if test "x$enableval" = "xyes"; then
+                enableval="hashmap,mmap-cache"
+        fi
+        saved_ifs="$IFS"
+        IFS="$IFS$PATH_SEPARATOR,"
+        for name in $enableval; do
+                case $name in
+                hashmap)
+                        enable_debug_hashmap=yes
+                        ;;
+                mmap-cache)
+                        enable_debug_mmap_cache=yes
+                        ;;
+                esac
+        done
+        IFS="$saved_ifs"],[])
+
+enable_debug=""
+AS_IF([test x$enable_debug_hashmap = xyes], [
+        AC_DEFINE(ENABLE_DEBUG_HASHMAP, 1, [Define if hashmap debugging is to be enabled])
+        enable_debug="hashmap $enable_debug"
 ])
+AS_IF([test x$enable_debug_mmap_cache = xyes], [
+        AC_DEFINE(ENABLE_DEBUG_MMAP_CACHE, 1, [Define if mmap cache debugging is to be enabled])
+        enable_debug="mmap-cache $enable_debug"
+])
+test -z "$enable_debug" && enable_debug="none"
 
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
-AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
 AC_SUBST([zshcompletiondir], [$with_zshcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
@@ -1365,8 +1457,10 @@ AC_MSG_RESULT([
         SELinux:                 ${have_selinux}
         SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}
+        ZLIB:                    ${have_zlib}
         XZ:                      ${have_xz}
         LZ4:                     ${have_lz4}
+        BZIP2:                   ${have_bzip2}
         ACL:                     ${have_acl}
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}
@@ -1375,6 +1469,7 @@ AC_MSG_RESULT([
         GNUTLS:                  ${have_gnutls}
         libcurl:                 ${have_libcurl}
         libidn:                  ${have_libidn}
+        libiptc:                 ${have_libiptc}
         ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
@@ -1388,6 +1483,7 @@ AC_MSG_RESULT([
         rfkill:                  ${have_rfkill}
         logind:                  ${have_logind}
         machined:                ${have_machined}
+        importd:                 ${have_importd}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         timesyncd:               ${have_timesyncd}
@@ -1407,6 +1503,7 @@ AC_MSG_RESULT([
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
+        hwdb:                    ${enable_hwdb}
         gintrospection:          ${enable_introspection}
         terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
@@ -1419,6 +1516,9 @@ AC_MSG_RESULT([
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         compatibility libraries: ${have_compat_libs}
         utmp/wtmp support:       ${have_utmp}
+        ldconfig support:        ${enable_ldconfig}
+        hibernate support:       ${enable_hibernate}
+        extra debugging:         ${enable_debug}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
@@ -1438,7 +1538,6 @@ AC_MSG_RESULT([
         D-Bus policy dir:        ${with_dbuspolicydir}
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}
-        D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Bash completions dir:    ${with_bashcompletiondir}
         Zsh completions dir:     ${with_zshcompletiondir}
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
@@ -1448,6 +1547,7 @@ AC_MSG_RESULT([
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
         Certificate root:        ${CERTIFICATEROOT}
+        Default dkr Index        ${DEFAULT_DKR_INDEX_URL}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

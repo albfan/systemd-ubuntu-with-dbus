@@ -32,6 +32,7 @@
 #include "sd-icmp6-nd.h"
 #include "sd-dhcp6-client.h"
 #include "udev.h"
+#include "sd-lldp.h"
 
 #include "rtnl-util.h"
 #include "hashmap.h"
@@ -51,15 +52,17 @@ typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
 typedef struct AddressPool AddressPool;
+typedef struct FdbEntry FdbEntry;
 
-typedef enum DHCPSupport {
-        DHCP_SUPPORT_NONE,
-        DHCP_SUPPORT_BOTH,
-        DHCP_SUPPORT_V4,
-        DHCP_SUPPORT_V6,
-        _DHCP_SUPPORT_MAX,
-        _DHCP_SUPPORT_INVALID = -1,
-} DHCPSupport;
+typedef enum AddressFamilyBoolean {
+        /* This is a bitmask, though it usually doesn't feel that way! */
+        ADDRESS_FAMILY_NO = 0,
+        ADDRESS_FAMILY_IPV4 = 1,
+        ADDRESS_FAMILY_IPV6 = 2,
+        ADDRESS_FAMILY_YES = 3,
+        _ADDRESS_FAMILY_BOOLEAN_MAX,
+        _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
+} AddressFamilyBoolean;
 
 typedef enum LLMNRSupport {
         LLMNR_SUPPORT_NO,
@@ -69,17 +72,38 @@ typedef enum LLMNRSupport {
         _LLMNR_SUPPORT_INVALID = -1,
 } LLMNRSupport;
 
+typedef enum LinkOperationalState {
+        LINK_OPERSTATE_OFF,
+        LINK_OPERSTATE_NO_CARRIER,
+        LINK_OPERSTATE_DORMANT,
+        LINK_OPERSTATE_CARRIER,
+        LINK_OPERSTATE_DEGRADED,
+        LINK_OPERSTATE_ROUTABLE,
+        _LINK_OPERSTATE_MAX,
+        _LINK_OPERSTATE_INVALID = -1
+} LinkOperationalState;
+
+struct FdbEntry {
+        Network *network;
+        unsigned section;
+
+        struct ether_addr *mac_addr;
+        uint16_t vlan_id;
+
+        LIST_FIELDS(FdbEntry, static_fdb_entries);
+};
+
 struct Network {
         Manager *manager;
 
         char *filename;
+        char *name;
 
         struct ether_addr *match_mac;
-        char *match_path;
-        char *match_driver;
-        char *match_type;
-        char *match_name;
-        char *dhcp_vendor_class_identifier;
+        char **match_path;
+        char **match_driver;
+        char **match_type;
+        char **match_name;
 
         Condition *match_host;
         Condition *match_virt;
@@ -90,7 +114,8 @@ struct Network {
         NetDev *bridge;
         NetDev *bond;
         Hashmap *stacked_netdevs;
-        DHCPSupport dhcp;
+        AddressFamilyBoolean dhcp;
+        char *dhcp_vendor_class_identifier;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
@@ -101,21 +126,29 @@ struct Network {
         bool dhcp_critical;
         bool dhcp_routes;
         unsigned dhcp_route_metric;
-        bool ipv4ll;
+        AddressFamilyBoolean link_local;
         bool ipv4ll_route;
+        union in_addr_union ipv6_token;
 
         bool dhcp_server;
 
         unsigned cost;
 
+        AddressFamilyBoolean ip_forward;
+        bool ip_masquerade;
+
         struct ether_addr *mac;
         unsigned mtu;
 
+        bool lldp;
+
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
+        LIST_HEAD(FdbEntry, static_fdb_entries);
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
+        Hashmap *fdb_entries_by_section;
 
         bool wildcard_domain;
         char **domains, **dns, **ntp;
@@ -140,6 +173,8 @@ struct Address {
 
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
+
+        bool ip_masquerade_done;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -177,15 +212,21 @@ struct AddressPool {
 struct Manager {
         sd_rtnl *rtnl;
         sd_event *event;
+        sd_event_source *bus_retry_event_source;
         sd_bus *bus;
+        sd_bus_slot *prepare_for_sleep_slot;
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
 
+        bool enumerating;
+
         char *state_file;
+        LinkOperationalState operational_state;
 
         Hashmap *links;
         Hashmap *netdevs;
+        Hashmap *networks_by_name;
         LIST_HEAD(Network, networks);
         LIST_HEAD(AddressPool, address_pools);
 
@@ -196,8 +237,13 @@ extern const char* const network_dirs[];
 
 /* Manager */
 
+extern const sd_bus_vtable manager_vtable[];
+
 int manager_new(Manager **ret);
 void manager_free(Manager *m);
+
+int manager_connect_bus(Manager *m);
+int manager_run(Manager *m);
 
 int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
@@ -205,10 +251,7 @@ bool manager_should_reload(Manager *m);
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);
 
-int manager_rtnl_listen(Manager *m);
-int manager_udev_listen(Manager *m);
-int manager_bus_listen(Manager *m);
-
+int manager_send_changed(Manager *m, const char *property, ...) _sentinel_;
 int manager_save(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
@@ -225,6 +268,7 @@ void network_free(Network *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 #define _cleanup_network_free_ _cleanup_(network_freep)
 
+int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, struct udev_device *device,
                 const char *ifname, const struct ether_addr *mac,
                 Network **ret);
@@ -278,6 +322,11 @@ int config_parse_vxlan_group_address(const char *unit,
                                      void *data,
                                      void *userdata);
 
+extern const sd_bus_vtable network_vtable[];
+
+int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
+int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+
 /* gperf */
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);
 
@@ -303,6 +352,10 @@ int config_parse_destination(const char *unit, const char *filename, unsigned li
 int config_parse_route_priority(const char *unit, const char *filename, unsigned line,
                                 const char *section, unsigned section_line, const char *lvalue,
                                 int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_route_scope(const char *unit, const char *filename, unsigned line,
+                             const char *section, unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data, void *userdata);
 /* Address */
 int address_new_static(Network *network, unsigned section, Address **ret);
 int address_new_dynamic(Address **ret);
@@ -310,6 +363,8 @@ void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 int address_update(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callback);
+int address_establish(Address *address, Link *link);
+int address_release(Address *address, Link *link);
 bool address_equal(Address *a1, Address *a2);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
@@ -327,14 +382,38 @@ int config_parse_label(const char *unit, const char *filename, unsigned line,
                        const char *section, unsigned section_line, const char *lvalue,
                        int ltype, const char *rvalue, void *data, void *userdata);
 
-/* DHCP support */
+/* Forwarding database table. */
+int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry);
+void fdb_entry_free(FdbEntry *fdb_entry);
+int fdb_entry_new_static(Network *const network, const unsigned section, FdbEntry **ret);
 
-const char* dhcp_support_to_string(DHCPSupport i) _const_;
-DHCPSupport dhcp_support_from_string(const char *s) _pure_;
+DEFINE_TRIVIAL_CLEANUP_FUNC(FdbEntry*, fdb_entry_free);
+#define _cleanup_fdbentry_free_ _cleanup_(fdb_entry_freep)
+
+int config_parse_fdb_hwaddr(const char *unit, const char *filename, unsigned line,
+                            const char *section, unsigned section_line, const char *lvalue,
+                            int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_fdb_vlan_id(const char *unit, const char *filename, unsigned line,
+                             const char *section, unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data, void *userdata);
+
+/* DHCP support */
 
 int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
                       const char *section, unsigned section_line, const char *lvalue,
                       int ltype, const char *rvalue, void *data, void *userdata);
+
+/* IPv4LL support (legacy) */
+
+int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line,
+                        const char *section, unsigned section_line, const char *lvalue,
+                        int ltype, const char *rvalue, void *data, void *userdata);
+
+/* IPv6 support */
+int config_parse_ipv6token(const char *unit, const char *filename, unsigned line,
+                           const char *section, unsigned section_line, const char *lvalue,
+                           int ltype, const char *rvalue, void *data, void *userdata);
 
 /* LLMNR support */
 
@@ -352,3 +431,13 @@ int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, cons
 void address_pool_free(AddressPool *p);
 
 int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
+
+const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
+AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;
+
+int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+/* Opeartional State */
+
+const char* link_operstate_to_string(LinkOperationalState s) _const_;
+LinkOperationalState link_operstate_from_string(const char *s) _pure_;

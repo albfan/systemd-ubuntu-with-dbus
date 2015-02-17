@@ -259,8 +259,8 @@ typedef enum UnitSetPropertiesMode {
 #include "automount.h"
 #include "swap.h"
 #include "timer.h"
-#include "path.h"
 #include "slice.h"
+#include "path.h"
 #include "scope.h"
 
 struct UnitVTable {
@@ -284,7 +284,7 @@ struct UnitVTable {
          * that */
         size_t exec_runtime_offset;
 
-        /* The name of the configuration file section with the private settings of this unit*/
+        /* The name of the configuration file section with the private settings of this unit */
         const char *private_section;
 
         /* Config file sections this unit type understands, separated
@@ -345,6 +345,10 @@ struct UnitVTable {
          * way */
         bool (*check_gc)(Unit *u);
 
+        /* When the unit is not running and no job for it queued we
+         * shall release its runtime resources */
+        void (*release_resources)(Unit *u);
+
         /* Return true when this unit is suitable for snapshotting */
         bool (*check_snapshot)(Unit *u);
 
@@ -359,7 +363,7 @@ struct UnitVTable {
         void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, pid_t pid, char **tags);
+        void (*notify_message)(Unit *u, pid_t pid, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or
          * goes away. */
@@ -395,6 +399,10 @@ struct UnitVTable {
 
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
+
+        /* If this function is set and return false all jobs for units
+         * of this type will immediately fail. */
+        bool (*supported)(Manager *m);
 
         /* The interface name */
         const char *bus_interface;

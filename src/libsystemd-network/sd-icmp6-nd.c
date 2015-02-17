@@ -18,9 +18,11 @@
 ***/
 
 #include <netinet/icmp6.h>
+#include <netinet/ip6.h>
 #include <string.h>
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 
 #include "socket-util.h"
 #include "refcnt.h"
@@ -38,6 +40,22 @@ enum icmp6_nd_state {
         ICMP6_ROUTER_ADVERTISMENT_LISTEN        = 11,
 };
 
+#define IP6_MIN_MTU (unsigned)1280
+#define ICMP6_ND_RECV_SIZE (IP6_MIN_MTU - sizeof(struct ip6_hdr))
+#define ICMP6_OPT_LEN_UNITS 8
+
+typedef struct ICMP6Prefix ICMP6Prefix;
+
+struct ICMP6Prefix {
+        RefCount n_ref;
+
+        LIST_FIELDS(ICMP6Prefix, prefixes);
+
+        uint8_t len;
+        sd_event_source *timeout_valid;
+        struct in6_addr addr;
+};
+
 struct sd_icmp6_nd {
         RefCount n_ref;
 
@@ -46,6 +64,9 @@ struct sd_icmp6_nd {
         int event_priority;
         int index;
         struct ether_addr mac_addr;
+        uint32_t mtu;
+        ICMP6Prefix *expired_prefix;
+        LIST_HEAD(ICMP6Prefix, prefixes);
         int fd;
         sd_event_source *recv;
         sd_event_source *timeout;
@@ -55,6 +76,35 @@ struct sd_icmp6_nd {
 };
 
 #define log_icmp6_nd(p, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "ICMPv6 CLIENT: " fmt, ##__VA_ARGS__)
+
+static ICMP6Prefix *icmp6_prefix_unref(ICMP6Prefix *prefix) {
+        if (prefix && REFCNT_DEC(prefix->n_ref) <= 0) {
+                prefix->timeout_valid =
+                        sd_event_source_unref(prefix->timeout_valid);
+
+                free(prefix);
+        }
+
+        return NULL;
+}
+
+static int icmp6_prefix_new(ICMP6Prefix **ret) {
+        _cleanup_free_ ICMP6Prefix *prefix = NULL;
+
+        assert(ret);
+
+        prefix = new0(ICMP6Prefix, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        prefix->n_ref = REFCNT_INIT;
+        LIST_INIT(prefixes, prefix);
+
+        *ret = prefix;
+        prefix = NULL;
+
+        return 0;
+}
 
 static void icmp6_nd_notify(sd_icmp6_nd *nd, int event)
 {
@@ -87,7 +137,7 @@ int sd_icmp6_nd_set_mac(sd_icmp6_nd *nd, const struct ether_addr *mac_addr) {
         if (mac_addr)
                 memcpy(&nd->mac_addr, mac_addr, sizeof(nd->mac_addr));
         else
-                memset(&nd->mac_addr, 0x00, sizeof(nd->mac_addr));
+                zero(nd->mac_addr);
 
         return 0;
 
@@ -145,10 +195,17 @@ static int icmp6_nd_init(sd_icmp6_nd *nd) {
 }
 
 sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
-        if (nd && REFCNT_DEC(nd->n_ref) <= 0) {
+        if (nd && REFCNT_DEC(nd->n_ref) == 0) {
+                ICMP6Prefix *prefix, *p;
 
                 icmp6_nd_init(nd);
                 sd_icmp6_nd_detach_event(nd);
+
+                LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
+                        LIST_REMOVE(prefixes, nd->prefixes, prefix);
+
+                        prefix = icmp6_prefix_unref(prefix);
+                }
 
                 free(nd);
         }
@@ -173,8 +230,297 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
         nd->index = -1;
         nd->fd = -1;
 
+        LIST_HEAD_INIT(nd->prefixes);
+
         *ret = nd;
         nd = NULL;
+
+        return 0;
+}
+
+int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu) {
+        assert_return(nd, -EINVAL);
+        assert_return(mtu, -EINVAL);
+
+        if (nd->mtu == 0)
+                return -ENOMSG;
+
+        *mtu = nd->mtu;
+
+        return 0;
+}
+
+static int icmp6_ra_prefix_timeout(sd_event_source *s, uint64_t usec,
+                                   void *userdata) {
+        sd_icmp6_nd *nd = userdata;
+        ICMP6Prefix *prefix, *p;
+
+        assert(nd);
+
+        LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
+                if (prefix->timeout_valid != s)
+                        continue;
+
+                log_icmp6_nd(nd, "Prefix expired "SD_ICMP6_ADDRESS_FORMAT_STR"/%d",
+                             SD_ICMP6_ADDRESS_FORMAT_VAL(prefix->addr),
+                             prefix->len);
+
+                LIST_REMOVE(prefixes, nd->prefixes, prefix);
+
+                nd->expired_prefix = prefix;
+                icmp6_nd_notify(nd,
+                                ICMP6_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
+                nd->expired_prefix = NULL;
+
+                prefix = icmp6_prefix_unref(prefix);
+
+                break;
+        }
+
+        return 0;
+}
+
+static int icmp6_ra_prefix_set_timeout(sd_icmp6_nd *nd,
+                                       ICMP6Prefix *prefix,
+                                       usec_t valid) {
+        usec_t time_now;
+        int r;
+
+        assert_return(prefix, -EINVAL);
+
+        r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        prefix->timeout_valid = sd_event_source_unref(prefix->timeout_valid);
+
+        r = sd_event_add_time(nd->event, &prefix->timeout_valid,
+                        clock_boottime_or_monotonic(), time_now + valid,
+                        USEC_PER_SEC, icmp6_ra_prefix_timeout, nd);
+        if (r < 0)
+                goto error;
+
+        r = sd_event_source_set_priority(prefix->timeout_valid,
+                                        nd->event_priority);
+        if (r < 0)
+                goto error;
+
+        r = sd_event_source_set_description(prefix->timeout_valid,
+                                        "icmp6-prefix-timeout");
+
+error:
+        if (r < 0)
+                prefix->timeout_valid =
+                        sd_event_source_unref(prefix->timeout_valid);
+
+        return r;
+}
+
+static int icmp6_prefix_match(const struct in6_addr *prefix, uint8_t prefixlen,
+                              const struct in6_addr *addr,
+                              uint8_t addr_prefixlen) {
+        uint8_t bytes, mask, len;
+
+        assert_return(prefix, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        len = MIN(prefixlen, addr_prefixlen);
+
+        bytes = len / 8;
+        mask = 0xff << (8 - len % 8);
+
+        if (memcmp(prefix, addr, bytes) != 0 ||
+            (prefix->s6_addr[bytes] & mask) != (addr->s6_addr[bytes] & mask))
+                return -EADDRNOTAVAIL;
+
+        return 0;
+}
+
+static int icmp6_ra_prefix_match(ICMP6Prefix *head, const struct in6_addr *addr,
+                                 uint8_t addr_len, ICMP6Prefix **result) {
+        ICMP6Prefix *prefix;
+
+        LIST_FOREACH(prefixes, prefix, head) {
+                if (icmp6_prefix_match(&prefix->addr, prefix->len, addr,
+                                       addr_len) >= 0) {
+                        *result = prefix;
+                        return 0;
+                }
+        }
+
+        return -EADDRNOTAVAIL;
+}
+
+int sd_icmp6_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
+                          struct in6_addr *addr) {
+        return icmp6_prefix_match(prefix, prefixlen, addr,
+                                  sizeof(addr->s6_addr) * 8);
+}
+
+int sd_icmp6_ra_get_prefixlen(sd_icmp6_nd *nd, const struct in6_addr *addr,
+                              uint8_t *prefixlen) {
+        int r;
+        ICMP6Prefix *prefix;
+
+        assert_return(nd, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(prefixlen, -EINVAL);
+
+        r = icmp6_ra_prefix_match(nd->prefixes, addr,
+                                  sizeof(addr->s6_addr) * 8, &prefix);
+        if (r < 0)
+                return r;
+
+        *prefixlen = prefix->len;
+
+        return 0;
+}
+
+int sd_icmp6_ra_get_expired_prefix(sd_icmp6_nd *nd, struct in6_addr **addr,
+                                uint8_t *prefixlen)
+{
+        assert_return(nd, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(prefixlen, -EINVAL);
+
+        if (!nd->expired_prefix)
+                return -EADDRNOTAVAIL;
+
+        *addr = &nd->expired_prefix->addr;
+        *prefixlen = nd->expired_prefix->len;
+
+        return 0;
+}
+
+static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
+                                  const struct nd_opt_prefix_info *prefix_opt) {
+        int r;
+        ICMP6Prefix *prefix;
+        uint32_t lifetime;
+        char time_string[FORMAT_TIMESPAN_MAX];
+
+        assert_return(nd, -EINVAL);
+        assert_return(prefix_opt, -EINVAL);
+
+        if (len < prefix_opt->nd_opt_pi_len)
+                return -ENOMSG;
+
+        if (!(prefix_opt->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_ONLINK))
+                return 0;
+
+        lifetime = be32toh(prefix_opt->nd_opt_pi_valid_time);
+
+        r = icmp6_ra_prefix_match(nd->prefixes,
+                                  &prefix_opt->nd_opt_pi_prefix,
+                                  prefix_opt->nd_opt_pi_prefix_len, &prefix);
+
+        if (r < 0 && r != -EADDRNOTAVAIL)
+                return r;
+
+        /* if router advertisment prefix valid timeout is zero, the timeout
+           callback will be called immediately to clean up the prefix */
+
+        if (r == -EADDRNOTAVAIL) {
+                r = icmp6_prefix_new(&prefix);
+                if (r < 0)
+                        return r;
+
+                prefix->len = prefix_opt->nd_opt_pi_prefix_len;
+
+                memcpy(&prefix->addr, &prefix_opt->nd_opt_pi_prefix,
+                        sizeof(prefix->addr));
+
+                log_icmp6_nd(nd, "New prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
+                             SD_ICMP6_ADDRESS_FORMAT_VAL(prefix->addr),
+                             prefix->len, lifetime,
+                             format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                             lifetime * USEC_PER_SEC, 0));
+
+                LIST_PREPEND(prefixes, nd->prefixes, prefix);
+
+        } else {
+                if (prefix->len != prefix_opt->nd_opt_pi_prefix_len) {
+                        uint8_t prefixlen;
+
+                        prefixlen = MIN(prefix->len, prefix_opt->nd_opt_pi_prefix_len);
+
+                        log_icmp6_nd(nd, "Prefix length mismatch %d/%d using %d",
+                                     prefix->len,
+                                     prefix_opt->nd_opt_pi_prefix_len,
+                                     prefixlen);
+
+                        prefix->len = prefixlen;
+                }
+
+                log_icmp6_nd(nd, "Update prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
+                             SD_ICMP6_ADDRESS_FORMAT_VAL(prefix->addr),
+                             prefix->len, lifetime,
+                             format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                             lifetime * USEC_PER_SEC, 0));
+        }
+
+        r = icmp6_ra_prefix_set_timeout(nd, prefix, lifetime * USEC_PER_SEC);
+
+        return r;
+}
+
+static int icmp6_ra_parse(sd_icmp6_nd *nd, struct nd_router_advert *ra,
+                          ssize_t len) {
+        void *opt;
+        struct nd_opt_hdr *opt_hdr;
+
+        assert_return(nd, -EINVAL);
+        assert_return(ra, -EINVAL);
+
+        len -= sizeof(*ra);
+        if (len < ICMP6_OPT_LEN_UNITS) {
+                log_icmp6_nd(nd, "Router Advertisement below minimum length");
+
+                return -ENOMSG;
+        }
+
+        opt = ra + 1;
+        opt_hdr = opt;
+
+        while (len != 0 && len >= opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS) {
+                struct nd_opt_mtu *opt_mtu;
+                uint32_t mtu;
+                struct nd_opt_prefix_info *opt_prefix;
+
+                if (opt_hdr->nd_opt_len == 0)
+                        return -ENOMSG;
+
+                switch (opt_hdr->nd_opt_type) {
+                case ND_OPT_MTU:
+                        opt_mtu = opt;
+
+                        mtu = be32toh(opt_mtu->nd_opt_mtu_mtu);
+
+                        if (mtu != nd->mtu) {
+                                nd->mtu = MAX(mtu, IP6_MIN_MTU);
+
+                                log_icmp6_nd(nd, "Router Advertisement link MTU %d using %d",
+                                             mtu, nd->mtu);
+                        }
+
+                        break;
+
+                case ND_OPT_PREFIX_INFORMATION:
+                        opt_prefix = opt;
+
+                        icmp6_ra_prefix_update(nd, len, opt_prefix);
+
+                        break;
+                }
+
+                len -= opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS;
+                opt = (void *)((char *)opt +
+                        opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS);
+                opt_hdr = opt;
+        }
+
+        if (len > 0)
+                log_icmp6_nd(nd, "Router Advertisement contains %zd bytes of trailing garbage", len);
 
         return 0;
 }
@@ -183,40 +529,57 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd,
                                           uint32_t revents, void *userdata)
 {
         sd_icmp6_nd *nd = userdata;
+        int r, buflen = 0;
         ssize_t len;
-        struct nd_router_advert ra;
+        _cleanup_free_ struct nd_router_advert *ra = NULL;
         int event = ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE;
 
         assert(s);
         assert(nd);
         assert(nd->event);
 
-        /* only interested in Managed/Other flag */
-        len = read(fd, &ra, sizeof(ra));
-        if ((size_t)len < sizeof(ra))
+        r = ioctl(fd, FIONREAD, &buflen);
+        if (r < 0 || buflen <= 0)
+                buflen = ICMP6_ND_RECV_SIZE;
+
+        ra = malloc(buflen);
+        if (!ra)
+                return -ENOMEM;
+
+        len = read(fd, ra, buflen);
+        if (len < 0) {
+                log_icmp6_nd(nd, "Could not receive message from UDP socket: %m");
+                return 0;
+        }
+
+        if (ra->nd_ra_type != ND_ROUTER_ADVERT)
                 return 0;
 
-        if (ra.nd_ra_type != ND_ROUTER_ADVERT)
-                return 0;
-
-        if (ra.nd_ra_code != 0)
+        if (ra->nd_ra_code != 0)
                 return 0;
 
         nd->timeout = sd_event_source_unref(nd->timeout);
 
         nd->state = ICMP6_ROUTER_ADVERTISMENT_LISTEN;
 
-        if (ra.nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
+        if (ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
                 event = ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER;
 
-        if (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
+        if (ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
                 event = ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
         log_icmp6_nd(nd, "Received Router Advertisement flags %s/%s",
-                     (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)? "MANAGED":
-                     "none",
-                     (ra.nd_ra_flags_reserved & ND_RA_FLAG_OTHER)? "OTHER":
-                     "none");
+                     ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED? "MANAGED": "none",
+                     ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER? "OTHER": "none");
+
+        if (event != ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE) {
+                r = icmp6_ra_parse(nd, ra, len);
+                if (r < 0) {
+                        log_icmp6_nd(nd, "Could not parse Router Advertisement: %s",
+                                     strerror(-r));
+                        return 0;
+                }
+        }
 
         icmp6_nd_notify(nd, event);
 

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-CRYPTSETUP\-GENERATOR" "8" "" "systemd 218" "systemd-cryptsetup-generator"
+.TH "SYSTEMD\-CRYPTSETUP\-GENERATOR" "8" "" "systemd 219" "systemd-cryptsetup-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -83,7 +83,9 @@ If /etc/crypttab exists, only those UUIDs specified on the kernel command line w
 .PP
 \fIluks\&.name=\fR, \fIrd\&.luks\&.name=\fR
 .RS 4
-Takes a LUKS super block UUID followed by an \*(Aq=\*(Aq and a name\&. This implies
+Takes a LUKS super block UUID followed by an
+"="
+and a name\&. This implies
 \fIrd\&.luks\&.uuid=\fR
 or
 \fIluks\&.uuid=\fR
@@ -97,9 +99,12 @@ is honored by both the main system and the initrd\&.
 .PP
 \fIluks\&.options=\fR, \fIrd\&.luks\&.options=\fR
 .RS 4
-Takes a LUKS super block UUID followed by an \*(Aq=\*(Aq and a string of options separated by commas as argument\&. This will override the options for the given UUID\&.
+Takes a LUKS super block UUID followed by an
+"="
+and a string of options separated by commas as argument\&. This will override the options for the given UUID\&.
 .sp
-If only a list of options, without an UUID, is specified, they apply to any UUIDs not specified elsewhere, and without an entry in /etc/crypttab\&.
+If only a list of options, without an UUID, is specified, they apply to any UUIDs not specified elsewhere, and without an entry in
+/etc/crypttab\&.
 .sp
 \fIrd\&.luks\&.options=\fR
 is honored only by initial RAM disk (initrd) while
@@ -109,7 +114,9 @@ is honored by both the main system and the initrd\&.
 .PP
 \fIluks\&.key=\fR, \fIrd\&.luks\&.key=\fR
 .RS 4
-Takes a password file name as argument or a LUKS super block UUID followed by a \*(Aq=\*(Aq and a password file name\&.
+Takes a password file name as argument or a LUKS super block UUID followed by a
+"="
+and a password file name\&.
 .sp
 For those entries specified with
 \fIrd\&.luks\&.uuid=\fR

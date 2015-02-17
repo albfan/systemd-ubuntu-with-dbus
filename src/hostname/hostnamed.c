@@ -23,7 +23,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/utsname.h>
-#include <sys/capability.h>
 
 #include "util.h"
 #include "strv.h"
@@ -34,6 +33,7 @@
 #include "label.h"
 #include "bus-util.h"
 #include "event-util.h"
+#include "selinux-util.h"
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
 
@@ -276,7 +276,7 @@ static int context_update_kernel_hostname(Context *c) {
         if (hostname_is_useful(static_hn))
                 hn = static_hn;
 
-        /* ... the transient host name, (ie: DHCP) comes next ...*/
+        /* ... the transient host name, (ie: DHCP) comes next ... */
         else if (!isempty(c->data[PROP_HOSTNAME]))
                 hn = c->data[PROP_HOSTNAME];
 
@@ -552,7 +552,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                 /* The icon name might ultimately be used as file
                  * name, so better be safe than sorry */
 
-                if (prop == PROP_ICON_NAME && !filename_is_safe(name))
+                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
                 if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);

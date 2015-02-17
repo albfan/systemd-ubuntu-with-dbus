@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <endian.h>
+
 #include "networkd.h"
 
 typedef enum LinkState {
@@ -35,17 +37,6 @@ typedef enum LinkState {
         _LINK_STATE_MAX,
         _LINK_STATE_INVALID = -1
 } LinkState;
-
-typedef enum LinkOperationalState {
-        LINK_OPERSTATE_OFF,
-        LINK_OPERSTATE_NO_CARRIER,
-        LINK_OPERSTATE_DORMANT,
-        LINK_OPERSTATE_CARRIER,
-        LINK_OPERSTATE_DEGRADED,
-        LINK_OPERSTATE_ROUTABLE,
-        _LINK_OPERSTATE_MAX,
-        _LINK_OPERSTATE_INVALID = -1
-} LinkOperationalState;
 
 struct Link {
         Manager *manager;
@@ -91,6 +82,9 @@ struct Link {
 
         sd_icmp6_nd *icmp6_router_discovery;
         sd_dhcp6_client *dhcp6_client;
+
+        sd_lldp *lldp;
+        char *lldp_file;
 };
 
 Link *link_unref(Link *link);
@@ -112,6 +106,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
 int link_save(Link *link);
 
+int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);
 
 int link_set_mtu(Link *link, uint32_t mtu);
@@ -121,11 +116,21 @@ int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
 int icmp6_configure(Link *link);
 
+bool link_lldp_enabled(Link *link);
+bool link_ipv4ll_enabled(Link *link);
+bool link_ipv6ll_enabled(Link *link);
+bool link_dhcp4_server_enabled(Link *link);
+bool link_dhcp4_enabled(Link *link);
+bool link_dhcp6_enabled(Link *link);
+
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-const char* link_operstate_to_string(LinkOperationalState s) _const_;
-LinkOperationalState link_operstate_from_string(const char *s) _pure_;
+extern const sd_bus_vtable link_vtable[];
+
+int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
+int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 #define _cleanup_link_unref_ _cleanup_(link_unrefp)
@@ -149,8 +154,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 
 #define log_link_struct(link, level, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
 
-#define ADDRESS_FMT_VAL(address)            \
-        (address).s_addr & 0xFF,            \
-        ((address).s_addr >> 8) & 0xFF,     \
-        ((address).s_addr >> 16) & 0xFF,    \
-        (address).s_addr >> 24
+#define ADDRESS_FMT_VAL(address)                   \
+        be32toh((address).s_addr) >> 24,           \
+        (be32toh((address).s_addr) >> 16) & 0xFFu, \
+        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
+        be32toh((address).s_addr) & 0xFFu

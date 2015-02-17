@@ -47,7 +47,7 @@ static int setup_test(Manager **m) {
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);
 
         STRV_FOREACH(test_path, tests_path) {
-               rm_rf_dangerous(strappenda("/tmp/test-path_", *test_path), false, true, false);
+               rm_rf_dangerous(strjoina("/tmp/test-path_", *test_path), false, true, false);
         }
 
         *m = tmp;
@@ -81,7 +81,7 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
         service = SERVICE(service_unit);
 
         ts = now(CLOCK_MONOTONIC);
-        /* We proces events until the service related to the path has been successfully started */
+        /* We process events until the service related to the path has been successfully started */
         while(service->result != SERVICE_SUCCESS || service->state != SERVICE_START) {
                 usec_t n;
                 int r;
@@ -201,7 +201,7 @@ static void test_path_directorynotempty(Manager *m) {
         assert_se(access(test_path, F_OK) < 0);
 
         assert_se(mkdir_p(test_path, 0755) >= 0);
-        assert_se(touch(strappenda(test_path, "test_file")) >= 0);
+        assert_se(touch(strjoina(test_path, "test_file")) >= 0);
 
         check_stop_unlink(m, unit, test_path, NULL);
 }
@@ -247,10 +247,6 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
-
-        /* It is needed otherwise cgroup creation fails */
-        if (getuid() != 0)
-                return EXIT_TEST_SKIP;
 
         assert_se(set_unit_path(TEST_DIR ":") >= 0);
 

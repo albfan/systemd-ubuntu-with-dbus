@@ -31,7 +31,6 @@
 #include "virt.h"
 #include "path-util.h"
 #include "fileio.h"
-#include "unit.h"
 #include "architecture.h"
 #include "smack-util.h"
 #include "apparmor-util.h"
@@ -73,11 +72,13 @@ void condition_free(Condition *c) {
         free(c);
 }
 
-void condition_free_list(Condition *first) {
+Condition* condition_free_list(Condition *first) {
         Condition *c, *n;
 
         LIST_FOREACH_SAFE(conditions, c, n, first)
                 condition_free(c);
+
+        return NULL;
 }
 
 static int condition_test_kernel_command_line(Condition *c) {
@@ -287,7 +288,7 @@ static int condition_test_needs_update(Condition *c) {
         if (!path_is_absolute(c->parameter))
                 return true;
 
-        p = strappenda(c->parameter, "/.updated");
+        p = strjoina(c->parameter, "/.updated");
         if (lstat(p, &other) < 0)
                 return true;
 

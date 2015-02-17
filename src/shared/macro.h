@@ -67,6 +67,10 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wshadow\"")
 
+#define DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES                      \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 
@@ -197,6 +201,17 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                                         UNIQ_T(X,xq);                   \
         })
 
+/* [(x + y - 1) / y] suffers from an integer overflow, even though the
+ * computation should be possible in the given type. Therefore, we use
+ * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
+ * quotient and the remainder, so both should be equally fast. */
+#define DIV_ROUND_UP(_x, _y)                                            \
+        __extension__ ({                                                \
+                const typeof(_x) __x = (_x);                            \
+                const typeof(_y) __y = (_y);                            \
+                (__x / __y + !!(__x % __y));                            \
+        })
+
 #define assert_se(expr)                                                 \
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
@@ -227,7 +242,7 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #else
 #define assert_cc(expr)                                                 \
         DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
-        struct CONCATENATE(_assert_struct_, __LINE__) {                 \
+        struct CONCATENATE(_assert_struct_, __COUNTER__) {              \
                 char x[(expr) ? 0 : -1];                                \
         };                                                              \
         REENABLE_WARNING
@@ -263,6 +278,14 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+/* The following macros add 1 when converting things, since UID 0 is a
+ * valid UID, while the pointer NULL is special */
+#define PTR_TO_UID(p) ((uid_t) (((uintptr_t) (p))-1))
+#define UID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
+
+#define PTR_TO_GID(p) ((gid_t) (((uintptr_t) (p))-1))
+#define GID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
 
 #define memzero(x,l) (memset((x), 0, (l)))
 #define zero(x) (memzero(&(x), sizeof(x)))
@@ -360,7 +383,8 @@ do {                                                                    \
 
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
- * negative '-' prefix. */
+ * negative '-' prefix (hence works correctly on signed
+ * types). Includes space for the trailing NUL. */
 #define DECIMAL_STR_MAX(type)                                           \
         (2+(sizeof(type) <= 1 ? 3 :                                     \
             sizeof(type) <= 2 ? 5 :                                     \
@@ -426,5 +450,12 @@ do {                                                                    \
 #define UID_INVALID ((uid_t) -1)
 #define GID_INVALID ((gid_t) -1)
 #define MODE_INVALID ((mode_t) -1)
+
+#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
+        static inline void func##p(type *p) {                   \
+                if (*p)                                         \
+                        func(*p);                               \
+        }                                                       \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
 #include "log.h"

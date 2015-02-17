@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_NOTIFY" "3" "" "systemd 218" "sd_notify"
+.TH "SD_NOTIFY" "3" "" "systemd 219" "sd_notify"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_notify, sd_notifyf \- Notify service manager about start\-up completion and other service status changes
+sd_notify, sd_notifyf, sd_pid_notify, sd_pid_notifyf, sd_pid_notify_with_fds \- Notify service manager about start\-up completion and other service status changes
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -32,6 +32,12 @@ sd_notify, sd_notifyf \- Notify service manager about start\-up completion and o
 .BI "int sd_notify(int\ " "unset_environment" ", const\ char\ *" "state" ");"
 .HP \w'int\ sd_notifyf('u
 .BI "int sd_notifyf(int\ " "unset_environment" ", const\ char\ *" "format" ", \&.\&.\&.);"
+.HP \w'int\ sd_pid_notify('u
+.BI "int sd_pid_notify(pid_t\ " "pid" ", int\ " "unset_environment" ", const\ char\ *" "state" ");"
+.HP \w'int\ sd_pid_notifyf('u
+.BI "int sd_pid_notifyf(pid_t\ " "pid" ", int\ " "unset_environment" ", const\ char\ *" "format" ", \&.\&.\&.);"
+.HP \w'int\ sd_pid_notify_with_fds('u
+.BI "int sd_pid_notify_with_fds(pid_t\ " "pid" ", int\ " "unset_environment" ", const\ char\ *" "state" ", const\ int\ *" "fds" ", unsigned\ " "n_fds" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_notify()\fR
@@ -93,13 +99,13 @@ If a service fails, the D\-Bus error\-style error code\&. Example:
 .PP
 MAINPID=\&.\&.\&.
 .RS 4
-The main pid of the service, in case the service manager did not fork off the process itself\&. Example:
+The main process ID (PID) of the service, in case the service manager did not fork off the process itself\&. Example:
 "MAINPID=4711"
 .RE
 .PP
 WATCHDOG=1
 .RS 4
-Tells systemd to update the watchdog timestamp\&. This is the keep\-alive ping that services need to issue in regular intervals if
+Tells the service manager to update the watchdog timestamp\&. This is the keep\-alive ping that services need to issue in regular intervals if
 \fIWatchdogSec=\fR
 is enabled for it\&. See
 \fBsystemd.service\fR(5)
@@ -108,7 +114,22 @@ for information how to enable this functionality and
 for the details of how the service can check if the the watchdog is enabled\&.
 .RE
 .PP
-It is recommended to prefix variable names that are not shown in the list above with
+FDSTORE=1
+.RS 4
+Stores additional file descriptors in the service manager\&. File descriptors sent this way will be maintained per\-service by the service manager and be passed again using the usual file descriptor passing logic on the next invocation of the service (see
+\fBsd_listen_fds\fR(3))\&. This is useful for implementing service restart schemes where services serialize their state to
+/run, push their file descriptors to the system manager, and are then restarted, retrieving their state again via socket passing and
+/run\&. Note that the service manager will accept messages for a service only if
+\fIFileDescriptorStoreMax=\fR
+is set to non\-zero for it (defaults to zero)\&. See
+\fBsystemd.service\fR(5)
+for details\&. Multiple arrays of file descriptors may be sent in separate messages, in which case the arrays are combined\&. Note that the service manager removes duplicate file descriptors before passing them to the service\&. Use
+\fBsd_pid_notify_with_fds()\fR
+to send messages with
+"FDSTORE=1", see below\&.
+.RE
+.PP
+It is recommended to prefix variable names that are not listed above with
 \fIX_\fR
 to avoid namespace clashes\&.
 .PP
@@ -123,6 +144,27 @@ is similar to
 \fBsd_notify()\fR
 but takes a
 \fBprintf()\fR\-like format string plus arguments\&.
+.PP
+\fBsd_pid_notify()\fR
+and
+\fBsd_pid_notifyf()\fR
+are similar to
+\fBsd_notify()\fR
+and
+\fBsd_notifyf()\fR
+but take a process ID (PID) to use as originating PID for the message as first argument\&. This is useful to send notification messages on behalf of other processes, provided the appropriate privileges are available\&. If the PID argument is specified as 0 the process ID of the calling process is used, in which case the calls are fully equivalent to
+\fBsd_notify()\fR
+and
+\fBsd_notifyf()\fR\&.
+.PP
+\fBsd_pid_notify_with_fds()\fR
+is similar to
+\fBsd_pid_notify()\fR
+but takes an additional array of file descriptors\&. These file descriptors are sent along the notification message to the service manager\&. This is particularly useful for sending
+"FDSTORE=1"
+messages, as described above\&. The additional arguments are a pointer to the file descriptor array plus the number of file descriptors in the array\&. If the number of file descriptors is passed as 0, the call is fully equivalent to
+\fBsd_pid_notify()\fR, i\&.e\&. no file descriptors are passed\&. Note that sending file descriptors to the service manager on messages that do not expect them (i\&.e\&. without
+"FDSTORE=1") they are immediately closed on reception\&.
 .SH "RETURN VALUE"
 .PP
 On failure, these calls return a negative errno\-style error code\&. If
@@ -175,9 +217,9 @@ A service could send the following after completing initialization:
 .\}
 .nf
 sd_notifyf(0, "READY=1\en"
-              "STATUS=Processing requests\&.\&.\&.\en"
-              "MAINPID=%lu",
-              (unsigned long) getpid());
+        "STATUS=Processing requests\&.\&.\&.\en"
+        "MAINPID=%lu",
+        (unsigned long) getpid());
 .fi
 .if n \{\
 .RE
@@ -185,16 +227,31 @@ sd_notifyf(0, "READY=1\en"
 .PP
 \fBExample\ \&3.\ \&Error Cause Notification\fR
 .PP
-A service could send the following shortly before exiting, on failure
+A service could send the following shortly before exiting, on failure:
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
 sd_notifyf(0, "STATUS=Failed to start up: %s\en"
-              "ERRNO=%i",
-              strerror(errno),
-              errno);
+        "ERRNO=%i",
+        strerror(errno),
+        errno);
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&4.\ \&Store a File Descriptor in the Service Manager\fR
+.PP
+To store an open file descriptor in the service manager, in order to continue operation after a service restart without losing state use
+"FDSTORE=1":
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+sd_pid_notify_with_fds(0, 0, "FDSTORE=1", &fd, 1);
 .fi
 .if n \{\
 .RE

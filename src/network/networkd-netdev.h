@@ -43,12 +43,17 @@ typedef enum NetDevKind {
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
         NETDEV_KIND_MACVLAN,
+        NETDEV_KIND_IPVLAN,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
+        NETDEV_KIND_GRETAP,
+        NETDEV_KIND_IP6GRE,
+        NETDEV_KIND_IP6GRETAP,
         NETDEV_KIND_SIT,
         NETDEV_KIND_VETH,
         NETDEV_KIND_VTI,
+        NETDEV_KIND_IP6TNL,
         NETDEV_KIND_DUMMY,
         NETDEV_KIND_TUN,
         NETDEV_KIND_TAP,
@@ -100,6 +105,7 @@ struct NetDev {
 #include "networkd-netdev-bond.h"
 #include "networkd-netdev-vlan.h"
 #include "networkd-netdev-macvlan.h"
+#include "networkd-netdev-ipvlan.h"
 #include "networkd-netdev-vxlan.h"
 #include "networkd-netdev-veth.h"
 #include "networkd-netdev-tunnel.h"
@@ -157,11 +163,16 @@ DEFINE_CAST(BRIDGE, Bridge);
 DEFINE_CAST(BOND, Bond);
 DEFINE_CAST(VLAN, VLan);
 DEFINE_CAST(MACVLAN, MacVlan);
+DEFINE_CAST(IPVLAN, IPVlan);
 DEFINE_CAST(VXLAN, VxLan);
 DEFINE_CAST(IPIP, Tunnel);
 DEFINE_CAST(GRE, Tunnel);
+DEFINE_CAST(GRETAP, Tunnel);
+DEFINE_CAST(IP6GRE, Tunnel);
+DEFINE_CAST(IP6GRETAP, Tunnel);
 DEFINE_CAST(SIT, Tunnel);
 DEFINE_CAST(VTI, Tunnel);
+DEFINE_CAST(IP6TNL, Tunnel);
 DEFINE_CAST(VETH, Veth);
 DEFINE_CAST(DUMMY, Dummy);
 DEFINE_CAST(TUN, TunTap);

@@ -3,22 +3,22 @@
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-This file is part of systemd.
+  This file is part of systemd.
 
-Copyright 2013 Zbigniew Jędrzejewski-Szmek
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
-systemd is free software; you can redistribute it and/or modify it
-under the terms of the GNU Lesser General Public License as published by
-the Free Software Foundation; either version 2.1 of the License, or
-(at your option) any later version.
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
 
-systemd is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public License
-along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-run"
@@ -225,10 +225,26 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
-      <xi:include href="user-system-options.xml" xpointer="user" />
-      <xi:include href="user-system-options.xml" xpointer="system" />
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
+      <varlistentry>
+        <term><option>--pty</option></term>
+        <term><option>-t</option></term>
+
+        <listitem><para>When invoking a command as service connects
+        its standard input and output to the invoking tty via a
+        pseudo TTY device. This allows invoking binaries as services
+        that expect interactive user input, such as interactive
+        command shells.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Suppresses additional informational output
+        while running. This is particularly useful in combination with
+        <option>--pty</option> when it will suppress the initial
+        message explaining how to terminate the TTY connection.</para></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><option>--on-active=</option></term>
@@ -277,6 +293,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command.</para> </listitem>
       </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
@@ -333,6 +354,13 @@ Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo.
 -- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
 Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo...
 Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisting>
+
+    <para>The following command invokes <filename>/bin/bash</filename>
+    as a service passing its standard input, output and error to
+    the calling TTY.</para>
+
+    <programlisting># systemd-run -t /bin/bash</programlisting>
+
   </refsect1>
 
   <refsect1>

@@ -44,11 +44,15 @@ _journalctl() {
                               --disk-usage -f --follow --header
                               -h --help -l --local --new-id128 -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --this-boot --verify
-                              --version --list-catalog --update-catalog --list-boots'
+                              --version --list-catalog --update-catalog --list-boots
+                              --show-cursor --dmesg -k --pager-end -e -r --reverse
+                              --utc -x --catalog --no-full --force --dump-catalog
+                              --flush'
                        [ARG]='-b --boot --this-boot -D --directory --file -F --field
                               -o --output -u --unit --user-unit -p --priority'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines --since --until
-                              --verify-key'
+                              --after-cursor --verify-key --identifier
+                              --root --machine'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
@@ -65,7 +69,7 @@ _journalctl() {
                                 compopt -o filenames
                         ;;
                         --output|-o)
-                                comps='short short-monotonic verbose export json cat'
+                                comps='short short-iso short-precise short-monotonic verbose export json json-pretty json-sse cat'
                         ;;
                         --field|-F)
                                 comps=${__journal_fields[*]}

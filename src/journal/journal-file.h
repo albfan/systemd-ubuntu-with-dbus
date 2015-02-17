@@ -27,11 +27,11 @@
 #include <gcrypt.h>
 #endif
 
-#include "systemd/sd-id128.h"
+#include "sd-id128.h"
 
 #include "sparse-endian.h"
 #include "journal-def.h"
-#include "util.h"
+#include "macro.h"
 #include "mmap-cache.h"
 #include "hashmap.h"
 
@@ -48,6 +48,20 @@ typedef enum direction {
         DIRECTION_DOWN
 } direction_t;
 
+typedef enum LocationType {
+        /* The first and last entries, resp. */
+        LOCATION_HEAD,
+        LOCATION_TAIL,
+
+        /* We already read the entry we currently point to, and the
+         * next one to read should probably not be this one again. */
+        LOCATION_DISCRETE,
+
+        /* We should seek to the precise location specified, and
+         * return it, as we haven't read it yet. */
+        LOCATION_SEEK
+} LocationType;
+
 typedef struct JournalFile {
         int fd;
 
@@ -59,19 +73,28 @@ typedef struct JournalFile {
         bool compress_xz:1;
         bool compress_lz4:1;
         bool seal:1;
+        bool defrag_on_close:1;
 
         bool tail_entry_monotonic_valid:1;
 
         direction_t last_direction;
+        LocationType location_type;
+        uint64_t last_n_entries;
 
         char *path;
         struct stat last_stat;
+        usec_t last_stat_usec;
 
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
 
         uint64_t current_offset;
+        uint64_t current_seqnum;
+        uint64_t current_realtime;
+        uint64_t current_monotonic;
+        sd_id128_t current_boot_id;
+        uint64_t current_xor_hash;
 
         JournalMetrics metrics;
         MMapCache *mmap;
@@ -160,13 +183,13 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPRESSED_LZ4(h) \
         (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
 
-int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret);
+int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 
 uint64_t journal_file_entry_n_items(Object *o) _pure_;
 uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
-int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object **ret, uint64_t *offset);
+int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
@@ -175,12 +198,13 @@ int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, ui
 int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
 
-int journal_file_next_entry(JournalFile *f, Object *o, uint64_t p, direction_t direction, Object **ret, uint64_t *offset);
-int journal_file_skip_entry(JournalFile *f, Object *o, uint64_t p, int64_t skip, Object **ret, uint64_t *offset);
+void journal_file_reset_location(JournalFile *f);
+void journal_file_save_location(JournalFile *f, direction_t direction, Object *o, uint64_t offset);
+int journal_file_compare_locations(JournalFile *af, JournalFile *bf);
+int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret, uint64_t *offset);
 
 int journal_file_next_entry_for_data(JournalFile *f, Object *o, uint64_t p, uint64_t data_offset, direction_t direction, Object **ret, uint64_t *offset);
 
-int journal_file_move_to_entry_by_offset(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_seqnum(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_realtime(JournalFile *f, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_monotonic(JournalFile *f, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *offset);
@@ -205,21 +229,3 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);
-
-
-static unsigned type_to_context(int type) {
-        /* One context for each type, plus one catch-all for the rest */
-        return type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
-}
-
-static inline int journal_file_object_keep(JournalFile *f, Object *o, uint64_t offset, void **release_cookie) {
-        unsigned context = type_to_context(o->object.type);
-        uint64_t s = le64toh(o->object.size);
-
-        return mmap_cache_get(f->mmap, f->fd, f->prot, context, true,
-                              offset, s, &f->last_stat, NULL, release_cookie);
-}
-
-static inline int journal_file_object_release(JournalFile *f, void *release_cookie) {
-        return mmap_cache_release(f->mmap, f->fd, release_cookie);
-}

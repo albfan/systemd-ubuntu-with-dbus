@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FIRSTBOOT" "1" "" "systemd 218" "systemd-firstboot"
+.TH "SYSTEMD\-FIRSTBOOT" "1" "" "systemd 219" "systemd-firstboot"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -161,13 +161,11 @@ reads it from a file\&. Note that it is not recommended specifying passwords on 
 .PP
 \fB\-\-prompt\-locale\fR, \fB\-\-prompt\-timezone\fR, \fB\-\-prompt\-hostname\fR, \fB\-\-prompt\-root\-password\fR
 .RS 4
-.PP
 Prompt the user interactively for a specific basic setting\&. Note that any explicit configuration settings specified on the command line take precedence, and the user is not prompted for it\&.
 .RE
 .PP
 \fB\-\-prompt\fR
 .RS 4
-.PP
 Query the user for locale, timezone, hostname and root password\&. This is equivalent to specifying
 \fB\-\-prompt\-locale\fR,
 \fB\-\-prompt\-timezone\fR,
@@ -178,7 +176,6 @@ in combination\&.
 .PP
 \fB\-\-copy\-locale\fR, \fB\-\-copy\-timezone\fR, \fB\-\-copy\-root\-password\fR
 .RS 4
-.PP
 Copy a specific basic setting from the host\&. This only works in combination with
 \fB\-\-root=\fR
 (see above)\&.
@@ -186,7 +183,6 @@ Copy a specific basic setting from the host\&. This only works in combination wi
 .PP
 \fB\-\-copy\fR
 .RS 4
-.PP
 Copy locale, time zone and root password from the host\&. This is equivalent to specifying
 \fB\-\-copy\-locale\fR,
 \fB\-\-copy\-timezone\fR,
@@ -196,7 +192,6 @@ in combination\&.
 .PP
 \fB\-\-setup\-machine\-id\fR
 .RS 4
-.PP
 Initialize the system\*(Aqs machine ID to a random ID\&. This only works in combination with
 \fB\-\-root=\fR\&.
 .RE

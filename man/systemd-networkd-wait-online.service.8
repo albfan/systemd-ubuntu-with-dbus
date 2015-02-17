@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NETWORKD\-WAIT\-ONLINE\&.SERVICE" "8" "" "systemd 218" "systemd-networkd.service"
+.TH "SYSTEMD\-NETWORKD\-WAIT\-ONLINE\&.SERVICE" "8" "" "systemd 219" "systemd-networkd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -39,6 +39,16 @@ The following options are understood:
 \fB\-i\fR, \fB\-\-interface=\fR
 .RS 4
 Network interface to wait for before deciding if the system is online\&. This is useful when a system has several interfaces which will be configured, but a particular one is necessary to access some network resources\&. This option may be used more than once to wait for multiple network interfaces\&.
+.RE
+.PP
+\fB\-\-ignore=\fR
+.RS 4
+Network interfaces to be ignored when deciding if the system is online\&. By default only the loopback interface is ignored\&. This option may be used more than once to ignore multiple network interfaces\&.
+.RE
+.PP
+\fB\-\-timeout=\fR
+.RS 4
+Fail the service if the network is not online by the time the timeout elapses\&. A timeout of 0 disables the timeout\&. Defaults to 120 seconds\&.
 .RE
 .SH "SEE ALSO"
 .PP

@@ -20,18 +20,30 @@
 ***/
 
 #include <sys/sendfile.h>
+#include <sys/xattr.h>
 
 #include "util.h"
+#include "btrfs-util.h"
 #include "copy.h"
 
-int copy_bytes(int fdf, int fdt, off_t max_bytes) {
+#define COPY_BUFFER_SIZE (16*1024)
+
+int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
         bool try_sendfile = true;
+        int r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
 
+        /* Try btrfs reflinks first. */
+        if (try_reflink && max_bytes == (off_t) -1) {
+                r = btrfs_reflink(fdf, fdt);
+                if (r >= 0)
+                        return r;
+        }
+
         for (;;) {
-                size_t m = PIPE_BUF;
+                size_t m = COPY_BUFFER_SIZE;
                 ssize_t n;
 
                 if (max_bytes != (off_t) -1) {
@@ -63,7 +75,6 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                 /* As a fallback just copy bits by hand */
                 {
                         char buf[m];
-                        int r;
 
                         n = read(fdf, buf, m);
                         if (n < 0)
@@ -71,10 +82,9 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                         if (n == 0) /* EOF */
                                 break;
 
-                        r = loop_write(fdt, buf, n, false);
+                        r = loop_write(fdt, buf, (size_t) n, false);
                         if (r < 0)
                                 return r;
-
                 }
 
         next:
@@ -110,6 +120,7 @@ static int fd_copy_symlink(int df, const char *from, const struct stat *st, int 
 
 static int fd_copy_regular(int df, const char *from, const struct stat *st, int dt, const char *to) {
         _cleanup_close_ int fdf = -1, fdt = -1;
+        struct timespec ts[2];
         int r, q;
 
         assert(from);
@@ -124,7 +135,7 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (off_t) -1);
+        r = copy_bytes(fdf, fdt, (off_t) -1, true);
         if (r < 0) {
                 unlinkat(dt, to, 0);
                 return r;
@@ -135,6 +146,12 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
+
+        ts[0] = st->st_atim;
+        ts[1] = st->st_mtim;
+        (void) futimens(fdt, ts);
+
+        (void) copy_xattr(fdf, fdt);
 
         q = close(fdt);
         fdt = -1;
@@ -187,20 +204,28 @@ static int fd_copy_node(int df, const char *from, const struct stat *st, int dt,
         return r;
 }
 
-static int fd_copy_directory(int df, const char *from, const struct stat *st, int dt, const char *to, dev_t original_device, bool merge) {
+static int fd_copy_directory(
+                int df,
+                const char *from,
+                const struct stat *st,
+                int dt,
+                const char *to,
+                dev_t original_device,
+                bool merge) {
+
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         bool created;
         int r;
 
-        assert(from);
         assert(st);
         assert(to);
 
-        fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fdf < 0)
-                return -errno;
+        if (from)
+                fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        else
+                fdf = fcntl(df, F_DUPFD_CLOEXEC, 3);
 
         d = fdopendir(fdf);
         if (!d)
@@ -222,11 +247,19 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
         r = 0;
 
         if (created) {
+                struct timespec ut[2] = {
+                        st->st_atim,
+                        st->st_mtim
+                };
+
                 if (fchown(fdt, st->st_uid, st->st_gid) < 0)
                         r = -errno;
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
+
+                (void) futimens(fdt, ut);
+                (void) copy_xattr(dirfd(d), fdt);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -264,31 +297,52 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
         return r;
 }
 
-int copy_tree(const char *from, const char *to, bool merge) {
+int copy_tree_at(int fdf, const char *from, int fdt, const char *to, bool merge) {
         struct stat st;
 
         assert(from);
         assert(to);
 
-        if (lstat(from, &st) < 0)
+        if (fstatat(fdf, from, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
         if (S_ISREG(st.st_mode))
-                return fd_copy_regular(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_regular(fdf, from, &st, fdt, to);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, merge);
+                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, merge);
         else if (S_ISLNK(st.st_mode))
-                return fd_copy_symlink(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_symlink(fdf, from, &st, fdt, to);
         else if (S_ISFIFO(st.st_mode))
-                return fd_copy_fifo(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_fifo(fdf, from, &st, fdt, to);
         else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode))
-                return fd_copy_node(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_node(fdf, from, &st, fdt, to);
         else
                 return -ENOTSUP;
 }
 
-int copy_file_fd(const char *from, int fdt) {
+int copy_tree(const char *from, const char *to, bool merge) {
+        return copy_tree_at(AT_FDCWD, from, AT_FDCWD, to, merge);
+}
+
+int copy_directory_fd(int dirfd, const char *to, bool merge) {
+
+        struct stat st;
+
+        assert(dirfd >= 0);
+        assert(to);
+
+        if (fstat(dirfd, &st) < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+
+        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, merge);
+}
+
+int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         _cleanup_close_ int fdf = -1;
+        int r;
 
         assert(from);
         assert(fdt >= 0);
@@ -297,20 +351,30 @@ int copy_file_fd(const char *from, int fdt) {
         if (fdf < 0)
                 return -errno;
 
-        return copy_bytes(fdf, fdt, (off_t) -1);
+        r = copy_bytes(fdf, fdt, (off_t) -1, try_reflink);
+
+        (void) copy_times(fdf, fdt);
+        (void) copy_xattr(fdf, fdt);
+
+        return r;
 }
 
-int copy_file(const char *from, const char *to, int flags, mode_t mode) {
+int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned chattr_flags) {
         int fdt, r;
 
         assert(from);
         assert(to);
 
-        fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode);
-        if (fdt < 0)
-                return -errno;
+        RUN_WITH_UMASK(0000) {
+                fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode);
+                if (fdt < 0)
+                        return -errno;
+        }
 
-        r = copy_file_fd(from, fdt);
+        if (chattr_flags != 0)
+                (void) chattr_fd(fdt, true, chattr_flags);
+
+        r = copy_file_fd(from, fdt, true);
         if (r < 0) {
                 close(fdt);
                 unlink(to);
@@ -323,4 +387,115 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         }
 
         return 0;
+}
+
+int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace, unsigned chattr_flags) {
+        _cleanup_free_ char *t;
+        int r;
+
+        assert(from);
+        assert(to);
+
+        r = tempfn_random(to, &t);
+        if (r < 0)
+                return r;
+
+        r = copy_file(from, t, O_NOFOLLOW|O_EXCL, mode, chattr_flags);
+        if (r < 0)
+                return r;
+
+        if (renameat2(AT_FDCWD, t, AT_FDCWD, to, replace ? 0 : RENAME_NOREPLACE) < 0) {
+                unlink_noerrno(t);
+                return -errno;
+        }
+
+        return 0;
+}
+
+int copy_times(int fdf, int fdt) {
+        struct timespec ut[2];
+        struct stat st;
+        usec_t crtime;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        ut[0] = st.st_atim;
+        ut[1] = st.st_mtim;
+
+        if (futimens(fdt, ut) < 0)
+                return -errno;
+
+        if (fd_getcrtime(fdf, &crtime) >= 0)
+                (void) fd_setcrtime(fdt, crtime);
+
+        return 0;
+}
+
+int copy_xattr(int fdf, int fdt) {
+        _cleanup_free_ char *bufa = NULL, *bufb = NULL;
+        size_t sza = 100, szb = 100;
+        ssize_t n;
+        int ret = 0;
+        const char *p;
+
+        for (;;) {
+                bufa = malloc(sza);
+                if (!bufa)
+                        return -ENOMEM;
+
+                n = flistxattr(fdf, bufa, sza);
+                if (n == 0)
+                        return 0;
+                if (n > 0)
+                        break;
+                if (errno != ERANGE)
+                        return -errno;
+
+                sza *= 2;
+
+                free(bufa);
+                bufa = NULL;
+        }
+
+        p = bufa;
+        while (n > 0) {
+                size_t l;
+
+                l = strlen(p);
+                assert(l < (size_t) n);
+
+                if (startswith(p, "user.")) {
+                        ssize_t m;
+
+                        if (!bufb) {
+                                bufb = malloc(szb);
+                                if (!bufb)
+                                        return -ENOMEM;
+                        }
+
+                        m = fgetxattr(fdf, p, bufb, szb);
+                        if (m < 0) {
+                                if (errno == ERANGE) {
+                                        szb *= 2;
+                                        free(bufb);
+                                        bufb = NULL;
+                                        continue;
+                                }
+
+                                return -errno;
+                        }
+
+                        if (fsetxattr(fdt, p, bufb, m, 0) < 0)
+                                ret = -errno;
+                }
+
+                p += l + 1;
+                n -= l + 1;
+        }
+
+        return ret;
 }

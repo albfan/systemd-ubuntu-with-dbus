@@ -1,5 +1,5 @@
 '\" t
-.TH "BUSCTL" "1" "" "systemd 218" "busctl"
+.TH "BUSCTL" "1" "" "systemd 219" "busctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -71,11 +71,6 @@ When showing the list of endpoints, show only endpoints which have actually not 
 .RS 4
 When showing messages being exchanged, show only the subset matching
 \fIMATCH\fR\&.
-.RE
-.PP
-\fB\-\-no\-legend\fR
-.RS 4
-Do not print the legend, i\&.e\&. the column headers and the footer\&.
 .RE
 .PP
 \fB\-\-size=\fR
@@ -185,6 +180,16 @@ Execute the operation remotely\&. Specify a hostname, or a username and hostname
 Execute operation on a local container\&. Specify a container name to connect to\&.
 .RE
 .PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.PP
+\fB\-\-no\-legend\fR
+.RS 4
+Do not print the legend, i\&.e\&. column headers and the footer with hints\&.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print a short help text and exit\&.
@@ -193,11 +198,6 @@ Print a short help text and exit\&.
 \fB\-\-version\fR
 .RS 4
 Print a short version string and exit\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
 .RE
 .SH "COMMANDS"
 .PP
@@ -238,9 +238,9 @@ Shows an object tree of one or more services\&. If
 is specified, show object tree of the specified services only\&. Otherwise, show all object trees of all services on the bus that acquired at least one well\-known name\&.
 .RE
 .PP
-\fBintrospect\fR \fISERVICE\fR \fIOBJECT\fR
+\fBintrospect\fR \fISERVICE\fR \fIOBJECT\fR [\fIINTERFACE\fR]
 .RS 4
-Show interfaces, methods, properties and signals of the specified object (identified by its path) on the specified service\&.
+Show interfaces, methods, properties and signals of the specified object (identified by its path) on the specified service\&. If the interface argument is passed the output is limited to members of the specified interface\&.
 .RE
 .PP
 \fBcall\fR \fISERVICE\fR \fIOBJECT\fR \fIINTERFACE\fR \fIMETHOD\fR [\fISIGNATURE\fR\ [\fIARGUMENT\fR...]]

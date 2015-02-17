@@ -1,5 +1,5 @@
 '\" t
-.TH "LOCALTIME" "5" "" "systemd 218" "localtime"
+.TH "LOCALTIME" "5" "" "systemd 219" "localtime"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,9 @@ timezone data for the configured timezone\&.
 Because the timezone identifier is extracted from the symlink target name of
 /etc/localtime, this file may not be a normal file or hardlink\&.
 .PP
-The timezone may be overridden for individual programs by using the TZ environment variable\&. See
+The timezone may be overridden for individual programs by using the
+\fI$TZ\fR
+environment variable\&. See
 \fBenviron\fR(7)\&.
 .PP
 You may use

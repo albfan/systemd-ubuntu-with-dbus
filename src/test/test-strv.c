@@ -175,7 +175,7 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         }
 }
 
-static void test_strv_unquote(const char *quoted, const char **list) {
+static void test_strv_unquote(const char *quoted, char **list) {
         _cleanup_strv_free_ char **s;
         _cleanup_free_ char *j;
         unsigned i = 0;
@@ -470,6 +470,78 @@ static void test_strv_push(void) {
         assert_se(streq_ptr(a[3], NULL));
 }
 
+static void test_strv_equal(void) {
+        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_strv_free_ char **b = NULL;
+        _cleanup_strv_free_ char **c = NULL;
+
+        a = strv_new("one", "two", "three", NULL);
+        assert_se(a);
+        b = strv_new("one", "two", "three", NULL);
+        assert_se(a);
+        c = strv_new("one", "two", "three", "four", NULL);
+        assert_se(a);
+
+        assert_se(strv_equal(a, a));
+        assert_se(strv_equal(a, b));
+        assert_se(strv_equal(NULL, NULL));
+
+        assert_se(!strv_equal(a, c));
+        assert_se(!strv_equal(b, c));
+        assert_se(!strv_equal(b, NULL));
+}
+
+static void test_strv_is_uniq(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+
+        a = strv_new(NULL, NULL);
+        assert_se(a);
+        assert_se(strv_is_uniq(a));
+
+        b = strv_new("foo", NULL);
+        assert_se(b);
+        assert_se(strv_is_uniq(b));
+
+        c = strv_new("foo", "bar", NULL);
+        assert_se(c);
+        assert_se(strv_is_uniq(c));
+
+        d = strv_new("foo", "bar", "waldo", "bar", "piep", NULL);
+        assert_se(d);
+        assert_se(!strv_is_uniq(d));
+}
+
+static void test_strv_reverse(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+
+        a = strv_new(NULL, NULL);
+        assert_se(a);
+
+        strv_reverse(a);
+        assert_se(strv_isempty(a));
+
+        b = strv_new("foo", NULL);
+        assert_se(b);
+        strv_reverse(b);
+        assert_se(streq_ptr(b[0], "foo"));
+        assert_se(streq_ptr(b[1], NULL));
+
+        c = strv_new("foo", "bar", NULL);
+        assert_se(c);
+        strv_reverse(c);
+        assert_se(streq_ptr(c[0], "bar"));
+        assert_se(streq_ptr(c[1], "foo"));
+        assert_se(streq_ptr(c[2], NULL));
+
+        d = strv_new("foo", "bar", "waldo", NULL);
+        assert_se(d);
+        strv_reverse(d);
+        assert_se(streq_ptr(d[0], "waldo"));
+        assert_se(streq_ptr(d[1], "bar"));
+        assert_se(streq_ptr(d[2], "foo"));
+        assert_se(streq_ptr(d[3], NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -486,18 +558,22 @@ int main(int argc, char *argv[]) {
         test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
         test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
 
-        test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", (const char*[]) { "foo=bar", "waldo", "zzz", NULL });
-        test_strv_unquote("", (const char*[]) { NULL });
-        test_strv_unquote(" ", (const char*[]) { NULL });
-        test_strv_unquote("   ", (const char*[]) { NULL });
-        test_strv_unquote("   x", (const char*[]) { "x", NULL });
-        test_strv_unquote("x   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  x   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  \"x\"   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  'x'   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  'x\"'   ", (const char*[]) { "x\"", NULL });
-        test_strv_unquote("  \"x'\"   ", (const char*[]) { "x'", NULL });
-        test_strv_unquote("a  '--b=c \"d e\"'", (const char*[]) { "a", "--b=c \"d e\"", NULL });
+        test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
+        test_strv_unquote("", STRV_MAKE_EMPTY);
+        test_strv_unquote(" ", STRV_MAKE_EMPTY);
+        test_strv_unquote("   ", STRV_MAKE_EMPTY);
+        test_strv_unquote("   x", STRV_MAKE("x"));
+        test_strv_unquote("x   ", STRV_MAKE("x"));
+        test_strv_unquote("  x   ", STRV_MAKE("x"));
+        test_strv_unquote("  \"x\"   ", STRV_MAKE("x"));
+        test_strv_unquote("  'x'   ", STRV_MAKE("x"));
+        test_strv_unquote("  'x\"'   ", STRV_MAKE("x\""));
+        test_strv_unquote("  \"x'\"   ", STRV_MAKE("x'"));
+        test_strv_unquote("a  '--b=c \"d e\"'", STRV_MAKE("a", "--b=c \"d e\""));
+
+        /* trailing backslashes */
+        test_strv_unquote("  x\\\\", STRV_MAKE("x\\"));
+        test_invalid_unquote("  x\\");
 
         test_invalid_unquote("a  --b='c \"d e\"''");
         test_invalid_unquote("a  --b='c \"d e\" '\"");
@@ -519,6 +595,9 @@ int main(int argc, char *argv[]) {
         test_strv_from_stdarg_alloca();
         test_strv_push_prepend();
         test_strv_push();
+        test_strv_equal();
+        test_strv_is_uniq();
+        test_strv_reverse();
 
         return 0;
 }

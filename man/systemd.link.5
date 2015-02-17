@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.LINK" "5" "" "systemd 218" "systemd.link"
+.TH "SYSTEMD\&.LINK" "5" "" "systemd 219" "systemd.link"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -47,9 +47,13 @@ with the same name as a link file in
 .PP
 The link file contains a
 "[Match]"
-section, which determines if a given link file may be applied to a given device; and a
+section, which determines if a given link file may be applied to a given device, as well as a
 "[Link]"
-section specifying how the device should be configured\&. The first (in lexical order) of the link files that matches a given device is applied\&.
+section specifying how the device should be configured\&. The first (in lexical order) of the link files that matches a given device is applied\&. Note that a default file
+99\-default\&.link
+is shipped by the system, any user\-supplied
+\&.link
+should hence have a lexically earlier name to be considered at all\&.
 .SH "[MATCH] SECTION OPTIONS"
 .PP
 A link file is said to match a device if each of the entries in the
@@ -63,18 +67,18 @@ The hardware address\&.
 .PP
 \fIOriginalName=\fR
 .RS 4
-The device name, as exposed by the udev property "INTERFACE"\&. May contain shell style globs\&. This can not be used to match on names that have already been changed from userspace\&. Caution is adviced when matching on kernel\-assigned names, as they are known to be unstable between reboots\&.
+A whitespace\-separated list of shell\-style globs matching the device name, as exposed by the udev property "INTERFACE"\&. This can not be used to match on names that have already been changed from userspace\&. Caution is advised when matching on kernel\-assigned names, as they are known to be unstable between reboots\&.
 .RE
 .PP
 \fIPath=\fR
 .RS 4
-The persistent path, as exposed by the udev property
-"ID_PATH"\&. May contain shell style globs\&.
+A whitespace\-separated list of shell\-style globs matching the persistent path, as exposed by the udev property
+"ID_PATH"\&.
 .RE
 .PP
 \fIDriver=\fR
 .RS 4
-The driver currently bound to the device, as exposed by the udev property
+A whitespace\-separated list of shell\-style globs matching the driver currently bound to the device, as exposed by the udev property
 "DRIVER"
 of its parent device, or if that is not set, the driver as exposed by
 "ethtool \-i"
@@ -83,7 +87,7 @@ of the device itself\&.
 .PP
 \fIType=\fR
 .RS 4
-The device type, as exposed by the udev property
+A whitespace\-separated list of shell\-style globs matching the device type, as exposed by the udev property
 "DEVTYPE"\&.
 .RE
 .PP
@@ -146,7 +150,7 @@ The policy by which the MAC address should be set\&. The available policies are:
 .PP
 "persistent"
 .RS 4
-If the hardware has a persistent MAC address, as most hardware should, and if it is used by the kernel, nothing is done\&. Otherwise, a new MAC address is generated which is guaranteed to be the same on every boot for the given machine and the given device, but which is otherwise random\&.
+If the hardware has a persistent MAC address, as most hardware should, and if it is used by the kernel, nothing is done\&. Otherwise, a new MAC address is generated which is guaranteed to be the same on every boot for the given machine and the given device, but which is otherwise random\&. This feature depends on ID_NET_NAME_* properties existing for the link, on hardware where these properties are not set the generation of a persistent MAC address will fail\&.
 .RE
 .PP
 "random"
@@ -284,4 +288,6 @@ MACAddress=cb:a9:87:65:43:21
 .SH "SEE ALSO"
 .PP
 \fBsystemd-udevd.service\fR(8),
-\fBudevadm\fR(8)
+\fBudevadm\fR(8),
+\fBsystemd.netdev\fR(5),
+\fBsystemd.network\fR(5)
