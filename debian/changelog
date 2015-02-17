@@ -1,5 +1,6 @@
 systemd (219-1) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * New upstream release:
     - Fix spelling mistake in systemd.unit(5). (Closes: #773302)
     - Fix timeouts with D-Bus, leading to SIGFPE. (Closes: #774012)
@@ -26,6 +27,9 @@ systemd (219-1) UNRELEASED; urgency=medium
     openntpd, or chrony is installed. (Closes: #755722)
   * debian/systemd.links: Drop obsolete hwclockfirst.service mask link, this
     was dropped in wheezy's util-linux already.
+
+  [ Michael Biebl ]
+  * Stop removing firstboot man pages. They are now installed conditionally.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 15 Feb 2015 16:44:52 +0100
 
