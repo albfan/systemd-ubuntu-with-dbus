@@ -41,10 +41,10 @@ index 91b288c..a0741be 100644
          const char *q;
  
 diff --git a/src/libsystemd/sd-bus/bus-internal.h b/src/libsystemd/sd-bus/bus-internal.h
-index 977b340..85dcc88 100644
+index e9f1a81..f339d09 100644
 --- a/src/libsystemd/sd-bus/bus-internal.h
 +++ b/src/libsystemd/sd-bus/bus-internal.h
-@@ -343,6 +343,7 @@ struct sd_bus {
+@@ -345,6 +345,7 @@ struct sd_bus {
  bool interface_name_is_valid(const char *p) _pure_;
  bool service_name_is_valid(const char *p) _pure_;
  char* service_name_startswith(const char *a, const char *b);
@@ -53,10 +53,10 @@ index 977b340..85dcc88 100644
  bool object_path_is_valid(const char *p) _pure_;
  char *object_path_startswith(const char *a, const char *b) _pure_;
 diff --git a/src/libsystemd/sd-bus/bus-message.c b/src/libsystemd/sd-bus/bus-message.c
-index 06d8d77..fb55c50 100644
+index 2959303..c3584b6 100644
 --- a/src/libsystemd/sd-bus/bus-message.c
 +++ b/src/libsystemd/sd-bus/bus-message.c
-@@ -5118,7 +5118,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
+@@ -5342,7 +5342,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                          if (!streq(signature, "s"))
                                  return -EBADMSG;
  
@@ -65,7 +65,7 @@ index 06d8d77..fb55c50 100644
                          break;
  
                  case BUS_MESSAGE_HEADER_SENDER:
-@@ -5129,7 +5129,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
+@@ -5353,7 +5353,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                          if (!streq(signature, "s"))
                                  return -EBADMSG;
  

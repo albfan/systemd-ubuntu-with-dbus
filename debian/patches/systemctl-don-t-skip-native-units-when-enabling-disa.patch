@@ -7,14 +7,14 @@ update-rc.d does not completely replace systemctl enable for native units;
 e. g. it does not create Alias= symlinks. Thus always install/enable units
 ourselves even if update-rc.d handled the corresponding SysV unit.
 ---
- src/systemctl/systemctl.c | 25 +++----------------------
- 1 file changed, 3 insertions(+), 22 deletions(-)
+ src/systemctl/systemctl.c | 26 ++------------------------
+ 1 file changed, 2 insertions(+), 24 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 73bfdfd..e957840 100644
+index 4a60adc..50a3ba8 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5166,10 +5166,9 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5138,10 +5138,9 @@ static int enable_sysv_units(const char *verb, char **args) {
          while (args[f]) {
                  const char *name;
                  _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
@@ -26,7 +26,7 @@ index 73bfdfd..e957840 100644
                  int j;
                  pid_t pid;
                  siginfo_t status;
-@@ -5182,21 +5181,6 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5154,21 +5153,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (path_is_absolute(name))
                          continue;
  
@@ -48,7 +48,7 @@ index 73bfdfd..e957840 100644
                  p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
                  if (!p)
                          return log_oom();
-@@ -5206,7 +5190,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5178,7 +5162,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
@@ -57,18 +57,16 @@ index 73bfdfd..e957840 100644
  
                  if (!isempty(arg_root) && !streq(arg_root, "/")) {
                      log_error("Can not run update-rc.d when a root directory other than / is specified");
-@@ -5292,13 +5276,10 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5264,12 +5248,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                                  return -EINVAL;
                  } else
                          return -EPROTO;
 -
 -                /* Remove this entry, so that we don't try enabling it as native unit */
--                assert(f > 0 && streq(args[f-1], name));
--                assert_se(strv_remove(args + f - 1, name));
+-                assert(f > 0);
+-                f--;
+-                assert(args[f] == name);
+-                strv_remove(args, name);
          }
  
  #endif
-+
-         return r;
- }
- 

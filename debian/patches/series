@@ -1,27 +1,4 @@
 ## Cherry-picked from upstream
-shared-time-dst-Avoid-buffer-overflow.patch
-Loopback-setup-rtnl-fixes.patch
-build-sys-Fix-install-location-of-systemd.pc.patch
-sysv-generator-handle-Provides-for-non-virtual-facil.patch
-sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
-journal-Fix-syslog-forwarding-without-CAP_SYS_ADMIN.patch
-sysv-generator-Handle-.sh-suffixes-when-translating-.patch
-sysv-generator-Replace-Provides-symlinks-with-real-u.patch
-util-Add-some-missing-hidden_file-suffixes.patch
-core-make-EPERM-errors-when-applying-OOM-adjustment-.patch
-list-add-macro-for-iterating-through-a-list-an-item-.patch
-core-if-two-start-jobs-for-the-same-swap-device-node.patch
-logind-handle-closing-sessions-over-daemon-restarts.patch
-logind-fix-sd_eviocrevoke-ioctl-call.patch
-Add-dev-urandom-to-ignore_paths.patch
-Do-not-generate-systemd-units-from-sysv-init-scripts.patch
-rules-Fix-by-path-of-mmc-RPMB-partitions-and-don-t-b.patch
-core-mount-add-dependencies-to-dynamically-mounted-m.patch
-rules-clean-up-stale-CD-drive-mounts-after-ejection.patch
-core-don-t-fail-to-run-services-in-user-instances-if.patch
-man-document-failed.patch
-cgroup-downgrade-log-messages-when-we-cannot-write-t.patch
-bootchart-Ensure-that-systemd-is-the-init-called-aft.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

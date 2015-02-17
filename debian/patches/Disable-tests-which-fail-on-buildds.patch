@@ -5,14 +5,14 @@ Subject: Disable tests which fail on buildds
 Presumably these are due to running on too old kernels, misconfigured
 /etc/hosts, and similar problems.
 ---
- Makefile.am | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ Makefile.am | 6 ------
+ 1 file changed, 6 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 22acbac..f253078 100644
+index db47bee..20548b3 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -1375,13 +1375,12 @@ tests += \
+@@ -1424,13 +1424,11 @@ tests += \
  	test-capability \
  	test-async \
  	test-ratelimit \
@@ -22,12 +22,11 @@ index 22acbac..f253078 100644
  	test-locale-util \
  	test-execute \
  	test-copy \
--	test-cap-list
-+	$(NULL)
+-	test-cap-list \
+ 	test-sigbus \
+ 	test-verbs
  
- EXTRA_DIST += \
- 	test/a.service \
-@@ -2840,10 +2839,8 @@ tests += \
+@@ -2983,10 +2981,8 @@ tests += \
  	test-bus-introspect \
  	test-bus-objects \
  	test-bus-error \
@@ -38,7 +37,7 @@ index 22acbac..f253078 100644
  	test-local-addresses \
  	test-resolve
  
-@@ -3154,7 +3151,6 @@ test_dhcp6_client_LDADD = \
+@@ -3326,7 +3322,6 @@ test_lldp_LDADD = \
  
  tests += \
  	test-dhcp-option \
@@ -46,11 +45,11 @@ index 22acbac..f253078 100644
  	test-dhcp-server \
  	test-ipv4ll \
  	test-icmp6-rs \
-@@ -5337,7 +5333,6 @@ test_network_tables_LDADD = \
- 	libudev-core.la
+@@ -5688,7 +5683,6 @@ test_network_tables_LDADD += \
+ endif
  
  tests += \
 -	test-network \
  	test-network-tables
  
- nodist_systemunit_DATA += \
+ dist_systemunit_DATA += \

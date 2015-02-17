@@ -18,13 +18,13 @@ Closes: #726256
  1 file changed, 93 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 7876807..b757be2 100644
+index 1fa29d8..9021420 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
-@@ -23,6 +23,9 @@
+@@ -22,6 +22,9 @@
+ #include <errno.h>
  #include <string.h>
  #include <unistd.h>
- #include <sys/capability.h>
 +#include <sys/types.h>
 +#include <sys/stat.h>
 +#include <fcntl.h>
@@ -32,9 +32,9 @@ index 7876807..b757be2 100644
  #include "sd-id128.h"
  #include "sd-messages.h"
 @@ -41,6 +44,7 @@
- #include "bus-error.h"
  #include "bus-common-errors.h"
  #include "event-util.h"
+ #include "selinux-util.h"
 +#include "copy.h"
  
  #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
@@ -67,7 +67,7 @@ index 7876807..b757be2 100644
 +                free(pf);
 +                free(pt);
 +
-+                return copy_file(from, to, O_EXCL, 0644);
++                return copy_file(from, to, O_EXCL, 0644, 0);
 +        }
 +
 +        if (symlink(from, to) < 0) {

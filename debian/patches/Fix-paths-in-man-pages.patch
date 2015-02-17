@@ -9,20 +9,20 @@ Fix up the man pages to point at the correct locations.
 LP: #1357782
 Closes: #717491
 ---
- man/bootchart.conf.xml                       |   2 +-
+ man/bootchart.conf.xml                       |   6 +-
  man/sysctl.d.xml                             |   2 +-
  man/systemctl.xml                            |   4 +-
  man/systemd-activate.xml                     |   6 +-
  man/systemd-backlight@.service.xml           |   2 +-
  man/systemd-binfmt.service.xml               |   2 +-
- man/systemd-bootchart.xml                    |   2 +-
+ man/systemd-bootchart.xml                    |   6 +-
  man/systemd-bus-proxyd.xml                   |   2 +-
  man/systemd-coredump.xml                     |   2 +-
  man/systemd-cryptsetup-generator.xml         |   2 +-
  man/systemd-cryptsetup@.service.xml          |   2 +-
  man/systemd-debug-generator.xml              |   2 +-
  man/systemd-efi-boot-generator.xml           |   2 +-
- man/systemd-fsck@.service.xml                |   2 +-
+ man/systemd-fsck@.service.xml                |   3 +-
  man/systemd-fstab-generator.xml              |   2 +-
  man/systemd-getty-generator.xml              |   2 +-
  man/systemd-gpt-auto-generator.xml           |   2 +-
@@ -38,7 +38,7 @@ Closes: #717491
  man/systemd-machined.service.xml             |   2 +-
  man/systemd-modules-load.service.xml         |   2 +-
  man/systemd-networkd-wait-online.service.xml |   2 +-
- man/systemd-networkd.service.xml             |   4 +-
+ man/systemd-networkd.service.xml             |   2 +-
  man/systemd-quotacheck.service.xml           |   2 +-
  man/systemd-random-seed.service.xml          |   2 +-
  man/systemd-remount-fs.service.xml           |   2 +-
@@ -46,58 +46,68 @@ Closes: #717491
  man/systemd-rfkill@.service.xml              |   2 +-
  man/systemd-shutdownd.service.xml            |   2 +-
  man/systemd-socket-proxyd.xml                |   4 +-
- man/systemd-suspend.service.xml              |   6 +-
+ man/systemd-suspend.service.xml              |   2 +-
  man/systemd-sysctl.service.xml               |   2 +-
  man/systemd-system-update-generator.xml      |   2 +-
  man/systemd-timedated.service.xml            |   2 +-
- man/systemd-timesyncd.service.xml            |   2 +-
+ man/systemd-timesyncd.service.xml            |   3 +-
  man/systemd-udevd.service.xml                |   2 +-
  man/systemd-update-done.service.xml          |   2 +-
  man/systemd-update-utmp.service.xml          |   2 +-
- man/systemd-user-sessions.service.xml        |   2 +-
+ man/systemd-user-sessions.service.xml        |   3 +-
  man/systemd-vconsole-setup.service.xml       |   2 +-
  man/systemd.directives.xml                   | 138 +++++++++++++--------------
- man/systemd.link.xml                         |   6 +-
- man/systemd.netdev.xml                       |   6 +-
- man/systemd.network.xml                      |   6 +-
  man/systemd.preset.xml                       |  14 +--
- man/systemd.unit.xml                         |  12 +--
- man/systemd.xml                              |   2 +-
+ man/systemd.unit.xml                         |  10 +-
+ man/systemd.xml                              |   3 +-
  man/timedatectl.xml                          |   2 +-
- man/udev.xml                                 |  16 ++--
- 56 files changed, 157 insertions(+), 157 deletions(-)
+ man/udev.xml                                 |   8 +-
+ 53 files changed, 144 insertions(+), 148 deletions(-)
 
 diff --git a/man/bootchart.conf.xml b/man/bootchart.conf.xml
-index e11ccb5..93964bf 100644
+index 8d9700d..c32b5c5 100644
 --- a/man/bootchart.conf.xml
 +++ b/man/bootchart.conf.xml
-@@ -127,7 +127,7 @@
-                                 binary instead of <filename>/usr/lib/systemd/systemd</filename>. This
-                                 option is only relevant if bootchart was invoked from the
-                                 kernel command line with
--                                init=/usr/lib/systemd/systemd-bootchart.</para></listitem>
-+                                init=/lib/systemd/systemd-bootchart.</para></listitem>
-                         </varlistentry>
+@@ -55,7 +55,7 @@
+     <para><filename>/etc/systemd/bootchart.conf</filename></para>
+     <para><filename>/etc/systemd/bootchart.conf.d/*.conf</filename></para>
+     <para><filename>/run/systemd/bootchart.conf.d/*.conf</filename></para>
+-    <para><filename>/usr/lib/systemd/bootchart.conf.d/*.conf</filename></para>
++    <para><filename>/lib/systemd/bootchart.conf.d/*.conf</filename></para>
+   </refsynopsisdiv>
  
-                         <varlistentry>
+   <refsect1>
+@@ -123,10 +123,10 @@
+         <term><varname>Init=[path]</varname></term>
+         <listitem><para>Configures bootchart to run a non-standard
+         binary instead of
+-        <filename>/usr/lib/systemd/systemd</filename>. This option is
++        <filename>/lib/systemd/systemd</filename>. This option is
+         only relevant if bootchart was invoked from the kernel command
+         line with
+-        init=/usr/lib/systemd/systemd-bootchart.</para></listitem>
++        init=/lib/systemd/systemd-bootchart.</para></listitem>
+       </varlistentry>
+ 
+       <varlistentry>
 diff --git a/man/sysctl.d.xml b/man/sysctl.d.xml
-index c67a199..8b7851f 100644
+index 5a35cfe..3984b96 100644
 --- a/man/sysctl.d.xml
 +++ b/man/sysctl.d.xml
-@@ -132,7 +132,7 @@
-                         <para><filename>/etc/udev/rules.d/99-bridge.rules</filename>:
-                         </para>
+@@ -127,7 +127,7 @@
+       <para><filename>/etc/udev/rules.d/99-bridge.rules</filename>:
+       </para>
  
--                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
-+                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/lib/systemd/systemd-sysctl --prefix=/net/bridge"
+-      <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
++      <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/lib/systemd/systemd-sysctl --prefix=/net/bridge"
  </programlisting>
  
-                         <para><filename>/etc/sysctl.d/bridge.conf</filename>:
+       <para><filename>/etc/sysctl.d/bridge.conf</filename>:
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index ad1c527..0c0b353 100644
+index 338c1d3..9cc10b4 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
-@@ -429,8 +429,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -410,8 +410,8 @@
            processes. Not all unit types manage processes of these
            types however. For example, for mount units, control processes
            are defined (which are the invocations of
@@ -109,10 +119,10 @@ index ad1c527..0c0b353 100644
            <option>all</option>.</para>
          </listitem>
 diff --git a/man/systemd-activate.xml b/man/systemd-activate.xml
-index 3793331..d282f03 100644
+index e64894a..079a007 100644
 --- a/man/systemd-activate.xml
 +++ b/man/systemd-activate.xml
-@@ -50,7 +50,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -50,7 +50,7 @@
  
    <refsynopsisdiv>
      <cmdsynopsis>
@@ -121,7 +131,7 @@ index 3793331..d282f03 100644
        <arg choice="opt" rep="repeat">OPTIONS</arg>
        <arg choice="plain"><replaceable>daemon</replaceable></arg>
        <arg choice="opt" rep="repeat">OPTIONS</arg>
-@@ -149,13 +149,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -149,13 +149,13 @@
      <example>
        <title>Run an echo server on port 2000</title>
  
@@ -138,44 +148,62 @@ index 3793331..d282f03 100644
    </refsect1>
  
 diff --git a/man/systemd-backlight@.service.xml b/man/systemd-backlight@.service.xml
-index 453afbf..c207819 100644
+index a259f5d..aa86e8a 100644
 --- a/man/systemd-backlight@.service.xml
 +++ b/man/systemd-backlight@.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-backlight@.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-backlight</filename></para>
-+                <para><filename>/lib/systemd/systemd-backlight</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-backlight@.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-backlight</filename></para>
++    <para><filename>/lib/systemd/systemd-backlight</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-binfmt.service.xml b/man/systemd-binfmt.service.xml
-index cb96048..78f65b2 100644
+index 66d2643..e4d3c56 100644
 --- a/man/systemd-binfmt.service.xml
 +++ b/man/systemd-binfmt.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-binfmt.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-binfmt</filename></para>
-+                <para><filename>/lib/systemd/systemd-binfmt</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-binfmt.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-binfmt</filename></para>
++    <para><filename>/lib/systemd/systemd-binfmt</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-bootchart.xml b/man/systemd-bootchart.xml
-index ff86be2..347bfed 100644
+index 5386667..dac7eb9 100644
 --- a/man/systemd-bootchart.xml
 +++ b/man/systemd-bootchart.xml
-@@ -63,7 +63,7 @@
-                         a running system. Collected results are output
-                         as an SVG graph. Normally, systemd-bootchart
-                         is invoked by the kernel by passing
--                        <option>init=<filename>/usr/lib/systemd/systemd-bootchart</filename></option>
-+                        <option>init=<filename>/lib/systemd/systemd-bootchart</filename></option>
-                         on the kernel command line. systemd-bootchart will then
-                         fork the real init off to resume normal system
-                         startup, while monitoring and logging startup
+@@ -60,7 +60,7 @@
+       usage, as well as per-process information from a running system.
+       Collected results are output as an SVG graph. Normally,
+       systemd-bootchart is invoked by the kernel by passing
+-      <option>init=<filename>/usr/lib/systemd/systemd-bootchart</filename></option>
++      <option>init=<filename>/lib/systemd/systemd-bootchart</filename></option>
+       on the kernel command line. systemd-bootchart will then fork the
+       real init off to resume normal system startup, while monitoring
+       and logging startup information in the background.
+@@ -106,7 +106,7 @@
+         <listitem><para>The kernel can invoke
+         <command>systemd-bootchart</command> instead of the init
+         process. In turn, <command>systemd-bootchart</command> will
+-        invoke <command>/usr/lib/systemd/systemd</command>.
++        invoke <command>/lib/systemd/systemd</command>.
+         </para></listitem>
+       </varlistentry>
+ 
+@@ -201,7 +201,7 @@
+         <term><option>-i</option></term>
+         <term><option>--init <replaceable>path</replaceable></option></term>
+         <listitem><para>Use this init binary. Defaults to
+-        <command>/usr/lib/systemd/systemd</command>.
++        <command>/lib/systemd/systemd</command>.
+         </para></listitem>
+       </varlistentry>
+ 
 diff --git a/man/systemd-bus-proxyd.xml b/man/systemd-bus-proxyd.xml
 index 2c77640..63cef4f 100644
 --- a/man/systemd-bus-proxyd.xml
@@ -203,192 +231,198 @@ index 6a7ced1..e8d156c 100644
  
    <refsect1>
 diff --git a/man/systemd-cryptsetup-generator.xml b/man/systemd-cryptsetup-generator.xml
-index c8753ce..4e780fd 100644
+index 0e48e79..c238dfe 100644
 --- a/man/systemd-cryptsetup-generator.xml
 +++ b/man/systemd-cryptsetup-generator.xml
 @@ -46,7 +46,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-cryptsetup@.service.xml b/man/systemd-cryptsetup@.service.xml
-index 6fa2e0c..baee60f 100644
+index bd03637..668e287 100644
 --- a/man/systemd-cryptsetup@.service.xml
 +++ b/man/systemd-cryptsetup@.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-cryptsetup@.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-cryptsetup</filename></para>
-+                <para><filename>/lib/systemd/systemd-cryptsetup</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-cryptsetup@.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-cryptsetup</filename></para>
++    <para><filename>/lib/systemd/systemd-cryptsetup</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-debug-generator.xml b/man/systemd-debug-generator.xml
-index a2bef5f..7015d3b 100644
+index 74c3b26..0168f93 100644
 --- a/man/systemd-debug-generator.xml
 +++ b/man/systemd-debug-generator.xml
-@@ -46,7 +46,7 @@
-         </refnamediv>
+@@ -47,7 +47,7 @@
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-debug-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-debug-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-debug-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-debug-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-efi-boot-generator.xml b/man/systemd-efi-boot-generator.xml
-index 3a79dfb..df1f393 100644
+index b2d8d65..f5162bb 100644
 --- a/man/systemd-efi-boot-generator.xml
 +++ b/man/systemd-efi-boot-generator.xml
 @@ -48,7 +48,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-fsck@.service.xml b/man/systemd-fsck@.service.xml
-index ee66f37..5f70d30 100644
+index 88e11e8..32ba062 100644
 --- a/man/systemd-fsck@.service.xml
 +++ b/man/systemd-fsck@.service.xml
 @@ -50,7 +50,7 @@
-         <refsynopsisdiv>
-                 <para><filename>systemd-fsck@.service</filename></para>
-                 <para><filename>systemd-fsck-root.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-fsck</filename></para>
-+                <para><filename>/lib/systemd/systemd-fsck</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-fsck@.service</filename></para>
+     <para><filename>systemd-fsck-root.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-fsck</filename></para>
++    <para><filename>/lib/systemd/systemd-fsck</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
+@@ -137,5 +137,4 @@
+       <citerefentry><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+     </para>
+   </refsect1>
+-
+ </refentry>
 diff --git a/man/systemd-fstab-generator.xml b/man/systemd-fstab-generator.xml
-index 65b48ee..28600e6 100644
+index 8f82e33..f7c212b 100644
 --- a/man/systemd-fstab-generator.xml
 +++ b/man/systemd-fstab-generator.xml
 @@ -46,7 +46,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-fstab-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-fstab-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-fstab-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-fstab-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-getty-generator.xml b/man/systemd-getty-generator.xml
-index f6a6689..3c81e80 100644
+index 0b5b2f2..7dd5acb 100644
 --- a/man/systemd-getty-generator.xml
 +++ b/man/systemd-getty-generator.xml
 @@ -47,7 +47,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-getty-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-getty-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-getty-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-getty-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-gpt-auto-generator.xml b/man/systemd-gpt-auto-generator.xml
-index 68fe270..752771e 100644
+index 9c706df..743dd5d 100644
 --- a/man/systemd-gpt-auto-generator.xml
 +++ b/man/systemd-gpt-auto-generator.xml
 @@ -50,7 +50,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-gpt-auto-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-gpt-auto-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-gpt-auto-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-gpt-auto-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-halt.service.xml b/man/systemd-halt.service.xml
-index 552dbdf..d0d892b 100644
+index c94e2a1..9be1832 100644
 --- a/man/systemd-halt.service.xml
 +++ b/man/systemd-halt.service.xml
 @@ -56,7 +56,7 @@
-                 <para><filename>systemd-poweroff.service</filename></para>
-                 <para><filename>systemd-reboot.service</filename></para>
-                 <para><filename>systemd-kexec.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-shutdown</filename></para>
-+                <para><filename>/lib/systemd/systemd-shutdown</filename></para>
-         </refsynopsisdiv>
+     <para><filename>systemd-poweroff.service</filename></para>
+     <para><filename>systemd-reboot.service</filename></para>
+     <para><filename>systemd-kexec.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-shutdown</filename></para>
++    <para><filename>/lib/systemd/systemd-shutdown</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
-@@ -76,7 +76,7 @@
+   <refsect1>
+@@ -75,7 +75,7 @@
  
-                 <para>When these services are run, they ensure that PID
-                 1 is replaced by the
--                <filename>/usr/lib/systemd/systemd-shutdown</filename>
-+                <filename>/lib/systemd/systemd-shutdown</filename>
-                 tool which is then responsible for the actual
-                 shutdown. Before shutting down, this binary will try to
-                 unmount all remaining file systems, disable all
-@@ -93,7 +93,7 @@
-                 halt/poweroff/reboot/kexec
-                 <filename>systemd-shutdown</filename> will run all
-                 executables in
--                <filename>/usr/lib/systemd/system-shutdown/</filename>
-+                <filename>/lib/systemd/system-shutdown/</filename>
-                 and pass one arguments to them: either
-                 <literal>halt</literal>,
-                 <literal>poweroff</literal>,
+     <para>When these services are run, they ensure that PID 1 is
+     replaced by the
+-    <filename>/usr/lib/systemd/systemd-shutdown</filename> tool which
++    <filename>/lib/systemd/systemd-shutdown</filename> tool which
+     is then responsible for the actual shutdown. Before shutting down,
+     this binary will try to unmount all remaining file systems,
+     disable all remaining swap devices, detach all remaining storage
+@@ -90,7 +90,7 @@
+     <para>Immediately before executing the actual system
+     halt/poweroff/reboot/kexec <filename>systemd-shutdown</filename>
+     will run all executables in
+-    <filename>/usr/lib/systemd/system-shutdown/</filename> and pass
++    <filename>/lib/systemd/system-shutdown/</filename> and pass
+     one arguments to them: either <literal>halt</literal>,
+     <literal>poweroff</literal>, <literal>reboot</literal> or
+     <literal>kexec</literal>, depending on the chosen action. All
 diff --git a/man/systemd-hibernate-resume-generator.xml b/man/systemd-hibernate-resume-generator.xml
-index e010c23..d844948 100644
+index a21782c..dda6830 100644
 --- a/man/systemd-hibernate-resume-generator.xml
 +++ b/man/systemd-hibernate-resume-generator.xml
 @@ -46,7 +46,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-hibernate-resume-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-hibernate-resume-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-hibernate-resume-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-hibernate-resume-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-hibernate-resume@.service.xml b/man/systemd-hibernate-resume@.service.xml
-index 30bfd88..d25e0a8 100644
+index 7d00827..ffb579e 100644
 --- a/man/systemd-hibernate-resume@.service.xml
 +++ b/man/systemd-hibernate-resume@.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-hibernate-resume@.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-hibernate-resume</filename></para>
-+                <para><filename>/lib/systemd/systemd-hibernate-resume</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-hibernate-resume@.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-hibernate-resume</filename></para>
++    <para><filename>/lib/systemd/systemd-hibernate-resume</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-hostnamed.service.xml b/man/systemd-hostnamed.service.xml
-index 7952d8a..9af288b 100644
+index 6990d41..0b817bf 100644
 --- a/man/systemd-hostnamed.service.xml
 +++ b/man/systemd-hostnamed.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-hostnamed.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-hostnamed</filename></para>
-+                <para><filename>/lib/systemd/systemd-hostnamed</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-hostnamed.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-hostnamed</filename></para>
++    <para><filename>/lib/systemd/systemd-hostnamed</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-initctl.service.xml b/man/systemd-initctl.service.xml
-index eda6459..13c3a97 100644
+index 5c7f9a4..86db1c1 100644
 --- a/man/systemd-initctl.service.xml
 +++ b/man/systemd-initctl.service.xml
 @@ -52,7 +52,7 @@
-         <refsynopsisdiv>
-                 <para><filename>systemd-initctl.service</filename></para>
-                 <para><filename>systemd-initctl.socket</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-initctl</filename></para>
-+                <para><filename>/lib/systemd/systemd-initctl</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-initctl.service</filename></para>
+     <para><filename>systemd-initctl.socket</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-initctl</filename></para>
++    <para><filename>/lib/systemd/systemd-initctl</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-journal-gatewayd.service.xml b/man/systemd-journal-gatewayd.service.xml
 index 7420b59..e80c978 100644
 --- a/man/systemd-journal-gatewayd.service.xml
@@ -403,188 +437,179 @@ index 7420b59..e80c978 100644
      </cmdsynopsis>
    </refsynopsisdiv>
 diff --git a/man/systemd-journald.service.xml b/man/systemd-journald.service.xml
-index fa6e97e..1eaad99 100644
+index 6b250b6..9a9c2ee 100644
 --- a/man/systemd-journald.service.xml
 +++ b/man/systemd-journald.service.xml
 @@ -54,7 +54,7 @@
-                 <para><filename>systemd-journald.service</filename></para>
-                 <para><filename>systemd-journald.socket</filename></para>
-                 <para><filename>systemd-journald-dev-log.socket</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
-+                <para><filename>/lib/systemd/systemd-journald</filename></para>
-         </refsynopsisdiv>
+     <para><filename>systemd-journald.service</filename></para>
+     <para><filename>systemd-journald.socket</filename></para>
+     <para><filename>systemd-journald-dev-log.socket</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
++    <para><filename>/lib/systemd/systemd-journald</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-localed.service.xml b/man/systemd-localed.service.xml
-index 1551e6a..a26818c 100644
+index 8999166..aaa0730 100644
 --- a/man/systemd-localed.service.xml
 +++ b/man/systemd-localed.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-localed.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-localed</filename></para>
-+                <para><filename>/lib/systemd/systemd-localed</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-localed.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-localed</filename></para>
++    <para><filename>/lib/systemd/systemd-localed</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-logind.service.xml b/man/systemd-logind.service.xml
-index c0c3d1a..e2263ed 100644
+index 5733e42..272d168 100644
 --- a/man/systemd-logind.service.xml
 +++ b/man/systemd-logind.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-logind.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-logind</filename></para>
-+                <para><filename>/lib/systemd/systemd-logind</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-logind.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-logind</filename></para>
++    <para><filename>/lib/systemd/systemd-logind</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-machined.service.xml b/man/systemd-machined.service.xml
-index 352b4a0..68710ae 100644
+index 999aeee..da5a80f 100644
 --- a/man/systemd-machined.service.xml
 +++ b/man/systemd-machined.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-machined.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-machined</filename></para>
-+                <para><filename>/lib/systemd/systemd-machined</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-machined.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-machined</filename></para>
++    <para><filename>/lib/systemd/systemd-machined</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-modules-load.service.xml b/man/systemd-modules-load.service.xml
-index 7b99be6..5958ec0 100644
+index dacd083..8bf9325 100644
 --- a/man/systemd-modules-load.service.xml
 +++ b/man/systemd-modules-load.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-modules-load.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-modules-load</filename></para>
-+                <para><filename>/lib/systemd/systemd-modules-load</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-modules-load.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-modules-load</filename></para>
++    <para><filename>/lib/systemd/systemd-modules-load</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-networkd-wait-online.service.xml b/man/systemd-networkd-wait-online.service.xml
-index 3083588..1eb62a6 100644
+index f53b337..944b73f 100644
 --- a/man/systemd-networkd-wait-online.service.xml
 +++ b/man/systemd-networkd-wait-online.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-networkd-wait-online.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-networkd-wait-online</filename></para>
-+                <para><filename>/lib/systemd/systemd-networkd-wait-online</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-networkd-wait-online.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-networkd-wait-online</filename></para>
++    <para><filename>/lib/systemd/systemd-networkd-wait-online</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-networkd.service.xml b/man/systemd-networkd.service.xml
-index 7c20fa4..3d56662 100644
+index 0bfe551..fe1e4ae 100644
 --- a/man/systemd-networkd.service.xml
 +++ b/man/systemd-networkd.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-networkd.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-networkd</filename></para>
-+                <para><filename>/lib/systemd/systemd-networkd</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-networkd.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-networkd</filename></para>
++    <para><filename>/lib/systemd/systemd-networkd</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
-@@ -76,7 +76,7 @@
- 
-         <refsect1><title>Configuration Files</title>
-                 <para>The configuration files are read from the files located in the
--                system network directory <filename>/usr/lib/systemd/network</filename>,
-+                system network directory <filename>/lib/systemd/network</filename>,
-                 the volatile runtime network directory
-                 <filename>/run/systemd/network</filename> and the local administration
-                 network directory <filename>/etc/systemd/network</filename>.</para>
+   <refsect1>
 diff --git a/man/systemd-quotacheck.service.xml b/man/systemd-quotacheck.service.xml
-index ff04e58..97dd720 100644
+index 2179f11..b69fe10 100644
 --- a/man/systemd-quotacheck.service.xml
 +++ b/man/systemd-quotacheck.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-quotacheck.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-quotacheck</filename></para>
-+                <para><filename>/lib/systemd/systemd-quotacheck</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-quotacheck.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-quotacheck</filename></para>
++    <para><filename>/lib/systemd/systemd-quotacheck</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-random-seed.service.xml b/man/systemd-random-seed.service.xml
-index e5cd037..55a807e 100644
+index 8c83668..3d259c0 100644
 --- a/man/systemd-random-seed.service.xml
 +++ b/man/systemd-random-seed.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-random-seed.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-random-seed</filename></para>
-+                <para><filename>/lib/systemd/systemd-random-seed</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-random-seed.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-random-seed</filename></para>
++    <para><filename>/lib/systemd/systemd-random-seed</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-remount-fs.service.xml b/man/systemd-remount-fs.service.xml
-index cf04713..9726d0a 100644
+index 7b88ac3..867ca37 100644
 --- a/man/systemd-remount-fs.service.xml
 +++ b/man/systemd-remount-fs.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-remount-fs.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-remount-fs</filename></para>
-+                <para><filename>/lib/systemd/systemd-remount-fs</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-remount-fs.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-remount-fs</filename></para>
++    <para><filename>/lib/systemd/systemd-remount-fs</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-resolved.service.xml b/man/systemd-resolved.service.xml
-index c44b10c..444e2eb 100644
+index 89ec5f8..e60bc35 100644
 --- a/man/systemd-resolved.service.xml
 +++ b/man/systemd-resolved.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-resolved.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-resolved</filename></para>
-+                <para><filename>/lib/systemd/systemd-resolved</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-resolved.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-resolved</filename></para>
++    <para><filename>/lib/systemd/systemd-resolved</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-rfkill@.service.xml b/man/systemd-rfkill@.service.xml
-index 987bbaa..215baf4 100644
+index 709b09d..4f2274b 100644
 --- a/man/systemd-rfkill@.service.xml
 +++ b/man/systemd-rfkill@.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-rfkill@.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-rfkill</filename></para>
-+                <para><filename>/lib/systemd/systemd-rfkill</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-rfkill@.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-rfkill</filename></para>
++    <para><filename>/lib/systemd/systemd-rfkill</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-shutdownd.service.xml b/man/systemd-shutdownd.service.xml
-index c1b8ef7..b62065e 100644
+index 756949c..0f42798 100644
 --- a/man/systemd-shutdownd.service.xml
 +++ b/man/systemd-shutdownd.service.xml
 @@ -52,7 +52,7 @@
-         <refsynopsisdiv>
-                 <para><filename>systemd-shutdownd.service</filename></para>
-                 <para><filename>systemd-shutdownd.socket</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-shutdownd</filename></para>
-+                <para><filename>/lib/systemd/systemd-shutdownd</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-shutdownd.service</filename></para>
+     <para><filename>systemd-shutdownd.socket</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-shutdownd</filename></para>
++    <para><filename>/lib/systemd/systemd-shutdownd</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-socket-proxyd.xml b/man/systemd-socket-proxyd.xml
-index ab80a2b..0efd85c 100644
+index 1c78b65..c76b874 100644
 --- a/man/systemd-socket-proxyd.xml
 +++ b/man/systemd-socket-proxyd.xml
-@@ -115,7 +115,7 @@ Requires=nginx.service
+@@ -113,7 +113,7 @@ Requires=nginx.service
  After=nginx.service
  
  [Service]
@@ -592,8 +617,8 @@ index ab80a2b..0efd85c 100644
 +ExecStart=/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
  PrivateTmp=yes
  PrivateNetwork=yes]]></programlisting>
-                         </example>
-@@ -160,7 +160,7 @@ After=nginx.service
+       </example>
+@@ -156,7 +156,7 @@ After=nginx.service
  JoinsNamespaceOf=nginx.service
  
  [Service]
@@ -601,95 +626,83 @@ index ab80a2b..0efd85c 100644
 +ExecStart=/lib/systemd/systemd-socket-proxyd 127.0.0.1:8080
  PrivateTmp=yes
  PrivateNetwork=yes]]></programlisting>
-                         </example>
+       </example>
 diff --git a/man/systemd-suspend.service.xml b/man/systemd-suspend.service.xml
-index 375c255..2eef15f 100644
+index a8beb86..60d3f2e 100644
 --- a/man/systemd-suspend.service.xml
 +++ b/man/systemd-suspend.service.xml
 @@ -56,7 +56,7 @@
-                 <para><filename>systemd-suspend.service</filename></para>
-                 <para><filename>systemd-hibernate.service</filename></para>
-                 <para><filename>systemd-hybrid-sleep.service</filename></para>
--                <para><filename>/usr/lib/systemd/system-sleep</filename></para>
-+                <para><filename>/lib/systemd/system-sleep</filename></para>
-         </refsynopsisdiv>
+     <para><filename>systemd-suspend.service</filename></para>
+     <para><filename>systemd-hibernate.service</filename></para>
+     <para><filename>systemd-hybrid-sleep.service</filename></para>
+-    <para><filename>/usr/lib/systemd/system-sleep</filename></para>
++    <para><filename>/lib/systemd/system-sleep</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
-@@ -79,7 +79,7 @@
-                 <filename>systemd-suspend.service</filename> (and the
-                 other mentioned units, respectively) will run all
-                 executables in
--                <filename>/usr/lib/systemd/system-sleep/</filename>
-+                <filename>/lib/systemd/system-sleep/</filename>
-                 and pass two arguments to them. The first argument
-                 will be <literal>pre</literal>, the second either
-                 <literal>suspend</literal>,
-@@ -94,7 +94,7 @@
-                 have finished.</para>
- 
-                 <para>Note that scripts or binaries dropped in
--                <filename>/usr/lib/systemd/system-sleep/</filename>
-+                <filename>/lib/systemd/system-sleep/</filename>
-                 are intended for local use only and should be
-                 considered hacks. If applications want to be notified
-                 of system suspend/hibernation and resume, there are
+   <refsect1>
 diff --git a/man/systemd-sysctl.service.xml b/man/systemd-sysctl.service.xml
-index a9a4765..af7c25f 100644
+index f35a18a..a4ea099 100644
 --- a/man/systemd-sysctl.service.xml
 +++ b/man/systemd-sysctl.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-sysctl.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-sysctl</filename></para>
-+                <para><filename>/lib/systemd/systemd-sysctl</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-sysctl.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-sysctl</filename></para>
++    <para><filename>/lib/systemd/systemd-sysctl</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-system-update-generator.xml b/man/systemd-system-update-generator.xml
-index 18a23ed..61ab7fb 100644
+index 3eec1d7..d8e2c02 100644
 --- a/man/systemd-system-update-generator.xml
 +++ b/man/systemd-system-update-generator.xml
 @@ -46,7 +46,7 @@
-         </refnamediv>
+   </refnamediv>
  
-         <refsynopsisdiv>
--                <para><filename>/usr/lib/systemd/system-generators/systemd-system-update-generator</filename></para>
-+                <para><filename>/lib/systemd/system-generators/systemd-system-update-generator</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+-    <para><filename>/usr/lib/systemd/system-generators/systemd-system-update-generator</filename></para>
++    <para><filename>/lib/systemd/system-generators/systemd-system-update-generator</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-timedated.service.xml b/man/systemd-timedated.service.xml
-index aee37db..ea5e087 100644
+index e44163a..72fcbd4 100644
 --- a/man/systemd-timedated.service.xml
 +++ b/man/systemd-timedated.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-timedated.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-timedated</filename></para>
-+                <para><filename>/lib/systemd/systemd-timedated</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-timedated.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-timedated</filename></para>
++    <para><filename>/lib/systemd/systemd-timedated</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-timesyncd.service.xml b/man/systemd-timesyncd.service.xml
-index 47e243c..f5de3a9 100644
+index ac1af2d..85e43be 100644
 --- a/man/systemd-timesyncd.service.xml
 +++ b/man/systemd-timesyncd.service.xml
 @@ -50,7 +50,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-timesyncd.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-timesyncd</filename></para>
-+                <para><filename>/lib/systemd/systemd-timesyncd</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-timesyncd.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-timesyncd</filename></para>
++    <para><filename>/lib/systemd/systemd-timesyncd</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
+@@ -100,5 +100,4 @@
+       <citerefentry project='man-pages'><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+     </para>
+   </refsect1>
+-
+ </refentry>
 diff --git a/man/systemd-udevd.service.xml b/man/systemd-udevd.service.xml
-index f467cd2..cf06d3b 100644
+index b18b228..1689754 100644
 --- a/man/systemd-udevd.service.xml
 +++ b/man/systemd-udevd.service.xml
-@@ -38,7 +38,7 @@
+@@ -37,7 +37,7 @@
      <para><filename>systemd-udevd-kernel.socket</filename></para>
  
      <cmdsynopsis>
@@ -699,71 +712,64 @@ index f467cd2..cf06d3b 100644
        <arg><option>--debug</option></arg>
        <arg><option>--children-max=</option></arg>
 diff --git a/man/systemd-update-done.service.xml b/man/systemd-update-done.service.xml
-index c3b402b..fa3cf9f 100644
+index d65f175..bf40b55 100644
 --- a/man/systemd-update-done.service.xml
 +++ b/man/systemd-update-done.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-update-done.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-update-done</filename></para>
-+                <para><filename>/lib/systemd/systemd-update-done</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-update-done.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-update-done</filename></para>
++    <para><filename>/lib/systemd/systemd-update-done</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-update-utmp.service.xml b/man/systemd-update-utmp.service.xml
-index caa1d8f..9fb5ab9 100644
+index b842d29..610f0e9 100644
 --- a/man/systemd-update-utmp.service.xml
 +++ b/man/systemd-update-utmp.service.xml
 @@ -51,7 +51,7 @@
-         <refsynopsisdiv>
-                 <para><filename>systemd-update-utmp.service</filename></para>
-                 <para><filename>systemd-update-utmp-runlevel.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-update-utmp</filename></para>
-+                <para><filename>/lib/systemd/systemd-update-utmp</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-update-utmp.service</filename></para>
+     <para><filename>systemd-update-utmp-runlevel.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-update-utmp</filename></para>
++    <para><filename>/lib/systemd/systemd-update-utmp</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd-user-sessions.service.xml b/man/systemd-user-sessions.service.xml
-index 767cbc7..fd4268b 100644
+index 9d796b1..97a6a0f 100644
 --- a/man/systemd-user-sessions.service.xml
 +++ b/man/systemd-user-sessions.service.xml
-@@ -48,7 +48,7 @@
+@@ -48,9 +48,8 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-user-sessions.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-user-sessions</filename></para>
-+                <para><filename>/lib/systemd/systemd-user-sessions</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-user-sessions.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-user-sessions</filename></para>
++    <para><filename>/lib/systemd/systemd-user-sessions</filename></para>
+   </refsynopsisdiv>
+-
+   <refsect1>
+     <title>Description</title>
  
-         <refsect1>
 diff --git a/man/systemd-vconsole-setup.service.xml b/man/systemd-vconsole-setup.service.xml
-index 3c50799..c891a92 100644
+index 59bb5e4..1f330d2 100644
 --- a/man/systemd-vconsole-setup.service.xml
 +++ b/man/systemd-vconsole-setup.service.xml
 @@ -48,7 +48,7 @@
  
-         <refsynopsisdiv>
-                 <para><filename>systemd-vconsole-setup.service</filename></para>
--                <para><filename>/usr/lib/systemd/systemd-vconsole-setup</filename></para>
-+                <para><filename>/lib/systemd/systemd-vconsole-setup</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>systemd-vconsole-setup.service</filename></para>
+-    <para><filename>/usr/lib/systemd/systemd-vconsole-setup</filename></para>
++    <para><filename>/lib/systemd/systemd-vconsole-setup</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
+   <refsect1>
 diff --git a/man/systemd.directives.xml b/man/systemd.directives.xml
-index aa7167b..23bd578 100644
+index c65c0dc..5f2ba65 100644
 --- a/man/systemd.directives.xml
 +++ b/man/systemd.directives.xml
-@@ -2974,7 +2974,7 @@
- 
- <varlistentry><term><filename>/etc/tmpfiles.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
- 
--<varlistentry><term><filename>/etc/udev/hwdb.bin</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/udev/hwdb.bin</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
- 
- <varlistentry><term><filename>/etc/udev/hwdb.d</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
- 
-@@ -3128,9 +3128,9 @@
+@@ -3198,9 +3198,9 @@
  
  <varlistentry><term><filename>/usr/bin</filename></term><listitem><para><citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
@@ -775,7 +781,7 @@ index aa7167b..23bd578 100644
  
  <varlistentry><term><filename>/usr/include</filename></term><listitem><para><citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
-@@ -3150,129 +3150,129 @@
+@@ -3222,133 +3222,133 @@
  
  <varlistentry><term><filename>/usr/lib/sysctl.d/50-coredump.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
  
@@ -784,6 +790,8 @@ index aa7167b..23bd578 100644
  
 -<varlistentry><term><filename>/usr/lib/systemd/coredump.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/coredump.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+ 
+ <varlistentry><term><filename>/usr/lib/systemd/import-pubring.gpg</filename></term><listitem><para><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/journald.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
@@ -802,6 +810,9 @@ index aa7167b..23bd578 100644
  
 -<varlistentry><term><filename>/usr/lib/systemd/system</filename></term><listitem><para><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/system</filename></term><listitem><para><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+ 
+-<varlistentry><term><filename>/usr/lib/systemd/system-generators/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/systemd/system-generators/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><filename>/usr/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></term><listitem><para><citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></term><listitem><para><citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
@@ -847,6 +858,12 @@ index aa7167b..23bd578 100644
  
 -<varlistentry><term><filename>/usr/lib/systemd/system.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/system.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+ 
+-<varlistentry><term><filename>/usr/lib/systemd/system/httpd.service</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/systemd/system/httpd.service</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+ 
+-<varlistentry><term><filename>/usr/lib/systemd/systemd</filename></term><listitem><para><citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/systemd/systemd</filename></term><listitem><para><citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><command>/usr/lib/systemd/systemd-activate</command></term><listitem><para><citerefentry><refentrytitle>systemd-activate</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><command>/lib/systemd/systemd-activate</command></term><listitem><para><citerefentry><refentrytitle>systemd-activate</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
@@ -959,173 +976,87 @@ index aa7167b..23bd578 100644
 -<varlistentry><term><filename>/usr/lib/systemd/user/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/user/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/systemd/user-preset/*.preset</filename></term><listitem><para><citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/systemd/user-preset/*.preset</filename></term><listitem><para><citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+ <varlistentry><term><filename>/usr/lib/systemd/user-generators/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/systemd/user.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/systemd/user.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
- 
- <varlistentry><term><filename>/usr/lib/sysusers.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
- 
-@@ -3280,13 +3280,13 @@
+@@ -3362,13 +3362,13 @@
  
  <varlistentry><term><filename>/usr/lib/tmpfiles.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><filename>/usr/lib/udev</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/udev</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/udev/hwdb.bin</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/udev/hwdb.bin</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
+-<varlistentry><term><filename>/usr/lib/udev/hwdb.bin</filename></term><listitem><para><citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/udev/hwdb.bin</filename></term><listitem><para><citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/udev/hwdb.d</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/udev/hwdb.d</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
+-<varlistentry><term><filename>/usr/lib/udev/hwdb.d</filename></term><listitem><para><citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/udev/hwdb.d</filename></term><listitem><para><citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><filename>/usr/lib/udev/rules.d</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/udev/rules.d</filename></term><listitem><para><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
  <varlistentry><term><filename>/usr/lib64</filename></term><listitem><para><citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
-diff --git a/man/systemd.link.xml b/man/systemd.link.xml
-index 0eb3950..7c22d6e 100644
---- a/man/systemd.link.xml
-+++ b/man/systemd.link.xml
-@@ -57,7 +57,7 @@
-                 udev builtin.</para>
- 
-                 <para>The link files are read from the files located in the
--                system network directory <filename>/usr/lib/systemd/network</filename>,
-+                system network directory <filename>/lib/systemd/network</filename>,
-                 the volatile runtime network directory <filename>/run/systemd/network</filename>,
-                 and the local administration network directory <filename>/etc/systemd/network</filename>.
-                 Link files must have the extension <filename>.link</filename>; other extensions are ignored.
-@@ -65,10 +65,10 @@
-                 regardless of the directories in which they live. However, files with
-                 identical filenames replace each other. Files in <filename>/etc</filename>
-                 have the highest priority, files in <filename>/run</filename> take precedence
--                over files with the same name in <filename>/usr/lib</filename>. This can be
-+                over files with the same name in <filename>/lib</filename>. This can be
-                 used to override a system-supplied link file with a local file if needed;
-                 a symlink in <filename>/etc</filename> with the same name as a link file in
--                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-+                <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-                 disables the link file entirely.</para>
- 
-                 <para>The link file contains a <literal>[Match]</literal> section, which
-diff --git a/man/systemd.netdev.xml b/man/systemd.netdev.xml
-index 45934f2..b236c92 100644
---- a/man/systemd.netdev.xml
-+++ b/man/systemd.netdev.xml
-@@ -66,7 +66,7 @@
-                 netdev will not be changed by networkd.</para>
- 
-                 <para>The <filename>.netdev</filename> files are read from the files located in the
--                system network directory <filename>/usr/lib/systemd/network</filename>,
-+                system network directory <filename>/lib/systemd/network</filename>,
-                 the volatile runtime network directory
-                 <filename>/run/systemd/network</filename> and the local administration
-                 network directory <filename>/etc/systemd/network</filename>.
-@@ -75,10 +75,10 @@
-                 identical filenames replace each other. Files in
-                 <filename>/etc</filename> have the highest priority, files in
-                 <filename>/run</filename> take precedence over files with the same
--                name in <filename>/usr/lib</filename>. This can be used to override a
-+                name in <filename>/lib</filename>. This can be used to override a
-                 system-supplied configuration file with a local file if needed; a symlink in
-                 <filename>/etc</filename> with the same name as a configuration file in
--                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-+                <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-                 disables the configuration file entirely.</para>
- 
-         </refsect1>
-diff --git a/man/systemd.network.xml b/man/systemd.network.xml
-index 79c7a23..f9a266f 100644
---- a/man/systemd.network.xml
-+++ b/man/systemd.network.xml
-@@ -63,7 +63,7 @@
-                 appear.</para>
- 
-                 <para>The <filename>.network</filename> files are read from the files located in the
--                system network directory <filename>/usr/lib/systemd/network</filename>,
-+                system network directory <filename>/lib/systemd/network</filename>,
-                 the volatile runtime network directory
-                 <filename>/run/systemd/network</filename> and the local administration
-                 network directory <filename>/etc/systemd/network</filename>.
-@@ -72,10 +72,10 @@
-                 identical filenames replace each other. Files in
-                 <filename>/etc</filename> have the highest priority, files in
-                 <filename>/run</filename> take precedence over files with the same
--                name in <filename>/usr/lib</filename>. This can be used to override a
-+                name in <filename>/lib</filename>. This can be used to override a
-                 system-supplied configuration file with a local file if needed; a symlink in
-                 <filename>/etc</filename> with the same name as a configuration file in
--                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-+                <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-                 disables the configuration file entirely.</para>
- 
-         </refsect1>
 diff --git a/man/systemd.preset.xml b/man/systemd.preset.xml
-index 55cb4de..f35b151 100644
+index 2f9add8..a30cc5b 100644
 --- a/man/systemd.preset.xml
 +++ b/man/systemd.preset.xml
 @@ -48,10 +48,10 @@
-         <refsynopsisdiv>
-                 <para><filename>/etc/systemd/system-preset/*.preset</filename></para>
-                 <para><filename>/run/systemd/system-preset/*.preset</filename></para>
--                <para><filename>/usr/lib/systemd/system-preset/*.preset</filename></para>
-+                <para><filename>/lib/systemd/system-preset/*.preset</filename></para>
-                 <para><filename>/etc/systemd/user-preset/*.preset</filename></para>
-                 <para><filename>/run/systemd/user-preset/*.preset</filename></para>
--                <para><filename>/usr/lib/systemd/user-preset/*.preset</filename></para>
-+                <para><filename>/lib/systemd/user-preset/*.preset</filename></para>
-         </refsynopsisdiv>
+   <refsynopsisdiv>
+     <para><filename>/etc/systemd/system-preset/*.preset</filename></para>
+     <para><filename>/run/systemd/system-preset/*.preset</filename></para>
+-    <para><filename>/usr/lib/systemd/system-preset/*.preset</filename></para>
++    <para><filename>/lib/systemd/system-preset/*.preset</filename></para>
+     <para><filename>/etc/systemd/user-preset/*.preset</filename></para>
+     <para><filename>/run/systemd/user-preset/*.preset</filename></para>
+-    <para><filename>/usr/lib/systemd/user-preset/*.preset</filename></para>
++    <para><filename>/lib/systemd/user-preset/*.preset</filename></para>
+   </refsynopsisdiv>
  
-         <refsect1>
-@@ -116,12 +116,12 @@
-                 <para>Each preset file shall be named in the style of
-                 <filename>&lt;priority&gt;-&lt;program&gt;.conf</filename>.
-                 Files in <filename>/etc/</filename> override files
--                with the same name in <filename>/usr/lib/</filename>
-+                with the same name in <filename>/lib/</filename>
-                 and <filename>/run/</filename>.  Files in
-                 <filename>/run/</filename> override files with the
--                same name in <filename>/usr/lib/</filename>. Packages
-+                same name in <filename>/lib/</filename>. Packages
-                 should install their preset files in
--                <filename>/usr/lib/</filename>. Files in
-+                <filename>/lib/</filename>. Files in
-                 <filename>/etc/</filename> are reserved for the local
-                 administrator, who may use this logic to override the
-                 preset files installed by vendor packages. All preset
+   <refsect1>
+@@ -108,10 +108,10 @@
+     <para>Each preset file shall be named in the style of
+     <filename>&lt;priority&gt;-&lt;program&gt;.conf</filename>. Files
+     in <filename>/etc/</filename> override files with the same name in
+-    <filename>/usr/lib/</filename> and <filename>/run/</filename>.
++    <filename>/lib/</filename> and <filename>/run/</filename>.
+     Files in <filename>/run/</filename> override files with the same
+-    name in <filename>/usr/lib/</filename>. Packages should install
+-    their preset files in <filename>/usr/lib/</filename>. Files in
++    name in <filename>/lib/</filename>. Packages should install
++    their preset files in <filename>/lib/</filename>. Files in
+     <filename>/etc/</filename> are reserved for the local
+     administrator, who may use this logic to override the preset files
+     installed by vendor packages. All preset files are sorted by their
+@@ -133,7 +133,7 @@
+     <title>Example</title>
+ 
+     <example>
+-      <title>Default off example <filename>/usr/lib/systemd/system-preset/99-default.preset</filename>:</title>
++      <title>Default off example <filename>/lib/systemd/system-preset/99-default.preset</filename>:</title>
+ 
+       <programlisting>disable *</programlisting>
+     </example>
 @@ -144,7 +144,7 @@
-                 <title>Example</title>
+     suchlike.</para>
  
-                 <example>
--                        <title>Default off example <filename>/usr/lib/systemd/system-preset/99-default.preset</filename>:</title>
-+                        <title>Default off example <filename>/lib/systemd/system-preset/99-default.preset</filename>:</title>
+     <example>
+-      <title>A GNOME spin example <filename>/usr/lib/systemd/system-preset/50-gnome.preset</filename>:</title>
++      <title>A GNOME spin example <filename>/lib/systemd/system-preset/50-gnome.preset</filename>:</title>
  
-                         <programlisting>disable *</programlisting>
-                 </example>
-@@ -155,7 +155,7 @@
-                 administrator preset policy or suchlike.</para>
- 
-                 <example>
--                        <title>A GNOME spin example <filename>/usr/lib/systemd/system-preset/50-gnome.preset</filename>:</title>
-+                        <title>A GNOME spin example <filename>/lib/systemd/system-preset/50-gnome.preset</filename>:</title>
- 
-                         <programlisting>enable gdm.service
+       <programlisting>enable gdm.service
  enable colord.service
 diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
-index 2e298ca..48b2697 100644
+index 09e11b4..af5cd7d 100644
 --- a/man/systemd.unit.xml
 +++ b/man/systemd.unit.xml
 @@ -66,7 +66,7 @@
  
-                 <para><literallayout><filename>/etc/systemd/system/*</filename>
+     <para><literallayout><filename>/etc/systemd/system/*</filename>
  <filename>/run/systemd/system/*</filename>
 -<filename>/usr/lib/systemd/system/*</filename>
 +<filename>/lib/systemd/system/*</filename>
  <filename>...</filename>
-                 </literallayout></para>
+     </literallayout></para>
  
 @@ -77,7 +77,7 @@
  <filename>/run/systemd/user/*</filename>
@@ -1134,74 +1065,72 @@ index 2e298ca..48b2697 100644
 -<filename>/usr/lib/systemd/user/*</filename>
 +<filename>/lib/systemd/user/*</filename>
  <filename>...</filename>
-                 </literallayout></para>
-         </refsynopsisdiv>
-@@ -314,7 +314,7 @@
-                         <entry>Runtime units</entry>
-                       </row>
-                       <row>
--                        <entry><filename>/usr/lib/systemd/system</filename></entry>
-+                        <entry><filename>/lib/systemd/system</filename></entry>
-                         <entry>Units of installed packages</entry>
-                       </row>
-                     </tbody>
-@@ -365,7 +365,7 @@
-                         <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
-                       </row>
-                       <row>
--                        <entry><filename>/usr/lib/systemd/user</filename></entry>
-+                        <entry><filename>/lib/systemd/user</filename></entry>
-                         <entry>Units of packages that have been installed system-wide</entry>
-                       </row>
-                     </tbody>
-@@ -1137,14 +1137,14 @@
-                                 used to conditionalize units on
-                                 whether the specified directory
-                                 requires an update because
--                                <filename>/usr</filename>'s
-+                                <filename>/lib</filename>'s
-                                 modification time is newer than the
-                                 stamp file
-                                 <filename>.updated</filename> in the
-                                 specified directory. This is useful to
-                                 implement offline updates of the
-                                 vendor operating system resources in
--                                <filename>/usr</filename> that require
-+                                <filename>/lib</filename> that require
-                                 updating of <filename>/etc</filename>
-                                 or <filename>/var</filename> on the
-                                 next following boot. Units making use
+     </literallayout></para>
+   </refsynopsisdiv>
+@@ -295,7 +295,7 @@
+       <entry>Runtime units</entry>
+           </row>
+           <row>
+-      <entry><filename>/usr/lib/systemd/system</filename></entry>
++      <entry><filename>/lib/systemd/system</filename></entry>
+       <entry>Units of installed packages</entry>
+           </row>
+         </tbody>
+@@ -1309,7 +1309,7 @@ ExecStart=/usr/sbin/foo-daemon
+ 
+       <para>There are two methods of overriding vendor settings in
+       unit files: copying the unit file from
+-      <filename>/usr/lib/systemd/system</filename> to
++      <filename>/lib/systemd/system</filename> to
+       <filename>/etc/systemd/system</filename> and modifying the
+       chosen settings. Alternatively, one can create a directory named
+       <filename><replaceable>unit</replaceable>.d/</filename> within
+@@ -1343,7 +1343,7 @@ ExecStart=/usr/sbin/foo-daemon
+       load paths for further details.</para>
+ 
+       <para>Suppose there is a vendor-supplied unit
+-      <filename>/usr/lib/systemd/system/httpd.service</filename> with
++      <filename>/lib/systemd/system/httpd.service</filename> with
+       the following contents:</para>
+ 
+       <programlisting>[Unit]
 diff --git a/man/systemd.xml b/man/systemd.xml
-index e0e8d37..7273107 100644
+index 80591dc..5f977f9 100644
 --- a/man/systemd.xml
 +++ b/man/systemd.xml
-@@ -513,7 +513,7 @@
-                                 directories checked are
-                                 <filename>/usr/local/lib/systemd/system</filename>
-                                 and
--                                <filename>/usr/lib/systemd/system</filename>. User
-+                                <filename>/lib/systemd/system</filename>. User
-                                 configuration always takes
-                                 precedence. <command>pkg-config
-                                 systemd
+@@ -439,7 +439,7 @@
+         by <command>pkg-config systemd
+         --variable=systemdsystemunitdir</command>. Other directories
+         checked are <filename>/usr/local/lib/systemd/system</filename>
+-        and <filename>/usr/lib/systemd/system</filename>. User
++        and <filename>/lib/systemd/system</filename>. User
+         configuration always takes precedence. <command>pkg-config
+         systemd --variable=systemdsystemconfdir</command> returns the
+         path of the system configuration directory. Packages should
+@@ -1092,5 +1092,4 @@
+       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+     </para>
+   </refsect1>
+-
+ </refentry>
 diff --git a/man/timedatectl.xml b/man/timedatectl.xml
-index f3edb8d..a68a7da 100644
+index 98ec013..9b777b2 100644
 --- a/man/timedatectl.xml
 +++ b/man/timedatectl.xml
-@@ -231,7 +231,7 @@ Password: ********
+@@ -210,7 +210,7 @@ Password: ********
  
-                 <programlisting>$ systemctl status chronyd.service
+     <programlisting>$ systemctl status chronyd.service
  chronyd.service - NTP client/server
--          Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled)
-+          Loaded: loaded (/lib/systemd/system/chronyd.service; enabled)
-           Active: active (running) since Fri, 2012-11-02 09:36:25 CET; 5s ago
+-    Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled)
++    Loaded: loaded (/lib/systemd/system/chronyd.service; enabled)
+     Active: active (running) since Fri, 2012-11-02 09:36:25 CET; 5s ago
  ...</programlisting>
-                 </para>
+     </para>
 diff --git a/man/udev.xml b/man/udev.xml
-index 1113a66..61843c1 100644
+index a948ea7..d3cc373 100644
 --- a/man/udev.xml
 +++ b/man/udev.xml
-@@ -56,17 +56,17 @@
+@@ -55,17 +55,17 @@
  
    <refsect1><title>Rules Files</title>
        <para>The udev rules are read from the files located in the
@@ -1222,7 +1151,7 @@ index 1113a66..61843c1 100644
        disables the rules file entirely. Rule files must have the extension
        <filename>.rules</filename>; other extensions are ignored.</para>
  
-@@ -410,7 +410,7 @@
+@@ -409,7 +409,7 @@
                  <listitem>
                    <para>Execute an external program specified as the assigned
                    value. If no absolute path is given, the program is expected
@@ -1231,33 +1160,3 @@ index 1113a66..61843c1 100644
                    absolute path must be specified.</para>
                    <para>This is the default if no <replaceable>type</replaceable>
                    is specified.</para>
-@@ -737,17 +737,17 @@
- 
-   <refsect1><title>Hardware Database Files</title>
-       <para>The hwdb files are read from the files located in the
--      system hwdb directory <filename>/usr/lib/udev/hwdb.d</filename>,
-+      system hwdb directory <filename>/lib/udev/hwdb.d</filename>,
-       the volatile runtime directory <filename>/run/udev/hwdb.d</filename>
-       and the local administration directory <filename>/etc/udev/hwdb.d</filename>.
-       All hwdb files are collectively sorted and processed in lexical order,
-       regardless of the directories in which they live. However, files with
-       identical filenames replace each other. Files in <filename>/etc</filename>
-       have the highest priority, files in <filename>/run</filename> take precedence
--      over files with the same name in <filename>/usr/lib</filename>. This can be
-+      over files with the same name in <filename>/lib</filename>. This can be
-       used to override a system-supplied hwdb file with a local file if needed;
-       a symlink in <filename>/etc</filename> with the same name as a hwdb file in
--      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-+      <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-       disables the hwdb file entirely. hwdb files must have the extension
-       <filename>.hwdb</filename>; other extensions are ignored.</para>
- 
-@@ -767,7 +767,7 @@
-       <para>The content of all hwdb files is read by
-       <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-       and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
--      or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
-+      or alternatively <filename>/lib/udev/hwdb.bin</filename> if you want ship the compiled
-       database in an immutable image.
-       During runtime only the binary database is used.</para>
-   </refsect1>

@@ -11,45 +11,29 @@ for details. Once we grow a journal.conf.d/ directory, sysloggers can be moved
 to pulling from the journal one by one and disable forwarding again in such a
 conf.d snippet.
 ---
- man/journald.conf.xml         | 10 +++++-----
- src/journal/journald-server.c |  1 +
- src/journal/journald-syslog.c |  6 +++---
- src/journal/journald.conf     |  2 +-
- 4 files changed, 10 insertions(+), 9 deletions(-)
+ man/journald.conf.xml         | 2 +-
+ src/journal/journald-server.c | 1 +
+ src/journal/journald.conf     | 2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 4edcc00..6f770e2 100644
+index 364b58f..799073c 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
-@@ -402,8 +402,8 @@
-                                 forwarding to syslog is enabled but no
-                                 syslog daemon is running, the
-                                 respective option has no effect. By
--                                default, only forwarding wall is
--                                enabled. These settings may be
-+                                default, only forwarding to syslog and
-+                                wall is enabled. These settings may be
-                                 overridden at boot time with the
-                                 kernel command line options
-                                 <literal>systemd.journald.forward_to_syslog=</literal>,
-@@ -412,9 +412,9 @@
-                                 and
-                                 <literal>systemd.journald.forward_to_wall=</literal>.
-                                 When forwarding to the console, the
--                                TTY to log to can be changed with
--                                <varname>TTYPath=</varname>, described
--                                below.</para></listitem>
-+                                TTY to log to can be changed
-+                                with <varname>TTYPath=</varname>,
-+                                described below.</para></listitem>
-                         </varlistentry>
- 
-                         <varlistentry>
+@@ -310,7 +310,7 @@
+         console, or sent as wall messages to all logged-in users.
+         These options take boolean arguments. If forwarding to syslog
+         is enabled but no syslog daemon is running, the respective
+-        option has no effect. By default, only forwarding wall is
++        option has no effect. By default, only forwarding to syslog and wall is
+         enabled. These settings may be overridden at boot time with
+         the kernel command line options
+         <literal>systemd.journald.forward_to_syslog=</literal>,
 diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
-index 80c9736..9a48222 100644
+index 7ee8174..ffec90e 100644
 --- a/src/journal/journald-server.c
 +++ b/src/journal/journald-server.c
-@@ -1472,6 +1472,7 @@ int server_init(Server *s) {
+@@ -1471,6 +1471,7 @@ int server_init(Server *s) {
          s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
          s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
  
@@ -57,36 +41,6 @@ index 80c9736..9a48222 100644
          s->forward_to_wall = true;
  
          s->max_file_usec = DEFAULT_MAX_FILE_USEC;
-diff --git a/src/journal/journald-syslog.c b/src/journal/journald-syslog.c
-index 47986ec..f1204ca 100644
---- a/src/journal/journald-syslog.c
-+++ b/src/journal/journald-syslog.c
-@@ -37,14 +37,14 @@
- 
- static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, const struct ucred *ucred, const struct timeval *tv) {
- 
--        static const union sockaddr_union sa = {
-+        union sockaddr_union sa = {
-                 .un.sun_family = AF_UNIX,
-                 .un.sun_path = "/run/systemd/journal/syslog",
-         };
-         struct msghdr msghdr = {
-                 .msg_iov = (struct iovec *) iovec,
-                 .msg_iovlen = n_iovec,
--                .msg_name = (struct sockaddr*) &sa.sa,
-+                .msg_name = &sa,
-                 .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
-                                + strlen("/run/systemd/journal/syslog"),
-         };
-@@ -422,7 +422,7 @@ int server_open_syslog_socket(Server *s) {
-         assert(s);
- 
-         if (s->syslog_fd < 0) {
--                static const union sockaddr_union sa = {
-+                union sockaddr_union sa = {
-                         .un.sun_family = AF_UNIX,
-                         .un.sun_path = "/run/systemd/journal/dev-log",
-                 };
 diff --git a/src/journal/journald.conf b/src/journal/journald.conf
 index 29bdf8f..5f99ee4 100644
 --- a/src/journal/journald.conf

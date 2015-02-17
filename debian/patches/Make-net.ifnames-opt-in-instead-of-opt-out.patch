@@ -14,10 +14,10 @@ and it is confusing.
  1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
-index bf24f6a..d1ffd03 100644
+index 8b3dc45..09b3f5b 100644
 --- a/src/udev/net/link-config.c
 +++ b/src/udev/net/link-config.c
-@@ -178,14 +178,14 @@ static bool enable_name_policy(void) {
+@@ -194,14 +194,14 @@ static bool enable_name_policy(void) {
          r = proc_cmdline(&line);
          if (r < 0) {
                  log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
@@ -36,7 +36,7 @@ index bf24f6a..d1ffd03 100644
  }
  
  int link_config_load(link_config_ctx *ctx) {
-@@ -197,7 +197,7 @@ int link_config_load(link_config_ctx *ctx) {
+@@ -213,7 +213,7 @@ int link_config_load(link_config_ctx *ctx) {
  
          if (!enable_name_policy()) {
                  ctx->enable_name_policy = false;

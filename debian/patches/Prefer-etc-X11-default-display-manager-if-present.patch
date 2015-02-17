@@ -13,10 +13,10 @@ which display-manager is started.
  create mode 100644 src/default-display-manager-generator/default-display-manager-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index fa01532..22acbac 100644
+index e3767df..db47bee 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -402,7 +402,8 @@ systemgenerator_PROGRAMS = \
+@@ -408,7 +408,8 @@ systemgenerator_PROGRAMS = \
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
@@ -26,7 +26,7 @@ index fa01532..22acbac 100644
  
  dist_bashcompletion_DATA = \
  	shell-completion/bash/busctl \
-@@ -2291,6 +2292,14 @@ systemd_delta_LDADD = \
+@@ -2401,6 +2402,14 @@ systemd_delta_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ index 0000000..3a4bbbe
 +.PHONY: all clean
 diff --git a/src/default-display-manager-generator/default-display-manager-generator.c b/src/default-display-manager-generator/default-display-manager-generator.c
 new file mode 100644
-index 0000000..3e476b5
+index 0000000..9060e34
 --- /dev/null
 +++ b/src/default-display-manager-generator/default-display-manager-generator.c
 @@ -0,0 +1,112 @@
@@ -140,10 +140,10 @@ index 0000000..3e476b5
 +        }
 +
 +        /* all is fine if the info matches */
-+        if (streq(strappenda(default_dm, ".service"), enabled_dm_unit))
++        if (streq(strjoina(default_dm, ".service"), enabled_dm_unit))
 +                return 0;
 +
-+        target_unit_path = strappenda(SYSTEM_DATA_UNIT_PATH, "/", default_dm, ".service");
++        target_unit_path = strjoina(SYSTEM_DATA_UNIT_PATH, "/", default_dm, ".service");
 +
 +        /* we only create the alias symlink for non sysvinit services */
 +        if (access(target_unit_path, F_OK) < 0 && (errno == ENOENT)) {
@@ -159,7 +159,7 @@ index 0000000..3e476b5
 +                            default_dm_file, default_dm, enabled_dm_unit, default_dm);
 +        }
 +
-+        in_mem_symlink = strappenda(dest, "/display-manager.service");
++        in_mem_symlink = strjoina(dest, "/display-manager.service");
 +        mkdir_parents_label(in_mem_symlink, 0755);
 +        if (symlink(target_unit_path, in_mem_symlink) < 0) {
 +                log_error("Failed to create symlink %s: %m", in_mem_symlink);
