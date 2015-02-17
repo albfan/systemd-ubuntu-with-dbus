@@ -14,8 +14,8 @@ systemd (219-1) UNRELEASED; urgency=medium
     - Fix ThinkPad X1 Carbon 20BT trackpad buttons (LP: #1414930)
     - Drop all backported patches and port the others to new upstream release.
   * Bump libblkid-dev build dependency as per upstream configure.ac.
-  * debian/systemd.install: Add new systemd-hwdb and language-fallback-map
-    files.
+  * debian/systemd.install: Add new language-fallback-map file.
+  * debian/udev.install: Add new systemd-hwdb tool.
   * debian/libsystemd0.symbols: Add new symbols from this release.
   * tmpfiles.d/systemd.conf: Drop "wheel" ACL (that group does not exist in
     Debian) to make the ACL for "adm" actually work.

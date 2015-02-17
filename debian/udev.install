@@ -4,6 +4,7 @@ lib/systemd/system/systemd-udev*
 lib/systemd/system/*.target.wants/systemd-udev*
 lib/systemd/systemd-udevd
 bin/udevadm
+bin/systemd-hwdb
 usr/share/man/man7/udev.7
 usr/share/man/man8/*udev*.8
 usr/share/bash-completion/completions/udevadm
