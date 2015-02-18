@@ -1,4 +1,5 @@
 ## Cherry-picked from upstream
+test-utf8-fix-utf16-tests-on-BE-machines.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -52,4 +53,3 @@ Drop-rc-local-generator.patch
 Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 core-mount-ensure-that-we-parse-proc-self-mountinfo.patch
-shared-fix-utf16_to_utf8-on-big-endian-machines.patch
