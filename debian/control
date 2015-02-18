@@ -60,7 +60,6 @@ Depends: ${shlibs:Depends},
          initscripts (>= 2.88dsf-53.2),
          sysv-rc,
          udev,
-         acl,
          adduser,
          libcap2-bin
 Breaks: lvm2 (<< 2.02.104-1),
