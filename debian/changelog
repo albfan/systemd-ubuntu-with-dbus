@@ -3,6 +3,8 @@ systemd (219-2) UNRELEASED; urgency=medium
   * Fix UTF-16 to UTF-8 conversion on big-endian machines. (Closes: #778654)
   * Disable new new test-sigbus, it fails on some buildds due to too old
     kernels. (part of #778654)
+  * debian/README.Debian: Drop setfacl call for /var/log/journal, this is now
+    done automatically by tmpfiles.d/systemd.conf.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 18 Feb 2015 06:57:13 +0100
 

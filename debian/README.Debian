@@ -13,13 +13,11 @@ systemd-sysv package.
 Enabling persistent logging in journald
 =======================================
 
-To enable persistent logging, create /var/log/journal and set up proper
-permissions:
+To enable persistent logging, create /var/log/journal:
 
 install -d -g systemd-journal /var/log/journal
-setfacl -R -nm g:adm:rx,d:g:adm:rx /var/log/journal
 
- -- Tollef Fog Heen <tfheen@debian.org>, Wed, 12 Oct 2011 08:43:50 +0200
+systemd will add an ACL for read permissions for users in the "adm" group.
 
 Debugging boot/shutdown problems
 ================================
