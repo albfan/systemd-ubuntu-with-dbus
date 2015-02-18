@@ -17,7 +17,7 @@ conf.d snippet.
  3 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 364b58f..799073c 100644
+index c5afc4d..000da35 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
 @@ -310,7 +310,7 @@
