@@ -156,8 +156,8 @@ poweroff\n''')
         self.assertEqual(nspawn.returncode, 0)
 
     def test_service(self):
-        self.assertTrue(os.path.isdir('/var/lib/container'))
-        cont = '/var/lib/container/c1'
+        self.assertTrue(os.path.isdir('/var/lib/machines'))
+        cont = '/var/lib/machines/c1'
         shutil.copytree(self.c_busybox, cont, symlinks=True)
         self.addCleanup(shutil.rmtree, cont)
         os.sync()
