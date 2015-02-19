@@ -13,10 +13,10 @@ which display-manager is started.
  create mode 100644 src/default-display-manager-generator/default-display-manager-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index e3767df..db47bee 100644
+index cc09baa..5adaa4a 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -408,7 +408,8 @@ systemgenerator_PROGRAMS = \
+@@ -409,7 +409,8 @@ systemgenerator_PROGRAMS = \
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
@@ -26,7 +26,7 @@ index e3767df..db47bee 100644
  
  dist_bashcompletion_DATA = \
  	shell-completion/bash/busctl \
-@@ -2401,6 +2402,14 @@ systemd_delta_LDADD = \
+@@ -2417,6 +2418,14 @@ systemd_delta_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------

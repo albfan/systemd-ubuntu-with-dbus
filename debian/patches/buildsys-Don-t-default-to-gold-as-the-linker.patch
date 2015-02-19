@@ -14,10 +14,10 @@ https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=760879
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 14e110d..ca2be8d 100644
+index b0ce08c..77d3792 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -226,8 +226,7 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
+@@ -227,8 +227,7 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
          -Wl,--gc-sections \
          -Wl,-z,relro \
          -Wl,-z,now \

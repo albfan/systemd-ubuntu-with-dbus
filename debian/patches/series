@@ -1,6 +1,15 @@
 ## Cherry-picked from upstream
 test-utf8-fix-utf16-tests-on-BE-machines.patch
 sysv-generator-fix-wrong-Overwriting-existing-symlin.patch
+fsckd-daemon-for-inter-fsckd-communication.patch
+systemd-fsck-always-connect-to-systemd-fsckd.patch
+Connect-to-plymouth-and-support-cancellation-of-in-p.patch
+Add-gettext-support.patch
+Translate-fsckd-messages-for-plymouth.patch
+Refresh-po-files.patch
+Add-fsckd-service-and-socket-retarget-systemd-fsck.patch
+Add-man-page-and-references-to-it.patch
+Add-mock-fsck-process.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

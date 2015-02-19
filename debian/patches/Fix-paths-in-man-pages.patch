@@ -383,7 +383,7 @@ index b2d8d65..f5162bb 100644
  
    <refsect1>
 diff --git a/man/systemd-fsck@.service.xml b/man/systemd-fsck@.service.xml
-index 88e11e8..32ba062 100644
+index 69b8fdd..ea25a60 100644
 --- a/man/systemd-fsck@.service.xml
 +++ b/man/systemd-fsck@.service.xml
 @@ -50,7 +50,7 @@
@@ -396,7 +396,7 @@ index 88e11e8..32ba062 100644
  
    <refsect1>
 @@ -137,5 +137,4 @@
-       <citerefentry><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+       <citerefentry project='man-pages'><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
    </refsect1>
 -

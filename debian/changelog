@@ -2,6 +2,10 @@ systemd (219-3) UNRELEASED; urgency=medium
 
   * sysv-generator: fix wrong "Overwriting existing symlink" warnings.
     (Closes: #778700)
+  * Add systemd-fsckd multiplexer and feed its output to plymouth. This
+    provides an aggregate progress report of running file system checks and
+    also allows cancelling them with ^C, in both text mode and Plymouth.
+    (Closes: #775093, #758902; LP: #1316796)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
 
