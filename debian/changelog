@@ -1,3 +1,10 @@
+systemd (219-3) UNRELEASED; urgency=medium
+
+  * sysv-generator: fix wrong "Overwriting existing symlink" warnings.
+    (Closes: #778700)
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
+
 systemd (219-2) experimental; urgency=medium
 
   * Fix UTF-16 to UTF-8 conversion on big-endian machines. (Closes: #778654)

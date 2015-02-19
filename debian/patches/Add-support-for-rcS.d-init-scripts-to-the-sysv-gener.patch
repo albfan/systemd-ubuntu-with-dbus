@@ -55,7 +55,7 @@ index b045047..fd613c6 100644
  #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
  #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 8007c6d..7b1e348 100644
+index fcd2f33..24ad760 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -41,6 +41,7 @@
@@ -159,7 +159,7 @@ index 8007c6d..7b1e348 100644
                                                          MAX(a*10 + b, service->sysv_start_priority);
                                          }
 diff --git a/test/sysv-generator-test.py b/test/sysv-generator-test.py
-index 09f5c01..a215133 100644
+index 3185936..11b3d11 100644
 --- a/test/sysv-generator-test.py
 +++ b/test/sysv-generator-test.py
 @@ -169,7 +169,7 @@ class SysvGeneratorTest(unittest.TestCase):
@@ -171,7 +171,7 @@ index 09f5c01..a215133 100644
  
          self.assertEqual(s.get('Service', 'Type'), 'forking')
          init_script = os.path.join(self.init_d_dir, 'foo')
-@@ -233,9 +233,9 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -236,9 +236,9 @@ class SysvGeneratorTest(unittest.TestCase):
                           ['may1.service', 'must1.service', 'must2.service', 'ne_may2.service'])
  
          # other services should not depend on each other
@@ -184,7 +184,7 @@ index 09f5c01..a215133 100644
  
      def test_symlink_prio_deps(self):
          '''script without LSB headers use rcN.d priority'''
-@@ -265,7 +265,7 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -268,7 +268,7 @@ class SysvGeneratorTest(unittest.TestCase):
          err, results = self.run_generator()
          self.assertEqual(list(results), ['foo.service'])
          self.assertEqual(set(results['foo.service'].options('Unit')),

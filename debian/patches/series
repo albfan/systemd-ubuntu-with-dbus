@@ -1,5 +1,6 @@
 ## Cherry-picked from upstream
 test-utf8-fix-utf16-tests-on-BE-machines.patch
+sysv-generator-fix-wrong-Overwriting-existing-symlin.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
