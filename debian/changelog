@@ -6,6 +6,10 @@ systemd (219-3) UNRELEASED; urgency=medium
     provides an aggregate progress report of running file system checks and
     also allows cancelling them with ^C, in both text mode and Plymouth.
     (Closes: #775093, #758902; LP: #1316796)
+  * Revert "journald: allow restarting journald without losing stream
+   connections". This was a new feature in 219, but currently causes boot
+   failures due to logind and other services not starting up properly.
+   (LP: #1423811)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
 
