@@ -10,6 +10,9 @@ systemd (219-3) UNRELEASED; urgency=medium
    connections". This was a new feature in 219, but currently causes boot
    failures due to logind and other services not starting up properly.
    (LP: #1423811)
+  * Add "boot-smoke" autopkgtest: Test 20 successful reboots in a row, and
+    that there are no connection timeouts or stalled jobs. This reproduces the
+    above regression.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
 
