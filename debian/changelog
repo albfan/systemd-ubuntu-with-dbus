@@ -7,9 +7,9 @@ systemd (219-3) UNRELEASED; urgency=medium
     also allows cancelling them with ^C, in both text mode and Plymouth.
     (Closes: #775093, #758902; LP: #1316796)
   * Revert "journald: allow restarting journald without losing stream
-   connections". This was a new feature in 219, but currently causes boot
-   failures due to logind and other services not starting up properly.
-   (LP: #1423811)
+    connections". This was a new feature in 219, but currently causes boot
+    failures due to logind and other services not starting up properly.
+    (Closes: #778970; LP: #1423811)
   * Add "boot-smoke" autopkgtest: Test 20 successful reboots in a row, and
     that there are no connection timeouts or stalled jobs. This reproduces the
     above regression.
