@@ -19,6 +19,8 @@ systemd (219-3) UNRELEASED; urgency=medium
     display-managers autopkgtests.
   * debian/tests/boot-and-services: Skip AppArmor test if AppArmor is not
     enabled.
+  * debian/tests/boot-and-services: Reboot also if lightdm was just installed
+    but isn't running yet.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
 
