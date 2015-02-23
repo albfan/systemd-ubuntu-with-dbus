@@ -1,7 +1,19 @@
 #!/bin/sh
 set -e
 
-ORIG_LOC=`cat /etc/default/locale`
+if ! ORIG_LOC=`grep -v '^#' /etc/default/locale`; then
+    # set up for a minimal unconfigured system
+    if [ -e /etc/locale.gen ]; then
+        echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+    fi
+    locale-gen en_US.UTF-8
+    ORIG_LOC='LANG="en_US.UTF-8"'
+    echo "$ORIG_LOC" > /etc/default/locale
+fi
+
+if ! [ -e /etc/default/keyboard ]; then
+    /bin/echo -e 'XKBMODEL=us\nXKBLAYOUT=pc105' > /etc/default/keyboard
+fi
 
 # should activate daemon and work
 STATUS=`localectl`

@@ -1,5 +1,5 @@
 Tests: timedated hostnamed localed-locale localed-x11-keymap logind
-Depends: systemd, libpam-systemd, acl
+Depends: systemd, libpam-systemd, acl, locales
 Restrictions: needs-root, isolation-machine
 
 Tests: unit-config
