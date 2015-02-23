@@ -18,11 +18,11 @@ Depends: lightdm, cron, network-manager, busybox-static, apparmor
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
 
 Tests: cmdline-upstart-boot
-Depends: systemd-sysv, cron, network-manager
+Depends: systemd-sysv, cron, network-manager, python3
 Restrictions: needs-root, isolation-machine, breaks-testbed
 
 Tests: display-managers
-Depends: systemd, lightdm
+Depends: systemd, lightdm, python3
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
 
 Tests: boot-smoke

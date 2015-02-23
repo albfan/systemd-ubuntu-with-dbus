@@ -15,6 +15,8 @@ systemd (219-3) UNRELEASED; urgency=medium
     above regression.
   * debian/tests/localed-locale: Set up locale and keyboard default files on a
     minimal unconfigured testbed.
+  * Add missing python3 test dependency to cmdline-upstart-boot and
+    display-managers autopkgtests.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
 
