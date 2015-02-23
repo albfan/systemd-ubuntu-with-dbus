@@ -1,4 +1,4 @@
-systemd (219-3) UNRELEASED; urgency=medium
+systemd (219-3) experimental; urgency=medium
 
   * sysv-generator: fix wrong "Overwriting existing symlink" warnings.
     (Closes: #778700)
@@ -22,7 +22,7 @@ systemd (219-3) UNRELEASED; urgency=medium
   * debian/tests/boot-and-services: Reboot also if lightdm was just installed
     but isn't running yet.
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 19 Feb 2015 11:13:26 +0100
+ -- Martin Pitt <mpitt@debian.org>  Mon, 23 Feb 2015 09:52:12 +0100
 
 systemd (219-2) experimental; urgency=medium
 
