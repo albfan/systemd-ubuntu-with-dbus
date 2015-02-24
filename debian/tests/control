@@ -1,6 +1,6 @@
-Tests: timedated hostnamed localed-locale localed-x11-keymap logind
+Tests: timedated, hostnamed, localed-locale, localed-x11-keymap, logind
 Depends: systemd, libpam-systemd, acl, locales
-Restrictions: needs-root, isolation-machine
+Restrictions: needs-root, isolation-container
 
 Tests: bootchart
 Depends: systemd, libpam-systemd, acl, locales

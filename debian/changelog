@@ -6,6 +6,8 @@ systemd (219-4) UNRELEASED; urgency=medium
   * Add "bootchart" autopkgtest, to spot regressions like the above.
   * autopkgtests: Factorize out "assert.sh" utility functions, and use them in
     the tests for useful failure messages.
+  * Downgrade requirement for timedated, hostnamed, localed-locale, and
+    logind autopkgtests from machine to container isolation.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 24 Feb 2015 08:31:29 +0100
 
