@@ -10,10 +10,10 @@ Subject: Add targets for compatibility with Debian insserv system facilities
  create mode 100644 units/mail-transport-agent.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 8b088c5..cc09baa 100644
+index 3f9b68c..79a1982 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -566,6 +566,11 @@ nodist_systemunit_DATA += \
+@@ -567,6 +567,11 @@ nodist_systemunit_DATA += \
  	units/systemd-update-utmp-runlevel.service
  endif
  
