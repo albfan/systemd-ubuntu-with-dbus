@@ -3,8 +3,10 @@
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 # For bisecting/testing you can replace individual binaries in /lib/systemd
 # with --copy /host/path/systemd-foo:/tmp/systemd-replace/systemd-foo
-
 set -e
+
+. `dirname $0`/assert.sh
+
 if [ -z "$ADT_REBOOT_MARK" ]; then
     # enable persistant journal
     mkdir -p /var/log/journal
@@ -27,11 +29,7 @@ else
     pidof polkitd
 
     echo "checking that there are no running jobs"
-    J=$(systemctl --no-legend list-jobs || true)
-    if [ -n "$j" ]; then
-        echo "$j" >&2
-        exit 1
-    fi
+    assert_eq "$(systemctl --no-pager --no-legend list-jobs || true)" ""
 fi
 
 if [ "$ADT_REBOOT_MARK" -ge 20 ]; then

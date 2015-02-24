@@ -1,23 +1,22 @@
 #!/bin/sh
 set -e
 
+. `dirname $0`/assert.sh
+
 ORIG_HOST=`cat /etc/hostname`
+echo "original hostname: $ORIG_HOST"
 
 # should activate daemon and work
-STATUS=`hostnamectl`
-echo "$STATUS" | grep -q "Static hostname: $ORIG_HOST"
-echo "$STATUS" | grep -q "Kernel:.* `uname -r`"
+STATUS="`hostnamectl`"
+assert_in "Static hostname: $ORIG_HOST" "$STATUS"
+assert_in "Kernel:.* `uname -r`" "$STATUS"
 
 # change hostname
-OUT=`hostnamectl set-hostname testhost 2>&1`
-[ -z "$OUT" ]
-[ "`cat /etc/hostname`" = "testhost" ]
-STATUS=`hostnamectl`
-echo "$STATUS" | grep -q "Static hostname: testhost"
+assert_eq "`hostnamectl set-hostname testhost 2>&1`" ""
+assert_eq "`cat /etc/hostname`" "testhost"
+assert_in "Static hostname: testhost" "`hostnamectl`"
 
 # reset to original
-OUT=`hostnamectl set-hostname $ORIG_HOST 2>&1`
-[ -z "$OUT" ]
-[ "`cat /etc/hostname`" = "$ORIG_HOST" ]
-STATUS=`hostnamectl`
-echo "$STATUS" | grep -q "Static hostname: $ORIG_HOST"
+assert_eq "`hostnamectl set-hostname $ORIG_HOST 2>&1`" ""
+assert_eq "`cat /etc/hostname`" "$ORIG_HOST"
+assert_in "Static hostname: $ORIG_HOST" "`hostnamectl`"

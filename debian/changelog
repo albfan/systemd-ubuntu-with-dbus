@@ -4,6 +4,8 @@ systemd (219-4) UNRELEASED; urgency=medium
     them up on upgrade. (Closes: #778656)
   * bootchart: Fix path to default init. (LP: #1423867)
   * Add "bootchart" autopkgtest, to spot regressions like the above.
+  * autopkgtests: Factorize out "assert.sh" utility functions, and use them in
+    the tests for useful failure messages.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 24 Feb 2015 08:31:29 +0100
 
