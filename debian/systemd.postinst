@@ -148,4 +148,14 @@ if dpkg --compare-versions "$2" lt-nl "215-3"; then
     _systemctl try-restart systemd-journald.service || true
 fi
 
+# In experimental we had created duplicate ACLs on /var/log/journal for a while
+# (https://bugs.debian.org/778656). Clean up after that.
+if dpkg --compare-versions "$2" lt-nl "219-4" && \
+    [ -d /var/log/journal ] && type setfacl >/dev/null 2>&1; then
+    echo "Cleaning up duplicate ACLs on /var/log/journal"
+    if setfacl -Rb /var/log/journal/; then
+        systemd-tmpfiles --create /usr/lib/tmpfiles.d/systemd.conf || true
+    fi
+fi
+
 #DEBHELPER#

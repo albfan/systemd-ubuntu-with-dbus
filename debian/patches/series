@@ -10,6 +10,7 @@ Refresh-po-files.patch
 Add-fsckd-service-and-socket-retarget-systemd-fsck.patch
 Add-man-page-and-references-to-it.patch
 Add-mock-fsck-process.patch
+tmpfiles-avoid-creating-duplicate-acl-entries.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
