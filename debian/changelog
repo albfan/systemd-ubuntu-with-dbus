@@ -11,6 +11,8 @@ systemd (219-4) UNRELEASED; urgency=medium
   * boot-and-services and display-manager autopkgtest: Add systemd-sysv as
     proper test dependency instead of apt-get installing it. This works now
     also under Ubuntu 15.04.
+  * boot-and-services autopkgtest: Check cleanup of temporary files during
+    boot. Reproduces #779169.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 24 Feb 2015 08:31:29 +0100
 
