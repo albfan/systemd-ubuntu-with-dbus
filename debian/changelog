@@ -8,6 +8,9 @@ systemd (219-4) UNRELEASED; urgency=medium
     the tests for useful failure messages.
   * Downgrade requirement for timedated, hostnamed, localed-locale, and
     logind autopkgtests from machine to container isolation.
+  * boot-and-services and display-manager autopkgtest: Add systemd-sysv as
+    proper test dependency instead of apt-get installing it. This works now
+    also under Ubuntu 15.04.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 24 Feb 2015 08:31:29 +0100
 

@@ -330,28 +330,10 @@ ExecStart=/bin/sleep 500
         self.assertTrue(os.path.exists('/sys/fs/cgroup/perf_event/aux'))
 
 
-def boot_with_systemd():
-    '''Reboot with systemd as init
-
-    In case something else is currently running in the testbed, or lightdm was
-    just installed.
-    '''
-    if subprocess.call(['systemctl', 'status'], stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE) != 0:
-        print('Installing systemd-sysv and rebooting...')
-        subprocess.check_call('apt-get -y install systemd-sysv 2>&1',
-                              shell=True)
-        subprocess.check_call(['autopkgtest-reboot', 'boot-systemd'])
-    elif subprocess.call(['systemctl', 'status', 'lightdm.service'],
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE) != 0:
-        print('Rebooting to start lightdm...')
-        subprocess.check_call(['autopkgtest-reboot', 'boot-systemd'])
-
-
 if __name__ == '__main__':
     if not os.getenv('ADT_REBOOT_MARK'):
-        boot_with_systemd()
+        print('Rebooting...')
+        subprocess.check_call(['autopkgtest-reboot', 'boot1'])
 
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
                                                      verbosity=2))

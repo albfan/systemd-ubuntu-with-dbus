@@ -288,9 +288,7 @@ def boot_with_systemd():
     '''
     if subprocess.call(['systemctl', 'status'], stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE) != 0:
-        print('Installing systemd-sysv and rebooting...')
-        subprocess.check_call('apt-get -y install systemd-sysv 2>&1',
-                              shell=True)
+        print('Rebooting with systemd...')
         subprocess.check_call(['autopkgtest-reboot', 'boot-systemd'])
 
 
