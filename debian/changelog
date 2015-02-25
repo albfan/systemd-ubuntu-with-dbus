@@ -13,6 +13,7 @@ systemd (219-4) UNRELEASED; urgency=medium
     also under Ubuntu 15.04.
   * boot-and-services autopkgtest: Check cleanup of temporary files during
     boot. Reproduces #779169.
+  * Clean up /tmp/ directory again. (Closes: #779169, LP: #1424992)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 24 Feb 2015 08:31:29 +0100
 

@@ -17,7 +17,7 @@ index ffdd82f..6d92bc3 100644
  # Clear tmp directories separately, to make them easier to override
 -v /tmp 1777 root root 10d
 -v /var/tmp 1777 root root 30d
-+v /tmp 1777 root root -
++D /tmp 1777 root root -
 +#v /var/tmp 1777 root root 30d
  
  # Exclude namespace mountpoints created with PrivateTmp=yes
