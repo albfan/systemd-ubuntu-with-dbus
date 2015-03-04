@@ -289,7 +289,7 @@ def boot_with_systemd():
     if subprocess.call(['systemctl', 'status'], stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE) != 0:
         print('Rebooting with systemd...')
-        subprocess.check_call(['autopkgtest-reboot', 'boot-systemd'])
+        subprocess.check_call(['/tmp/autopkgtest-reboot', 'boot-systemd'])
 
 
 if __name__ == '__main__':
