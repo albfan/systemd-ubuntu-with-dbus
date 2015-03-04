@@ -82,7 +82,7 @@ def configure_boot():
                                '/^kernel/ s_$_ init=/sbin/upstart_',
                                '/boot/grub/menu.lst'])
 
-    subprocess.check_call(['autopkgtest-reboot', 'boot-upstart'])
+    subprocess.check_call(['/tmp/autopkgtest-reboot', 'boot-upstart'])
 
 
 if __name__ == '__main__':

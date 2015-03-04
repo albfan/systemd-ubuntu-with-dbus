@@ -371,7 +371,7 @@ if __name__ == '__main__':
     if not os.getenv('ADT_REBOOT_MARK'):
         pre_boot_setup()
         print('Rebooting...')
-        subprocess.check_call(['autopkgtest-reboot', 'boot1'])
+        subprocess.check_call(['/tmp/autopkgtest-reboot', 'boot1'])
 
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
                                                      verbosity=2))

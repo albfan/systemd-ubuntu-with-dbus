@@ -200,7 +200,7 @@ class FsckdTest(unittest.TestCase):
 
     def reboot(self):
         '''Reboot the system with the current test marker'''
-        subprocess.check_call(['autopkgtest-reboot', "{}:{}".format(self._test_name, self._return_code)])
+        subprocess.check_call(['/tmp/autopkgtest-reboot', "{}:{}".format(self._test_name, self._return_code)])
 
     def install_process_killer_unit(self, process_name, kill=False):
         '''Create a systemd unit which will kill process_name'''
@@ -237,7 +237,7 @@ def enable_plymouth(enable=True):
 def boot_with_systemd_distro():
     '''Reboot with systemd as init and distro setup for grub'''
     enable_plymouth()
-    subprocess.check_call(['autopkgtest-reboot', 'systemd-started'])
+    subprocess.check_call(['/tmp/autopkgtest-reboot', 'systemd-started'])
 
 
 def getAllTests(unitTestClass):
