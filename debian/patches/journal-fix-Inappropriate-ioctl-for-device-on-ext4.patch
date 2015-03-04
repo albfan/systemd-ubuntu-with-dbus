@@ -1,0 +1,31 @@
+From: =?utf-8?q?Cristian_Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+Date: Sun, 1 Mar 2015 21:13:10 -0300
+Subject: journal: fix Inappropriate ioctl for device on ext4
+
+Logs constantly show
+
+systemd-journald[395]: Failed to set file attributes: Inappropriate ioctl for device
+
+This is because ext4 does not support FS_NOCOW_FL.
+
+[zj: fold into one conditional as suggested on the ML and
+     fix (preexisting) r/errno confusion in error message.]
+---
+ src/journal/journal-file.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/journal/journal-file.c b/src/journal/journal-file.c
+index 2845e05..0f28718 100644
+--- a/src/journal/journal-file.c
++++ b/src/journal/journal-file.c
+@@ -2611,8 +2611,8 @@ int journal_file_open(
+                  * shouldn't be too bad, given that we do our own
+                  * checksumming). */
+                 r = chattr_fd(f->fd, true, FS_NOCOW_FL);
+-                if (r < 0)
+-                        log_warning_errno(errno, "Failed to set file attributes: %m");
++                if (r < 0 && r != -ENOTTY)
++                        log_warning_errno(r, "Failed to set file attributes: %m");
+ 
+                 /* Let's attach the creation time to the journal file,
+                  * so that the vacuuming code knows the age of this

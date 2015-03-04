@@ -12,6 +12,7 @@ Add-man-page-and-references-to-it.patch
 Add-mock-fsck-process.patch
 tmpfiles-avoid-creating-duplicate-acl-entries.patch
 bootchart-fix-default-init-path.patch
+journal-fix-Inappropriate-ioctl-for-device-on-ext4.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

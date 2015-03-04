@@ -8,7 +8,7 @@ Closes: #675422
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/tmpfiles.d/tmp.conf b/tmpfiles.d/tmp.conf
-index ffdd82f..6d92bc3 100644
+index ffdd82f..f5a773e 100644
 --- a/tmpfiles.d/tmp.conf
 +++ b/tmpfiles.d/tmp.conf
 @@ -8,8 +8,8 @@

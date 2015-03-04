@@ -3,6 +3,10 @@ systemd (219-5) UNRELEASED; urgency=medium
   [ Didier Roche ]
   * Add "systemd-fsckd" autopkgtest. (LP: #1427312)
 
+  [ Martin Pitt ]
+  * journald: Suppress expected cases of "Failed to set file attributes"
+    errors. (LP: #1427899)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 
 systemd (219-4) experimental; urgency=medium
