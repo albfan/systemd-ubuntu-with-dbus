@@ -6,6 +6,8 @@ systemd (219-5) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * journald: Suppress expected cases of "Failed to set file attributes"
     errors. (LP: #1427899)
+  * Add systemd-sysv.postinst: Update grub on first installation, so that the
+    alternative init system boot entries get updated.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 
