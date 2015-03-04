@@ -1,8 +1,8 @@
-systemd (219-4ubuntu2) UNRELEASED; urgency=medium
+systemd (219-4ubuntu2) vivid; urgency=medium
 
   * Merge experimental branch to fix autopkgtest.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Feb 2015 08:48:16 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 04 Mar 2015 23:17:31 +0100
 
 systemd (219-5) UNRELEASED; urgency=medium
 
