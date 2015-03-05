@@ -136,6 +136,7 @@ logind-fix-sd_eviocrevoke-ioctl-call.patch
 rules-Fix-by-path-of-mmc-RPMB-partitions-and-don-t-b.patch
 man-document-failed.patch
 Use-correct-uname-identifiers-in-arch_map-for-SuperH.patch
+networkd-link-fix-stopping-v4-dhcpclient-when-the-ca.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
