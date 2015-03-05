@@ -1,8 +1,8 @@
-systemd (219-4ubuntu2) vivid; urgency=medium
+systemd (219-4ubuntu3) UNRELEASED; urgency=medium
 
-  * Merge experimental branch to fix autopkgtest.
+  * Merge experimental branch.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 04 Mar 2015 23:17:31 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 05 Mar 2015 16:21:34 +0100
 
 systemd (219-5) UNRELEASED; urgency=medium
 
@@ -16,6 +16,9 @@ systemd (219-5) UNRELEASED; urgency=medium
     alternative init system boot entries get updated.
   * debian/tests: Call /tmp/autopkgtest-reboot, to work with autopkgtest >=
     3.11.1.
+  * Check for correct architecture identifiers for SuperH. (Closes: #779710)
+  * Fix tmpfiles.d to only apply the first match again (regression in 219).
+    (LP: #1428540)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 

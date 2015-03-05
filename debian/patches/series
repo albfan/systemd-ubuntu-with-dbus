@@ -13,6 +13,8 @@ Add-mock-fsck-process.patch
 tmpfiles-avoid-creating-duplicate-acl-entries.patch
 bootchart-fix-default-init-path.patch
 journal-fix-Inappropriate-ioctl-for-device-on-ext4.patch
+Use-correct-uname-identifiers-in-arch_map-for-SuperH.patch
+tmpfiles-Fix-handling-of-duplicate-lines.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
