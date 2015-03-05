@@ -10,6 +10,7 @@ systemd (219-5) UNRELEASED; urgency=medium
     alternative init system boot entries get updated.
   * debian/tests: Call /tmp/autopkgtest-reboot, to work with autopkgtest >=
     3.11.1.
+  * Check for correct architecture identifiers for SuperH. (Closes: #779710)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 
