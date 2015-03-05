@@ -1,8 +1,8 @@
-systemd (219-4ubuntu3) UNRELEASED; urgency=medium
+systemd (219-4ubuntu3) vivid; urgency=medium
 
   * Merge experimental branch.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 05 Mar 2015 16:21:34 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 05 Mar 2015 16:41:24 +0100
 
 systemd (219-5) UNRELEASED; urgency=medium
 
