@@ -14,6 +14,10 @@ systemd (219-5) UNRELEASED; urgency=medium
   * Fix tmpfiles.d to only apply the first match again (regression in 219).
     (LP: #1428540)
 
+  [ Craig Magina ]
+  * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
+    m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 
 systemd (219-4) experimental; urgency=medium
