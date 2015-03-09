@@ -23,6 +23,12 @@ in_debootstrap() {
   return 1
 }
 
+update_initramfs() {
+  [ -x /usr/sbin/update-initramfs -a -e /etc/initramfs-tools/initramfs.conf ] \
+    || return 0
+  update-initramfs -u
+}
+
 case "$1" in
     configure)
         addgroup --quiet --system input
@@ -32,7 +38,7 @@ case "$1" in
         if ! chrooted && ! in_debootstrap; then
             invoke-rc.d udev restart
         fi
-	update-initramfs -u
+	update_initramfs
 	;;
 
     abort-upgrade|abort-deconfigure|abort-remove)
