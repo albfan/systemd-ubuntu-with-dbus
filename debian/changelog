@@ -13,6 +13,8 @@ systemd (219-5) UNRELEASED; urgency=medium
   * Check for correct architecture identifiers for SuperH. (Closes: #779710)
   * Fix tmpfiles.d to only apply the first match again (regression in 219).
     (LP: #1428540)
+  * /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
+    dependencies in "degraded" mode. (LP: #1429734)
 
   [ Craig Magina ]
   * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
