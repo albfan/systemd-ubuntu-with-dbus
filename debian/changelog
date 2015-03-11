@@ -2,6 +2,8 @@ systemd (219-5) UNRELEASED; urgency=medium
 
   [ Didier Roche ]
   * Add "systemd-fsckd" autopkgtest. (LP: #1427312)
+  * Fix mount point detection on overlayfs and similar file systems without
+    name_to_handle_at() and st_dev support. (LP: #1411140)
 
   [ Martin Pitt ]
   * journald: Suppress expected cases of "Failed to set file attributes"
