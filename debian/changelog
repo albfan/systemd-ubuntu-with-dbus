@@ -1,4 +1,4 @@
-systemd (219-4ubuntu5) UNRELEASED; urgency=medium
+systemd (219-4ubuntu5) vivid; urgency=medium
 
   * Merge from experimental branch:
     - /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
@@ -10,7 +10,7 @@ systemd (219-4ubuntu5) UNRELEASED; urgency=medium
     to point to systemd during the upgrade. This avoids running systemd during
     a dist-upgrade. (LP: #1430479)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 11 Mar 2015 10:42:31 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 11 Mar 2015 11:01:36 +0100
 
 systemd (219-4ubuntu4) vivid; urgency=medium
 
