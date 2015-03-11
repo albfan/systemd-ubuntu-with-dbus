@@ -5,6 +5,10 @@ systemd (219-4ubuntu5) UNRELEASED; urgency=medium
       dependencies in "degraded" mode. (LP: #1429734)
     - rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
       m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
+  * systemctl: Don't forward telinit u to upstart. This works around upstart's
+    Restart() always reexec'ing /sbin/init on Restart(), even if that changes
+    to point to systemd during the upgrade. This avoids running systemd during
+    a dist-upgrade. (LP: #1430479)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 11 Mar 2015 10:42:31 +0100
 
