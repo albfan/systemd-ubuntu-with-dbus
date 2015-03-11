@@ -63,3 +63,4 @@ Revert-Revert-networkd-ndisc-revert-to-letting-the-k.patch
 
 ## Ubuntu patches:
 Support-system-image-read-only-etc.patch
+systemctl-Don-t-forward-telinit-u-to-upstart.patch

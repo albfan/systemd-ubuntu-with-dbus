@@ -1,0 +1,36 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 11 Mar 2015 10:37:47 +0100
+Subject: systemctl: Don't forward telinit u to upstart
+
+When dist-upgrading and /sbin/init changes from upstart to systemd, upstart's
+Restart() exec's argv[0] which is  still /sbin/init, and thus it execs systemd.
+This is triggered by glibc upgrades or other things which call "telinit u" in
+their postinst scripts.
+
+This should eventually be fixed in upstart itself, but as we can't
+retroactively fix it in previous releases we upgrade from, we simply ignore
+the request.
+
+https://launchpad.net/bugs/1430479
+---
+ src/systemctl/systemctl.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 08034eb..52ca951 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -7255,6 +7255,13 @@ static int parse_argv(int argc, char *argv[]) {
+                                  * request to it. For now we simply
+                                  * guess that it is Upstart. */
+ 
++                                /* work around upstart exec'ing systemd when /sbin/init
++                                 * changes (https://launchpad.net/bugs/1430479) */
++                                if (argv[1] != NULL && streq(argv[1], "u")) {
++                                    log_warning("Ignoring telinit u request, systemd is not running");
++                                    return -ENOTSUP;
++                                }
++
+                                 execv(TELINIT, argv);
+ 
+                                 log_error("Couldn't find an alternative telinit implementation to spawn.");

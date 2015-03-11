@@ -10,6 +10,10 @@ systemd (229-4ubuntu1) UNRELEASED; urgency=medium
     - Clean up obsolete /etc/udev/rules.d/README.
     - systemd.postinst: Migrate mountall specific fstab options to standard
       util-linux "nofail" option.
+    - systemctl: Don't forward telinit u to upstart. This works around
+      upstart's Restart() always reexec'ing /sbin/init on Restart(), even if
+      that changes to point to systemd during the upgrade. This avoids running
+      systemd during a dist-upgrade. (LP: #1430479)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:13:25 +0200
 
