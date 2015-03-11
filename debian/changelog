@@ -1,3 +1,13 @@
+systemd (219-4ubuntu5) UNRELEASED; urgency=medium
+
+  * Merge from experimental branch:
+    - /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
+      dependencies in "degraded" mode. (LP: #1429734)
+    - rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
+      m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 11 Mar 2015 10:42:31 +0100
+
 systemd (219-4ubuntu4) vivid; urgency=medium
 
   * debian/udev.postinst: Only call update-initramfs if it actually exists.
@@ -25,6 +35,12 @@ systemd (219-5) UNRELEASED; urgency=medium
   * Check for correct architecture identifiers for SuperH. (Closes: #779710)
   * Fix tmpfiles.d to only apply the first match again (regression in 219).
     (LP: #1428540)
+  * /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
+    dependencies in "degraded" mode. (LP: #1429734)
+
+  [ Craig Magina ]
+  * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
+    m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 
