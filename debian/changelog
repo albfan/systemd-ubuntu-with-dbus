@@ -1,5 +1,6 @@
 systemd (215-13) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Add hwclock-save.service to sync the system clock to the hardware clock on
     shutdown, to provide monotonic time for reboots. (Note: this is a hack for
     jessie; the next Debian release will enable timesyncd by default).
@@ -8,6 +9,10 @@ systemd (215-13) UNRELEASED; urgency=medium
   * networkd: Fix stopping v4 dhcpclient when the carrier is lost. Thanks
     Christos Trochalakis! (Closes: #779571)
   * Fix segfault with units that depend on themselves. (Closes: #780675)
+
+  [ Didier Roche ]
+  * Ensure PrivateTmp doesn't require tmpfs through tmp.mount, but rather adds
+    an After relationship. (Closes: #779902)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 16 Feb 2015 16:11:12 +0100
 
