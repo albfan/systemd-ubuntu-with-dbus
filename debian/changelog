@@ -9,6 +9,8 @@ systemd (219-5) UNRELEASED; urgency=medium
   * Cherry-pick a couple of upstream commits for adding transient state,
     fixing a race where mounts become available before the device being
     available.
+  * Ensure PrivateTmp doesn't require tmpfs through tmp.mount, but rather adds
+    an After relationship. (Closes: #779902)
 
   [ Martin Pitt ]
   * journald: Suppress expected cases of "Failed to set file attributes"
