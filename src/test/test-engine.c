@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, false, NULL, &j) == -EDEADLOCK);
 
         printf("Test8: (Mergeable job type, fail)\n");
-        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, false, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, false, NULL, &j) == -EINVAL);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test9: (Unmergeable job type, replace)\n");
