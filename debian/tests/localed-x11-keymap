@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+. `dirname $0`/assert.sh
+
+ORIG_KBD=`cat /etc/default/keyboard`
+
+# should activate daemon and work
+STATUS=`localectl`
+assert_in "X11 Layout:" "`localectl --no-pager`"
+
+# change layout
+assert_eq "`localectl --no-pager set-x11-keymap et pc101 2>&1`" ""
+sync
+
+assert_in 'XKBMODEL="\?pc101"\?' "`cat /etc/default/keyboard`"
+assert_in 'XKBLAYOUT="\?et"\?' "`cat /etc/default/keyboard`"
+
+! [ -f /etc/X11/xorg.conf.d/00-keyboard.conf ]
+
+STATUS=`localectl --no-pager`
+assert_in "X11 Layout: et" "$STATUS"
+assert_in "X11 Model: pc101" "$STATUS"
+
+# reset locale to original
+echo "$ORIG_KBD" > /etc/default/keyboard

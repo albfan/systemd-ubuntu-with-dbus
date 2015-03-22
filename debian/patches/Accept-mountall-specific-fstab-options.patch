@@ -1,0 +1,29 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 9 Jan 2015 17:54:09 +0100
+Subject: Accept mountall specific fstab options
+
+mountall understands four new fstab options which we need to handle for
+backwards compatibility:
+
+ bootwait: That's the systemd default anyway, so can be ignored.
+ nobootwait, optional: Aliases for the standard util-linux "nofail" (why?!)
+ showthrough: Irrelevant, there is on ordering attached to fstab.
+---
+ src/fstab-generator/fstab-generator.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/fstab-generator/fstab-generator.c b/src/fstab-generator/fstab-generator.c
+index 5b48b66..110c844 100644
+--- a/src/fstab-generator/fstab-generator.c
++++ b/src/fstab-generator/fstab-generator.c
+@@ -342,7 +342,9 @@ static int parse_fstab(bool initrd) {
+                         path_kill_slashes(where);
+ 
+                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
+-                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
++                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0") ||
++                         fstab_test_yes_no_option(me->mnt_opts, "nobootwait\0" "bootwait\0") ||
++                         fstab_test_option(me->mnt_opts, "optional\0");
+                 log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
+                           what, where, me->mnt_type,
+                           yes_no(noauto), yes_no(nofail));

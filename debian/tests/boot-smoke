@@ -1,0 +1,40 @@
+#!/bin/sh
+# test 20 successful reboots in a row
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+# For bisecting/testing you can replace individual binaries in /lib/systemd
+# with --copy /host/path/systemd-foo:/tmp/systemd-replace/systemd-foo
+set -e
+
+. `dirname $0`/assert.sh
+
+if [ -z "$ADT_REBOOT_MARK" ]; then
+    # enable persistant journal
+    mkdir -p /var/log/journal
+    ADT_REBOOT_MARK=0
+    if [ -d /tmp/systemd-replace/ ]; then
+        for f in /tmp/systemd-replace/*; do
+            echo "Installing $f..."
+            rm -f /lib/systemd/$(basename $f)
+            cp $f /lib/systemd/
+        done
+    fi
+else
+    journalctl -ab > $ADT_ARTIFACTS/journal.txt
+    echo "checking for connection timeouts"
+    if journalctl | grep "Connection timed out"; then
+        exit 1
+    fi
+
+    echo "checking that polkitd runs"
+    pidof polkitd
+
+    echo "checking that there are no running jobs"
+    assert_eq "$(systemctl --no-pager --no-legend list-jobs || true)" ""
+fi
+
+if [ "$ADT_REBOOT_MARK" -ge 20 ]; then
+    exit 0
+fi
+
+echo "reboot #$ADT_REBOOT_MARK"
+/tmp/autopkgtest-reboot $(($ADT_REBOOT_MARK + 1))

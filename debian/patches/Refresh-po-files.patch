@@ -1,0 +1,232 @@
+From: Didier Roche <didrocks@ubuntu.com>
+Date: Mon, 26 Jan 2015 17:23:08 +0100
+Subject: Refresh po files
+
+Also, add new plymouth fsckd translated strings in french.
+Refreshed with "make update-po".
+---
+ po/de.po    | 15 +++++++++++++--
+ po/el.po    | 11 +++++++++++
+ po/fr.po    | 11 +++++++++++
+ po/hu.po    | 11 +++++++++++
+ po/it.po    | 11 +++++++++++
+ po/pl.po    | 11 +++++++++++
+ po/pt_BR.po | 11 +++++++++++
+ po/ru.po    | 13 ++++++++++++-
+ po/sv.po    | 11 +++++++++++
+ po/uk.po    | 12 ++++++++++++
+ 10 files changed, 114 insertions(+), 3 deletions(-)
+
+diff --git a/po/de.po b/po/de.po
+index 69c1fb9..dcaff30 100644
+--- a/po/de.po
++++ b/po/de.po
+@@ -10,8 +10,8 @@ msgstr ""
+ "Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
+ "product=systemd&keywords=I18N+L10N&component=general\n"
+ "POT-Creation-Date: 2015-01-22 14:27+0000\n"
+-"PO-Revision-Date: 2015-01-29 19:00+0100\n"
+-"Last-Translator: Christian Kirbach <christian.kirbach@gmail.com>\n"
++"PO-Revision-Date: 2015-02-18 17:08+0100\n"
++"Last-Translator: Martin Pitt <martin.pitt@ubuntu.com>\n"
+ "Language-Team: German <gnome-de@gnome.org>\n"
+ "Language: de\n"
+ "MIME-Version: 1.0\n"
+@@ -454,5 +454,16 @@ msgstr ""
+ "Legitimierung ist zum Festlegen, ob Netzwerkzeitabgeich eingeschaltet sein "
+ "soll, erforderlich."
+ 
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr "Strl+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] "Prüfe %d Laufwerk (%3.1f%% fertig)"
++msgstr[1] "Prüfe %d Laufwerke (%3.1f%% fertig)"
++
+ #~ msgid "Privileged system and service manager access"
+ #~ msgstr "Privilegierter Zugriff auf die System- und Dienstverwaltung"
+diff --git a/po/el.po b/po/el.po
+index 8f7a0ed..14ee497 100644
+--- a/po/el.po
++++ b/po/el.po
+@@ -402,3 +402,14 @@ msgid "Authentication is required to access the system and service manager."
+ msgstr ""
+ "Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
+ "υπηρεσιών."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+diff --git a/po/fr.po b/po/fr.po
+index 4d4fc6b..8e44e0c 100644
+--- a/po/fr.po
++++ b/po/fr.po
+@@ -433,3 +433,14 @@ msgid ""
+ msgstr ""
+ "Authentification requise pour activer ou désactiver la synchronisation de "
+ "l'heure avec le réseau."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr "Appuyez sur Ctrl+C pour annuler toutes vérifications du système de fichier en cours"
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] "Vérification en cours sur %d disque (%3.1f%% complété)"
++msgstr[1] "Vérification en cours sur %d disques (%3.1f%% complété)"
+diff --git a/po/hu.po b/po/hu.po
+index a914b3c..308e03d 100644
+--- a/po/hu.po
++++ b/po/hu.po
+@@ -411,3 +411,14 @@ msgstr "A systemd állapotának újratöltése"
+ #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+ msgid "Authentication is required to reload the systemd state."
+ msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+diff --git a/po/it.po b/po/it.po
+index 93a1e79..53cccfe 100644
+--- a/po/it.po
++++ b/po/it.po
+@@ -424,3 +424,14 @@ msgstr "Autenticazione richiesta per riavviare lo stato di sistemd."
+ 
+ #~ msgid "Privileged system and service manager access"
+ #~ msgstr "Accesso privilegiato per la gestione del sistema e dei servizi"
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+diff --git a/po/pl.po b/po/pl.po
+index e5987be..cd7dbda 100644
+--- a/po/pl.po
++++ b/po/pl.po
+@@ -411,3 +411,14 @@ msgid ""
+ msgstr ""
+ "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
+ "czasu przez sieć."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+diff --git a/po/pt_BR.po b/po/pt_BR.po
+index 5204047..072b8d3 100644
+--- a/po/pt_BR.po
++++ b/po/pt_BR.po
+@@ -419,3 +419,14 @@ msgstr "É necessária autenticação para recarregar o estado do sistema."
+ 
+ #~ msgid "Privileged system and service manager access"
+ #~ msgstr "Acesso privilegiado ao gerenciador de serviço e de sistema"
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+diff --git a/po/ru.po b/po/ru.po
+index 4dda604..1ffeec6 100644
+--- a/po/ru.po
++++ b/po/ru.po
+@@ -7,7 +7,7 @@ msgstr ""
+ "Project-Id-Version: systemd\n"
+ "Report-Msgid-Bugs-To: 0comffdiz@inbox.ru\n"
+ "POT-Creation-Date: 2013-03-24 19:22+0300\n"
+-"PO-Revision-Date: 2015-01-23 20:55+0300\n"
++"PO-Revision-Date: 2015-02-19 03:27+0300\n"
+ "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
+ "Language: ru\n"
+ "MIME-Version: 1.0\n"
+@@ -325,3 +325,14 @@ msgstr "Перечитать конфигурацию systemd"
+ #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+ msgid "Authentication is required to reload the systemd state."
+ msgstr "Чтобы заставить systemd перечитать конфигурацию, необходимо пройти аутентификацию."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr "Чтобы прервать все запущенные проверки файловых систем, нажмите Ctrl+C"
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] "Проверяется целостность файловой системы на %d диске (выполнено %3.1f%%)"
++msgstr[1] "Проверяется целостность файловых систем на %d дисках (выполнено %3.1f%%)"
+diff --git a/po/sv.po b/po/sv.po
+index 25d4ae8..132b2ab 100644
+--- a/po/sv.po
++++ b/po/sv.po
+@@ -401,3 +401,14 @@ msgstr "Läs om tillståndet för systemd"
+ #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+ msgid "Authentication is required to reload the systemd state."
+ msgstr "Autentisering krävs för att läsa om tillståndet för systemd."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
+diff --git a/po/uk.po b/po/uk.po
+index 6e32236..3603999 100644
+--- a/po/uk.po
++++ b/po/uk.po
+@@ -375,3 +375,15 @@ msgstr "Привілейований доступ до менеджера сис
+ #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+ msgid "Authentication is required to access the system and service manager."
+ msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
++
++#: ../src/fsckd/fsckd.c:186
++msgid "Press Ctrl+C to cancel all filesystem checks in progress"
++msgstr ""
++
++#: ../src/fsckd/fsckd.c:227
++#, c-format
++msgid "Checking in progress on %d disk (%3.1f%% complete)"
++msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
++msgstr[0] ""
++msgstr[1] ""
++msgstr[2] ""

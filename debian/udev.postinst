@@ -1,0 +1,59 @@
+#!/bin/sh -e
+
+update_hwdb() {
+  systemd-hwdb --usr update || true
+}
+
+chrooted() {
+  if [ "$(stat -c %d/%i /)" = "$(stat -Lc %d/%i /proc/1/root 2>/dev/null)" ];
+  then
+    # the devicenumber/inode pair of / is the same as that of /sbin/init's
+    # root, so we're *not* in a chroot and hence return false.
+    return 1
+  fi
+  echo "A chroot environment has been detected, udev not started."
+  return 0
+}
+
+in_debootstrap() {
+  if [ -d /debootstrap/ ]; then
+    echo "Being installed by debootstrap, udev not started."
+    return 0
+  fi
+  return 1
+}
+
+update_initramfs() {
+  [ -x /usr/sbin/update-initramfs -a -e /etc/initramfs-tools/initramfs.conf ] \
+    || return 0
+  update-initramfs -u
+}
+
+case "$1" in
+    configure)
+        addgroup --quiet --system input
+        # update/create hwdb before we (re)start udev
+        update_hwdb
+
+        if ! chrooted && ! in_debootstrap; then
+            invoke-rc.d udev restart
+        fi
+	update_initramfs
+	;;
+
+    abort-upgrade|abort-deconfigure|abort-remove)
+	;;
+
+    triggered)
+	update_hwdb
+	exit 0
+	;;
+
+    *)
+	echo "$0 called with unknown argument \`$1'" 1>&2
+	exit 1
+	;;
+esac
+
+#DEBHELPER#
+exit 0

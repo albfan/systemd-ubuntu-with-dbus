@@ -1,0 +1,21 @@
+etc/udev/
+lib/udev/*
+lib/systemd/system/systemd-udev*
+lib/systemd/system/systemd-hwdb*
+lib/systemd/system/*.target.wants/systemd-udev*
+lib/systemd/system/*.target.wants/*hwdb*
+lib/systemd/systemd-udevd
+bin/udevadm
+bin/systemd-hwdb
+usr/share/man/man7/udev.7
+usr/share/man/man7/*hwdb*.7
+usr/share/man/man8/*udev*.8
+usr/share/man/man8/*hwdb*.8
+usr/share/bash-completion/completions/udevadm
+usr/share/pkgconfig/udev.pc
+../../extra/initramfs-tools usr/share/
+../../extra/rules/*.rules lib/udev/rules.d/
+../../extra/*.hwdb lib/udev/hwdb.d/
+../../extra/fbdev-blacklist.conf etc/modprobe.d/
+../../extra/udev-helpers/* lib/udev/
+../../extra/udev-finish.service lib/systemd/system/

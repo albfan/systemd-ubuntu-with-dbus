@@ -1,0 +1,23 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 21 Jan 2015 15:37:40 +0100
+Subject: util: Add hidden suffixes for ucf
+
+Bug-Debian: https://bugs.debian.org/775903
+---
+ src/shared/util.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/shared/util.c b/src/shared/util.c
+index deb9839..49d15dd 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -1550,6 +1550,9 @@ _pure_ static bool hidden_file_allow_backup(const char *filename) {
+                 endswith(filename, ".dpkg-bak") ||
+                 endswith(filename, ".dpkg-backup") ||
+                 endswith(filename, ".dpkg-remove") ||
++                endswith(filename, ".ucf-new") ||
++                endswith(filename, ".ucf-old") ||
++                endswith(filename, ".ucf-dist") ||
+                 endswith(filename, ".swp");
+ }
+ 

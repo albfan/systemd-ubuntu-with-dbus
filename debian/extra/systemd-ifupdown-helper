@@ -1,0 +1,83 @@
+#!/bin/sh
+
+CR="
+"
+IFSTATE_FILE="/run/network/ifstate"
+
+do_ifup() {
+    local ifname="$1"
+    ifquery --list --allow=hotplug | grep -q "^$ifname$" ||
+        ifquery --list --allow=auto | grep -q "^$ifname$" ||
+        return 0
+    ifup "$ifname"
+}
+
+is_persistent_initramfs_iface() {
+    # open-iscsi.interface is written by open-iscsi when booting from
+    # an iscsi volume, when you can't bounce the interface that the root
+    # device is on.  The other file, is meant as a more generic location
+    # for an initramfs job to write "persistent" network devices.
+    grep -qs "^$1$" /run/initramfs/open-iscsi.interface \
+        "/run/network/initramfs-persistent-iface"
+}
+
+adjust_resolvconf() {
+    local ifname="$1" data=""
+    command -v resolvconf >/dev/null 2>&1 || return 0
+
+    # /run/net-eth0.conf is written by 'ipconfig' in klibc
+    [ -f "/run/net-$ifname.conf" ] || return 0
+    . "/run/net-$ifname.conf"
+    data=""
+    [ -n "$DOMAINSEARCH" ] && data="$data${CR}domainsearch $DOMAINSEARCH"
+    for ns in "$IPV4DNS0" "$IPV4DNS1"; do
+        [ -n "$ns" -a "$ns" != "0.0.0.0" ] && data="$data${CR}nameserver $ns"
+    done
+    data=${data#${CR}}
+    [ -z "$data" ] && return 0
+    echo "$data" | resolvconf -a "$ifname.initramfs"
+}
+
+do_ifup_persistent() {
+    local ifname="$1"
+    # already done
+    grep -qs "$ifname=" $IFSTATE_FILE && return 0
+
+    adjust_resolvconf "$ifname" || return
+    # write to the ifstate file, so ifupdown thinks its up.
+    echo "$ifname=$ifname" >> $IFSTATE_FILE
+}
+
+start_main() {
+    local ifname=$1
+    shift
+    if is_persistent_initramfs_iface "$ifname"; then
+         do_ifup_persistent "$ifname" "$@" || return
+    fi
+    do_ifup "$ifname" "$@"
+}
+
+stop_main() {
+    local ifname="$1" fail=0
+    shift
+    if ! is_persistent_initramfs_iface "$ifname"; then
+        /sbin/ifdown "$ifname"
+        return
+    fi
+    # we only pretend to bring the interface down
+    # if interface is not present, we're already done
+    grep -qs "^$ifname=" $IFSTATE_FILE || return 0
+
+    sed -i "/^$ifname=/d" "$IFSTATE_FILE" || fail=1
+    resolvconf -d "$ifname.initramfs" || fail=1
+    return $fail
+}
+
+mode="$1"
+shift;
+case "$mode" in
+    start) start_main "$@";;
+    stop) stop_main "$@";;
+    *) echo "$0: unknown mode '$mode'" 1>&2; exit 1;;
+esac
+exit
