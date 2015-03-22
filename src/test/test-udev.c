@@ -46,7 +46,7 @@ static int fake_filesystems(void) {
                 { "test/dev", "/dev",                   "failed to mount test /dev" },
                 { "test/run", "/run",                   "failed to mount test /run" },
                 { "test/run", "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
-                { "test/run", "/usr/lib/udev/rules.d",  "failed to mount empty /usr/lib/udev/rules.d" },
+                { "test/run", "/lib/udev/rules.d",      "failed to mount empty /lib/udev/rules.d" },
         };
         unsigned int i;
         int err;
