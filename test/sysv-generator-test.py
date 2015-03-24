@@ -295,7 +295,7 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(sorted(results), ['bar.service', 'foo.service'])
         # we do expect an overwrite here, bar.service should overwrite the
         # alias link from foo.service
-        self.assertIn('Overwriting', err)
+        self.assertIsNot('Overwriting', err)
 
     def test_nonexecutable_script(self):
         '''ignores non-executable init.d script'''
@@ -330,7 +330,7 @@ class SysvGeneratorTest(unittest.TestCase):
         self.add_sysv('foo.sh', {'Provides': 'foo bar'})
         err, results = self.run_generator()
         # ensure we don't try to create a symlink to itself
-        self.assertNotIn(err, 'itself')
+        self.assertIsNot(err, 'itself')
         self.assertEqual(list(results), ['foo.service'])
         self.assertEqual(results['foo.service'].get('Unit', 'Description'),
                          'LSB: test foo service')
@@ -368,7 +368,7 @@ class SysvGeneratorTest(unittest.TestCase):
                          ['foo.bak.service', 'foo.old.service', 'foo.service'])
 
         # ensure we don't try to create a symlink to itself
-        self.assertNotIn(err, 'itself')
+        self.assertIsNot(err, 'itself')
 
         self.assert_enabled('foo.service', [2, 3, 4, 5])
         self.assert_enabled('foo.bak.service', [])
