@@ -11,10 +11,10 @@ ourselves even if update-rc.d handled the corresponding SysV unit.
  1 file changed, 2 insertions(+), 24 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 4a60adc..50a3ba8 100644
+index bf6c5db..86e9ea8 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5138,10 +5138,9 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5141,10 +5141,9 @@ static int enable_sysv_units(const char *verb, char **args) {
          while (args[f]) {
                  const char *name;
                  _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
@@ -26,7 +26,7 @@ index 4a60adc..50a3ba8 100644
                  int j;
                  pid_t pid;
                  siginfo_t status;
-@@ -5154,21 +5153,6 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5157,21 +5156,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (path_is_absolute(name))
                          continue;
  
@@ -48,7 +48,7 @@ index 4a60adc..50a3ba8 100644
                  p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
                  if (!p)
                          return log_oom();
-@@ -5178,7 +5162,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5181,7 +5165,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
@@ -57,7 +57,7 @@ index 4a60adc..50a3ba8 100644
  
                  if (!isempty(arg_root) && !streq(arg_root, "/")) {
                      log_error("Can not run update-rc.d when a root directory other than / is specified");
-@@ -5264,12 +5248,6 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5267,12 +5251,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                                  return -EINVAL;
                  } else
                          return -EPROTO;

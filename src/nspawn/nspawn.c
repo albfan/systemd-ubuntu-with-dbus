@@ -2676,7 +2676,7 @@ static int setup_image(char **device_path, int *loop_nr) {
 
 #define PARTITION_TABLE_BLURB \
         "Note that the disk image needs to either contain only a single MBR partition of\n" \
-        "type 0x83 that is marked bootable, or a sinlge GPT partition of type" \
+        "type 0x83 that is marked bootable, or a single GPT partition of type " \
         "0FC63DAF-8483-4772-8E79-3D69D8477DE4 or follow\n" \
         "    http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n" \
         "to be bootable with systemd-nspawn."
@@ -3627,7 +3627,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (arg_ephemeral) {
-                        char *np;
+                        _cleanup_free_ char *np = NULL;
 
                         /* If the specified path is a mount point we
                          * generate the new snapshot immediately
@@ -3657,13 +3657,13 @@ int main(int argc, char *argv[]) {
 
                         r = btrfs_subvol_snapshot(arg_directory, np, arg_read_only, true);
                         if (r < 0) {
-                                free(np);
                                 log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
                                 goto finish;
                         }
 
                         free(arg_directory);
                         arg_directory = np;
+                        np = NULL;
 
                         remove_subvol = true;
 

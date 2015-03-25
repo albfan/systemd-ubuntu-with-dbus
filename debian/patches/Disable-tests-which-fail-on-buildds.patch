@@ -9,7 +9,7 @@ Presumably these are due to running on too old kernels, misconfigured
  1 file changed, 7 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 549c09a..c691312 100644
+index 0e182f9..9687d3c 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -1429,14 +1429,11 @@ tests += \
@@ -46,7 +46,7 @@ index 549c09a..c691312 100644
  	test-dhcp-server \
  	test-ipv4ll \
  	test-icmp6-rs \
-@@ -5705,7 +5699,6 @@ test_network_tables_LDADD += \
+@@ -5710,7 +5704,6 @@ test_network_tables_LDADD += \
  endif
  
  tests += \

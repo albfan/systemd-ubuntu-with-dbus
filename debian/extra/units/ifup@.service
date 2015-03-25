@@ -7,6 +7,9 @@ DefaultDependencies=no
 
 [Service]
 Type=oneshot
-ExecStart=/lib/systemd/systemd-ifupdown-helper start %I
-ExecStop=/lib/systemd/systemd-ifupdown-helper stop %I
+ExecStart=/sbin/ifup --allow=hotplug %I
+ExecStartPost=/sbin/ifup --allow=auto %I
+# only fail if ifupdown knows about the iface AND it's not up
+ExecStartPost=/bin/sh -c 'if ifquery %I >/dev/null; then ifquery --state %I >/dev/null; fi'
+ExecStop=/sbin/ifdown %I
 RemainAfterExit=true

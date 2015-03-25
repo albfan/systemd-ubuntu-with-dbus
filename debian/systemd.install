@@ -53,4 +53,3 @@ usr/share/locale/
 ../../extra/tmpfiles.d/*.conf usr/lib/tmpfiles.d/
 ../../extra/debian-fixup lib/systemd/
 ../../extra/units/* lib/systemd/system/
-../../extra/systemd-ifupdown-helper lib/systemd/

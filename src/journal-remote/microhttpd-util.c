@@ -178,7 +178,8 @@ static int verify_cert_authorized(gnutls_session_t session) {
         if (r < 0)
                 return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
 
-        log_info("Certificate status: %s", out.data);
+        log_debug("Certificate status: %s", out.data);
+        gnutls_free(out.data);
 
         return status == 0 ? 0 : -EPERM;
 }
@@ -238,10 +239,14 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         return 0;
 }
 
+static inline void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
+        gnutls_x509_crt_deinit(*p);
+}
+
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         const union MHD_ConnectionInfo *ci;
         gnutls_session_t session;
-        gnutls_x509_crt_t client_cert;
+        _cleanup_(gnutls_x509_crt_deinitp) gnutls_x509_crt_t client_cert = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
 
@@ -275,7 +280,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
                 return -EPERM;
         }
 
-        log_info("Connection from %s", buf);
+        log_debug("Connection from %s", buf);
 
         if (hostname) {
                 *hostname = buf;

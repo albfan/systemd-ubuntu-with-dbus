@@ -9,7 +9,7 @@ Subject: Add gettext support
  3 files changed, 11 insertions(+)
 
 diff --git a/configure.ac b/configure.ac
-index 97a29d6..ca64ce8 100644
+index 14a7736..3f17532 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -75,6 +75,7 @@ AS_IF([test -z "$INTLTOOL_POLICY_RULE"], [
@@ -21,7 +21,7 @@ index 97a29d6..ca64ce8 100644
  AC_PROG_MKDIR_P
  AC_PROG_LN_S
 diff --git a/src/shared/util.c b/src/shared/util.c
-index ba035ca..deb9839 100644
+index 1e1bf94..63d4722 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
 @@ -25,6 +25,8 @@

@@ -121,7 +121,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
-        log_debug("parse: %s", path);
+        log_debug("Parsing %s", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
                 void *v;
@@ -176,7 +176,7 @@ found:
                         if (streq(value, existing))
                                 continue;
 
-                        log_info("Overwriting earlier assignment of %s in file '%s'.", p, path);
+                        log_debug("Overwriting earlier assignment of %s in file '%s'.", p, path);
                         free(hashmap_remove(sysctl_options, p));
                         free(v);
                 }

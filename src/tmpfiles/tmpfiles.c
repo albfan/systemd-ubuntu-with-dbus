@@ -689,7 +689,7 @@ static int get_acls_from_arg(Item *item) {
          * afterwards, so the mask can be added now if necessary. */
         r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
         if (r < 0)
-                log_warning_errno(errno, "Failed to parse ACL \"%s\": %m. Ignoring",
+                log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring",
                                   item->argument);
 #else
         log_warning_errno(ENOSYS, "ACLs are not supported. Ignoring");
@@ -703,6 +703,9 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
         _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
         _cleanup_(acl_free_charpp) char *t = NULL;
+
+        /* Returns 0 for success, positive error if already warned,
+         * negative error otherwise. */
 
         if (modify) {
                 r = acls_for_file(path, type, acl, &dup);
@@ -731,35 +734,36 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
 
         r = acl_set_file(path, type, dup);
         if (r < 0)
-                return log_error_errno(-errno,
-                                       "Setting %s ACL \"%s\" on %s failed: %m",
-                                       type == ACL_TYPE_ACCESS ? "access" : "default",
-                                       strna(t), path);
+                return -log_error_errno(errno,
+                                        "Setting %s ACL \"%s\" on %s failed: %m",
+                                        type == ACL_TYPE_ACCESS ? "access" : "default",
+                                        strna(t), path);
+
         return 0;
 }
 #endif
 
 static int path_set_acls(Item *item, const char *path) {
+        int r = 0;
 #ifdef HAVE_ACL
-        int r;
-
         assert(item);
         assert(path);
 
-        if (item->acl_access) {
+        if (item->acl_access)
                 r = path_set_acl(path, ACL_TYPE_ACCESS, item->acl_access, item->force);
-                if (r < 0)
-                        return r;
-        }
 
-        if (item->acl_default) {
+        if (r == 0 && item->acl_default)
                 r = path_set_acl(path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
-                if (r < 0)
-                        return r;
-        }
-#endif
 
-        return 0;
+        if (r > 0)
+                return -r; /* already warned */
+        else if (r == -ENOTSUP) {
+                log_debug_errno(r, "ACLs not supported by file system at %s", path);
+                return 0;
+        } else if (r < 0)
+                log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
+#endif
+        return r;
 }
 
 static int write_one_file(Item *i, const char *path) {
@@ -1204,8 +1208,6 @@ static int create_item(Item *i) {
                         return r;
                 break;
         }
-
-        log_debug("%s created successfully.", i->path);
 
         return 0;
 }

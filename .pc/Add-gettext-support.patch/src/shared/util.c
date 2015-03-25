@@ -1689,6 +1689,7 @@ bool chars_intersect(const char *a, const char *b) {
 
 bool fstype_is_network(const char *fstype) {
         static const char table[] =
+                "afs\0"
                 "cifs\0"
                 "smbfs\0"
                 "sshfs\0"
@@ -4114,8 +4115,7 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                         if (null_or_empty_path(path)) {
                                 log_debug("%s is empty (a mask).", path);
                                 continue;
-                        } else
-                                log_debug("%s will be executed.", path);
+                        }
 
                         pid = fork();
                         if (pid < 0) {
@@ -5993,7 +5993,7 @@ int on_ac_power(void) {
 
         d = opendir("/sys/class/power_supply");
         if (!d)
-                return -errno;
+                return errno == ENOENT ? true : -errno;
 
         for (;;) {
                 struct dirent *de;

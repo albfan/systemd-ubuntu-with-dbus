@@ -10,7 +10,7 @@ Subject: Add targets for compatibility with Debian insserv system facilities
  create mode 100644 units/mail-transport-agent.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 3f9b68c..79a1982 100644
+index 8318a53..2618142 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -567,6 +567,11 @@ nodist_systemunit_DATA += \
@@ -26,7 +26,7 @@ index 3f9b68c..79a1982 100644
  	units/user/basic.target \
  	units/user/default.target \
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 71c5cba..fcd2f33 100644
+index 3bb113a..812e865 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -266,6 +266,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char

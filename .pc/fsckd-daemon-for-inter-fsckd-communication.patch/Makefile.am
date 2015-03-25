@@ -198,6 +198,7 @@ AM_CPPFLAGS = \
 	-DKEXEC=\"$(KEXEC)\" \
 	-DLIBDIR=\"$(libdir)\" \
 	-DROOTLIBDIR=\"$(rootlibdir)\" \
+	-DROOTLIBEXECDIR=\"$(rootlibexecdir)\" \
 	-DTEST_DIR=\"$(abs_top_srcdir)/test\" \
 	-I $(top_srcdir)/src \
 	-I $(top_builddir)/src/shared \
@@ -3785,8 +3786,13 @@ TESTS += \
 if HAVE_PYTHON
 TESTS += \
 	test/rule-syntax-check.py \
+	$(NULL)
+
+if HAVE_SYSV_COMPAT
+TESTS += \
 	test/sysv-generator-test.py \
 	$(NULL)
+endif
 endif
 
 manual_tests += \

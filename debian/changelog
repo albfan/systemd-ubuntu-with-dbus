@@ -1,96 +1,6 @@
-systemd (219-4ubuntu9) vivid; urgency=medium
+systemd (219-5ubuntu1) vivid; urgency=medium
 
-  * debian/control:
-    - systemd-sysv now conflicts with upstart-sysv, not upstart itself
-      which contains upstart binaries. (LP: #1422681)
-  * debian/test/*:
-    - re-enable upstart boot test and switch to upstart instead of
-      upstart-bin
-  * debian/systemd-sysv.postinst:
-    - fix syntax for better portability
-
- -- Didier Roche <didrocks@ubuntu.com>  Mon, 23 Mar 2015 10:21:34 +0100
-
-systemd (219-4ubuntu8) vivid; urgency=medium
-
-  * force ifup@ to run after systemd-tmpfiles-setup as ifupdown
-    operations require /run/network which is being created by tmpfiles
-    (LP: #1434020).
-
- -- Scott Moser <smoser@ubuntu.com>  Fri, 20 Mar 2015 09:48:23 -0400
-
-systemd (219-4ubuntu7) vivid; urgency=medium
-
-  * use systemd-ifupdown-helper script to handle ifup and ifdown
-    of auto or hotplug devices.  This allows iscsi root volumes
-    to work again. (LP: #1432829)
-  * debian/control/tests: disable running of upstart tests until
-    upstart packaging bug 1422681 is resolved.
-
- -- Scott Moser <smoser@ubuntu.com>  Thu, 19 Mar 2015 11:43:14 -0400
-
-systemd (219-4ubuntu6) vivid; urgency=medium
-
-  * d/extra/units/ifup@.service, d/extra/tmpfiles.d/debian.conf:
-    use tmpfiles.d population of /run/network rather than
-    'RuntimeDirectory' in the ifup service.  This way files created
-    in initramfs are not deleted. (LP: #1432821)
-
- -- Scott Moser <smoser@ubuntu.com>  Tue, 17 Mar 2015 19:40:45 -0400
-
-systemd (219-4ubuntu5) vivid; urgency=medium
-
-  * Merge from experimental branch:
-    - /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
-      dependencies in "degraded" mode. (LP: #1429734)
-    - rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
-      m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
-  * systemctl: Don't forward telinit u to upstart. This works around upstart's
-    Restart() always reexec'ing /sbin/init on Restart(), even if that changes
-    to point to systemd during the upgrade. This avoids running systemd during
-    a dist-upgrade. (LP: #1430479)
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 11 Mar 2015 11:01:36 +0100
-
-systemd (219-4ubuntu4) vivid; urgency=medium
-
-  * debian/udev.postinst: Only call update-initramfs if it actually exists.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 09 Mar 2015 14:32:37 +0100
-
-systemd (219-4ubuntu3) vivid; urgency=medium
-
-  * Merge experimental branch.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 05 Mar 2015 16:41:24 +0100
-
-systemd (219-5) UNRELEASED; urgency=medium
-
-  [ Didier Roche ]
-  * Add "systemd-fsckd" autopkgtest. (LP: #1427312)
-
-  [ Martin Pitt ]
-  * journald: Suppress expected cases of "Failed to set file attributes"
-    errors. (LP: #1427899)
-  * Add systemd-sysv.postinst: Update grub on first installation, so that the
-    alternative init system boot entries get updated.
-  * debian/tests: Call /tmp/autopkgtest-reboot, to work with autopkgtest >=
-    3.11.1.
-  * Check for correct architecture identifiers for SuperH. (Closes: #779710)
-  * Fix tmpfiles.d to only apply the first match again (regression in 219).
-    (LP: #1428540)
-  * /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
-    dependencies in "degraded" mode. (LP: #1429734)
-
-  [ Craig Magina ]
-  * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
-    m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
-
- -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
-
-systemd (219-4ubuntu1) vivid; urgency=medium
-
-  * Merge with Debian experimental. Remaining Ubuntu changes:
+  * Merge with Debian experimental branch. Remaining Ubuntu changes:
     - Hack to support system-image read-only /etc, and modify files in
       /etc/writable/ instead.
     - Keep our much simpler udev maintainer scripts (all platforms must
@@ -119,9 +29,14 @@ systemd (219-4ubuntu1) vivid; urgency=medium
       (LP: #1377258)
     - Put session scopes into all cgroup controllers. This makes unprivileged
       user LXC containers work under systemd. (LP: #1346734)
+    - systemctl: Don't forward telinit u to upstart. This works around
+      upstart's Restart() always reexec'ing /sbin/init on Restart(), even if
+      that changes to point to systemd during the upgrade. This avoids running
+      systemd during a dist-upgrade. (LP: #1430479)
     - Lower Breaks: to plymouth version which has the udev inotify fix in
       Ubuntu.
     - Lower libappamor1 dep to the Ubuntu version where it moved to /lib.
+    - Change systemd-sysv's conflicts to upstart-sysv. (LP: #1422681)
     - Make failure of boot-and-services NSpawn.test_boot non-fatal for now.
       This currently fails when being triggered by Jenkins, but is totally
       unreproducible when running this manually on the exact same machine.
@@ -131,7 +46,56 @@ systemd (219-4ubuntu1) vivid; urgency=medium
     - Remove obsolete systemd-logind upstart job.
     - Clean up obsolete /etc/udev/rules.d/README.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Feb 2015 08:48:16 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Mar 2015 15:17:45 +0100
+
+systemd (219-6) UNRELEASED; urgency=medium
+
+  [ Martin Pitt ]
+  * Import patches from v219-stable branch (up to 85a6fab).
+
+  [ Didier Roche ]
+  * Fix mount point detection on overlayfs and similar file systems without
+    name_to_handle_at() and st_dev support. (LP: #1411140)
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 27 Mar 2015 07:45:10 +0100
+
+systemd (219-5) experimental; urgency=medium
+
+  [ Didier Roche ]
+  * Add "systemd-fsckd" autopkgtest. (LP: #1427312)
+  * cmdline-upstart-boot autopkgtest: Update to Ubuntu's upstart-sysv split
+    (test gets skipped on Debian while upstart-sysv does not yet exist there).
+  * Cherry-pick a couple of upstream commits for adding transient state,
+    fixing a race where mounts become available before the device being
+    available.
+  * Ensure PrivateTmp doesn't require tmpfs through tmp.mount, but rather adds
+    an After relationship. (Closes: #779902)
+
+  [ Martin Pitt ]
+  * journald: Suppress expected cases of "Failed to set file attributes"
+    errors. (LP: #1427899)
+  * Add systemd-sysv.postinst: Update grub on first installation, so that the
+    alternative init system boot entries get updated.
+  * debian/tests: Call /tmp/autopkgtest-reboot, to work with autopkgtest >=
+    3.11.1.
+  * Check for correct architecture identifiers for SuperH. (Closes: #779710)
+  * Fix tmpfiles.d to only apply the first match again (regression in 219).
+    (LP: #1428540)
+  * /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
+    dependencies in "degraded" mode. (LP: #1429734)
+
+  [ Michael Biebl ]
+  * debian/udev.init: Recognize '!' flag with static device lists, to work
+    with kmod 20. (Closes: #780263)
+
+  [ Craig Magina ]
+  * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
+    m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
+
+  [ Scott Wakeling ]
+  * Rework package description to be more accurate. (Closes: #740372)
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 26 Mar 2015 16:31:04 +0100
 
 systemd (219-4) experimental; urgency=medium
 

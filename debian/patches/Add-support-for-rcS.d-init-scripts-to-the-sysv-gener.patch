@@ -55,7 +55,7 @@ index b045047..fd613c6 100644
  #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
  #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index fcd2f33..24ad760 100644
+index 812e865..d2d89e5 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -41,6 +41,7 @@
@@ -144,7 +144,7 @@ index fcd2f33..24ad760 100644
                  if (other->sysv_start_priority < s->sysv_start_priority) {
                          r = strv_extend(&s->after, other->name);
                          if (r < 0)
-@@ -866,8 +885,12 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
+@@ -866,8 +885,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                  }
  
                                  if (de->d_name[0] == 'S')  {

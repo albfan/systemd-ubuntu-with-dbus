@@ -2014,8 +2014,7 @@ void journal_file_reset_location(JournalFile *f) {
         f->current_xor_hash = 0;
 }
 
-void journal_file_save_location(JournalFile *f, direction_t direction, Object *o, uint64_t offset) {
-        f->last_direction = direction;
+void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
         f->location_type = LOCATION_SEEK;
         f->current_offset = offset;
         f->current_seqnum = le64toh(o->entry.seqnum);
@@ -2653,10 +2652,8 @@ int journal_file_open(
         }
 
         r = mmap_cache_get(f->mmap, f->fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
-        if (r < 0) {
-                r = -errno;
+        if (r < 0)
                 goto fail;
-        }
 
         f->header = h;
 

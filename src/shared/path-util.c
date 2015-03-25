@@ -403,12 +403,18 @@ char* path_startswith(const char *path, const char *prefix) {
         }
 }
 
-bool path_equal(const char *a, const char *b) {
+int path_compare(const char *a, const char *b) {
+        int d;
+
         assert(a);
         assert(b);
 
-        if ((a[0] == '/') != (b[0] == '/'))
-                return false;
+        /* A relative path and an abolute path must not compare as equal.
+         * Which one is sorted before the other does not really matter.
+         * Here a relative path is ordered before an absolute path. */
+        d = (a[0] == '/') - (b[0] == '/');
+        if (d)
+                return d;
 
         for (;;) {
                 size_t j, k;
@@ -417,23 +423,38 @@ bool path_equal(const char *a, const char *b) {
                 b += strspn(b, "/");
 
                 if (*a == 0 && *b == 0)
-                        return true;
+                        return 0;
 
-                if (*a == 0 || *b == 0)
-                        return false;
+                /* Order prefixes first: "/foo" before "/foo/bar" */
+                if (*a == 0)
+                        return -1;
+                if (*b == 0)
+                        return 1;
 
                 j = strcspn(a, "/");
                 k = strcspn(b, "/");
 
-                if (j != k)
-                        return false;
+                /* Alphabetical sort: "/foo/aaa" before "/foo/b" */
+                d = memcmp(a, b, MIN(j, k));
+                if (d)
+                        return (d > 0) - (d < 0); /* sign of d */
 
-                if (memcmp(a, b, j) != 0)
-                        return false;
+                /* Sort "/foo/a" before "/foo/aaa" */
+                d = (j > k) - (j < k);  /* sign of (j - k) */
+                if (d)
+                        return d;
 
                 a += j;
                 b += k;
         }
+}
+
+bool path_equal(const char *a, const char *b) {
+        return path_compare(a, b) == 0;
+}
+
+bool path_equal_or_files_same(const char *a, const char *b) {
+        return path_equal(a, b) || files_same(a, b) > 0;
 }
 
 char* path_join(const char *root, const char *path, const char *rest) {
@@ -456,7 +477,9 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         union file_handle_union h = FILE_HANDLE_INIT;
         int mount_id = -1, mount_id_parent = -1;
-        _cleanup_free_ char *parent = NULL;
+        _cleanup_free_ char *parent = NULL, *path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        bool mountpoint_found = false;
         struct stat a, b;
         int r;
         bool nosupp = false;
@@ -532,7 +555,63 @@ fallback:
         if (r < 0)
                 return -errno;
 
+        /* if parent major block is 0, this can be an overlay fs,
+           fallback to reading /proc/self/mounts */
+        if (major(b.st_dev) == 0)
+                goto fallback_proc_mounts;
+
         return a.st_dev != b.st_dev;
+
+fallback_proc_mounts:
+        if (allow_symlink) {
+                r = readlink_and_make_absolute(t, &path);
+                // this can happen on sysfs, fallback to previous behavior
+                if (r < 0)
+                        return a.st_dev != b.st_dev;
+        } else
+                path = strdup(t);
+
+        f = fopen("/proc/self/mounts", "re");
+        if (!f)
+                return a.st_dev != b.st_dev;
+
+        for (;;) {
+                _cleanup_free_ char *mountpoint = NULL, *unesc_mountpoint = NULL;
+                r = fscanf(f,
+                          "%*s "       /* (1) fs spec */
+                          "%ms "       /* (2) mount point */
+                          "%*[^\n]",   /* not interested by other values */
+                          &mountpoint);
+                if (r != 1) {
+                        if (r == EOF)
+                                break;
+                        if (ferror(f) && errno)
+                                return a.st_dev != b.st_dev;
+
+                        continue;
+                }
+
+                unesc_mountpoint = cunescape(mountpoint);
+                if (!unesc_mountpoint)
+                        return -ENOMEM;
+
+                /* check that our mount point isn't hidden by a later mount of a parent dir */
+                if (mountpoint_found) {
+                        size_t l = strlen(unesc_mountpoint);
+                        if (strlen(path) > l &&
+                            path_startswith(path, unesc_mountpoint) &&
+                            (unesc_mountpoint[l-1] == '/' || path[l] == '/'))
+                                mountpoint_found = false;
+                }
+
+                if (path_equal(path, unesc_mountpoint))
+                        mountpoint_found = true;
+        }
+
+        if (mountpoint_found)
+                return 1;
+
+        return 0;
 }
 
 int path_is_read_only_fs(const char *path) {

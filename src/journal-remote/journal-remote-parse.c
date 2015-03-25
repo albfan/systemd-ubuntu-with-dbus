@@ -41,6 +41,7 @@ void source_free(RemoteSource *source) {
         writer_unref(source->writer);
 
         sd_event_source_unref(source->event);
+        sd_event_source_unref(source->buffer_event);
 
         free(source);
 }
@@ -344,22 +345,25 @@ int process_data(RemoteSource *source) {
                    LLLLLLLL0011223344...\n
                 */
                 sep = memchr(line, '=', n);
-                if (sep)
+                if (sep) {
                         /* chomp newline */
                         n--;
-                else
+
+                        r = iovw_put(&source->iovw, line, n);
+                        if (r < 0)
+                                return r;
+                } else {
                         /* replace \n with = */
                         line[n-1] = '=';
-                log_trace("Received: %.*s", (int) n, line);
 
-                r = iovw_put(&source->iovw, line, n);
-                if (r < 0) {
-                        log_error("Failed to put line in iovect");
-                        return r;
+                        source->field_len = n;
+                        source->state = STATE_DATA_START;
+
+                        /* we cannot put the field in iovec until we have all data */
                 }
 
-                if (!sep)
-                        source->state = STATE_DATA_START;
+                log_trace("Received: %.*s (%s)", (int) n, line, sep ? "text" : "binary");
+
                 return 0; /* continue */
         }
 
@@ -382,6 +386,7 @@ int process_data(RemoteSource *source) {
 
         case STATE_DATA: {
                 void *data;
+                char *field;
 
                 assert(source->data_size > 0);
 
@@ -396,11 +401,12 @@ int process_data(RemoteSource *source) {
 
                 assert(data);
 
-                r = iovw_put(&source->iovw, data, source->data_size);
-                if (r < 0) {
-                        log_error("failed to put binary buffer in iovect");
+                field = (char*) data - sizeof(uint64_t) - source->field_len;
+                memmove(field + sizeof(uint64_t), field, source->field_len);
+
+                r = iovw_put(&source->iovw, field + sizeof(uint64_t), source->field_len + source->data_size);
+                if (r < 0)
                         return r;
-                }
 
                 source->state = STATE_DATA_FINISH;
 
@@ -438,7 +444,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 return r;
 
         /* We have a full event */
-        log_trace("Received a full event from source@%p fd:%d (%s)",
+        log_trace("Received full event from source@%p fd:%d (%s)",
                   source, source->fd, source->name);
 
         if (!source->iovw.count) {

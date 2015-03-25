@@ -70,13 +70,15 @@ Conflicts: klogd, systemd-services
 Replaces: systemd-services
 Provides: systemd-services
 Description: system and service manager
- systemd is a replacement for sysvinit.  It is dependency-based and
- able to read the LSB init script headers in addition to parsing rcN.d
- links as hints.
+ systemd is a system and service manager for Linux. It provides aggressive
+ parallelization capabilities, uses socket and D-Bus activation for starting
+ services, offers on-demand starting of daemons, keeps track of processes
+ using Linux control groups, supports snapshotting and restoring of the system
+ state, maintains mount and automount points and implements an elaborate
+ transactional dependency-based service control logic.
  .
- It also provides process supervision using cgroups and the ability to
- not only depend on other init script being started, but also
- availability of a given mount point or dbus service.
+ systemd is compatible with SysV and LSB init scripts and can work as a
+ drop-in replacement for sysvinit.
  .
  Installing the systemd package will not switch your init system unless you
  boot with init=/bin/systemd or install systemd-sysv in addition.
@@ -98,13 +100,15 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version})
 Description: system and service manager - SysV links
- systemd is a replacement for sysvinit.  It is dependency-based and
- able to read the LSB init script headers in addition to parsing rcN.d
- links as hints.
+ systemd is a system and service manager for Linux. It provides aggressive
+ parallelization capabilities, uses socket and D-Bus activation for starting
+ services, offers on-demand starting of daemons, keeps track of processes
+ using Linux control groups, supports snapshotting and restoring of the system
+ state, maintains mount and automount points and implements an elaborate
+ transactional dependency-based service control logic.
  .
- It also provides process supervision using cgroups and the ability to
- not only depend on other init script being started, but also
- availability of a given mount point or dbus service.
+ systemd is compatible with SysV and LSB init scripts and can work as a
+ drop-in replacement for sysvinit.
  .
  This package provides the manual pages and links needed for systemd
  to replace sysvinit. Installing systemd-sysv will overwrite /sbin/init with a
@@ -123,13 +127,15 @@ Depends: ${shlibs:Depends},
          dbus,
          systemd-shim (>= 8-2) | systemd-sysv
 Description: system and service manager - PAM module
- systemd is a replacement for sysvinit.  It is dependency-based and
- able to read the LSB init script headers in addition to parsing rcN.d
- links as hints.
+ systemd is a system and service manager for Linux. It provides aggressive
+ parallelization capabilities, uses socket and D-Bus activation for starting
+ services, offers on-demand starting of daemons, keeps track of processes
+ using Linux control groups, supports snapshotting and restoring of the system
+ state, maintains mount and automount points and implements an elaborate
+ transactional dependency-based service control logic.
  .
- It also provides process supervision using cgroups and the ability to
- not only depend on other init script being started, but also
- availability of a given mount point or dbus service.
+ systemd is compatible with SysV and LSB init scripts and can work as a
+ drop-in replacement for sysvinit.
  .
  This package contains the PAM module which registers user sessions in
  the systemd control group hierarchy.
@@ -364,13 +370,15 @@ Depends: ${misc:Depends},
          libsystemd0 (= ${binary:Version}),
          libudev1 (= ${binary:Version})
 Description: system and service manager (debug symbols)
- systemd is a replacement for sysvinit.  It is dependency-based and
- able to read the LSB init script headers in addition to parsing rcN.d
- links as hints.
+ systemd is a system and service manager for Linux. It provides aggressive
+ parallelization capabilities, uses socket and D-Bus activation for starting
+ services, offers on-demand starting of daemons, keeps track of processes
+ using Linux control groups, supports snapshotting and restoring of the system
+ state, maintains mount and automount points and implements an elaborate
+ transactional dependency-based service control logic.
  .
- It also provides process supervision using cgroups and the ability to
- not only depend on other init script being started, but also
- availability of a given mount point or dbus service.
+ systemd is compatible with SysV and LSB init scripts and can work as a
+ drop-in replacement for sysvinit.
  .
  This package contains the debugging symbols for systemd, udev and
  related libraries.

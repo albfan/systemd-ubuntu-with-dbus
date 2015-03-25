@@ -18,10 +18,10 @@ anymore afterwards).
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 744182e..f5658e3 100644
+index bcebf4d..50202bf 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -6463,8 +6463,7 @@ SYSINIT_TARGET_WANTS += \
+@@ -6468,8 +6468,7 @@ SYSINIT_TARGET_WANTS += \
  	systemd-update-done.service
  
  LOCAL_FS_TARGET_WANTS += \

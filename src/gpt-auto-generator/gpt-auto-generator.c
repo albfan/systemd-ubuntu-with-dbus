@@ -290,7 +290,7 @@ static int probe_and_add_mount(
                 const char *post) {
 
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        const char *fstype;
+        const char *fstype = NULL;
         int r;
 
         assert(id);
@@ -323,14 +323,11 @@ static int probe_and_add_mount(
         r = blkid_do_safeprobe(b);
         if (r == -2 || r == 1) /* no result or uncertain */
                 return 0;
-        else if (r != 0) {
-                if (errno == 0)
-                        errno = EIO;
-                log_error_errno(errno, "Failed to probe %s: %m", what);
-                return -errno;
-        }
+        else if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe %s: %m", what);
 
-        blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+        /* add_mount is OK with fstype being NULL. */
+        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
         return add_mount(
                         id,
@@ -548,7 +545,7 @@ static int enumerate_partitions(dev_t devnum) {
                         srv_rw = !(flags & GPT_FLAG_READ_ONLY),
 
                         free(srv);
-                        srv = strdup(node);
+                        srv = strdup(subnode);
                         if (!srv)
                                 return log_oom();
                 }

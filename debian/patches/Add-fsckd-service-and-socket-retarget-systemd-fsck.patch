@@ -15,10 +15,10 @@ in the different unit files.
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile.am b/Makefile.am
-index d439d34..30990ed 100644
+index 7423590..bcebf4d 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -493,6 +493,7 @@ dist_systemunit_DATA = \
+@@ -494,6 +494,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
  	units/x-.slice \
@@ -26,7 +26,7 @@ index d439d34..30990ed 100644
  	units/systemd-initctl.socket \
  	units/systemd-shutdownd.socket \
  	units/syslog.socket \
-@@ -544,6 +545,7 @@ nodist_systemunit_DATA = \
+@@ -545,6 +546,7 @@ nodist_systemunit_DATA = \
  	units/systemd-kexec.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
@@ -34,7 +34,7 @@ index d439d34..30990ed 100644
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -597,6 +599,7 @@ EXTRA_DIST += \
+@@ -598,6 +600,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \

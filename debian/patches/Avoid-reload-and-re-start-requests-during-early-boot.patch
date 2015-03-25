@@ -9,10 +9,10 @@ Closes: #624599
  1 file changed, 15 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index ba1401f..66d4e18 100644
+index 4c71c57..26b25aa 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -1193,6 +1193,21 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
+@@ -1225,6 +1225,21 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                                  sd_bus_error_setf(e, BUS_ERROR_SHUTTING_DOWN, "final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
                                  return -EINVAL;
                          }

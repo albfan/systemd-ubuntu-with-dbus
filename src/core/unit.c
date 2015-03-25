@@ -807,7 +807,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 return 0;
 
         if (c->private_tmp) {
-                r = unit_require_mounts_for(u, "/tmp");
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, "tmp.mount", NULL, true);
                 if (r < 0)
                         return r;
 
@@ -1648,12 +1648,14 @@ static void unit_check_binds_to(Unit *u) {
                         continue;
 
                 stop = true;
+                break;
         }
 
         if (!stop)
                 return;
 
-        log_unit_info(u->id, "Unit %s is bound to inactive unit. Stopping, too.", u->id);
+        assert(other);
+        log_unit_info(u->id, "Unit %s is bound to inactive unit %s. Stopping, too.", u->id, other->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -2841,11 +2843,10 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
                 return -ENOMEM;
 
         r = manager_load_unit(u->manager, e, NULL, NULL, &device);
-
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BINDS_TO, device, true);
+        r = unit_add_two_dependencies(u, UNIT_AFTER, u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_BINDS_TO : UNIT_WANTS, device, true);
         if (r < 0)
                 return r;
 
@@ -2858,27 +2859,34 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         return 0;
 }
 
-int unit_coldplug(Unit *u) {
+static int unit_add_deserialized_job_coldplug(Unit *u) {
+        int r;
+
+        r = manager_add_job(u->manager, u->deserialized_job, u, JOB_IGNORE_REQUIREMENTS, false, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        u->deserialized_job = _JOB_TYPE_INVALID;
+
+        return 0;
+}
+
+int unit_coldplug(Unit *u, Hashmap *deferred_work) {
         int r;
 
         assert(u);
 
         if (UNIT_VTABLE(u)->coldplug)
-                if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
+                if ((r = UNIT_VTABLE(u)->coldplug(u, deferred_work)) < 0)
                         return r;
 
         if (u->job) {
                 r = job_coldplug(u->job);
                 if (r < 0)
                         return r;
-        } else if (u->deserialized_job >= 0) {
+        } else if (u->deserialized_job >= 0)
                 /* legacy */
-                r = manager_add_job(u->manager, u->deserialized_job, u, JOB_IGNORE_REQUIREMENTS, false, NULL, NULL);
-                if (r < 0)
-                        return r;
-
-                u->deserialized_job = _JOB_TYPE_INVALID;
-        }
+                hashmap_put(deferred_work, u, &unit_add_deserialized_job_coldplug);
 
         return 0;
 }

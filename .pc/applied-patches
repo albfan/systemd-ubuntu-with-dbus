@@ -1,4 +1,4 @@
-test-utf8-fix-utf16-tests-on-BE-machines.patch
+v219-stable.patch
 sysv-generator-fix-wrong-Overwriting-existing-symlin.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 systemd-fsck-always-connect-to-systemd-fsckd.patch
@@ -9,11 +9,6 @@ Refresh-po-files.patch
 Add-fsckd-service-and-socket-retarget-systemd-fsck.patch
 Add-man-page-and-references-to-it.patch
 Add-mock-fsck-process.patch
-tmpfiles-avoid-creating-duplicate-acl-entries.patch
-bootchart-fix-default-init-path.patch
-journal-fix-Inappropriate-ioctl-for-device-on-ext4.patch
-Use-correct-uname-identifiers-in-arch_map-for-SuperH.patch
-tmpfiles-Fix-handling-of-duplicate-lines.patch
 Add-back-support-for-Debian-specific-config-files.patch
 Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
 systemctl-don-t-skip-native-units-when-enabling-disa.patch
@@ -66,6 +61,8 @@ Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 core-mount-ensure-that-we-parse-proc-self-mountinfo.patch
 Revert-journald-allow-restarting-journald-without-lo.patch
+PrivateTmp-shouldn-t-require-tmpfs.patch
+path_is_mount_point-handle-false-positive-on-some-fs.patch
 Support-system-image-read-only-etc.patch
 Provide-shutdown-fallback-for-upstart.patch
 systemctl-Don-t-forward-telinit-u-to-upstart.patch
