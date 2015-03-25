@@ -68,8 +68,8 @@ class ServicesTest(unittest.TestCase):
 def configure_boot():
     '''Reboot with upstart as init'''
 
-    print('Installing upstart-bin and rebooting...')
-    subprocess.check_call('apt-get -y install upstart-bin 2>&1',
+    print('Installing upstart and rebooting...')
+    subprocess.check_call('apt-get -y install upstart 2>&1',
                           shell=True)
     print('Setting init=/sbin/upstart in grub kernel command line...')
     subprocess.check_call(['sh', '-ec', "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/"
@@ -86,10 +86,10 @@ def configure_boot():
 
 
 if __name__ == '__main__':
-    # Ubuntu split out upstart-bin, Debian doesn't
-    if subprocess.call(['apt-cache', 'show', 'upstart-bin'],
+    # Don't run this test under Debian as Ubuntu split out upstart-sysv, Debian doesn't
+    if subprocess.call(['apt-cache', 'show', 'upstart-sysv'],
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE) != 0:
-        print('SKIP: upstart-bin not available')
+        print('SKIP: upstart-sysv not available')
         sys.exit(0)
 
     if not os.getenv('ADT_REBOOT_MARK'):

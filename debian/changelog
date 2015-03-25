@@ -1,3 +1,16 @@
+systemd (219-4ubuntu9) vivid; urgency=medium
+
+  * debian/control:
+    - systemd-sysv now conflicts with upstart-sysv, not upstart itself
+      which contains upstart binaries. (LP: #1422681)
+  * debian/test/*:
+    - re-enable upstart boot test and switch to upstart instead of
+      upstart-bin
+  * debian/systemd-sysv.postinst:
+    - fix syntax for better portability
+
+ -- Didier Roche <didrocks@ubuntu.com>  Mon, 23 Mar 2015 10:21:34 +0100
+
 systemd (219-4ubuntu8) vivid; urgency=medium
 
   * force ifup@ to run after systemd-tmpfiles-setup as ifupdown

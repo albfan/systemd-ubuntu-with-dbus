@@ -22,7 +22,6 @@ Depends: systemd-sysv, lightdm, cron, network-manager, busybox-static, apparmor
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
 
 Tests: cmdline-upstart-boot
-Disabled-until-bug-fixed: http://pad.lv/1422681
 Depends: systemd-sysv, cron, network-manager, python3
 Restrictions: needs-root, isolation-machine, breaks-testbed
 

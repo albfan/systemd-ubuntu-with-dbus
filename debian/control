@@ -87,10 +87,12 @@ Multi-Arch: foreign
 Section: admin
 Priority: extra
 Conflicts: sysvinit-core,
-           upstart
+           upstart-sysv,
+           upstart (<< 1.13.2-0ubuntu10~),
 Replaces: sysvinit (<< 2.88dsf-44~),
           sysvinit-core,
-          upstart
+          upstart-sysv,
+          upstart (<< 1.13.2-0ubuntu10~),
 Pre-Depends: systemd
 Depends: ${shlibs:Depends},
          ${misc:Depends},
