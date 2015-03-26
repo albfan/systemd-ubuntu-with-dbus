@@ -13,6 +13,10 @@ systemd (215-13) UNRELEASED; urgency=medium
     creation. Fixes creation of static device nodes with kmod 20.
     (Closes: #780263)
 
+  [ Michael Biebl ]
+  * debian/udev.init: Recognize '!' flag with static device lists, to work
+    with kmod 20. (Closes: #780263)
+
   [ Didier Roche ]
   * Ensure PrivateTmp doesn't require tmpfs through tmp.mount, but rather adds
     an After relationship. (Closes: #779902)
