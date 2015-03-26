@@ -1,4 +1,4 @@
-systemd (219-5) UNRELEASED; urgency=medium
+systemd (219-5) experimental; urgency=medium
 
   [ Didier Roche ]
   * Add "systemd-fsckd" autopkgtest. (LP: #1427312)
@@ -34,7 +34,7 @@ systemd (219-5) UNRELEASED; urgency=medium
   [ Scott Wakeling ]
   * Rework package description to be more accurate. (Closes: #740372)
 
- -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 26 Mar 2015 16:31:04 +0100
 
 systemd (219-4) experimental; urgency=medium
 
