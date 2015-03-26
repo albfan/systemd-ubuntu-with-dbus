@@ -9,6 +9,9 @@ systemd (215-13) UNRELEASED; urgency=medium
   * networkd: Fix stopping v4 dhcpclient when the carrier is lost. Thanks
     Christos Trochalakis! (Closes: #779571)
   * Fix segfault with units that depend on themselves. (Closes: #780675)
+  * tmpfiles-setup-dev: Call tmpfiles with --boot to allow unsafe device
+    creation. Fixes creation of static device nodes with kmod 20.
+    (Closes: #780263)
 
   [ Didier Roche ]
   * Ensure PrivateTmp doesn't require tmpfs through tmp.mount, but rather adds
