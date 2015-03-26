@@ -139,6 +139,7 @@ Use-correct-uname-identifiers-in-arch_map-for-SuperH.patch
 networkd-link-fix-stopping-v4-dhcpclient-when-the-ca.patch
 core-do-not-add-dependencies-to-self.patch
 units-tmpfiles-setup-dev-allow-unsafe-file-creation-.patch
+core-don-t-migrate-PIDs-for-units-that-may-contain-s.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

@@ -12,6 +12,10 @@ systemd (215-13) UNRELEASED; urgency=medium
   * tmpfiles-setup-dev: Call tmpfiles with --boot to allow unsafe device
     creation. Fixes creation of static device nodes with kmod 20.
     (Closes: #780263)
+  * core: Don't migrate PIDs for units that may contain subcgroups.
+    This stops messing up lxc/libvirt/other custom cgroup layouts after
+    daemon-reload. Thanks to Christian Seiler for the backport!
+    (Closes: #777164)
 
   [ Michael Biebl ]
   * debian/udev.init: Recognize '!' flag with static device lists, to work
