@@ -193,3 +193,4 @@ Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 core-don-t-fail-to-run-services-in-user-instances-if.patch
 PrivateTmp-shouldn-t-require-tmpfs.patch
+sysv-generator-add-support-for-etc-insserv-overrides.patch
