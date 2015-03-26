@@ -71,5 +71,4 @@ Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 core-mount-ensure-that-we-parse-proc-self-mountinfo.patch
 Revert-journald-allow-restarting-journald-without-lo.patch
-path_is_mount_point-handle-false-positive-on-some-fs.patch
 PrivateTmp-shouldn-t-require-tmpfs.patch
