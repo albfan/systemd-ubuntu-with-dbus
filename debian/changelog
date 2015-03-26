@@ -25,6 +25,10 @@ systemd (219-5) UNRELEASED; urgency=medium
   * /lib/lsb/init-functions.d/40-systemd: Don't ignore systemd unit
     dependencies in "degraded" mode. (LP: #1429734)
 
+  [ Michael Biebl ]
+  * debian/udev.init: Recognize '!' flag with static device lists, to work
+    with kmod 20. (Closes: #780263)
+
   [ Craig Magina ]
   * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
     m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
