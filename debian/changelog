@@ -1,4 +1,4 @@
-systemd (215-13) UNRELEASED; urgency=medium
+systemd (215-13) unstable; urgency=medium
 
   [ Martin Pitt ]
   * Add hwclock-save.service to sync the system clock to the hardware clock on
@@ -27,7 +27,7 @@ systemd (215-13) UNRELEASED; urgency=medium
   * Ensure PrivateTmp doesn't require tmpfs through tmp.mount, but rather adds
     an After relationship. (Closes: #779902)
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 16 Feb 2015 16:11:12 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 26 Mar 2015 14:23:35 +0100
 
 systemd (215-12) unstable; urgency=medium
 
