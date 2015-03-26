@@ -33,6 +33,9 @@ systemd (219-5) UNRELEASED; urgency=medium
   * rules-ubuntu/71-power-switch-proliant.rules: Add support for HP ProLiant
     m400 Server Cartridge soft powerdown on Linux 3.16. (LP: #1428811)
 
+  [ Scott Wakeling ]
+  * Rework package description to be more accurate. (Closes: #740372)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 03 Mar 2015 14:51:46 +0100
 
 systemd (219-4) experimental; urgency=medium
