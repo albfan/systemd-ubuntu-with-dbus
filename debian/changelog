@@ -38,6 +38,7 @@ systemd (225-1ubuntu1) UNRELEASED; urgency=medium
       be dropped again with initramfs-tools 0.117.
     - Lower Breaks: to plymouth version which has the udev inotify fix in
       Ubuntu.
+    - Change systemd-sysv's conflicts to upstart-sysv. (LP: #1422681)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Aug 2015 08:08:12 +0200
 
