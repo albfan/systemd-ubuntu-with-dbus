@@ -6,6 +6,9 @@ systemd (219-5) UNRELEASED; urgency=medium
     name_to_handle_at() and st_dev support. (LP: #1411140)
   * cmdline-upstart-boot autopkgtest: Update to Ubuntu's upstart-sysv split
     (test gets skipped on Debian while upstart-sysv does not yet exist there).
+  * Cherry-pick a couple of upstream commits for adding transient state,
+    fixing a race where mounts become available before the device being
+    available.
 
   [ Martin Pitt ]
   * journald: Suppress expected cases of "Failed to set file attributes"

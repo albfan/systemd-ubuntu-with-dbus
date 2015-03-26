@@ -29,19 +29,19 @@ https://launchpad.net/bugs/1419623
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/mount.c b/src/core/mount.c
-index f3977e6..3e7d005 100644
+index c971330..6e96e3a 100644
 --- a/src/core/mount.c
 +++ b/src/core/mount.c
-@@ -1566,7 +1566,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-         if (!tb || !itr)
+@@ -1570,7 +1570,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+         if (!i)
                  return log_oom();
  
--        r = mnt_table_parse_mtab(tb, NULL);
+-        r = mnt_table_parse_mtab(t, NULL);
 +        /* FIXME: We really mean "/proc/self/mountinfo" here, but as that's a
 +         * regular file this will trick libmount into not parsing
 +         * /run/mount/utab; so give it an invalid file to trigger the fallback
 +         * to /proc/self/mountinfo. */
-+        r = mnt_table_parse_mtab(tb, "/");
++        r = mnt_table_parse_mtab(t, "/");
          if (r < 0)
-                 return r;
+                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
  
