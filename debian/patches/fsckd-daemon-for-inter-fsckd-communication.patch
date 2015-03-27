@@ -24,10 +24,10 @@ socket.
  create mode 100644 src/fsckd/fsckd.h
 
 diff --git a/Makefile.am b/Makefile.am
-index bf04d31..d439d34 100644
+index aadaad2..7423590 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -390,6 +390,7 @@ rootlibexec_PROGRAMS = \
+@@ -391,6 +391,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -35,7 +35,7 @@ index bf04d31..d439d34 100644
  	systemd-machine-id-commit \
  	systemd-ac-power \
  	systemd-sysctl \
-@@ -2356,6 +2357,18 @@ systemd_fsck_LDADD = \
+@@ -2357,6 +2358,18 @@ systemd_fsck_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------

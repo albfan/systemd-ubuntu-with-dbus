@@ -1,3 +1,9 @@
+systemd (219-6) UNRELEASED; urgency=medium
+
+  * Import patches from v219-stable branch (up to 85a6fab).
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 27 Mar 2015 07:45:10 +0100
+
 systemd (219-5) experimental; urgency=medium
 
   [ Didier Roche ]

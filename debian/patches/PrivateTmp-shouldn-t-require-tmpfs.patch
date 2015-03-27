@@ -10,7 +10,7 @@ the requirements to an after relationship.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/core/unit.c b/src/core/unit.c
-index f290e99..91bb5f5 100644
+index 565455b..93487d8 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
 @@ -807,7 +807,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {

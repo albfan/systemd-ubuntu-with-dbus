@@ -17,10 +17,10 @@ conf.d snippet.
  3 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index c5afc4d..000da35 100644
+index 52de2f8..d0eed78 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
-@@ -310,7 +310,7 @@
+@@ -309,7 +309,7 @@
          console, or sent as wall messages to all logged-in users.
          These options take boolean arguments. If forwarding to syslog
          is enabled but no syslog daemon is running, the respective
@@ -42,10 +42,10 @@ index 7ee8174..ffec90e 100644
  
          s->max_file_usec = DEFAULT_MAX_FILE_USEC;
 diff --git a/src/journal/journald.conf b/src/journal/journald.conf
-index 29bdf8f..5f99ee4 100644
+index 47eefe9..3907dfb 100644
 --- a/src/journal/journald.conf
 +++ b/src/journal/journald.conf
-@@ -26,7 +26,7 @@
+@@ -27,7 +27,7 @@
  #RuntimeMaxFileSize=
  #MaxRetentionSec=
  #MaxFileSec=1month

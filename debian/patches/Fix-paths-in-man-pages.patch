@@ -79,7 +79,7 @@ Closes: #717491
  67 files changed, 172 insertions(+), 176 deletions(-)
 
 diff --git a/man/bootchart.conf.xml b/man/bootchart.conf.xml
-index 8d9700d..c32b5c5 100644
+index bf6ca0b..84316bd 100644
 --- a/man/bootchart.conf.xml
 +++ b/man/bootchart.conf.xml
 @@ -55,7 +55,7 @@
@@ -91,7 +91,7 @@ index 8d9700d..c32b5c5 100644
    </refsynopsisdiv>
  
    <refsect1>
-@@ -123,10 +123,10 @@
+@@ -122,10 +122,10 @@
          <term><varname>Init=[path]</varname></term>
          <listitem><para>Configures bootchart to run a non-standard
          binary instead of
@@ -105,7 +105,7 @@ index 8d9700d..c32b5c5 100644
  
        <varlistentry>
 diff --git a/man/coredump.conf.xml b/man/coredump.conf.xml
-index 3d325e6..c7d540a 100644
+index 0b7329b..795867d 100644
 --- a/man/coredump.conf.xml
 +++ b/man/coredump.conf.xml
 @@ -52,7 +52,7 @@
@@ -152,7 +152,7 @@ index b4460c1..e29824e 100644
        During runtime only the binary database is used.</para>
    </refsect1>
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 364b58f..c5afc4d 100644
+index 85146b0..52de2f8 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
 @@ -52,7 +52,7 @@
@@ -165,7 +165,7 @@ index 364b58f..c5afc4d 100644
  
    <refsect1>
 diff --git a/man/logind.conf.xml b/man/logind.conf.xml
-index ffaec50..6702dee 100644
+index d02d573..d5fe802 100644
 --- a/man/logind.conf.xml
 +++ b/man/logind.conf.xml
 @@ -52,7 +52,7 @@
@@ -178,7 +178,7 @@ index ffaec50..6702dee 100644
  
    <refsect1>
 diff --git a/man/resolved.conf.xml b/man/resolved.conf.xml
-index 36cae27..b021dcf 100644
+index 8047a4e..2f5c06a 100644
 --- a/man/resolved.conf.xml
 +++ b/man/resolved.conf.xml
 @@ -52,7 +52,7 @@
@@ -191,7 +191,7 @@ index 36cae27..b021dcf 100644
  
    <refsect1>
 diff --git a/man/sysctl.d.xml b/man/sysctl.d.xml
-index 5a35cfe..3984b96 100644
+index 8a13179..af26655 100644
 --- a/man/sysctl.d.xml
 +++ b/man/sysctl.d.xml
 @@ -127,7 +127,7 @@
@@ -204,7 +204,7 @@ index 5a35cfe..3984b96 100644
  
        <para><filename>/etc/sysctl.d/bridge.conf</filename>:
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index 338c1d3..9cc10b4 100644
+index 50e6bc9..c9c5b78 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
 @@ -410,8 +410,8 @@
@@ -219,7 +219,7 @@ index 338c1d3..9cc10b4 100644
            <option>all</option>.</para>
          </listitem>
 diff --git a/man/systemd-activate.xml b/man/systemd-activate.xml
-index e64894a..079a007 100644
+index cb68a79..1468b91 100644
 --- a/man/systemd-activate.xml
 +++ b/man/systemd-activate.xml
 @@ -50,7 +50,7 @@
@@ -305,7 +305,7 @@ index 5386667..dac7eb9 100644
        </varlistentry>
  
 diff --git a/man/systemd-bus-proxyd.xml b/man/systemd-bus-proxyd.xml
-index 2c77640..63cef4f 100644
+index e0efe99..69f375d 100644
 --- a/man/systemd-bus-proxyd.xml
 +++ b/man/systemd-bus-proxyd.xml
 @@ -50,7 +50,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
@@ -331,7 +331,7 @@ index 6a7ced1..e8d156c 100644
  
    <refsect1>
 diff --git a/man/systemd-cryptsetup-generator.xml b/man/systemd-cryptsetup-generator.xml
-index 0e48e79..c238dfe 100644
+index b627035..4c0a8fa 100644
 --- a/man/systemd-cryptsetup-generator.xml
 +++ b/man/systemd-cryptsetup-generator.xml
 @@ -46,7 +46,7 @@
@@ -344,7 +344,7 @@ index 0e48e79..c238dfe 100644
  
    <refsect1>
 diff --git a/man/systemd-cryptsetup@.service.xml b/man/systemd-cryptsetup@.service.xml
-index bd03637..668e287 100644
+index ea52485..0280c0b 100644
 --- a/man/systemd-cryptsetup@.service.xml
 +++ b/man/systemd-cryptsetup@.service.xml
 @@ -48,7 +48,7 @@
@@ -357,7 +357,7 @@ index bd03637..668e287 100644
  
    <refsect1>
 diff --git a/man/systemd-debug-generator.xml b/man/systemd-debug-generator.xml
-index 74c3b26..0168f93 100644
+index 5c5e9fc..3a5ef26 100644
 --- a/man/systemd-debug-generator.xml
 +++ b/man/systemd-debug-generator.xml
 @@ -47,7 +47,7 @@
@@ -370,7 +370,7 @@ index 74c3b26..0168f93 100644
  
    <refsect1>
 diff --git a/man/systemd-efi-boot-generator.xml b/man/systemd-efi-boot-generator.xml
-index b2d8d65..f5162bb 100644
+index 3431c3c..9b6f1e1 100644
 --- a/man/systemd-efi-boot-generator.xml
 +++ b/man/systemd-efi-boot-generator.xml
 @@ -48,7 +48,7 @@
@@ -402,7 +402,7 @@ index 69b8fdd..ea25a60 100644
 -
  </refentry>
 diff --git a/man/systemd-fstab-generator.xml b/man/systemd-fstab-generator.xml
-index 8f82e33..f7c212b 100644
+index bdc2dc1..0f32e70 100644
 --- a/man/systemd-fstab-generator.xml
 +++ b/man/systemd-fstab-generator.xml
 @@ -46,7 +46,7 @@
@@ -415,7 +415,7 @@ index 8f82e33..f7c212b 100644
  
    <refsect1>
 diff --git a/man/systemd-getty-generator.xml b/man/systemd-getty-generator.xml
-index 0b5b2f2..7dd5acb 100644
+index 3389259..0429e59 100644
 --- a/man/systemd-getty-generator.xml
 +++ b/man/systemd-getty-generator.xml
 @@ -47,7 +47,7 @@
@@ -428,7 +428,7 @@ index 0b5b2f2..7dd5acb 100644
  
    <refsect1>
 diff --git a/man/systemd-gpt-auto-generator.xml b/man/systemd-gpt-auto-generator.xml
-index 9c706df..743dd5d 100644
+index bcc64ec..98b8f09 100644
 --- a/man/systemd-gpt-auto-generator.xml
 +++ b/man/systemd-gpt-auto-generator.xml
 @@ -50,7 +50,7 @@
@@ -472,7 +472,7 @@ index c94e2a1..9be1832 100644
      <literal>poweroff</literal>, <literal>reboot</literal> or
      <literal>kexec</literal>, depending on the chosen action. All
 diff --git a/man/systemd-hibernate-resume-generator.xml b/man/systemd-hibernate-resume-generator.xml
-index a21782c..dda6830 100644
+index d811b9b..51e84ef 100644
 --- a/man/systemd-hibernate-resume-generator.xml
 +++ b/man/systemd-hibernate-resume-generator.xml
 @@ -46,7 +46,7 @@
@@ -550,7 +550,7 @@ index 7420b59..e80c978 100644
      </cmdsynopsis>
    </refsynopsisdiv>
 diff --git a/man/systemd-journald.service.xml b/man/systemd-journald.service.xml
-index 6b250b6..9a9c2ee 100644
+index 8280d6c..f8f7511 100644
 --- a/man/systemd-journald.service.xml
 +++ b/man/systemd-journald.service.xml
 @@ -54,7 +54,7 @@
@@ -563,7 +563,7 @@ index 6b250b6..9a9c2ee 100644
  
    <refsect1>
 diff --git a/man/systemd-localed.service.xml b/man/systemd-localed.service.xml
-index 8999166..aaa0730 100644
+index 06aa78c..1f258bc 100644
 --- a/man/systemd-localed.service.xml
 +++ b/man/systemd-localed.service.xml
 @@ -50,7 +50,7 @@
@@ -663,7 +663,7 @@ index 0bfe551..a4a1580 100644
      <filename>/run/systemd/network</filename> and the local administration
      network directory <filename>/etc/systemd/network</filename>.</para>
 diff --git a/man/systemd-quotacheck.service.xml b/man/systemd-quotacheck.service.xml
-index 2179f11..b69fe10 100644
+index 9d49762..78804ee 100644
 --- a/man/systemd-quotacheck.service.xml
 +++ b/man/systemd-quotacheck.service.xml
 @@ -48,7 +48,7 @@
@@ -689,7 +689,7 @@ index 8c83668..3d259c0 100644
  
    <refsect1>
 diff --git a/man/systemd-remount-fs.service.xml b/man/systemd-remount-fs.service.xml
-index 7b88ac3..867ca37 100644
+index 8e60e31..c1ba9ff 100644
 --- a/man/systemd-remount-fs.service.xml
 +++ b/man/systemd-remount-fs.service.xml
 @@ -48,7 +48,7 @@
@@ -741,7 +741,7 @@ index 756949c..0f42798 100644
  
    <refsect1>
 diff --git a/man/systemd-sleep.conf.xml b/man/systemd-sleep.conf.xml
-index 433f2f8..7e1bb08 100644
+index bb17ec8..aaa2f5c 100644
 --- a/man/systemd-sleep.conf.xml
 +++ b/man/systemd-sleep.conf.xml
 @@ -52,7 +52,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
@@ -754,7 +754,7 @@ index 433f2f8..7e1bb08 100644
  
    <refsect1>
 diff --git a/man/systemd-socket-proxyd.xml b/man/systemd-socket-proxyd.xml
-index 1c78b65..c76b874 100644
+index 0b852e6..7796226 100644
 --- a/man/systemd-socket-proxyd.xml
 +++ b/man/systemd-socket-proxyd.xml
 @@ -113,7 +113,7 @@ Requires=nginx.service
@@ -807,7 +807,7 @@ index a8beb86..071ec88 100644
      want to be notified of system suspend/hibernation and resume,
      there are much nicer interfaces available.</para>
 diff --git a/man/systemd-sysctl.service.xml b/man/systemd-sysctl.service.xml
-index f35a18a..a4ea099 100644
+index d4c1a7e..062251e 100644
 --- a/man/systemd-sysctl.service.xml
 +++ b/man/systemd-sysctl.service.xml
 @@ -48,7 +48,7 @@
@@ -820,7 +820,7 @@ index f35a18a..a4ea099 100644
  
    <refsect1>
 diff --git a/man/systemd-system-update-generator.xml b/man/systemd-system-update-generator.xml
-index 3eec1d7..d8e2c02 100644
+index e7fc95c..43ef5f0 100644
 --- a/man/systemd-system-update-generator.xml
 +++ b/man/systemd-system-update-generator.xml
 @@ -46,7 +46,7 @@
@@ -833,7 +833,7 @@ index 3eec1d7..d8e2c02 100644
  
    <refsect1>
 diff --git a/man/systemd-system.conf.xml b/man/systemd-system.conf.xml
-index 7c3f237..81fd266 100644
+index 1b74ed3..0adb840 100644
 --- a/man/systemd-system.conf.xml
 +++ b/man/systemd-system.conf.xml
 @@ -54,11 +54,11 @@
@@ -851,7 +851,7 @@ index 7c3f237..81fd266 100644
  
    <refsect1>
 diff --git a/man/systemd-sysv-generator.xml b/man/systemd-sysv-generator.xml
-index e619b1b..f3bf37d 100644
+index f2d56cb..8fde793 100644
 --- a/man/systemd-sysv-generator.xml
 +++ b/man/systemd-sysv-generator.xml
 @@ -46,7 +46,7 @@
@@ -922,7 +922,7 @@ index d65f175..bf40b55 100644
  
    <refsect1>
 diff --git a/man/systemd-update-utmp.service.xml b/man/systemd-update-utmp.service.xml
-index b842d29..610f0e9 100644
+index c8a9cb7..0a175c9 100644
 --- a/man/systemd-update-utmp.service.xml
 +++ b/man/systemd-update-utmp.service.xml
 @@ -51,7 +51,7 @@
@@ -935,7 +935,7 @@ index b842d29..610f0e9 100644
  
    <refsect1>
 diff --git a/man/systemd-user-sessions.service.xml b/man/systemd-user-sessions.service.xml
-index 9d796b1..97a6a0f 100644
+index e75ef11..225f206 100644
 --- a/man/systemd-user-sessions.service.xml
 +++ b/man/systemd-user-sessions.service.xml
 @@ -48,9 +48,8 @@
@@ -950,7 +950,7 @@ index 9d796b1..97a6a0f 100644
      <title>Description</title>
  
 diff --git a/man/systemd-vconsole-setup.service.xml b/man/systemd-vconsole-setup.service.xml
-index 59bb5e4..1f330d2 100644
+index 7c6ed08..cf9674e 100644
 --- a/man/systemd-vconsole-setup.service.xml
 +++ b/man/systemd-vconsole-setup.service.xml
 @@ -48,7 +48,7 @@
@@ -1227,7 +1227,7 @@ index 3fac760..116f965 100644
      entirely.</para>
  
 diff --git a/man/systemd.netdev.xml b/man/systemd.netdev.xml
-index 4480e19..d88f530 100644
+index ef58887..a4857a6 100644
 --- a/man/systemd.netdev.xml
 +++ b/man/systemd.netdev.xml
 @@ -68,7 +68,7 @@
@@ -1253,7 +1253,7 @@ index 4480e19..d88f530 100644
      entirely.</para>
  
 diff --git a/man/systemd.network.xml b/man/systemd.network.xml
-index 485876b..7656721 100644
+index 9738627..2b06cb3 100644
 --- a/man/systemd.network.xml
 +++ b/man/systemd.network.xml
 @@ -64,7 +64,7 @@
@@ -1328,7 +1328,7 @@ index 2f9add8..a30cc5b 100644
        <programlisting>enable gdm.service
  enable colord.service
 diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
-index 09e11b4..af5cd7d 100644
+index c2e374a..9ce8b8b 100644
 --- a/man/systemd.unit.xml
 +++ b/man/systemd.unit.xml
 @@ -66,7 +66,7 @@
@@ -1377,10 +1377,10 @@ index 09e11b4..af5cd7d 100644
  
        <programlisting>[Unit]
 diff --git a/man/systemd.xml b/man/systemd.xml
-index 80591dc..5f977f9 100644
+index d006b0b..192a1ec 100644
 --- a/man/systemd.xml
 +++ b/man/systemd.xml
-@@ -439,7 +439,7 @@
+@@ -438,7 +438,7 @@
          by <command>pkg-config systemd
          --variable=systemdsystemunitdir</command>. Other directories
          checked are <filename>/usr/local/lib/systemd/system</filename>
@@ -1389,7 +1389,7 @@ index 80591dc..5f977f9 100644
          configuration always takes precedence. <command>pkg-config
          systemd --variable=systemdsystemconfdir</command> returns the
          path of the system configuration directory. Packages should
-@@ -1092,5 +1092,4 @@
+@@ -1091,5 +1091,4 @@
        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
      </para>
    </refsect1>
@@ -1409,7 +1409,7 @@ index 98ec013..9b777b2 100644
  ...</programlisting>
      </para>
 diff --git a/man/timesyncd.conf.xml b/man/timesyncd.conf.xml
-index 1127970..73d85cc 100644
+index 89a651c..9cce88b 100644
 --- a/man/timesyncd.conf.xml
 +++ b/man/timesyncd.conf.xml
 @@ -52,7 +52,7 @@

@@ -13,7 +13,7 @@ https://bugs.debian.org/778700
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 6e39b44..71c5cba 100644
+index 0125ca2..3bb113a 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -166,7 +166,7 @@ static int generate_unit_file(SysvStub *s) {

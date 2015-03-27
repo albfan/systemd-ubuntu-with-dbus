@@ -46,7 +46,7 @@ index e993c57..480aa7c 100644
          for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                  char *s;
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 753c3d1..1fa29d8 100644
+index f2d23f3..bb10e7c 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -74,7 +74,7 @@ static int context_read_data(Context *c) {

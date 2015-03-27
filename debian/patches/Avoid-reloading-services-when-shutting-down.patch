@@ -9,10 +9,10 @@ for the patch.  Closes: #624599.
  1 file changed, 25 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 4775219..ba1401f 100644
+index 7483a96..4c71c57 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -1162,6 +1162,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+@@ -1194,6 +1194,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
  int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
          int r;
          Transaction *tr;
@@ -21,7 +21,7 @@ index 4775219..ba1401f 100644
  
          assert(m);
          assert(type < _JOB_TYPE_MAX);
-@@ -1171,6 +1173,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
+@@ -1203,6 +1205,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
          if (mode == JOB_ISOLATE && type != JOB_START)
                  return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
  
