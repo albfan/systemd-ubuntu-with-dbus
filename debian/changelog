@@ -1,6 +1,11 @@
 systemd (219-6) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Import patches from v219-stable branch (up to 85a6fab).
+
+  [ Didier Roche ]
+  * Fix mount point detection on overlayfs and similar file systems without
+    name_to_handle_at() and st_dev support. (LP: #1411140)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 27 Mar 2015 07:45:10 +0100
 
