@@ -1,5 +1,6 @@
 systemd (215-14) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * Map $x-display-manager LSB facility to display-manager.service instead of
     making it a target. Using a target had the downside that multiple display
     managers could hook into it at the same time which could lead to several
@@ -8,6 +9,11 @@ systemd (215-14) UNRELEASED; urgency=medium
     display-manager.service, following the recent change in sysv-generator.
     This avoids creating references to a no longer existing
     x-display-manager.target unit.
+
+  [ Martin Pitt ]
+  * scope: Make attachment of initial PIDs more robust. Fixes crash with
+    processes that get started by an init.d script with a different (aliased)
+    name when the cgroup becomes empty. (Closes: #781210)
 
  -- Michael Biebl <biebl@debian.org>  Sat, 28 Mar 2015 09:27:07 +0100
 
