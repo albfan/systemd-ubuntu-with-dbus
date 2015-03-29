@@ -8,6 +8,10 @@ systemd (219-6) UNRELEASED; urgency=medium
   * Fix mount point detection on overlayfs and similar file systems without
     name_to_handle_at() and st_dev support. (LP: #1411140)
 
+  [ Christian Seiler ]
+  * Make the journald to syslog forwarding more robust by increasing the
+    maximum datagram queue length from 10 to 512. (Closes: #762700)
+
  -- Martin Pitt <mpitt@debian.org>  Fri, 27 Mar 2015 07:45:10 +0100
 
 systemd (219-5) experimental; urgency=medium
