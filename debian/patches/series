@@ -141,6 +141,7 @@ core-do-not-add-dependencies-to-self.patch
 units-tmpfiles-setup-dev-allow-unsafe-file-creation-.patch
 core-don-t-migrate-PIDs-for-units-that-may-contain-s.patch
 scope-make-attachment-of-initial-PIDs-a-bit-more-rob.patch
+journald-also-increase-the-SendBuffer-of-dev-log-to-.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

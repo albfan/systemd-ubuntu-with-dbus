@@ -9,6 +9,7 @@ systemd (215-14) UNRELEASED; urgency=medium
     display-manager.service, following the recent change in sysv-generator.
     This avoids creating references to a no longer existing
     x-display-manager.target unit.
+  * Cherry-pick upstream fix to increase the SendBuffer of /dev/log to 8M.
 
   [ Martin Pitt ]
   * scope: Make attachment of initial PIDs more robust. Fixes crash with
