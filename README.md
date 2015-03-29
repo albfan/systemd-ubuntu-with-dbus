@@ -34,6 +34,13 @@ To apply this patches and generate .deb files you need to:
         $ dpkg-buildpackage -uc -us -D -rfakeroot
 
  - install all .deb generated
+
+    this process is really manual, so much that you must do this to install correctly
+
+        $ rm /usr/share/doc/libsystemd0/changelog.Debian.gz 
+        $ rm /usr/share/doc/libudev1/changelog.Debian.gz 
+
+        $ sudo dpkg -i *.deb
     
 # Original repos
 
