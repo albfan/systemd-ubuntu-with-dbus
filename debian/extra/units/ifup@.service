@@ -1,6 +1,6 @@
 [Unit]
 Description=ifup for %I
-After=local-fs.target network-pre.target networking.service
+After=local-fs.target network-pre.target networking.service apparmor.service
 Before=network.target
 BindsTo=sys-subsystem-net-devices-%i.device
 ConditionPathIsDirectory=/run/network

@@ -3,6 +3,11 @@ systemd (219-6) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * Import patches from v219-stable branch (up to 85a6fab).
   * boot-and-services autopkgtest: Add missing python3 test dependency.
+  * Make apparmor run before networking, to ensure that profiles apply to
+    e. g. dhclient (LP: #1438249):
+    - Rename networking.service.d/network-pre.conf to systemd.conf, and add
+      After=apparmor.service.
+    - ifup@.service: Add After=apparmor.service.
 
   [ Didier Roche ]
   * Fix mount point detection on overlayfs and similar file systems without
