@@ -1,4 +1,4 @@
-systemd (219-6) UNRELEASED; urgency=medium
+systemd (219-6) experimental; urgency=medium
 
   [ Martin Pitt ]
   * Import patches from v219-stable branch (up to 85a6fab).
@@ -28,7 +28,7 @@ systemd (219-6) UNRELEASED; urgency=medium
     write_net_rules script returns and udevd renames the interface.
     (Closes: #765577)
 
- -- Martin Pitt <mpitt@debian.org>  Fri, 27 Mar 2015 07:45:10 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 02 Apr 2015 09:14:48 +0200
 
 systemd (219-5) experimental; urgency=medium
 
