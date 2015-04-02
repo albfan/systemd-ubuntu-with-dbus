@@ -67,3 +67,4 @@ Revert-journald-allow-restarting-journald-without-lo.patch
 PrivateTmp-shouldn-t-require-tmpfs.patch
 path_is_mount_point-handle-false-positive-on-some-fs.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
+udev-Drop-hwdb-update-dependency.patch

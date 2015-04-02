@@ -8,6 +8,10 @@ systemd (219-6) UNRELEASED; urgency=medium
     - Rename networking.service.d/network-pre.conf to systemd.conf, and add
       After=apparmor.service.
     - ifup@.service: Add After=apparmor.service.
+  * udev: Drop hwdb-update dependency, which got introduced by the above
+    v219-stable branch. This causes udev and plymouth to start too late and
+    isn't really needed in Debian yet as we don't support stateless systems
+    yet and handle hwdb.bin updates through dpkg triggers. (LP: #1439301)
 
   [ Didier Roche ]
   * Fix mount point detection on overlayfs and similar file systems without
