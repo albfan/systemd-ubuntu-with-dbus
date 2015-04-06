@@ -92,8 +92,7 @@ Replaces: sysvinit (<< 2.88dsf-44~),
           upstart
 Pre-Depends: systemd
 Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         systemd (= ${binary:Version})
+         ${misc:Depends}
 Description: system and service manager - SysV links
  systemd is a system and service manager for Linux. It provides aggressive
  parallelization capabilities, uses socket and D-Bus activation for starting

@@ -1,3 +1,12 @@
+systemd (219-7) UNRELEASED; urgency=medium
+
+  * Make systemd-sysv's dependency to systemd unversioned. The package just
+    contains 6 symlinks and thus isn't sensitive at all against version
+    mismatches. This avoids running into circular dependencies when testing
+    local debs.
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 06 Apr 2015 13:19:37 +0200
+
 systemd (219-6) experimental; urgency=medium
 
   [ Martin Pitt ]
