@@ -278,7 +278,9 @@ exit 0'''.format(service=name))
     def reload_state(self):
         subprocess.check_call(['systemctl', 'daemon-reload'])
         subprocess.check_call(['systemctl', 'default'])
-        sleep(2)  # a more robust way would be to loop over remaining jobs to process
+        while (subprocess.getoutput('systemctl list-jobs --no-legend') or
+               subprocess.getoutput('systemctl --all | grep activating')):
+            sleep(1)
 
 
 def boot_with_systemd():

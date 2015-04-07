@@ -7,6 +7,8 @@ systemd (219-7) UNRELEASED; urgency=medium
     local debs.
   * Revert "udev: Drop hwdb-update dependency" and replace with upstream patch
     which moves it to systemd-udev-trigger.service.
+  * display-managers autopkgtest: Properly wait until all jobs are finished,
+    instead of a static sleep.
 
   [ Adam Conrad ]
   * debian/systemd.{triggers,postinst}: Trigger a systemctl daemon-reload
