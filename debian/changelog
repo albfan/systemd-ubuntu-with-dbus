@@ -37,6 +37,11 @@ systemd (219-7ubuntu1) UNRELEASED; urgency=medium
       upstart's Restart() always reexec'ing /sbin/init on Restart(), even if
       that changes to point to systemd during the upgrade. This avoids running
       systemd during a dist-upgrade. (LP: #1430479)
+    - Drop hwdb-update dependency from udev-trigger.service, which got
+      introduced in v219-stable. This causes udev and plymouth to start too
+      late and isn't really needed in Ubuntu yet as we don't support stateless
+      systems yet and handle hwdb.bin updates through dpkg triggers. This can
+      be dropped again with initramfs-tools 0.117.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Mar 2015 14:23:13 +0100
 
