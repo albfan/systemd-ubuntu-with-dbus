@@ -10,6 +10,7 @@ Refresh-po-files.patch
 Add-fsckd-service-and-socket-retarget-systemd-fsck.patch
 Add-man-page-and-references-to-it.patch
 Add-mock-fsck-process.patch
+units-move-After-systemd-hwdb-update.service-depende.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -67,4 +68,3 @@ Revert-journald-allow-restarting-journald-without-lo.patch
 PrivateTmp-shouldn-t-require-tmpfs.patch
 path_is_mount_point-handle-false-positive-on-some-fs.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
-udev-Drop-hwdb-update-dependency.patch

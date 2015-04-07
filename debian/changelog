@@ -4,6 +4,8 @@ systemd (219-7) UNRELEASED; urgency=medium
     contains 6 symlinks and thus isn't sensitive at all against version
     mismatches. This avoids running into circular dependencies when testing
     local debs.
+  * Revert "udev: Drop hwdb-update dependency" and replace with upstream patch
+    which moves it to systemd-udev-trigger.service.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 06 Apr 2015 13:19:37 +0200
 
