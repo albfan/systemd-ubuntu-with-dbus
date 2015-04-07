@@ -1,0 +1,38 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Tue, 7 Apr 2015 15:45:51 +0200
+Subject: udev-trigger: Drop hwdb-update dependency
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+This got introduced in commit d99ce933, but now causes a long dependency chain:
+
+plymouth-start.service → systemd-udevd.service → systemd-hwdb-update.service →
+systemd-remount-fs.service → systemd-fsck-root.service → systemd-fsckd.socket
+
+This causes plymouth to start very late, and thus does not cover fsck any more.
+
+We also don't really need this yet; we handle updating hwdb.bin through a dpkg
+trigger, and don't support stateless systems in Ubuntu yet.
+
+This can be dropped once we merge with initramfs-tools 0.117 which fscks the
+root partition in the initramfs already.
+
+LP: #1439301
+---
+ units/systemd-udev-trigger.service.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/units/systemd-udev-trigger.service.in b/units/systemd-udev-trigger.service.in
+index 1e04d11..0c33909 100644
+--- a/units/systemd-udev-trigger.service.in
++++ b/units/systemd-udev-trigger.service.in
+@@ -10,7 +10,7 @@ Description=udev Coldplug all Devices
+ Documentation=man:udev(7) man:systemd-udevd.service(8)
+ DefaultDependencies=no
+ Wants=systemd-udevd.service
+-After=systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-hwdb-update.service
++After=systemd-udevd-kernel.socket systemd-udevd-control.socket
+ Before=sysinit.target
+ ConditionPathIsReadWrite=/sys
+ 
