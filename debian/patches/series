@@ -145,6 +145,7 @@ journald-also-increase-the-SendBuffer-of-dev-log-to-.patch
 list-add-macro-for-iterating-through-a-list-an-item-.patch
 core-if-two-start-jobs-for-the-same-swap-device-node.patch
 units-make-sure-container-getty-.service-stops-resta.patch
+timesyncd-enable-timesyncd-in-virtual-machines.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
