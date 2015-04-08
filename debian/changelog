@@ -1,3 +1,11 @@
+systemd (215-15) UNRELEASED; urgency=medium
+
+  [ Adam Conrad ]
+  * debian/systemd.{triggers,postinst}: Trigger a systemctl daemon-reload
+    when init scripts are installed or removed (Closes: #766429)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 08 Apr 2015 10:53:38 +0200
+
 systemd (215-14) unstable; urgency=medium
 
   [ Michael Biebl ]
