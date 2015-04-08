@@ -4,6 +4,9 @@ systemd (215-15) UNRELEASED; urgency=medium
   * debian/systemd.{triggers,postinst}: Trigger a systemctl daemon-reload
     when init scripts are installed or removed (Closes: #766429)
 
+  [ Martin Pitt ]
+  * Fix getty restart loop when PTS device is gone. (Closes: #780711)
+
  -- Martin Pitt <mpitt@debian.org>  Wed, 08 Apr 2015 10:53:38 +0200
 
 systemd (215-14) unstable; urgency=medium

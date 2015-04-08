@@ -144,6 +144,7 @@ scope-make-attachment-of-initial-PIDs-a-bit-more-rob.patch
 journald-also-increase-the-SendBuffer-of-dev-log-to-.patch
 list-add-macro-for-iterating-through-a-list-an-item-.patch
 core-if-two-start-jobs-for-the-same-swap-device-node.patch
+units-make-sure-container-getty-.service-stops-resta.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
