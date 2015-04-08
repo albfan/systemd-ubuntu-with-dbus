@@ -10,6 +10,7 @@ systemd (219-7) UNRELEASED; urgency=medium
   * display-managers autopkgtest: Properly wait until all jobs are finished.
   * display-managers autopkgtest: Reset failed units between tests, to avoid
     running into restart limits and for better test isolation.
+  * Enable timesyncd in virtual machines. (Closes: #762343)
 
   [ Adam Conrad ]
   * debian/systemd.{triggers,postinst}: Trigger a systemctl daemon-reload
