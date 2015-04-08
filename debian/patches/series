@@ -146,6 +146,7 @@ list-add-macro-for-iterating-through-a-list-an-item-.patch
 core-if-two-start-jobs-for-the-same-swap-device-node.patch
 units-make-sure-container-getty-.service-stops-resta.patch
 timesyncd-enable-timesyncd-in-virtual-machines.patch
+logind-handle-runtime-dir-without-CAP_SYS_ADMIN.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

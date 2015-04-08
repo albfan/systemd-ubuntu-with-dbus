@@ -7,6 +7,9 @@ systemd (215-15) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * Fix getty restart loop when PTS device is gone. (Closes: #780711)
   * Run timesyncd in virtual machines. (Closes: #762343)
+  * Make logind work in environments without CAP_SYS_ADMIN (mostly
+    containers). Thanks Christian Seiler for the backporting!
+    (Closes: #778608)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 08 Apr 2015 10:53:38 +0200
 
