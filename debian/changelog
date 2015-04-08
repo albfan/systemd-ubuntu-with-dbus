@@ -10,6 +10,8 @@ systemd (215-15) UNRELEASED; urgency=medium
   * Make logind work in environments without CAP_SYS_ADMIN (mostly
     containers). Thanks Christian Seiler for the backporting!
     (Closes: #778608)
+  * Check for correct signatures when setting properties. Fixes systemd
+    getting stuck on trying to set invalid property types. (Closes: #781602)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 08 Apr 2015 10:53:38 +0200
 
