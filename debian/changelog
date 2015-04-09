@@ -22,6 +22,8 @@ systemd (219-7) UNRELEASED; urgency=medium
     the connection flow to upstream's suggestion. Modify the man pages to match
     those modifications as well. Amongst others, this suppresses "Couldn't
     connect to plymouth" errors if plymouth is not running. (LP: #1429171)
+  * Keep plymouth localized messages in a separate patch for easier updates in
+    the future and refresh to latest upstream.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 06 Apr 2015 13:19:37 +0200
 
