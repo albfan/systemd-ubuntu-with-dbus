@@ -1,4 +1,4 @@
-systemd (215-15) UNRELEASED; urgency=medium
+systemd (215-15) unstable; urgency=medium
 
   [ Adam Conrad ]
   * debian/systemd.{triggers,postinst}: Trigger a systemctl daemon-reload
@@ -13,7 +13,7 @@ systemd (215-15) UNRELEASED; urgency=medium
   * Check for correct signatures when setting properties. Fixes systemd
     getting stuck on trying to set invalid property types. (Closes: #781602)
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 08 Apr 2015 10:53:38 +0200
+ -- Martin Pitt <mpitt@debian.org>  Thu, 09 Apr 2015 10:12:37 +0200
 
 systemd (215-14) unstable; urgency=medium
 
