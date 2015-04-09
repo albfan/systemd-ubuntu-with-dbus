@@ -141,7 +141,7 @@ index e5987be..8514fc6 100644
 +msgstr[1] "Trwa sprawdzanie %d dysków (ukończono %3.1f%%)"
 +msgstr[2] "Trwa sprawdzanie %d dysków (ukończono %3.1f%%)"
 diff --git a/po/pt_BR.po b/po/pt_BR.po
-index 5204047..32cb646 100644
+index 5204047..fc52167 100644
 --- a/po/pt_BR.po
 +++ b/po/pt_BR.po
 @@ -417,5 +417,16 @@ msgstr "Recarregar o estado do sistema"
