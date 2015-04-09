@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/776170
  1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 9687d3c..b5be95d 100644
+index 4408161..5c9e5cd 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -628,12 +628,13 @@ CLEANFILES += \
+@@ -624,12 +624,13 @@ CLEANFILES += \
  
  if HAVE_SYSV_COMPAT
  nodist_systemunit_DATA += \

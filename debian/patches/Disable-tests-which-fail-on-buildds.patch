@@ -9,10 +9,10 @@ Presumably these are due to running on too old kernels, misconfigured
  1 file changed, 7 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 0e182f9..9687d3c 100644
+index 01cf515..4408161 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -1429,14 +1429,11 @@ tests += \
+@@ -1425,14 +1425,11 @@ tests += \
  	test-capability \
  	test-async \
  	test-ratelimit \
@@ -27,7 +27,7 @@ index 0e182f9..9687d3c 100644
  	test-verbs
  
  EXTRA_DIST += \
-@@ -3000,10 +2997,8 @@ tests += \
+@@ -2984,10 +2981,8 @@ tests += \
  	test-bus-introspect \
  	test-bus-objects \
  	test-bus-error \
@@ -38,7 +38,7 @@ index 0e182f9..9687d3c 100644
  	test-local-addresses \
  	test-resolve
  
-@@ -3343,7 +3338,6 @@ test_lldp_LDADD = \
+@@ -3327,7 +3322,6 @@ test_lldp_LDADD = \
  
  tests += \
  	test-dhcp-option \
@@ -46,7 +46,7 @@ index 0e182f9..9687d3c 100644
  	test-dhcp-server \
  	test-ipv4ll \
  	test-icmp6-rs \
-@@ -5710,7 +5704,6 @@ test_network_tables_LDADD += \
+@@ -5694,7 +5688,6 @@ test_network_tables_LDADD += \
  endif
  
  tests += \

@@ -3699,7 +3699,7 @@ index 32299db..706b95a 100644
    <!-- the ID is output in the block.object call for refsect1 -->
    <h2>
 diff --git a/man/file-hierarchy.xml b/man/file-hierarchy.xml
-index e9c894f..364e1307 100644
+index e9c894f..364e130 100644
 --- a/man/file-hierarchy.xml
 +++ b/man/file-hierarchy.xml
 @@ -397,7 +397,7 @@

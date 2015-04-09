@@ -2,6 +2,8 @@ From: Didier Roche <didrocks@ubuntu.com>
 Date: Thu, 29 Jan 2015 16:12:58 +0100
 Subject: Add gettext support
 
+Note that this patch was part of the fsckd set. Need to track if upstream
+keeps it (as used in our fsckd patch).
 ---
  configure.ac      | 1 +
  src/shared/util.c | 8 ++++++++
