@@ -1,4 +1,4 @@
-systemd (219-7) UNRELEASED; urgency=medium
+systemd (219-7) experimental; urgency=medium
 
   [ Martin Pitt ]
   * Make systemd-sysv's dependency to systemd unversioned. The package just
@@ -29,7 +29,7 @@ systemd (219-7) UNRELEASED; urgency=medium
     lightdm binary, to avoid errors from lightdm startup. Drop the now
     unnecessary "needs-recommends" to speed up the test.
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 06 Apr 2015 13:19:37 +0200
+ -- Martin Pitt <mpitt@debian.org>  Fri, 10 Apr 2015 11:08:33 +0200
 
 systemd (219-6) experimental; urgency=medium
 
