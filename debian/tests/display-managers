@@ -28,10 +28,15 @@ class DisplayManagersTest(unittest.TestCase):
         with suppress(FileNotFoundError):
             os.remove(DDM_CONFIG_PATH)
         subprocess.check_call('apt-get install -y --reinstall lightdm 2>&1', shell=True)
-        # Remove all Conditional ExecStartPre= as we want to check systemd logic, not unit
+        # prepare lightdm unit to be a mock one, just a sleeping process
         for line in fileinput.input([LIGHTDM_SYSTEMD_UNIT_PATH], inplace=True):
-            if not line.startswith('ExecStartPre='):
-                print(line)
+            # not interested into the start condition nor will a bus name appear
+            if line.startswith('ExecStartPre=') or line.startswith('BusName='):
+                continue
+            elif line.startswith('ExecStart='):
+                print('ExecStart=/bin/sleep 1000')
+                continue
+            print(line)
         self.files_to_clean = []
 
     def tearDown(self):
@@ -226,10 +231,6 @@ class DisplayManagersTest(unittest.TestCase):
     def create_systemd_dm_unit(self, name, make_ddm_default=None):
         dest_unit = "{}.service".format(os.path.join(SYSTEMD_SYSTEM_UNIT_DIR, name))
         shutil.copy(LIGHTDM_SYSTEMD_UNIT_PATH, dest_unit)
-        # remove BusName to avoid conflicts
-        for line in fileinput.input([LIGHTDM_SYSTEMD_UNIT_PATH], inplace=True):
-            if not line.startswith('BusName='):
-                print(line)
         self.files_to_clean.append(dest_unit)
 
         if make_ddm_default:
