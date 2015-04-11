@@ -5,6 +5,7 @@ Before=shutdown.target
 ConditionFileIsExecutable=!/usr/sbin/ntpd
 ConditionFileIsExecutable=!/usr/sbin/openntpd
 ConditionFileIsExecutable=!/usr/sbin/chrony
+ConditionVirtualization=!container
 
 [Service]
 Type=oneshot
