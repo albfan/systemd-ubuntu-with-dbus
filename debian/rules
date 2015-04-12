@@ -233,8 +233,8 @@ override_dh_shlibdeps:
 	dh_shlibdeps --remaining-packages
 
 override_dh_makeshlibs:
-	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb -- -c4
-	dh_makeshlibs --remaining-packages -- -c4
+	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb -- -c0
+	dh_makeshlibs --remaining-packages -- -c0
 
 autoreconf:
 	gtkdocize --copy --docdir docs/
