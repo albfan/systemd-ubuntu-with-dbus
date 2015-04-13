@@ -3,6 +3,10 @@ systemd (215-16) UNRELEASED; urgency=medium
   [ Christian Seiler ]
   * Don't run hwclock-save.service in containers. (Closes: #782377)
 
+  [ Michael Biebl ]
+  * Do not print anything while passwords are being queried. This should make
+    password prompts without plymouth more usable. (Closes: #765013)
+
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Apr 2015 06:04:48 -0500
 
 systemd (215-15) unstable; urgency=medium

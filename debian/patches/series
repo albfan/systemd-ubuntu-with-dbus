@@ -148,6 +148,7 @@ units-make-sure-container-getty-.service-stops-resta.patch
 timesyncd-enable-timesyncd-in-virtual-machines.patch
 logind-handle-runtime-dir-without-CAP_SYS_ADMIN.patch
 sd-bus-create-clean-error-when-a-property-Set-call-w.patch
+manager-do-not-print-anything-while-passwords-are-be.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
