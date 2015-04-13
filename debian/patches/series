@@ -158,7 +158,6 @@ systemctl-don-t-skip-native-units-when-enabling-disa.patch
 Run-update-rc.d-defaults-before-update-rc.d-enable-d.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
-fstab-generator-don-t-rely-on-usr-being-mounted-in-t.patch
 Make-logind-hostnamed-localed-timedated-D-Bus-activa.patch
 Launch-logind-via-a-shell-wrapper.patch
 Start-logind-on-demand-via-libpam-systemd.patch
@@ -204,3 +203,4 @@ core-don-t-fail-to-run-services-in-user-instances-if.patch
 PrivateTmp-shouldn-t-require-tmpfs.patch
 sysv-generator-add-support-for-etc-insserv-overrides.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
+Skip-filesystem-check-if-already-done-by-the-initram.patch
