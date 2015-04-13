@@ -13,10 +13,10 @@ backwards compatibility:
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/src/fstab-generator/fstab-generator.c b/src/fstab-generator/fstab-generator.c
-index 7ad2846..358e583 100644
+index 8e2f522..896c3cb 100644
 --- a/src/fstab-generator/fstab-generator.c
 +++ b/src/fstab-generator/fstab-generator.c
-@@ -351,7 +351,9 @@ static int parse_fstab(bool initrd) {
+@@ -352,7 +352,9 @@ static int parse_fstab(bool initrd) {
                          path_kill_slashes(where);
  
                  noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");

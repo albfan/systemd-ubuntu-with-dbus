@@ -11,7 +11,6 @@ Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
 systemctl-don-t-skip-native-units-when-enabling-disa.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
-fstab-generator-don-t-rely-on-usr-being-mounted-in-t.patch
 Make-logind-hostnamed-localed-timedated-D-Bus-activa.patch
 Start-logind-on-demand-via-libpam-systemd.patch
 Update-localed-to-use-the-Debian-config-files.patch
@@ -63,3 +62,4 @@ path_is_mount_point-handle-false-positive-on-some-fs.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Add-fsckd-po-files.patch
+Skip-filesystem-check-if-already-done-by-the-initram.patch

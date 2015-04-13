@@ -1,3 +1,9 @@
+systemd (219-8) UNRELEASED; urgency=medium
+
+  * Skip filesystem check if already done by the initramfs. (Closes: #782522)
+
+ -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
+
 systemd (219-7) experimental; urgency=medium
 
   [ Martin Pitt ]
