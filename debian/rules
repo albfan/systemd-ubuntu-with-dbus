@@ -2,7 +2,6 @@
 
 #export DH_VERBOSE=1
 #export DEB_BUILD_OPTIONS="nostrip"
-export DEB_BUILD_OPTIONS="nocheck"
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 VERSION = $(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/.*: //p')
