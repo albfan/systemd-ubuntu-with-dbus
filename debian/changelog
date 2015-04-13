@@ -1,4 +1,4 @@
-systemd (215-16) UNRELEASED; urgency=medium
+systemd (215-16) unstable; urgency=medium
 
   [ Christian Seiler ]
   * Don't run hwclock-save.service in containers. (Closes: #782377)
@@ -8,7 +8,7 @@ systemd (215-16) UNRELEASED; urgency=medium
     password prompts without plymouth more usable. (Closes: #765013)
   * Skip filesystem check if already done by the initramfs. (Closes: #782522)
 
- -- Martin Pitt <mpitt@debian.org>  Sun, 12 Apr 2015 06:04:48 -0500
+ -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 19:42:32 +0200
 
 systemd (215-15) unstable; urgency=medium
 
