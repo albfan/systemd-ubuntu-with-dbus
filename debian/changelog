@@ -5,6 +5,8 @@ systemd (219-8) UNRELEASED; urgency=medium
   * Drop hard-coded versioned dependency on libapparmor1. Bump the
     Build-Depends on libapparmor-dev instead. This ensures a proper versioned
     dependency via Build-Depends-Package.
+  * Revert "Make apparmor run before networking". This causes dependency
+    cycles while apparmor still depends on $remote_fs.
 
   [ Martin Pitt ]
   * cryptsetup: Implement offset and skip options. (Closes: #751707,
@@ -50,6 +52,11 @@ systemd (219-6) experimental; urgency=medium
   [ Martin Pitt ]
   * Import patches from v219-stable branch (up to 85a6fab).
   * boot-and-services autopkgtest: Add missing python3 test dependency.
+  * Make apparmor run before networking, to ensure that profiles apply to
+    e. g. dhclient (LP: #1438249):
+    - Rename networking.service.d/network-pre.conf to systemd.conf, and add
+      After=apparmor.service.
+    - ifup@.service: Add After=apparmor.service.
   * udev: Drop hwdb-update dependency, which got introduced by the above
     v219-stable branch. This causes udev and plymouth to start too late and
     isn't really needed in Debian yet as we don't support stateless systems
