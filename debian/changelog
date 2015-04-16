@@ -1,7 +1,13 @@
 systemd (215-17) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * cryptsetup: Implement offset and skip options. (Closes: #751707,
     LP: #953875)
+
+  [ Michael Biebl ]
+  * manager: Pass correct errno to strerror(), have_ask_password contains
+    negative error values which have to be negated when being passed to
+    strerror().
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 16 Apr 2015 07:12:08 -0500
 
