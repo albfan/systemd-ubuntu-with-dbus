@@ -204,3 +204,4 @@ PrivateTmp-shouldn-t-require-tmpfs.patch
 sysv-generator-add-support-for-etc-insserv-overrides.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
+cryptsetup-Implement-offset-and-skip-options.patch

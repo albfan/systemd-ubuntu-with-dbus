@@ -1,3 +1,10 @@
+systemd (215-17) UNRELEASED; urgency=medium
+
+  * cryptsetup: Implement offset and skip options. (Closes: #751707,
+    LP: #953875)
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 16 Apr 2015 07:12:08 -0500
+
 systemd (215-16) unstable; urgency=medium
 
   [ Christian Seiler ]
