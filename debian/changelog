@@ -1,9 +1,14 @@
 systemd (219-8) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * Skip filesystem check if already done by the initramfs. (Closes: #782522)
   * Drop hard-coded versioned dependency on libapparmor1. Bump the
     Build-Depends on libapparmor-dev instead. This ensures a proper versioned
     dependency via Build-Depends-Package.
+
+  [ Martin Pitt ]
+  * cryptsetup: Implement offset and skip options. (Closes: #751707,
+    LP: #953875)
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 
