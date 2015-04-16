@@ -4,7 +4,7 @@ Subject: cryptsetup: Implement offset and skip options
 
 These are useful for plain devices as they don't have any metadata by
 themselves. Instead of using an unreliable hardcoded device name in crypttab
-you can then put static meatadata at the start of the partition for a stable
+you can then put static metadata at the start of the partition for a stable
 UUID or label.
 
 https://bugs.freedesktop.org/show_bug.cgi?id=87717
@@ -15,7 +15,7 @@ https://launchpad.net/bugs/953875
  1 file changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/src/cryptsetup/cryptsetup.c b/src/cryptsetup/cryptsetup.c
-index a67d85e..a7c7eb2 100644
+index a67d85e..6257c81 100644
 --- a/src/cryptsetup/cryptsetup.c
 +++ b/src/cryptsetup/cryptsetup.c
 @@ -50,12 +50,12 @@ static bool arg_discards = false;
@@ -40,15 +40,15 @@ index a67d85e..a7c7eb2 100644
 +        } else if (startswith(option, "offset=")) {
 +
 +                if (safe_atou64(option+7, &arg_offset) < 0) {
-+                        log_error("offset= parse failure, ignoring.");
-+                        return 0;
++                        log_error("offset= parse failure, refusing.");
++                        return -EINVAL;
 +                }
 +
 +        } else if (startswith(option, "skip=")) {
 +
 +                if (safe_atou64(option+5, &arg_skip) < 0) {
-+                        log_error("skip= parse failure, ignoring.");
-+                        return 0;
++                        log_error("skip= parse failure, refusing.");
++                        return -EINVAL;
 +                }
 +
          } else if (!streq(option, "none"))
