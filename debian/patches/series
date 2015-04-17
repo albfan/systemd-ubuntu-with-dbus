@@ -4,6 +4,7 @@ sysv-generator-fix-wrong-Overwriting-existing-symlin.patch
 Add-gettext-support.patch
 units-move-After-systemd-hwdb-update.service-depende.patch
 timesyncd-enable-timesyncd-in-virtual-machines.patch
+cryptsetup-Implement-offset-and-skip-options.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -63,4 +64,3 @@ syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Add-fsckd-po-files.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
-cryptsetup-Implement-offset-and-skip-options.patch
