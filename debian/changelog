@@ -1,4 +1,4 @@
-systemd (219-7ubuntu3) UNRELEASED; urgency=medium
+systemd (219-7ubuntu3) vivid; urgency=medium
 
   * logind autopkgtest: Add test for suspending on lid switch close.
     This reproduces LP #1444166 (lid switch not working in the first few
@@ -6,7 +6,7 @@ systemd (219-7ubuntu3) UNRELEASED; urgency=medium
   * Reduce the initial suspend supression time from 3 minutes to 30 seconds,
     and make it configurable. (LP: #1444166)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 18 Apr 2015 17:03:57 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 18 Apr 2015 17:06:08 +0100
 
 systemd (219-7ubuntu2) vivid; urgency=medium
 
