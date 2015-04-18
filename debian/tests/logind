@@ -61,9 +61,8 @@ LID_DEV=/dev/${O#/sys/class/}
 
 # close lid
 evemu-event $LID_DEV --sync --type 5 --code 0 --value 1
-#FIXME: fix lid switch to work immediately (LP #1444166)
-wait_suspend 180
-
+# need to wait for 30s suspend inhibition after boot
+wait_suspend 31
 # open lid again
 evemu-event $LID_DEV --sync --type 5 --code 0 --value 0
 

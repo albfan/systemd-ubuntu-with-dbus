@@ -165,7 +165,7 @@ index 85146b0..52de2f8 100644
  
    <refsect1>
 diff --git a/man/logind.conf.xml b/man/logind.conf.xml
-index d02d573..d5fe802 100644
+index 2b79547..ed11a44 100644
 --- a/man/logind.conf.xml
 +++ b/man/logind.conf.xml
 @@ -52,7 +52,7 @@

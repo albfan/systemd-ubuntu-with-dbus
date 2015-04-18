@@ -14,6 +14,8 @@ systemd (219-8) UNRELEASED; urgency=medium
   * logind autopkgtest: Add test for suspending on lid switch close.
     This reproduces LP #1444166 (lid switch not working in the first few
     minutes after boot).
+  * Reduce the initial suspend supression time from 3 minutes to 30 seconds,
+    and make it configurable. (LP: #1444166)
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 
