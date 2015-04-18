@@ -4,6 +4,7 @@ sysv-generator-fix-wrong-Overwriting-existing-symlin.patch
 Add-gettext-support.patch
 units-move-After-systemd-hwdb-update.service-depende.patch
 timesyncd-enable-timesyncd-in-virtual-machines.patch
+login-make-hold-off-timeout-configurable.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
