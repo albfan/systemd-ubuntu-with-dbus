@@ -1,6 +1,22 @@
 #!/bin/sh
 set -e
 
+# args: <timeout>
+wait_suspend() {
+    timeout=$1
+    while [ $timeout -gt 0 ] && [ ! -e /run/suspend.flag ]; do
+        sleep 1
+        timeout=$((timeout - 1))
+        [ $(($timeout % 5)) -ne 0 ] || echo "   waiting for suspend, ${timeout}s remaining..."
+    done
+    if [ ! -e /run/suspend.flag ]; then
+        echo "closing lid did not cause suspend" >&2
+        exit 1
+    fi
+    rm /run/suspend.flag
+    echo " * closing lid caused suspend"
+}
+
 echo " * process is in session cgroup"
 grep 'systemd:.*session.*scope' /proc/self/cgroup
 echo " * daemon is started"
@@ -11,6 +27,55 @@ pidof systemd-logind > /dev/null
 echo " * loginctl succeeds"
 OUT=`loginctl`
 
+# cleanup handler
+trap 'rm -f /run/udev/rules.d/70-logindtest-*.rules; udevadm control --reload;
+      kill $KILL_PID;
+      rm /run/systemd/system/systemd-suspend.service;
+      if [ -d /sys/module/scsi_debug ]; then rmmod scsi_debug 2>/dev/null || (sleep 2; rmmod scsi_debug ) || true; fi' \
+              EXIT INT QUIT TERM PIPE
+
+# watch what's going on
+journalctl -f -u systemd-logind.service &
+KILL_PID="$KILL_PID $!"
+
+# create fake suspend
+U=$(systemctl cat systemd-suspend.service | sed '/^ExecStart=/ s_=.*$_=/bin/touch /run/suspend.flag_')
+echo "$U" > /run/systemd/system/systemd-suspend.service
+sync
+systemctl daemon-reload
+
+# create fake lid switch
+mkdir -p /run/udev/rules.d
+echo 'SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Fake Lid Switch", TAG+="power-switch"' \
+    > /run/udev/rules.d/70-logindtest-lid.rules
+sync
+udevadm control --reload
+evemu-device $(dirname $0)/lidswitch.evemu &
+KILL_PID="$KILL_PID $!"
+while [ -z "$O" ]; do
+    sleep 0.1
+    O=$(grep -l '^Fake Lid Switch' /sys/class/input/*/device/name)
+done
+O=${O%/device/name}
+LID_DEV=/dev/${O#/sys/class/}
+
+# close lid
+evemu-event $LID_DEV --sync --type 5 --code 0 --value 1
+#FIXME: fix lid switch to work immediately (LP #1444166)
+wait_suspend 180
+
+# open lid again
+evemu-event $LID_DEV --sync --type 5 --code 0 --value 0
+
+echo " * waiting for 30s inhibition time between suspends"
+sleep 30
+
+# now closing lid should cause instant suspend
+evemu-event $LID_DEV --sync --type 5 --code 0 --value 1
+wait_suspend 2
+evemu-event $LID_DEV --sync --type 5 --code 0 --value 0
+
+# ACL tests
 if ! echo "$OUT" | grep -q "seat0"; then
     echo "Skipping ACL tests, as there is no seat"
     exit 0
@@ -25,13 +90,11 @@ echo "seat user: $USER"
 
 # we use scsi_debug to create new devices which we can put ACLs on
 # tell udev about the tagging, so that logind can pick it up
-mkdir -p /run/udev/rules.d/
-cat <<EOF > /run/udev/rules.d/60-scsi_debug-user.rules
+cat <<EOF > /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
 SUBSYSTEM=="block", ATTRS{model}=="scsi_debug*", TAG+="uaccess"
 EOF
-trap "rm -f /run/udev/rules.d/60-scsi_debug-user.rules; pkill -HUP udevd || pkill -HUP systemd-udevd; rmmod scsi_debug 2>/dev/null || ( sleep 2; rmmod scsi_debug ) || true" 0 INT QUIT TERM PIPE
 sync
-pkill -HUP udevd || pkill -HUP systemd-udevd
+udevadm control --reload
 
 echo " * coldplug: logind started with existing device"
 killall systemd-logind
