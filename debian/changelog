@@ -11,6 +11,9 @@ systemd (219-8) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * cryptsetup: Implement offset and skip options. (Closes: #751707,
     LP: #953875)
+  * logind autopkgtest: Add test for suspending on lid switch close.
+    This reproduces LP #1444166 (lid switch not working in the first few
+    minutes after boot).
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 
