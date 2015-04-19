@@ -10,7 +10,7 @@ Closes: #709780
  1 file changed, 49 insertions(+), 10 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 4ec0cff..bf6c5db 100644
+index 4ec0cff..278f2f9 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -5117,7 +5117,7 @@ static int import_environment(sd_bus *bus, char **args) {
@@ -43,7 +43,7 @@ index 4ec0cff..bf6c5db 100644
                  char **k;
                  int j;
                  pid_t pid;
-@@ -5180,15 +5181,53 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5180,17 +5181,55 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
@@ -74,7 +74,6 @@ index 4ec0cff..bf6c5db 100644
 +                }
 +
 +                log_info("Executing %s", l);
-+                free(l);
 +
 +                pid = fork();
 +                if (pid < 0) {
@@ -102,4 +101,7 @@ index 4ec0cff..bf6c5db 100644
 +                argv[c-1] = verb;
                  argv[c] = NULL;
  
++                free(l);
                  l = strv_join((char**)argv, " ");
+                 if (!l)
+                         return log_oom();

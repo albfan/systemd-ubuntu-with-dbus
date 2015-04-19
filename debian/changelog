@@ -16,6 +16,8 @@ systemd (219-8) UNRELEASED; urgency=medium
     minutes after boot).
   * Reduce the initial suspend supression time from 3 minutes to 30 seconds,
     and make it configurable. (LP: #1444166)
+  * Fix double free crash in "systemctl enable" when calling update-rc.d and
+    the latter fails. (LP: #1426588)
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 
