@@ -11,7 +11,7 @@ ourselves even if update-rc.d handled the corresponding SysV unit.
  1 file changed, 2 insertions(+), 24 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index bf6c5db..86e9ea8 100644
+index 278f2f9..28b7812 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -5141,10 +5141,9 @@ static int enable_sysv_units(const char *verb, char **args) {
