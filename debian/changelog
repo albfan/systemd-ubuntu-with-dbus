@@ -18,6 +18,7 @@ systemd (219-8) UNRELEASED; urgency=medium
     and make it configurable. (LP: #1444166)
   * Fix double free crash in "systemctl enable" when calling update-rc.d and
     the latter fails. (LP: #1426588)
+  * hwdb: Fix wireless switch on Dell Latitude (LP: #1441849)
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 
