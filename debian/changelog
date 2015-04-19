@@ -1,3 +1,9 @@
+systemd (219-7ubuntu4) UNRELEASED; urgency=medium
+
+  * hwdb: Fix wireless switch on Dell Latitude (LP: #1441849)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 18 Apr 2015 17:06:08 +0100
+
 systemd (219-7ubuntu3) vivid; urgency=medium
 
   * logind autopkgtest: Add test for suspending on lid switch close.
