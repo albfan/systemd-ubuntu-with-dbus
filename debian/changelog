@@ -1,4 +1,4 @@
-systemd (219-7ubuntu4) UNRELEASED; urgency=medium
+systemd (219-7ubuntu4) vivid; urgency=medium
 
   * hwdb: Fix wireless switch on Dell Latitude (LP: #1441849)
   * Fix assertion crash when reading a service file with missing ' and
@@ -6,7 +6,7 @@ systemd (219-7ubuntu4) UNRELEASED; urgency=medium
   * Fix double free crash in "systemctl enable" when calling update-rc.d and
     the latter fails. (LP: #1426588)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 18 Apr 2015 17:06:08 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 23 Apr 2015 11:14:16 +0100
 
 systemd (219-7ubuntu3) vivid; urgency=medium
 
