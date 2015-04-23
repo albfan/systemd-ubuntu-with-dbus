@@ -5,6 +5,7 @@ Add-gettext-support.patch
 units-move-After-systemd-hwdb-update.service-depende.patch
 timesyncd-enable-timesyncd-in-virtual-machines.patch
 login-make-hold-off-timeout-configurable.patch
+util-Fix-assertion-in-split-on-missing.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

@@ -1,0 +1,76 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 22 Apr 2015 23:09:43 +0100
+Subject: util: Fix assertion in split() on missing '
+
+When parsing a unit with a trailing slash after an escaped line break, like
+
+  ExecStart=/bin/echo 'foo \
+    bar'
+
+the split() function (through config_parse()) asserted and crashed pid 1:
+
+  Assertion 'current[*l + 1] == quotechars[0]' failed at ../src/shared/util.c:583, function split(). Aborting.
+
+Fix this by returning an error in this case ("trailing garbage").
+
+Add corresponding test case. Also fix the missing "unit" argument of
+config_parse_exec() in the comment.
+
+https://launchpad.net/bugs/1447243
+---
+ src/shared/util.c         |  3 +--
+ src/test/test-unit-file.c | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/src/shared/util.c b/src/shared/util.c
+index 63d4722..9d365ec 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -574,13 +574,12 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
+                 char quotechars[2] = {*current, '\0'};
+ 
+                 *l = strcspn_escaped(current + 1, quotechars);
+-                if (current[*l + 1] == '\0' ||
++                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
+                     (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
+                         /* right quote missing or garbage at the end */
+                         *state = current;
+                         return NULL;
+                 }
+-                assert(current[*l + 1] == quotechars[0]);
+                 *state = current++ + *l + 2;
+         } else if (quoted) {
+                 *l = strcspn_escaped(current, separator);
+diff --git a/src/test/test-unit-file.c b/src/test/test-unit-file.c
+index e517f57..9f3e3a2 100644
+--- a/src/test/test-unit-file.c
++++ b/src/test/test-unit-file.c
+@@ -92,6 +92,7 @@ static void check_execcommand(ExecCommand *c,
+ 
+ static void test_config_parse_exec(void) {
+         /* int config_parse_exec(
++                 const char *unit,
+                  const char *filename,
+                  unsigned line,
+                  const char *section,
+@@ -303,6 +304,20 @@ static void test_config_parse_exec(void) {
+         assert_se(r == 0);
+         assert_se(c1->command_next == NULL);
+ 
++        log_info("/* missing ending ' */");
++        r = config_parse_exec(NULL, "fake", 4, "section", 1,
++                              "LValue", 0, "/path 'foo",
++                              &c, NULL);
++        assert_se(r == 0);
++        assert_se(c1->command_next == NULL);
++
++        log_info("/* missing ending ' with trailing backslash */");
++        r = config_parse_exec(NULL, "fake", 4, "section", 1,
++                              "LValue", 0, "/path 'foo\\",
++                              &c, NULL);
++        assert_se(r == 0);
++        assert_se(c1->command_next == NULL);
++
+         exec_command_free_list(c);
+ }
+ 
