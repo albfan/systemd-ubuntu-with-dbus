@@ -45,6 +45,7 @@ CONFFLAGS += --enable-libcryptsetup
 endif
 
 CONFFLAGS_deb = \
+	--enable-kdbus \
 	--enable-selinux \
 	--enable-apparmor \
 	--enable-introspection \
