@@ -1,3 +1,12 @@
+systemd (219-7ubuntu5) UNRELEASED; urgency=medium
+
+  * Revert upstream commit 743970d which immediately SIGKILLs units during
+    shutdown. This leads to problems like bash not being able to write its
+    history, mosh not saving its state, and similar failed cleanup actions.
+    (LP: #1448259)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 27 Apr 2015 15:12:56 +0200
+
 systemd (219-7ubuntu4) vivid; urgency=medium
 
   * hwdb: Fix wireless switch on Dell Latitude (LP: #1441849)

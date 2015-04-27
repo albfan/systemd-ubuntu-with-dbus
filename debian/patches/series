@@ -66,6 +66,7 @@ syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Add-fsckd-po-files.patch
 cryptsetup-Implement-offset-and-skip-options.patch
+Revert-core-one-step-back-again-for-nspawn-we-actual.patch
 
 ## Ubuntu patches:
 Support-system-image-read-only-etc.patch
