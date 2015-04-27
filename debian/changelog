@@ -1,8 +1,15 @@
 systemd (215-18) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * manager: Pass correct errno to strerror(), have_ask_password contains
     negative error values which have to be negated when being passed to
     strerror().
+
+  [ Martin Pitt ]
+  * Revert upstream commit 743970d which immediately SIGKILLs units during
+    shutdown. This leads to problems like bash not being able to write its
+    history, mosh not saving its state, and similar failed cleanup actions.
+    (Closes: #784720, LP: #1448259)
 
  -- Michael Biebl <biebl@debian.org>  Fri, 17 Apr 2015 15:40:29 +0200
 
