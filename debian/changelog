@@ -21,6 +21,9 @@ systemd (219-8) UNRELEASED; urgency=medium
   * hwdb: Fix wireless switch on Dell Latitude (LP: #1441849)
   * Fix assertion crash when reading a service file with missing ' and
     trailing space. (LP: #1447243)
+  * ifup@.service: Set IgnoreOnIsolate, so that "systemctl default" does not
+    shut down network interfaces. (LP: #1449380). Add PartOf=network.target,
+    so that stopping network.target also stops network interfaces.
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 
