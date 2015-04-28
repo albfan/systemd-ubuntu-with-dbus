@@ -22,8 +22,7 @@ systemd (219-8) UNRELEASED; urgency=medium
   * Fix assertion crash when reading a service file with missing ' and
     trailing space. (LP: #1447243)
   * ifup@.service: Set IgnoreOnIsolate, so that "systemctl default" does not
-    shut down network interfaces. (LP: #1449380). Add PartOf=network.target,
-    so that stopping network.target also stops network interfaces.
+    shut down network interfaces. (LP: #1449380).
   * Revert upstream commit 743970d which immediately SIGKILLs units during
     shutdown. This leads to problems like bash not being able to write its
     history, mosh not saving its state, and similar failed cleanup actions.
