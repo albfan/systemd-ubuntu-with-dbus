@@ -4,6 +4,9 @@ systemd (219-7ubuntu5) UNRELEASED; urgency=medium
     shutdown. This leads to problems like bash not being able to write its
     history, mosh not saving its state, and similar failed cleanup actions.
     (LP: #1448259)
+  * ifup@.service: Set IgnoreOnIsolate, so that "systemctl default" does not
+    shut down network interfaces. (LP: #1449380). Add PartOf=network.target,
+    so that stopping network.target also stops network interfaces.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 27 Apr 2015 15:12:56 +0200
 
