@@ -27,6 +27,9 @@ systemd (219-8) UNRELEASED; urgency=medium
     shutdown. This leads to problems like bash not being able to write its
     history, mosh not saving its state, and similar failed cleanup actions.
     (LP: #1448259)
+  * Drop the reversion of "journald: allow restarting journald without losing
+    stream connections", and replace with proper upstream fix for
+    sd_pid_notify_with_fds(). (See Debian #778970, LP #1423811)
 
  -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
 

@@ -7,6 +7,7 @@ timesyncd-enable-timesyncd-in-virtual-machines.patch
 cryptsetup-Implement-offset-and-skip-options.patch
 login-make-hold-off-timeout-configurable.patch
 util-Fix-assertion-in-split-on-missing.patch
+sd-daemon-simplify-sd_pid_notify_with_fds.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -59,7 +60,6 @@ Drop-rc-local-generator.patch
 Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 core-mount-ensure-that-we-parse-proc-self-mountinfo.patch
-Revert-journald-allow-restarting-journald-without-lo.patch
 PrivateTmp-shouldn-t-require-tmpfs.patch
 path_is_mount_point-handle-false-positive-on-some-fs.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
