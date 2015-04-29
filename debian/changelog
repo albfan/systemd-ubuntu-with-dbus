@@ -1,4 +1,4 @@
-systemd (219-8) UNRELEASED; urgency=medium
+systemd (219-8) experimental; urgency=medium
 
   [ Michael Biebl ]
   * Skip filesystem check if already done by the initramfs. (Closes: #782522)
@@ -36,7 +36,7 @@ systemd (219-8) UNRELEASED; urgency=medium
     stream connections", and replace with proper upstream fix for
     sd_pid_notify_with_fds(). (See Debian #778970, LP #1423811)
 
- -- Michael Biebl <biebl@debian.org>  Mon, 13 Apr 2015 20:46:34 +0200
+ -- Martin Pitt <mpitt@debian.org>  Wed, 29 Apr 2015 17:13:41 +0200
 
 systemd (219-7) experimental; urgency=medium
 
