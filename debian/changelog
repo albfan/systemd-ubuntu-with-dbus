@@ -7,6 +7,8 @@ systemd (219-8) UNRELEASED; urgency=medium
     dependency via Build-Depends-Package.
   * Revert "Make apparmor run before networking". This causes dependency
     cycles while apparmor still depends on $remote_fs.
+  * Cleanup hwclock-save.service symlinks when upgrading from the jessie
+    version.
 
   [ Martin Pitt ]
   * cryptsetup: Implement offset and skip options. (Closes: #751707,
