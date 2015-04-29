@@ -23,6 +23,9 @@ systemd (219-8) UNRELEASED; urgency=medium
     trailing space. (LP: #1447243)
   * ifup@.service: Set IgnoreOnIsolate, so that "systemctl default" does not
     shut down network interfaces. (Closes: #762953, LP: #1449380).
+    Add PartOf=network.target, so that stopping network.target also stops
+    network interfaces (so that isolating emergency.target and similar work as
+    before).
   * Revert upstream commit 743970d which immediately SIGKILLs units during
     shutdown. This leads to problems like bash not being able to write its
     history, mosh not saving its state, and similar failed cleanup actions.
