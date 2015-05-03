@@ -19,7 +19,7 @@ systemd (219-8) experimental; urgency=medium
   * Reduce the initial suspend supression time from 3 minutes to 30 seconds,
     and make it configurable. (LP: #1444166)
   * Fix double free crash in "systemctl enable" when calling update-rc.d and
-    the latter fails. (LP: #1426588)
+    the latter fails. (Closes: #764613, LP: #1426588)
   * hwdb: Fix wireless switch on Dell Latitude (LP: #1441849)
   * Fix assertion crash when reading a service file with missing ' and
     trailing space. (LP: #1447243)
