@@ -2,6 +2,8 @@ systemd (219-9) UNRELEASED; urgency=medium
 
   * 75-persistent-net-generator.rules: Fix rules for ibmveth (it's a driver,
     not a subsystem). (LP: #1437375)
+  * debian/tests/unit-config: Add tests for systemctl enable/disable on a
+    SysV-only unit. Reproduces LP #1447807.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 
