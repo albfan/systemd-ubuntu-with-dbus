@@ -7,6 +7,8 @@ systemd (219-7ubuntu5) UNRELEASED; urgency=medium
   * ifup@.service: Set IgnoreOnIsolate, so that "systemctl default" does not
     shut down network interfaces. (LP: #1449380). Add PartOf=network.target,
     so that stopping network.target also stops network interfaces.
+  * 75-persistent-net-generator.rules: Fix rules for ibmveth (it's a driver,
+    not a subsystem). (LP: #1437375)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 27 Apr 2015 15:12:56 +0200
 

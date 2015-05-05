@@ -102,7 +102,7 @@ ENV{MATCHADDR}=="2c:c2:60:*", ENV{MATCHADDR}=""
 LABEL="globally_administered_whitelist"
 
 # ibmveth interfaces have stable locally administered MAC addresses
-SUBSYSTEMS=="ibmveth",			ENV{MATCHADDR}="$attr{address}"
+DRIVERS=="ibmveth",			ENV{MATCHADDR}="$attr{address}"
 
 # S/390 interfaces are matched only by id
 SUBSYSTEMS=="ccwgroup", \
@@ -123,7 +123,7 @@ SUBSYSTEMS=="usb", \
  ENV{COMMENT}="USB device 0x$attr{idVendor}:0x$attr{idProduct}"
 SUBSYSTEMS=="ccwgroup", \
  ENV{COMMENT}="S/390 device at $id"
-SUBSYSTEMS=="ibmveth", \
+DRIVERS=="ibmveth", \
  ENV{COMMENT}="LPAR virtual device at $id"
 SUBSYSTEMS=="ieee1394", \
  ENV{COMMENT}="Firewire device $attr{host_id}"
