@@ -1,3 +1,10 @@
+systemd (219-9) UNRELEASED; urgency=medium
+
+  * 75-persistent-net-generator.rules: Fix rules for ibmveth (it's a driver,
+    not a subsystem). (LP: #1437375)
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
+
 systemd (219-8) experimental; urgency=medium
 
   [ Michael Biebl ]
