@@ -266,6 +266,27 @@ echo hello
 
         self.assertEnabled(False)
 
+    def test_sysv_enable(self):
+        '''only sysv: enable'''
+
+        self.create_sysv()
+        subprocess.check_call(['systemctl', 'enable', 'test_enable'])
+
+        # enabled the sysv script
+        l = glob('/etc/rc2.d/S??test_enable')
+        self.assertEqual(len(l), 1, 'expect one symlink in %s' % repr(l))
+        self.assertEqual(os.readlink(l[0]), '../init.d/test_enable')
+
+    def test_sysv_disable(self):
+        '''only sysv: disable'''
+
+        self.create_sysv(enable=True)
+        subprocess.check_call(['systemctl', 'disable', 'test_enable'])
+
+        # disabled the sysv script
+        l = glob('/etc/rc2.d/S??test_enable')
+        self.assertEqual(l, [])
+
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
