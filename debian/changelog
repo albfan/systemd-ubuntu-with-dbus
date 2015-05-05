@@ -11,6 +11,8 @@ systemd (219-7ubuntu5) UNRELEASED; urgency=medium
     not a subsystem). (LP: #1437375)
   * debian/tests/unit-config: Add tests for systemctl enable/disable on a
     SysV-only unit. Reproduces LP #1447807.
+  * Fix systemctl enable for SysV scripts without a native unit. We must not
+    try and enable the nonexisting unit then. (LP: #1447807)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 27 Apr 2015 15:12:56 +0200
 

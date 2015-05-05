@@ -17,7 +17,7 @@ LP: #1370329
  1 file changed, 42 insertions(+), 2 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index bc56c5f..f70a3c6 100644
+index af5ff69..23040d8 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -34,6 +34,7 @@
@@ -28,7 +28,7 @@ index bc56c5f..f70a3c6 100644
  #include <sys/stat.h>
  #include <stddef.h>
  #include <sys/prctl.h>
-@@ -7070,6 +7071,41 @@ static int talk_initctl(void) {
+@@ -7092,6 +7093,41 @@ static int talk_initctl(void) {
          return 1;
  }
  
@@ -70,7 +70,7 @@ index bc56c5f..f70a3c6 100644
  static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
  
          static const struct {
-@@ -7307,11 +7343,15 @@ static int start_with_fallback(sd_bus *bus) {
+@@ -7329,11 +7365,15 @@ static int start_with_fallback(sd_bus *bus) {
                          goto done;
          }
  
