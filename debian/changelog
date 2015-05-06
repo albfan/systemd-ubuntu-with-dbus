@@ -45,7 +45,7 @@ systemd (219-8) experimental; urgency=medium
     (LP: #1448259)
   * Drop the reversion of "journald: allow restarting journald without losing
     stream connections", and replace with proper upstream fix for
-    sd_pid_notify_with_fds(). (See Debian #778970, LP #1423811)
+    sd_pid_notify_with_fds(). (See Debian #778970, LP #1423811; LP: #1437896)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 29 Apr 2015 17:13:41 +0200
 
