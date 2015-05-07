@@ -1,4 +1,4 @@
-systemd (219-7ubuntu5) UNRELEASED; urgency=medium
+systemd (219-7ubuntu5) vivid; urgency=medium
 
   * Revert upstream commit 743970d which immediately SIGKILLs units during
     shutdown. This leads to problems like bash not being able to write its
@@ -14,7 +14,7 @@ systemd (219-7ubuntu5) UNRELEASED; urgency=medium
   * Fix systemctl enable for SysV scripts without a native unit. We must not
     try and enable the nonexisting unit then. (LP: #1447807)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 27 Apr 2015 15:12:56 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 May 2015 07:45:34 +0200
 
 systemd (219-7ubuntu4) vivid; urgency=medium
 
