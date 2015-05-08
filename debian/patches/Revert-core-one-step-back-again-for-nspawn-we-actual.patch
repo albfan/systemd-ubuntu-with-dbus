@@ -6,6 +6,7 @@ Subject: Revert "core: one step back again,
 
 This reverts commit 743970d2ea6d08aa7c7bff8220f6b7702f2b1db7.
 
+Bug-Debian: https://bugs.debian.org/784720
 Bug-Ubuntu: https://launchpad.net/bugs/1448259
 Bug-Fedora: https://bugzilla.redhat.com/show_bug.cgi?id=1141137
 ---
