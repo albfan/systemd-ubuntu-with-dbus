@@ -42,7 +42,7 @@ systemd (219-8) experimental; urgency=medium
   * Revert upstream commit 743970d which immediately SIGKILLs units during
     shutdown. This leads to problems like bash not being able to write its
     history, mosh not saving its state, and similar failed cleanup actions.
-    (LP: #1448259)
+    (Closes: #784720, LP: #1448259)
   * Drop the reversion of "journald: allow restarting journald without losing
     stream connections", and replace with proper upstream fix for
     sd_pid_notify_with_fds(). (See Debian #778970, LP #1423811; LP: #1437896)
