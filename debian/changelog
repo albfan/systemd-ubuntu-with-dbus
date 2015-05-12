@@ -10,6 +10,13 @@ systemd (219-9) UNRELEASED; urgency=medium
     be installed via the essential "init" in buildd schroots now.
   * debian/README.source: Update git-buildpackage commands for the renames in
     0.6.24.
+  * Make apparmor run before networking, to ensure that profiles apply to
+    e. g. dhclient (LP: #1438249):
+    - Rename networking.service.d/network-pre.conf to systemd.conf, and add
+      After=apparmor.service.
+    - ifup@.service: Add After=apparmor.service.
+    - Add Breaks: on apparmor << 2.9.2-1, which dropped its dependency to
+      $remote_fs.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 
