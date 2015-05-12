@@ -20,6 +20,8 @@ systemd (219-9) UNRELEASED; urgency=medium
   * Drop login-don-t-overmount-run-user-UID-on-upgrades.patch and
     login-don-t-overmount-run-user-UID-on-upgrades.patch, these were only
     needed for upgrades from wheezy to jessie.
+  * systemd.{pre,post}inst: Clean up obsolete (pre-wheezy/jessie) upgrade
+    fixes.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 

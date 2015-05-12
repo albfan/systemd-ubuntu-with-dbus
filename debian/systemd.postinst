@@ -41,13 +41,6 @@ if dpkg --compare-versions "$2" lt "218-11~"; then
     systemctl enable systemd-timesyncd.service || true
 fi
 
-# Cleanup state files from the auto-enabler which we used in wheezy
-if dpkg --compare-versions "$2" lt "204-1"; then
-    rm -f /var/lib/systemd/enabled-units
-    rm -f /var/lib/systemd/run-debian-enable-units
-    rm -f /var/lib/systemd/*.symlinks
-fi
-
 # Do a one-time migration of the local time setting
 if dpkg --compare-versions "$2" lt "33-1"; then
     if [ -f /etc/default/rcS ]; then
@@ -97,15 +90,6 @@ if dpkg --compare-versions "$2" lt "204-8"; then
     fi
 fi
 
-if dpkg --compare-versions "$2" lt "40-1"; then
-    # /lib/init/rw has been replaced by /run, so try to remove it on upgrades
-    # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=643699
-    _systemctl stop lib-init-rw.automount lib-init-rw.mount || true
-    if [ -d /lib/init/rw ]; then
-        rmdir --ignore-fail-on-non-empty /lib/init/rw || true
-    fi
-fi
-
 # Create /etc/machine-id
 systemd-machine-id-setup
 
@@ -141,31 +125,6 @@ if [ -n "$2" ]; then
     _systemctl try-restart systemd-networkd.service || true
     _systemctl try-restart systemd-resolved.service || true
     _systemctl try-restart systemd-timesyncd.service || true
-fi
-
-# The /dev/log socket and /dev/initctl FIFO have been moved to /run and
-# replaced by symlinks. Create the symlinks manually on upgrades as well.
-# (https://bugs.debian.org/761340). Note that this will break the current
-# journal as we cannot restart it properly (https://bugs.debian.org/771122) so
-# this is mostly an one-time upgrade path from wheezy.
-if dpkg --compare-versions "$2" lt-nl "215-3"; then
-    if [ -p /run/systemd/initctl/fifo ] && [ ! -L /dev/initctl ]; then
-         ln -sf /run/systemd/initctl/fifo /dev/initctl
-    fi
-    if [ -S /run/systemd/journal/dev-log ] && [ ! -L /dev/log ]; then
-         ln -sf /run/systemd/journal/dev-log /dev/log
-    fi
-    _systemctl try-restart systemd-journald.service || true
-fi
-
-# In experimental we had created duplicate ACLs on /var/log/journal for a while
-# (https://bugs.debian.org/778656). Clean up after that.
-if dpkg --compare-versions "$2" lt-nl "219-4" && \
-    [ -d /var/log/journal ] && type setfacl >/dev/null 2>&1; then
-    echo "Cleaning up duplicate ACLs on /var/log/journal"
-    if setfacl -Rb /var/log/journal/; then
-        systemd-tmpfiles --create /usr/lib/tmpfiles.d/systemd.conf || true
-    fi
 fi
 
 # Cleanup hwclock-save.service, which was shipped in jessie.
