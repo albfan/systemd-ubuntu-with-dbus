@@ -47,7 +47,6 @@ buildsys-Don-t-default-to-gold-as-the-linker.patch
 sd-bus-Accept-no-sender-as-the-destination-field.patch
 login-don-t-overmount-run-user-UID-on-upgrades.patch
 udev-re-enable-mount-propagation-for-udevd.patch
-Add-env-variable-for-machine-ID-path.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Re-enable-journal-forwarding-to-syslog.patch
 Disable-tests-which-fail-on-buildds.patch

@@ -247,12 +247,10 @@ override_dh_strip:
 override_dh_auto_test:
 ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 	# some tests hang under fakeroot, so disable fakeroot
-	echo "01234567890123456789012345678901" > build-deb/machine-id
-	env -u LD_PRELOAD SYSTEMD_MACHINE_ID_PATH=$(CURDIR)/build-deb/machine-id \
-		make -C build-deb check || ( \
+	env -u LD_PRELOAD make -C build-deb check || ( \
 		cd build-deb; \
 		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done; \
-		exit 1; )  # replace with 1 to make failures fatal
+		exit 1; )
 endif
 
 %:
