@@ -17,6 +17,9 @@ systemd (219-9) UNRELEASED; urgency=medium
     - ifup@.service: Add After=apparmor.service.
     - Add Breaks: on apparmor << 2.9.2-1, which dropped its dependency to
       $remote_fs.
+  * Drop login-don-t-overmount-run-user-UID-on-upgrades.patch and
+    login-don-t-overmount-run-user-UID-on-upgrades.patch, these were only
+    needed for upgrades from wheezy to jessie.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 
