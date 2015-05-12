@@ -1,6 +1,8 @@
 systemd (219-7ubuntu6) UNRELEASED; urgency=medium
 
   * Fix assertion crash with empty Exec*= paths. (LP: #1454173)
+  * systemd-fsckd autopkgtest: Stop assuming that
+    /etc/default/grub.d/90-autopkgtest.cfg exists.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 May 2015 07:45:34 +0200
 
