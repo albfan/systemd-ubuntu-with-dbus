@@ -25,6 +25,9 @@ systemd (219-9) UNRELEASED; urgency=medium
   * systemd-fsckd autopkgtest: Stop assuming that
     /etc/default/grub.d/90-autopkgtest.cfg exists.
   * systemd-fsckd autopkgtest: Add missing plymouth test dependency.
+  * Drop core-mount-ensure-that-we-parse-proc-self-mountinfo.patch, and bump
+    util-linux dependency to the version which enables
+    --enable-libmount-force-mountinfo.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 
