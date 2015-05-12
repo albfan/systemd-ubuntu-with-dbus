@@ -8,6 +8,8 @@ systemd (219-9) UNRELEASED; urgency=medium
     try and enable the nonexisting unit then. (LP: #1447807)
   * Drop Add-env-variable-for-machine-ID-path.patch. systemd should always
     be installed via the essential "init" in buildd schroots now.
+  * debian/README.source: Update git-buildpackage commands for the renames in
+    0.6.24.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 
