@@ -22,6 +22,8 @@ systemd (219-9) UNRELEASED; urgency=medium
     needed for upgrades from wheezy to jessie.
   * systemd.{pre,post}inst: Clean up obsolete (pre-wheezy/jessie) upgrade
     fixes.
+  * systemd-fsckd autopkgtest: Stop assuming that
+    /etc/default/grub.d/90-autopkgtest.cfg exists.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 May 2015 15:14:03 +0200
 

@@ -223,15 +223,18 @@ def enable_plymouth(enable=True):
     '''ensure plymouth is enabled in grub config (doesn't reboot)'''
     plymouth_enabled = 'splash' in open('/boot/grub/grub.cfg').read()
     if enable and not plymouth_enabled:
-        shutil.copy2(GRUB_AUTOPKGTEST_CONFIG_PATH, TEST_AUTOPKGTEST_CONFIG_PATH)
-        for line in fileinput.input([TEST_AUTOPKGTEST_CONFIG_PATH], inplace=True):
-            if line.startswith("GRUB_CMDLINE_LINUX_DEFAULT"):
-                print(line[:line.rfind('"')] + ' splash quiet"\n')
-        subprocess.check_call(['update-grub'], stderr=subprocess.DEVNULL)
+        if os.path.exists(GRUB_AUTOPKGTEST_CONFIG_PATH):
+            shutil.copy2(GRUB_AUTOPKGTEST_CONFIG_PATH, TEST_AUTOPKGTEST_CONFIG_PATH)
+            for line in fileinput.input([TEST_AUTOPKGTEST_CONFIG_PATH], inplace=True):
+                if line.startswith("GRUB_CMDLINE_LINUX_DEFAULT"):
+                    print(line[:line.rfind('"')] + ' splash quiet"\n')
+        else:
+            with open(TEST_AUTOPKGTEST_CONFIG_PATH, 'w') as f:
+                f.write('GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0 splash quiet"\n')
     elif not enable and plymouth_enabled:
         with suppress(FileNotFoundError):
             os.remove(TEST_AUTOPKGTEST_CONFIG_PATH)
-        subprocess.check_call(['update-grub'], stderr=subprocess.DEVNULL)
+    subprocess.check_call(['update-grub'], stderr=subprocess.DEVNULL)
 
 
 def boot_with_systemd_distro():
