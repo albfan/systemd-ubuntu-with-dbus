@@ -61,7 +61,7 @@ Depends: ${shlibs:Depends},
          libcap2-bin
 Breaks: lvm2 (<< 2.02.104-1),
         lsb-base (<< 4.1+Debian4),
-        apparmor (<< 2.9.2-1),
+        apparmor (<< 2.9.1-0ubuntu5),
         systemd-shim (<< 8-2)
 Conflicts: klogd
 Description: system and service manager
