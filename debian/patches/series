@@ -8,6 +8,7 @@ cryptsetup-Implement-offset-and-skip-options.patch
 login-make-hold-off-timeout-configurable.patch
 util-Fix-assertion-in-split-on-missing.patch
 sd-daemon-simplify-sd_pid_notify_with_fds.patch
+core-Fix-assertion-with-empty-Exec-paths.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
