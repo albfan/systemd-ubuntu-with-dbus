@@ -1,3 +1,9 @@
+systemd (219-7ubuntu6) UNRELEASED; urgency=medium
+
+  * Fix assertion crash with empty Exec*= paths. (LP: #1454173)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 May 2015 07:45:34 +0200
+
 systemd (219-7ubuntu5) vivid; urgency=medium
 
   * Revert upstream commit 743970d which immediately SIGKILLs units during

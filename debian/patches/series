@@ -6,6 +6,7 @@ units-move-After-systemd-hwdb-update.service-depende.patch
 timesyncd-enable-timesyncd-in-virtual-machines.patch
 login-make-hold-off-timeout-configurable.patch
 util-Fix-assertion-in-split-on-missing.patch
+core-Fix-assertion-with-empty-Exec-paths.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
