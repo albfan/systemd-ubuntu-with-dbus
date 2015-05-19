@@ -4,6 +4,7 @@ systemd (219-10) UNRELEASED; urgency=medium
   * Drop Avoid-reload-and-re-start-requests-during-early-boot.patch
     and Avoid-reloading-services-when-shutting-down.patch: This was fixed more
     robustly in invoke-rc.d and service now, see #777113.
+  * debian/tests/boot-smoke: Allow 10 seconds for systemd jobs to settle down.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 

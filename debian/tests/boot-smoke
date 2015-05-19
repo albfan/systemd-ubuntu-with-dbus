@@ -29,7 +29,13 @@ else
     pidof polkitd
 
     echo "checking that there are no running jobs"
-    assert_eq "$(systemctl --no-pager --no-legend list-jobs || true)" ""
+    TIMEOUT=10
+    while [ $TIMEOUT -ge 0 ]; do
+        running="$(systemctl --no-pager --no-legend list-jobs || true)"
+        [ -n "$running" ] || break
+        TIMEOUT=$((TIMEOUT - 1))
+    done
+    assert_eq "$running" ""
 fi
 
 if [ "$ADT_REBOOT_MARK" -ge 20 ]; then
