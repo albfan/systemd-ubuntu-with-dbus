@@ -4,6 +4,7 @@ systemd (219-7ubuntu6) UNRELEASED; urgency=medium
   * systemd-fsckd autopkgtest: Stop assuming that
     /etc/default/grub.d/90-autopkgtest.cfg exists.
   * systemd-fsckd autopkgtest: Add missing plymouth test dependency.
+  * debian/tests/boot-smoke: Allow 10 seconds for systemd jobs to settle down.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 May 2015 07:45:34 +0200
 
