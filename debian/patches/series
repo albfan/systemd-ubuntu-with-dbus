@@ -7,6 +7,8 @@ timesyncd-enable-timesyncd-in-virtual-machines.patch
 login-make-hold-off-timeout-configurable.patch
 util-Fix-assertion-in-split-on-missing.patch
 core-Fix-assertion-with-empty-Exec-paths.patch
+device-create-units-with-intended-found-value.patch
+mount-don-t-claim-a-device-is-gone-from-proc-self-mo.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

@@ -1,0 +1,129 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Sun, 17 May 2015 15:07:47 +0200
+Subject: device: create units with intended "found" value
+
+Change device_found_node() to also create a .device unit if a device is not
+known by udev; this is the case for "tentative" devices picked up by mountinfo
+(DEVICE_FOUND_MOUNT).  With that we can record the "found" attribute on the
+unit.
+
+Change device_setup_unit() to also accept a NULL udev_device, and don't
+add the extra udev information in that case.
+
+Previously device_found_node() would not create a .device unit, and
+unit_add_node_link() would then create a "dead" stub one via
+manager_load_unit(), so we lost the "found" attribute and unmounted everything
+from that device.
+
+https://launchpad.net/bugs/1444402
+http://lists.freedesktop.org/archives/systemd-devel/2015-May/031658.html
+---
+ src/core/device.c | 61 +++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 34 insertions(+), 27 deletions(-)
+
+diff --git a/src/core/device.c b/src/core/device.c
+index cc4ebd2..246bee6 100644
+--- a/src/core/device.c
++++ b/src/core/device.c
+@@ -262,18 +262,19 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
+ 
+ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *path, bool main) {
+         _cleanup_free_ char *e = NULL;
+-        const char *sysfs;
++        const char *sysfs = NULL;
+         Unit *u = NULL;
+         bool delete;
+         int r;
+ 
+         assert(m);
+-        assert(dev);
+         assert(path);
+ 
+-        sysfs = udev_device_get_syspath(dev);
+-        if (!sysfs)
+-                return 0;
++        if (dev) {
++                sysfs = udev_device_get_syspath(dev);
++                if (!sysfs)
++                        return 0;
++        }
+ 
+         e = unit_name_from_path(path, ".device");
+         if (!e)
+@@ -282,6 +283,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
+         u = manager_get_unit(m, e);
+ 
+         if (u &&
++            sysfs &&
+             DEVICE(u)->sysfs &&
+             !path_equal(DEVICE(u)->sysfs, sysfs)) {
+                 log_unit_error(u->id, "Device %s appeared twice with different sysfs paths %s and %s", e, DEVICE(u)->sysfs, sysfs);
+@@ -306,17 +308,19 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
+         /* If this was created via some dependency and has not
+          * actually been seen yet ->sysfs will not be
+          * initialized. Hence initialize it if necessary. */
++        if (sysfs) {
++                r = device_set_sysfs(DEVICE(u), sysfs);
++                if (r < 0)
++                        goto fail;
+ 
+-        r = device_set_sysfs(DEVICE(u), sysfs);
+-        if (r < 0)
+-                goto fail;
++                (void) device_update_description(u, dev, path);
+ 
+-        (void) device_update_description(u, dev, path);
++                /* The additional systemd udev properties we only interpret
++                 * for the main object */
++                if (main)
++                        (void) device_add_udev_wants(u, dev);
++        }
+ 
+-        /* The additional systemd udev properties we only interpret
+-         * for the main object */
+-        if (main)
+-                (void) device_add_udev_wants(u, dev);
+ 
+         /* Note that this won't dispatch the load queue, the caller
+          * has to do that if needed and appropriate */
+@@ -735,23 +739,26 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
+                 if (!path_startswith(node, "/dev"))
+                         return 0;
+ 
+-                if (stat(node, &st) < 0) {
+-                        if (errno == ENOENT)
++                /* We make an extra check here, if the device node
++                 * actually exists. If it's missing, then this is an
++                 * indication that device was unplugged but is still
++                 * referenced in /proc/swaps or
++                 * /proc/self/mountinfo. Note that this check doesn't
++                 * really cover all cases where a device might be gone
++                 * away, since drives that can have a medium inserted
++                 * will still have a device node even when the medium
++                 * is not there... */
++
++                if (stat(node, &st) >= 0) {
++                        if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode))
+                                 return 0;
+ 
+-                        return log_error_errno(errno, "Failed to stat device node file %s: %m", node);
+-                }
+-
+-                if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode))
+-                        return 0;
+-
+-                dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+-                if (!dev) {
+-                        if (errno == ENOENT)
+-                                return 0;
++                        dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
++                        if (!dev && errno != ENOENT)
++                                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+ 
+-                        return log_oom();
+-                }
++                } else if (errno != ENOENT)
++                        return log_error_errno(errno, "Failed to stat device node file %s: %m", node);
+ 
+                 /* If the device is known in the kernel and newly
+                  * appeared, then we'll create a device unit for it,
