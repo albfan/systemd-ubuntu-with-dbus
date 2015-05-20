@@ -8,6 +8,7 @@ systemd (219-10) UNRELEASED; urgency=medium
   * Fix "tentative" state of devices which are not in /dev (mostly in
     containers), and avoid overzealous cleanup unmounting of mounts from them.
     (LP: #1444402)
+  * debian/extra/udev-helpers/net.agent: Eliminate cat and most grep calls.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 
