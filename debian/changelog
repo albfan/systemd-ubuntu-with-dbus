@@ -8,6 +8,10 @@ systemd (219-7ubuntu6) UNRELEASED; urgency=medium
   * Fix "tentative" state of devices which are not in /dev (mostly in
     containers), and avoid overzealous cleanup unmounting of mounts from them.
     (LP: #1444402)
+  * journal: Gracefully handle failure to bind to audit socket, which is known
+    to fail in namespaces (containers) with current kernels. Also
+    conditionalize systemd-journald-audit.socket on CAP_AUDIT_READ.
+    (LP: #1457054)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 May 2015 07:45:34 +0200
 

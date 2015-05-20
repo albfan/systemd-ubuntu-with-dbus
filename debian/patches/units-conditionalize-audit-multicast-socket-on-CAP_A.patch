@@ -1,0 +1,22 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Wed, 20 May 2015 17:40:05 +0200
+Subject: units: conditionalize audit multicast socket on CAP_AUDIT_READ
+
+The multicast logic can only work if the capability is available, hence
+require it.
+---
+ units/systemd-journald-audit.socket | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/units/systemd-journald-audit.socket b/units/systemd-journald-audit.socket
+index 35397aa..541f2cf 100644
+--- a/units/systemd-journald-audit.socket
++++ b/units/systemd-journald-audit.socket
+@@ -11,6 +11,7 @@ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+ DefaultDependencies=no
+ Before=sockets.target
+ ConditionSecurity=audit
++ConditionCapability=CAP_AUDIT_READ
+ 
+ [Socket]
+ Service=systemd-journald.service
