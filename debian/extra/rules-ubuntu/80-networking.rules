@@ -1,1 +1,0 @@
-ACTION!="remove", SUBSYSTEM=="net", KERNEL!="lo", ENV{SYSTEMD_WANTS}+="ifup@$name.service"

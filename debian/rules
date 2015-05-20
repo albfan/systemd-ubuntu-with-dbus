@@ -201,7 +201,6 @@ endif
 		install -D --mode=644 debian/extra/systemd.py debian/systemd/usr/share/apport/package-hooks/systemd.py; \
 		install --mode=644 debian/extra/systemd-vconsole-setup.service debian/systemd/lib/systemd/system/; \
 		install --mode=644 debian/extra/rules-ubuntu/*.rules debian/udev/lib/udev/rules.d/; \
-		rm debian/udev/lib/udev/*.agent; \
 	fi
 
 # use symlinked doc directories on Debian as the old udev package did; we have

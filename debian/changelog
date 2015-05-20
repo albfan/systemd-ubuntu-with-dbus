@@ -17,6 +17,9 @@ systemd (219-10) UNRELEASED; urgency=medium
     to fail in namespaces (containers) with current kernels. Also
     conditionalize systemd-journald-audit.socket on CAP_AUDIT_READ.
     (LP: #1457054)
+  * Put back *.agent scripts and use net.agent in Ubuntu. This fixes escaping
+    of unit names, reduces the delta, and will make it easier to get a common
+    solution for integrating ifup.d/ scripts with networkd.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 
