@@ -13,6 +13,10 @@ systemd (219-10) UNRELEASED; urgency=medium
     obsolete, CD ejection with the hardware button works properly without it.
   * Re-enable-journal-forwarding-to-syslog.patch: Update patch description,
     journal.conf.d/ exists now.
+  * journal: Gracefully handle failure to bind to audit socket, which is known
+    to fail in namespaces (containers) with current kernels. Also
+    conditionalize systemd-journald-audit.socket on CAP_AUDIT_READ.
+    (LP: #1457054)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 
