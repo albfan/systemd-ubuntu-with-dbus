@@ -32,7 +32,6 @@ Order-remote-fs.target-after-local-fs.target.patch
 Skip-99-systemd.rules-when-not-running-systemd-as-in.patch
 Load-sg-module-from-80-drivers.rules.patch
 Updates-to-default-device-permissions.patch
-Set-default-polling-interval-on-removable-devices-as.patch
 insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
