@@ -11,6 +11,8 @@ systemd (219-10) UNRELEASED; urgency=medium
   * debian/extra/udev-helpers/net.agent: Eliminate cat and most grep calls.
   * Drop Set-default-polling-interval-on-removable-devices-as.patch; it's long
     obsolete, CD ejection with the hardware button works properly without it.
+  * Re-enable-journal-forwarding-to-syslog.patch: Update patch description,
+    journal.conf.d/ exists now.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 

@@ -3,13 +3,12 @@ Date: Fri, 28 Nov 2014 14:43:25 +0100
 Subject: Re-enable journal forwarding to syslog
 
 Revert upstream commit 46b131574fdd7d77 for now, until Debian's sysloggers
-can/do all read from the journal directly. See
+can/do all read from the journal directly or enable forwarding in
+journal.conf.d/. See
 
   http://lists.freedesktop.org/archives/systemd-devel/2014-November/025550.html
 
-for details. Once we grow a journal.conf.d/ directory, sysloggers can be moved
-to pulling from the journal one by one and disable forwarding again in such a
-conf.d snippet.
+for details.
 ---
  man/journald.conf.xml         | 2 +-
  src/journal/journald-server.c | 1 +
