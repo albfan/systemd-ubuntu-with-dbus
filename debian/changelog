@@ -1,4 +1,4 @@
-systemd (219-10) UNRELEASED; urgency=medium
+systemd (219-10) experimental; urgency=medium
 
   * Fix assertion crash with empty Exec*= paths. (LP: #1454173)
   * Drop Avoid-reload-and-re-start-requests-during-early-boot.patch
@@ -28,7 +28,7 @@ systemd (219-10) UNRELEASED; urgency=medium
   * write_net_rules: Escape '{' and '}' characters as well, to make this work
     with busybox grep. Thanks Faidon Liambotis! (Closes: #765577)
 
- -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
+ -- Martin Pitt <mpitt@debian.org>  Thu, 21 May 2015 09:43:52 +0200
 
 systemd (219-9) experimental; urgency=medium
 
