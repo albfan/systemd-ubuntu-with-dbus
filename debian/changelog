@@ -10,6 +10,8 @@ systemd (215-18) UNRELEASED; urgency=medium
     shutdown. This leads to problems like bash not being able to write its
     history, mosh not saving its state, and similar failed cleanup actions.
     (Closes: #784720, LP: #1448259)
+  * write_net_rules: Escape '{' and '}' characters as well, to make this work
+    with busybox grep. Thanks Faidon Liambotis! (Closes: #765577)
 
  -- Michael Biebl <biebl@debian.org>  Fri, 17 Apr 2015 15:40:29 +0200
 
