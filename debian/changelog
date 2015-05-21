@@ -12,6 +12,9 @@ systemd (219-7ubuntu6) UNRELEASED; urgency=medium
     to fail in namespaces (containers) with current kernels. Also
     conditionalize systemd-journald-audit.socket on CAP_AUDIT_READ.
     (LP: #1457054)
+  * Add sigpwr-container-shutdown.service: Power off when receiving SIGPWR in
+    a container. This makes lxc-stop work for systemd containers.
+    (LP: #1457321)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 May 2015 07:45:34 +0200
 

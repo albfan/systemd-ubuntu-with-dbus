@@ -77,6 +77,7 @@
 # Enable Debian specific units
 /lib/systemd/system/debian-fixup.service /lib/systemd/system/sysinit.target.wants/debian-fixup.service
 /lib/systemd/system/getty-static.service /lib/systemd/system/getty.target.wants/getty-static.service
+/lib/systemd/system/sigpwr-container-shutdown.service /lib/systemd/system/sigpwr.target.wants/sigpwr-container-shutdown.service
 
 # Compat symlink
 /lib/systemd/systemd /bin/systemd
