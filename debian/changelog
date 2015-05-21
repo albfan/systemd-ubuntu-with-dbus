@@ -25,6 +25,8 @@ systemd (219-10) UNRELEASED; urgency=medium
   * Add sigpwr-container-shutdown.service: Power off when receiving SIGPWR in
     a container. This makes lxc-stop work for systemd containers.
     (LP: #1457321)
+  * write_net_rules: Escape '{' and '}' characters as well, to make this work
+    with busybox grep. Thanks Faidon Liambotis! (Closes: #765577)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 
