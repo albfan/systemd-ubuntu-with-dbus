@@ -22,6 +22,9 @@ systemd (219-10) UNRELEASED; urgency=medium
     solution for integrating ifup.d/ scripts with networkd.
   * When booting with "quiet", run the initramfs' udevd with "notice" log
     level. (LP: #1432171)
+  * Add sigpwr-container-shutdown.service: Power off when receiving SIGPWR in
+    a container. This makes lxc-stop work for systemd containers.
+    (LP: #1457321)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 
