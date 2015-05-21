@@ -20,6 +20,8 @@ systemd (219-10) UNRELEASED; urgency=medium
   * Put back *.agent scripts and use net.agent in Ubuntu. This fixes escaping
     of unit names, reduces the delta, and will make it easier to get a common
     solution for integrating ifup.d/ scripts with networkd.
+  * When booting with "quiet", run the initramfs' udevd with "notice" log
+    level. (LP: #1432171)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 17 May 2015 11:37:58 +0200
 
