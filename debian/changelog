@@ -9,6 +9,7 @@ systemd (220-1) UNRELEASED; urgency=medium
     - Ignore comments in /etc/hostname (LP: #766413)
     - Drop all backported patches and port the others to new upstream release.
   * Cherry-pick patch to fix udevd --daemon assertion regression.
+  * systemd.install: systemd.pc moved back into /usr/share/pkgconfig/.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
