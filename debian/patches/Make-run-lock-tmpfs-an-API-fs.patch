@@ -13,10 +13,10 @@ Closes: #751392
  1 file changed, 2 insertions(+)
 
 diff --git a/src/core/mount-setup.c b/src/core/mount-setup.c
-index 521545e..e19b93a 100644
+index ba96741..eb2f5e8 100644
 --- a/src/core/mount-setup.c
 +++ b/src/core/mount-setup.c
-@@ -96,6 +96,8 @@ static const MountPoint mount_table[] = {
+@@ -92,6 +92,8 @@ static const MountPoint mount_table[] = {
  #endif
          { "tmpfs",       "/run",                      "tmpfs",      "mode=755",                MS_NOSUID|MS_NODEV|MS_STRICTATIME,
            NULL,          MNT_FATAL|MNT_IN_CONTAINER },

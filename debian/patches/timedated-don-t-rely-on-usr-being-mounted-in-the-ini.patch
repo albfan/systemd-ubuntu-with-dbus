@@ -14,11 +14,11 @@ necessary, for now.
 
 Closes: #726256
 ---
- src/timedate/timedated.c | 94 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 93 insertions(+), 1 deletion(-)
+ src/timedate/timedated.c | 95 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 94 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index bb10e7c..972396f 100644
+index 7d249b5..01f8845 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -22,6 +22,9 @@
@@ -29,17 +29,18 @@ index bb10e7c..972396f 100644
 +#include <sys/stat.h>
 +#include <fcntl.h>
  
- #include "sd-id128.h"
  #include "sd-messages.h"
-@@ -41,6 +44,7 @@
+ #include "sd-event.h"
+@@ -38,6 +41,8 @@
  #include "bus-common-errors.h"
  #include "event-util.h"
  #include "selinux-util.h"
++#include "random-util.h"
 +#include "copy.h"
  
  #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
  #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
-@@ -65,6 +69,94 @@ static void context_free(Context *c) {
+@@ -62,6 +67,94 @@ static void context_free(Context *c) {
          bus_verify_polkit_async_registry_free(c->polkit_registry);
  }
  
@@ -134,7 +135,7 @@ index bb10e7c..972396f 100644
  static int context_read_data(Context *c) {
          _cleanup_free_ char *t = NULL;
          int r;
-@@ -133,7 +225,7 @@ static int context_write_data_timezone(Context *c) {
+@@ -127,7 +220,7 @@ static int context_write_data_timezone(Context *c) {
          if (!p)
                  return log_oom();
  

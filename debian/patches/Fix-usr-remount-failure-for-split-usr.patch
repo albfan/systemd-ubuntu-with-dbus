@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/742048
  1 file changed, 31 insertions(+)
 
 diff --git a/src/remount-fs/remount-fs.c b/src/remount-fs/remount-fs.c
-index 57b4702..3872f33 100644
+index a09531b..e47851b 100644
 --- a/src/remount-fs/remount-fs.c
 +++ b/src/remount-fs/remount-fs.c
-@@ -34,6 +34,32 @@
+@@ -32,6 +32,32 @@
  #include "mount-setup.h"
  #include "exit-status.h"
  
@@ -50,7 +50,7 @@ index 57b4702..3872f33 100644
  /* Goes through /etc/fstab and remounts all API file systems, applying
   * options that are in /etc/fstab that systemd might not have
   * respected */
-@@ -83,6 +109,11 @@ int main(int argc, char *argv[]) {
+@@ -81,6 +107,11 @@ int main(int argc, char *argv[]) {
                      !path_equal(me->mnt_dir, "/usr"))
                          continue;
  

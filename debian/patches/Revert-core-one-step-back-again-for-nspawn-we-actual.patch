@@ -14,11 +14,11 @@ Bug-Fedora: https://bugzilla.redhat.com/show_bug.cgi?id=1141137
  1 file changed, 1 insertion(+), 9 deletions(-)
 
 diff --git a/src/core/unit.c b/src/core/unit.c
-index 93487d8..1ddd105 100644
+index b2005f5..98539e9 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
-@@ -3542,15 +3542,7 @@ int unit_kill_context(
-                                 log_unit_warning_errno(u->id, r, "Failed to kill control group: %m");
+@@ -3546,15 +3546,7 @@ int unit_kill_context(
+                                 log_unit_warning_errno(u, r, "Failed to kill control group: %m");
                  } else if (r > 0) {
  
 -                        /* FIXME: For now, we will not wait for the

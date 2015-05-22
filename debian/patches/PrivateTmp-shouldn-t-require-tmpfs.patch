@@ -10,10 +10,10 @@ the requirements to an after relationship.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/core/unit.c b/src/core/unit.c
-index 565455b..93487d8 100644
+index e380276..b2005f5 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
-@@ -807,7 +807,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
+@@ -809,7 +809,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                  return 0;
  
          if (c->private_tmp) {

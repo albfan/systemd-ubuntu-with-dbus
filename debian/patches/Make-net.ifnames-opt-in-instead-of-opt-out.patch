@@ -14,7 +14,7 @@ and it is confusing.
  1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
-index 8b3dc45..09b3f5b 100644
+index ce038ab..aa10c02 100644
 --- a/src/udev/net/link-config.c
 +++ b/src/udev/net/link-config.c
 @@ -194,14 +194,14 @@ static bool enable_name_policy(void) {

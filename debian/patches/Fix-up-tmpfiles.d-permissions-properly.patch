@@ -3,8 +3,8 @@ Date: Wed, 29 Jun 2011 13:57:07 +0200
 Subject: Fix up tmpfiles.d permissions properly
 
 ---
- tmpfiles.d/legacy.conf  | 4 ++--
- tmpfiles.d/systemd.conf | 8 ++++----
+ tmpfiles.d/legacy.conf     | 4 ++--
+ tmpfiles.d/systemd.conf.m4 | 8 ++++----
  2 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/tmpfiles.d/legacy.conf b/tmpfiles.d/legacy.conf
@@ -29,26 +29,27 @@ index 3219672..a634c17 100644
  
  # /forcefsck, /fastboot and /forcequotecheck are deprecated in favor of the
  # kernel command line options 'fsck.mode=force', 'fsck.mode=skip' and
-diff --git a/tmpfiles.d/systemd.conf b/tmpfiles.d/systemd.conf
-index 9634c2c..c3fc817 100644
---- a/tmpfiles.d/systemd.conf
-+++ b/tmpfiles.d/systemd.conf
-@@ -25,14 +25,14 @@ d /run/log 0755 root root -
+diff --git a/tmpfiles.d/systemd.conf.m4 b/tmpfiles.d/systemd.conf.m4
+index b447b01..fdfcfff 100644
+--- a/tmpfiles.d/systemd.conf.m4
++++ b/tmpfiles.d/systemd.conf.m4
+@@ -27,15 +27,15 @@ d /run/log 0755 root root -
  z /run/log/journal 2755 root systemd-journal - -
  Z /run/log/journal/%m ~2750 root systemd-journal - -
- 
+ m4_ifdef(`HAVE_ACL',``
 -a+ /run/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x
 -A+ /run/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
 +a+ /run/log/journal/%m - - - - d:group:adm:r-x
 +A+ /run/log/journal/%m - - - - group:adm:r-x
+ '')m4_dnl
  
  z /var/log/journal 2755 root systemd-journal - -
  z /var/log/journal/%m 2755 root systemd-journal - -
- 
+ m4_ifdef(`HAVE_ACL',``
 -a+ /var/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x
 -A+ /var/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
 +a+ /var/log/journal/%m - - - - d:group:adm:r-x
 +A+ /var/log/journal/%m - - - - group:adm:r-x
+ '')m4_dnl
  
  d /var/lib/systemd 0755 root root -
- d /var/lib/systemd/coredump 0755 root root 3d

@@ -19,16 +19,16 @@ It has the following modifications:
 ---
  Makefile.am                               |   9 +
  src/insserv-generator/Makefile            |  28 +++
- src/insserv-generator/insserv-generator.c | 326 ++++++++++++++++++++++++++++++
- 3 files changed, 363 insertions(+)
+ src/insserv-generator/insserv-generator.c | 329 ++++++++++++++++++++++++++++++
+ 3 files changed, 366 insertions(+)
  create mode 100644 src/insserv-generator/Makefile
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 0a811e9..d27a8b1 100644
+index 6d9609e..82051af 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -405,6 +405,7 @@ rootlibexec_PROGRAMS += \
+@@ -413,6 +413,7 @@ rootlibexec_PROGRAMS += \
  endif
  
  systemgenerator_PROGRAMS = \
@@ -36,7 +36,7 @@ index 0a811e9..d27a8b1 100644
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
-@@ -2396,6 +2397,14 @@ systemd_delta_LDADD = \
+@@ -2431,6 +2432,14 @@ systemd_delta_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------
@@ -87,10 +87,10 @@ index 0000000..9d07505
 +.PHONY: all clean
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
 new file mode 100644
-index 0000000..25f6f18
+index 0000000..109f731
 --- /dev/null
 +++ b/src/insserv-generator/insserv-generator.c
-@@ -0,0 +1,326 @@
+@@ -0,0 +1,329 @@
 +/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 +
 +/***
@@ -166,7 +166,7 @@ index 0000000..25f6f18
 +                "x-display-manager",    "display-manager.service",
 +        };
 +
-+        unsigned i;
++        unsigned i, e;
 +        char *r;
 +        const char *n;
 +
@@ -198,7 +198,10 @@ index 0000000..25f6f18
 +                        return -EINVAL;
 +
 +                /* Facilities starting with $ are most likely targets */
-+                r = unit_name_build(n, NULL, ".target");
++                e = unit_name_build(n, NULL, ".target", &r);
++                if (e < 0)
++                        return log_error_errno(e, "Failed to generate unit name: %m");
++
 +        } else if (filename && streq(name, filename))
 +                /* Names equaling the file name of the services are redundant */
 +                return 0;

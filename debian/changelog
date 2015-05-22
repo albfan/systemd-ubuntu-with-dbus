@@ -1,3 +1,16 @@
+systemd (220-1) UNRELEASED; urgency=medium
+
+  * New upstream release:
+    - Ship sdio.ids and ids-update.pl in upstream tarball. (Closes: #780650)
+    - Drop non-working "journalctl /dev/sda" example from manpage
+      (Closes: #781604)
+    - man systemd.network: Explain UseDomains a bit more (not used by
+      default). (Closes: #766413)
+    - Ignore comments in /etc/hostname (LP: #766413)
+    - Drop all backported patches and port the others to new upstream release.
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
+
 systemd (219-10) experimental; urgency=medium
 
   * Fix assertion crash with empty Exec*= paths. (LP: #1454173)

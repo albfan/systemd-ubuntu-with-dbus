@@ -13,10 +13,10 @@ This reverts the Debian specific bits from
  2 files changed, 40 insertions(+), 2 deletions(-)
 
 diff --git a/src/core/locale-setup.c b/src/core/locale-setup.c
-index e993c57..480aa7c 100644
+index 108072c..9ea0083 100644
 --- a/src/core/locale-setup.c
 +++ b/src/core/locale-setup.c
-@@ -83,6 +83,28 @@ int locale_setup(char ***environment) {
+@@ -81,6 +81,28 @@ int locale_setup(char ***environment) {
                          log_warning_errno(r, "Failed to read /etc/locale.conf: %m");
          }
  
@@ -46,10 +46,10 @@ index e993c57..480aa7c 100644
          for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                  char *s;
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index f2d23f3..bb10e7c 100644
+index 4e8ae94..7d249b5 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
-@@ -74,7 +74,7 @@ static int context_read_data(Context *c) {
+@@ -71,7 +71,7 @@ static int context_read_data(Context *c) {
          r = readlink_malloc("/etc/localtime", &t);
          if (r < 0) {
                  if (r == -EINVAL)
@@ -58,7 +58,7 @@ index f2d23f3..bb10e7c 100644
                  else
                          log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
          } else {
-@@ -85,7 +85,7 @@ static int context_read_data(Context *c) {
+@@ -82,7 +82,7 @@ static int context_read_data(Context *c) {
                          e = path_startswith(t, "../usr/share/zoneinfo/");
  
                  if (!e)
@@ -67,7 +67,7 @@ index f2d23f3..bb10e7c 100644
                  else {
                          c->zone = strdup(e);
                          if (!c->zone)
-@@ -95,6 +95,12 @@ static int context_read_data(Context *c) {
+@@ -90,6 +90,12 @@ static int context_read_data(Context *c) {
                  }
          }
  
@@ -77,10 +77,10 @@ index f2d23f3..bb10e7c 100644
 +                        log_warning("Failed to read /etc/timezone: %s", strerror(-r));
 +        }
 +
- have_timezone:
          if (isempty(c->zone)) {
                  free(c->zone);
-@@ -109,6 +115,7 @@ have_timezone:
+                 c->zone = NULL;
+@@ -103,6 +109,7 @@ static int context_read_data(Context *c) {
  static int context_write_data_timezone(Context *c) {
          _cleanup_free_ char *p = NULL;
          int r = 0;
@@ -88,7 +88,7 @@ index f2d23f3..bb10e7c 100644
  
          assert(c);
  
-@@ -116,6 +123,9 @@ static int context_write_data_timezone(Context *c) {
+@@ -110,6 +117,9 @@ static int context_write_data_timezone(Context *c) {
                  if (unlink("/etc/localtime") < 0 && errno != ENOENT)
                          r = -errno;
  
@@ -98,7 +98,7 @@ index f2d23f3..bb10e7c 100644
                  return r;
          }
  
-@@ -127,6 +137,12 @@ static int context_write_data_timezone(Context *c) {
+@@ -121,6 +131,12 @@ static int context_write_data_timezone(Context *c) {
          if (r < 0)
                  return r;
  

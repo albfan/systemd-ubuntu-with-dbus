@@ -3,12 +3,13 @@ Date: Fri, 28 Nov 2014 14:43:25 +0100
 Subject: Re-enable journal forwarding to syslog
 
 Revert upstream commit 46b131574fdd7d77 for now, until Debian's sysloggers
-can/do all read from the journal directly or enable forwarding in
-journal.conf.d/. See
+can/do all read from the journal directly. See
 
   http://lists.freedesktop.org/archives/systemd-devel/2014-November/025550.html
 
-for details.
+for details. Once we grow a journal.conf.d/ directory, sysloggers can be moved
+to pulling from the journal one by one and disable forwarding again in such a
+conf.d snippet.
 ---
  man/journald.conf.xml         | 2 +-
  src/journal/journald-server.c | 1 +
@@ -16,20 +17,20 @@ for details.
  3 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 52de2f8..d0eed78 100644
+index b1d90ed..89ee638 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
-@@ -309,7 +309,7 @@
-         console, or sent as wall messages to all logged-in users.
+@@ -302,7 +302,7 @@
          These options take boolean arguments. If forwarding to syslog
-         is enabled but no syslog daemon is running, the respective
--        option has no effect. By default, only forwarding wall is
-+        option has no effect. By default, only forwarding to syslog and wall is
-         enabled. These settings may be overridden at boot time with
-         the kernel command line options
+         is enabled but nothing reads messages from the socket,
+         forwarding to syslog has no effect. By default, only
+-        forwarding to wall is enabled. These settings may be
++        forwarding to syslog and wall is enabled. These settings may be
+         overridden at boot time with the kernel command line options
          <literal>systemd.journald.forward_to_syslog=</literal>,
+         <literal>systemd.journald.forward_to_kmsg=</literal>,
 diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
-index 7ee8174..ffec90e 100644
+index b3a4b53..070fe15 100644
 --- a/src/journal/journald-server.c
 +++ b/src/journal/journald-server.c
 @@ -1471,6 +1471,7 @@ int server_init(Server *s) {

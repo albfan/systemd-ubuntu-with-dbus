@@ -3,14 +3,14 @@ Date: Thu, 24 Jul 2014 19:38:07 +0200
 Subject: Include additional directories in ProtectSystem
 
 ---
- src/core/namespace.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ src/core/namespace.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/src/core/namespace.c b/src/core/namespace.c
-index d4f1c86..86223d8 100644
+index 7d0b7e7..64b8b57 100644
 --- a/src/core/namespace.c
 +++ b/src/core/namespace.c
-@@ -436,7 +436,7 @@ int setup_namespace(
+@@ -439,7 +439,7 @@ int setup_namespace(
                  strv_length(inaccessible_dirs) +
                  private_dev +
                  (protect_home != PROTECT_HOME_NO ? 3 : 0) +
@@ -19,12 +19,27 @@ index d4f1c86..86223d8 100644
                  (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
  
          if (n > 0) {
-@@ -484,7 +484,7 @@ int setup_namespace(
-                 }
+@@ -498,15 +498,21 @@ int setup_namespace(
  
                  if (protect_system != PROTECT_SYSTEM_NO) {
--                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL ? STRV_MAKE("/usr", "-/boot", "/etc") : STRV_MAKE("/usr", "-/boot"), READONLY);
-+                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL ? STRV_MAKE("/usr", "/bin", "/sbin", "/lib", "-/lib64", "-/boot", "/etc") : STRV_MAKE("/usr", "/bin", "/sbin", "/lib", "-/lib64", "-/boot"), READONLY);
+                         const char *usr_dir, *boot_dir, *etc_dir;
++                        const char *bin_dir, *sbin_dir, *lib_dir, *lib64_dir;
+ 
+                         usr_dir = prefix_roota(root_directory, "/home");
+                         boot_dir = prefix_roota(root_directory, "/boot");
+                         boot_dir = strjoina("-", boot_dir);
+                         etc_dir = prefix_roota(root_directory, "/etc");
++                        bin_dir = prefix_roota(root_directory, "/bin");
++                        sbin_dir = prefix_roota(root_directory, "/sbin");
++                        lib_dir = prefix_roota(root_directory, "/lib");
++                        lib64_dir = prefix_roota(root_directory, "/lib64");
++                        lib64_dir = strjoina("-", lib64_dir);
+ 
+                         r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL
+-                                ? STRV_MAKE(usr_dir, boot_dir, etc_dir)
+-                                : STRV_MAKE(usr_dir, boot_dir), READONLY);
++                                ? STRV_MAKE(usr_dir, boot_dir, etc_dir, bin_dir, sbin_dir, lib_dir, lib64_dir)
++                                : STRV_MAKE(usr_dir, boot_dir, bin_dir, sbin_dir, lib_dir, lib64_dir), READONLY);
                          if (r < 0)
                                  return r;
                  }

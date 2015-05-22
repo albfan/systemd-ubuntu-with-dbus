@@ -16,7 +16,7 @@ this old hack to make the renaming less likely to fail.
  1 file changed, 38 insertions(+), 3 deletions(-)
 
 diff --git a/src/udev/udev-event.c b/src/udev/udev-event.c
-index bc115f1..a673f51 100644
+index 2fa26a4..6bbe756 100644
 --- a/src/udev/udev-event.c
 +++ b/src/udev/udev-event.c
 @@ -769,18 +769,53 @@ static int rename_netif(struct udev_event *event) {

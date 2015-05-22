@@ -12,9 +12,11 @@ Closes: #717491
  man/bootchart.conf.xml                       |   6 +-
  man/coredump.conf.xml                        |   2 +-
  man/hwdb.xml                                 |   8 +-
+ man/journal-remote.conf.xml                  |   2 +-
  man/journald.conf.xml                        |   2 +-
  man/logind.conf.xml                          |   2 +-
  man/resolved.conf.xml                        |   2 +-
+ man/standard-conf.xml                        |   2 +-
  man/sysctl.d.xml                             |   2 +-
  man/systemctl.xml                            |   4 +-
  man/systemd-activate.xml                     |   6 +-
@@ -51,7 +53,6 @@ Closes: #717491
  man/systemd-remount-fs.service.xml           |   2 +-
  man/systemd-resolved.service.xml             |   2 +-
  man/systemd-rfkill@.service.xml              |   2 +-
- man/systemd-shutdownd.service.xml            |   2 +-
  man/systemd-sleep.conf.xml                   |   2 +-
  man/systemd-socket-proxyd.xml                |   4 +-
  man/systemd-suspend.service.xml              |   6 +-
@@ -66,17 +67,17 @@ Closes: #717491
  man/systemd-update-utmp.service.xml          |   2 +-
  man/systemd-user-sessions.service.xml        |   3 +-
  man/systemd-vconsole-setup.service.xml       |   2 +-
- man/systemd.directives.xml                   | 140 +++++++++++++--------------
+ man/systemd.directives.xml                   | 138 +++++++++++++--------------
  man/systemd.link.xml                         |   6 +-
  man/systemd.netdev.xml                       |   6 +-
  man/systemd.network.xml                      |   6 +-
  man/systemd.preset.xml                       |  14 +--
  man/systemd.unit.xml                         |  10 +-
  man/systemd.xml                              |   3 +-
- man/timedatectl.xml                          |   2 +-
+ man/timedatectl.xml                          |   4 +-
  man/timesyncd.conf.xml                       |   2 +-
  man/udev.xml                                 |   8 +-
- 67 files changed, 172 insertions(+), 176 deletions(-)
+ 68 files changed, 173 insertions(+), 177 deletions(-)
 
 diff --git a/man/bootchart.conf.xml b/man/bootchart.conf.xml
 index bf6ca0b..84316bd 100644
@@ -105,7 +106,7 @@ index bf6ca0b..84316bd 100644
  
        <varlistentry>
 diff --git a/man/coredump.conf.xml b/man/coredump.conf.xml
-index 0b7329b..795867d 100644
+index fd54c59..6958a2a 100644
 --- a/man/coredump.conf.xml
 +++ b/man/coredump.conf.xml
 @@ -52,7 +52,7 @@
@@ -118,7 +119,7 @@ index 0b7329b..795867d 100644
  
    <refsect1>
 diff --git a/man/hwdb.xml b/man/hwdb.xml
-index b4460c1..e29824e 100644
+index 509dab8..d833c40 100644
 --- a/man/hwdb.xml
 +++ b/man/hwdb.xml
 @@ -40,17 +40,17 @@
@@ -151,8 +152,21 @@ index b4460c1..e29824e 100644
        database in an immutable image.
        During runtime only the binary database is used.</para>
    </refsect1>
+diff --git a/man/journal-remote.conf.xml b/man/journal-remote.conf.xml
+index a7b2227..c727981 100644
+--- a/man/journal-remote.conf.xml
++++ b/man/journal-remote.conf.xml
+@@ -52,7 +52,7 @@
+     <para><filename>/etc/systemd/journal-remote.conf</filename></para>
+     <para><filename>/etc/systemd/journald.conf.d/*.conf</filename></para>
+     <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
+-    <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
++    <para><filename>/lib/systemd/journald.conf.d/*.conf</filename></para>
+   </refsynopsisdiv>
+ 
+   <refsect1>
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 85146b0..52de2f8 100644
+index 2cbe58b..b1d90ed 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
 @@ -52,7 +52,7 @@
@@ -190,6 +204,19 @@ index 8047a4e..2f5c06a 100644
    </refsynopsisdiv>
  
    <refsect1>
+diff --git a/man/standard-conf.xml b/man/standard-conf.xml
+index 004f53f..a9ac417 100644
+--- a/man/standard-conf.xml
++++ b/man/standard-conf.xml
+@@ -46,7 +46,7 @@
+ 
+     <para>When packages need to customize the configuration, they can
+     install configuration snippets in
+-    <filename>/usr/lib/systemd/*.conf.d/</filename>. Files in
++    <filename>/lib/systemd/*.conf.d/</filename>. Files in
+     <filename>/etc/</filename> are reserved for the local
+     administrator, who may use this logic to override the
+     configuration files installed by vendor packages. The main
 diff --git a/man/sysctl.d.xml b/man/sysctl.d.xml
 index 8a13179..af26655 100644
 --- a/man/sysctl.d.xml
@@ -204,7 +231,7 @@ index 8a13179..af26655 100644
  
        <para><filename>/etc/sysctl.d/bridge.conf</filename>:
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index 50e6bc9..c9c5b78 100644
+index 94a77bc..6cd33ca 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
 @@ -410,8 +410,8 @@
@@ -219,7 +246,7 @@ index 50e6bc9..c9c5b78 100644
            <option>all</option>.</para>
          </listitem>
 diff --git a/man/systemd-activate.xml b/man/systemd-activate.xml
-index cb68a79..1468b91 100644
+index 3b854fd..38c0230 100644
 --- a/man/systemd-activate.xml
 +++ b/man/systemd-activate.xml
 @@ -50,7 +50,7 @@
@@ -305,10 +332,10 @@ index 5386667..dac7eb9 100644
        </varlistentry>
  
 diff --git a/man/systemd-bus-proxyd.xml b/man/systemd-bus-proxyd.xml
-index e0efe99..69f375d 100644
+index a1e8f4f..020f3aa 100644
 --- a/man/systemd-bus-proxyd.xml
 +++ b/man/systemd-bus-proxyd.xml
-@@ -50,7 +50,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -50,7 +50,7 @@
  
    <refsynopsisdiv>
      <cmdsynopsis>
@@ -318,7 +345,7 @@ index e0efe99..69f375d 100644
        <arg choice="opt"><replaceable>PLACEHOLDER</replaceable></arg>
      </cmdsynopsis>
 diff --git a/man/systemd-coredump.xml b/man/systemd-coredump.xml
-index 6a7ced1..e8d156c 100644
+index 5da3857..ee89573 100644
 --- a/man/systemd-coredump.xml
 +++ b/man/systemd-coredump.xml
 @@ -49,7 +49,7 @@
@@ -370,7 +397,7 @@ index 5c5e9fc..3a5ef26 100644
  
    <refsect1>
 diff --git a/man/systemd-efi-boot-generator.xml b/man/systemd-efi-boot-generator.xml
-index 3431c3c..9b6f1e1 100644
+index 23464bc..c181146 100644
 --- a/man/systemd-efi-boot-generator.xml
 +++ b/man/systemd-efi-boot-generator.xml
 @@ -48,7 +48,7 @@
@@ -383,7 +410,7 @@ index 3431c3c..9b6f1e1 100644
  
    <refsect1>
 diff --git a/man/systemd-fsck@.service.xml b/man/systemd-fsck@.service.xml
-index 88e11e8..32ba062 100644
+index e4ffcba..6681f1b 100644
 --- a/man/systemd-fsck@.service.xml
 +++ b/man/systemd-fsck@.service.xml
 @@ -50,7 +50,7 @@
@@ -395,14 +422,14 @@ index 88e11e8..32ba062 100644
    </refsynopsisdiv>
  
    <refsect1>
-@@ -137,5 +137,4 @@
-       <citerefentry><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+@@ -135,5 +135,4 @@
+       <citerefentry project='man-pages'><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
    </refsect1>
 -
  </refentry>
 diff --git a/man/systemd-fstab-generator.xml b/man/systemd-fstab-generator.xml
-index bdc2dc1..0f32e70 100644
+index c09ed4b..a9e0642 100644
 --- a/man/systemd-fstab-generator.xml
 +++ b/man/systemd-fstab-generator.xml
 @@ -46,7 +46,7 @@
@@ -537,10 +564,10 @@ index 5c7f9a4..86db1c1 100644
  
    <refsect1>
 diff --git a/man/systemd-journal-gatewayd.service.xml b/man/systemd-journal-gatewayd.service.xml
-index 7420b59..e80c978 100644
+index 6df2248..2586784 100644
 --- a/man/systemd-journal-gatewayd.service.xml
 +++ b/man/systemd-journal-gatewayd.service.xml
-@@ -54,7 +54,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -54,7 +54,7 @@
      <para><filename>systemd-journal-gatewayd.service</filename></para>
      <para><filename>systemd-journal-gatewayd.socket</filename></para>
      <cmdsynopsis>
@@ -689,7 +716,7 @@ index 8c83668..3d259c0 100644
  
    <refsect1>
 diff --git a/man/systemd-remount-fs.service.xml b/man/systemd-remount-fs.service.xml
-index 8e60e31..c1ba9ff 100644
+index 9bc07fc..54778df 100644
 --- a/man/systemd-remount-fs.service.xml
 +++ b/man/systemd-remount-fs.service.xml
 @@ -48,7 +48,7 @@
@@ -727,24 +754,11 @@ index 709b09d..4f2274b 100644
    </refsynopsisdiv>
  
    <refsect1>
-diff --git a/man/systemd-shutdownd.service.xml b/man/systemd-shutdownd.service.xml
-index 756949c..0f42798 100644
---- a/man/systemd-shutdownd.service.xml
-+++ b/man/systemd-shutdownd.service.xml
-@@ -52,7 +52,7 @@
-   <refsynopsisdiv>
-     <para><filename>systemd-shutdownd.service</filename></para>
-     <para><filename>systemd-shutdownd.socket</filename></para>
--    <para><filename>/usr/lib/systemd/systemd-shutdownd</filename></para>
-+    <para><filename>/lib/systemd/systemd-shutdownd</filename></para>
-   </refsynopsisdiv>
- 
-   <refsect1>
 diff --git a/man/systemd-sleep.conf.xml b/man/systemd-sleep.conf.xml
-index bb17ec8..aaa2f5c 100644
+index 9a379ec..d7bfa5b 100644
 --- a/man/systemd-sleep.conf.xml
 +++ b/man/systemd-sleep.conf.xml
-@@ -52,7 +52,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+@@ -52,7 +52,7 @@
      <para><filename>/etc/systemd/sleep.conf</filename></para>
      <para><filename>/etc/systemd/sleep.conf.d/*.conf</filename></para>
      <para><filename>/run/systemd/sleep.conf.d/*.conf</filename></para>
@@ -754,7 +768,7 @@ index bb17ec8..aaa2f5c 100644
  
    <refsect1>
 diff --git a/man/systemd-socket-proxyd.xml b/man/systemd-socket-proxyd.xml
-index 0b852e6..7796226 100644
+index ae4217b..b6a0a5f 100644
 --- a/man/systemd-socket-proxyd.xml
 +++ b/man/systemd-socket-proxyd.xml
 @@ -113,7 +113,7 @@ Requires=nginx.service
@@ -833,7 +847,7 @@ index e7fc95c..43ef5f0 100644
  
    <refsect1>
 diff --git a/man/systemd-system.conf.xml b/man/systemd-system.conf.xml
-index 1b74ed3..0adb840 100644
+index c06accd..822c365 100644
 --- a/man/systemd-system.conf.xml
 +++ b/man/systemd-system.conf.xml
 @@ -54,11 +54,11 @@
@@ -963,10 +977,10 @@ index 7c6ed08..cf9674e 100644
  
    <refsect1>
 diff --git a/man/systemd.directives.xml b/man/systemd.directives.xml
-index c65c0dc..d329492 100644
+index cc89e91..3491828 100644
 --- a/man/systemd.directives.xml
 +++ b/man/systemd.directives.xml
-@@ -3198,9 +3198,9 @@
+@@ -3282,9 +3282,9 @@
  
  <varlistentry><term><filename>/usr/bin</filename></term><listitem><para><citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
@@ -978,9 +992,12 @@ index c65c0dc..d329492 100644
  
  <varlistentry><term><filename>/usr/include</filename></term><listitem><para><citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
  
-@@ -3222,139 +3222,139 @@
+@@ -3306,131 +3306,131 @@
  
  <varlistentry><term><filename>/usr/lib/sysctl.d/50-coredump.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
+ 
+-<varlistentry><term><filename>/usr/lib/systemd/*.conf.d/</filename></term><listitem><para><citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/systemd/*.conf.d/</filename></term><listitem><para><citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><filename>/usr/lib/systemd/bootchart.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/bootchart.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
@@ -988,10 +1005,11 @@ index c65c0dc..d329492 100644
 -<varlistentry><term><filename>/usr/lib/systemd/coredump.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/coredump.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
- <varlistentry><term><filename>/usr/lib/systemd/import-pubring.gpg</filename></term><listitem><para><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para></listitem></varlistentry>
+-<varlistentry><term><filename>/usr/lib/systemd/import-pubring.gpg</filename></term><listitem><para><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/systemd/import-pubring.gpg</filename></term><listitem><para><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/systemd/journald.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+-<varlistentry><term><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
++<varlistentry><term><filename>/lib/systemd/journald.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
 -<varlistentry><term><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/logind.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
@@ -1140,9 +1158,6 @@ index c65c0dc..d329492 100644
 -<varlistentry><term><filename>/usr/lib/systemd/systemd-shutdown</filename></term><listitem><para><citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/systemd-shutdown</filename></term><listitem><para><citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/systemd/systemd-shutdownd</filename></term><listitem><para><citerefentry><refentrytitle>systemd-shutdownd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/systemd/systemd-shutdownd</filename></term><listitem><para><citerefentry><refentrytitle>systemd-shutdownd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
- 
 -<varlistentry><term><filename>/usr/lib/systemd/systemd-sysctl</filename></term><listitem><para><citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/systemd-sysctl</filename></term><listitem><para><citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem></varlistentry>
  
@@ -1170,19 +1185,9 @@ index c65c0dc..d329492 100644
 -<varlistentry><term><filename>/usr/lib/systemd/timesyncd.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
 +<varlistentry><term><filename>/lib/systemd/timesyncd.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
--<varlistentry><term><filename>/usr/lib/systemd/user/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/systemd/user/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
+ <varlistentry><term><filename>/usr/lib/systemd/user/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
- <varlistentry><term><filename>/usr/lib/systemd/user-generators/</filename></term><listitem><para><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></para></listitem></varlistentry>
- 
- <varlistentry><term><filename>/usr/lib/systemd/user-preset/*.preset</filename></term><listitem><para><citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
- 
--<varlistentry><term><filename>/usr/lib/systemd/user.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
-+<varlistentry><term><filename>/lib/systemd/user.conf.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
- 
- <varlistentry><term><filename>/usr/lib/sysusers.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
- 
-@@ -3362,13 +3362,13 @@
+@@ -3446,13 +3446,13 @@
  
  <varlistentry><term><filename>/usr/lib/tmpfiles.d/*.conf</filename></term><listitem><para><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem></varlistentry>
  
@@ -1227,7 +1232,7 @@ index 3fac760..116f965 100644
      entirely.</para>
  
 diff --git a/man/systemd.netdev.xml b/man/systemd.netdev.xml
-index ef58887..a4857a6 100644
+index 01c31c5..4bf38bd 100644
 --- a/man/systemd.netdev.xml
 +++ b/man/systemd.netdev.xml
 @@ -68,7 +68,7 @@
@@ -1253,7 +1258,7 @@ index ef58887..a4857a6 100644
      entirely.</para>
  
 diff --git a/man/systemd.network.xml b/man/systemd.network.xml
-index 9738627..2b06cb3 100644
+index bdbe239..8f2fc5c 100644
 --- a/man/systemd.network.xml
 +++ b/man/systemd.network.xml
 @@ -64,7 +64,7 @@
@@ -1328,7 +1333,7 @@ index 2f9add8..a30cc5b 100644
        <programlisting>enable gdm.service
  enable colord.service
 diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
-index c2e374a..9ce8b8b 100644
+index 0aa1eea..92d0e22 100644
 --- a/man/systemd.unit.xml
 +++ b/man/systemd.unit.xml
 @@ -66,7 +66,7 @@
@@ -1377,7 +1382,7 @@ index c2e374a..9ce8b8b 100644
  
        <programlisting>[Unit]
 diff --git a/man/systemd.xml b/man/systemd.xml
-index d006b0b..192a1ec 100644
+index 4556d56..2c4e417 100644
 --- a/man/systemd.xml
 +++ b/man/systemd.xml
 @@ -438,7 +438,7 @@
@@ -1389,25 +1394,32 @@ index d006b0b..192a1ec 100644
          configuration always takes precedence. <command>pkg-config
          systemd --variable=systemdsystemconfdir</command> returns the
          path of the system configuration directory. Packages should
-@@ -1091,5 +1091,4 @@
+@@ -1081,5 +1081,4 @@
        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
      </para>
    </refsect1>
 -
  </refentry>
 diff --git a/man/timedatectl.xml b/man/timedatectl.xml
-index 98ec013..9b777b2 100644
+index 2d42b41..06d0e95 100644
 --- a/man/timedatectl.xml
 +++ b/man/timedatectl.xml
-@@ -210,7 +210,7 @@ Password: ********
+@@ -210,13 +210,13 @@ Password: ********
  
-     <programlisting>$ systemctl status chronyd.service
- chronyd.service - NTP client/server
--    Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled)
-+    Loaded: loaded (/lib/systemd/system/chronyd.service; enabled)
-     Active: active (running) since Fri, 2012-11-02 09:36:25 CET; 5s ago
+     <programlisting>$ systemctl status systemd-timesyncd.service
+ ● systemd-timesyncd.service - Network Time Synchronization
+-   Loaded: loaded (/usr/lib/systemd/system/systemd-timesyncd.service; enabled)
++   Loaded: loaded (/lib/systemd/system/systemd-timesyncd.service; enabled)
+    Active: active (running) since Mo 2015-03-30 14:20:38 CEST; 5s ago
+      Docs: man:systemd-timesyncd.service(8)
+  Main PID: 595 (systemd-timesyn)
+    Status: "Using Time Server 216.239.38.15:123 (time4.google.com)."
+    CGroup: /system.slice/systemd-timesyncd.service
+-           └─595 /usr/lib/systemd/systemd-timesyncd
++           └─595 /lib/systemd/systemd-timesyncd
  ...</programlisting>
      </para>
+   </refsect1>
 diff --git a/man/timesyncd.conf.xml b/man/timesyncd.conf.xml
 index 89a651c..9cce88b 100644
 --- a/man/timesyncd.conf.xml
@@ -1422,7 +1434,7 @@ index 89a651c..9cce88b 100644
  
    <refsect1>
 diff --git a/man/udev.xml b/man/udev.xml
-index a948ea7..d3cc373 100644
+index d1a4f61..2c94c41 100644
 --- a/man/udev.xml
 +++ b/man/udev.xml
 @@ -55,17 +55,17 @@
@@ -1446,7 +1458,7 @@ index a948ea7..d3cc373 100644
        disables the rules file entirely. Rule files must have the extension
        <filename>.rules</filename>; other extensions are ignored.</para>
  
-@@ -409,7 +409,7 @@
+@@ -421,7 +421,7 @@
                  <listitem>
                    <para>Execute an external program specified as the assigned
                    value. If no absolute path is given, the program is expected

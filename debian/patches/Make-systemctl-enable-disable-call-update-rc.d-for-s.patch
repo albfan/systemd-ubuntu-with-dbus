@@ -10,10 +10,10 @@ Closes: #709780
  1 file changed, 49 insertions(+), 10 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 4ec0cff..278f2f9 100644
+index f8e10a4..2c9daee 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5117,7 +5117,7 @@ static int import_environment(sd_bus *bus, char **args) {
+@@ -5098,7 +5098,7 @@ static int import_environment(sd_bus *bus, char **args) {
  static int enable_sysv_units(const char *verb, char **args) {
          int r = 0;
  
@@ -22,7 +22,7 @@ index 4ec0cff..278f2f9 100644
          unsigned f = 0;
          _cleanup_lookup_paths_free_ LookupPaths paths = {};
  
-@@ -5125,8 +5125,9 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5106,8 +5106,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                  return 0;
  
          if (!streq(verb, "enable") &&
@@ -34,7 +34,7 @@ index 4ec0cff..278f2f9 100644
                  return 0;
  
          /* Processes all SysV units, and reshuffles the array so that
-@@ -5142,7 +5143,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5123,7 +5124,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                  bool found_native = false, found_sysv;
                  unsigned c = 1;
@@ -43,7 +43,7 @@ index 4ec0cff..278f2f9 100644
                  char **k;
                  int j;
                  pid_t pid;
-@@ -5180,17 +5181,55 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5161,17 +5162,55 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  

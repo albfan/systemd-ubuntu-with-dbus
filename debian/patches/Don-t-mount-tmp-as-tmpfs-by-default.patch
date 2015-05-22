@@ -13,24 +13,22 @@ the next reboot and “systemctl start tmp.mount” to get /tmp mounted as
 tmpfs right now (beware, files currently in /tmp will not be visible
 anymore afterwards).
 ---
- Makefile.am     | 3 +--
+ Makefile.am     | 1 -
  units/tmp.mount | 3 +++
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index aadaad2..0a811e9 100644
+index 3821ee5..6d9609e 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -6452,8 +6452,7 @@ SYSINIT_TARGET_WANTS += \
- 	systemd-update-done.service
+@@ -6682,7 +6682,6 @@ SYSINIT_TARGET_WANTS += \
  
  LOCAL_FS_TARGET_WANTS += \
--	systemd-remount-fs.service \
--	tmp.mount
-+	systemd-remount-fs.service
+ 	systemd-remount-fs.service \
+-	tmp.mount \
+ 	var-lib-machines.mount
  
  MULTI_USER_TARGET_WANTS += \
- 	getty.target \
 diff --git a/units/tmp.mount b/units/tmp.mount
 index 00a0d28..8777171 100644
 --- a/units/tmp.mount

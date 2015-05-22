@@ -1,13 +1,12 @@
 From: Didier Roche <didrocks@ubuntu.com>
-Date: Thu, 9 Apr 2015 11:56:51 +0200
+Date: Fri, 22 May 2015 13:04:38 +0200
 Subject: fsckd daemon for inter-fsckd communication
 
 Global logic:
-Add systemd-fsckd multiplexer which accepts multiple (via systemd-fsck)
-fsck instances to connect to it and sends progress report. systemd-fsckd then
-computes and writes to /dev/console the number of devices currently being
-checked and the minimum fsck progress. Make the necessary changes to
-systemd-fsck to connect to pass fsck to the systemd-fsckd socket.
+Add systemd-fsckd multiplexer which accepts multiple (via systemd-fsck's
+/run/systemd/fsck.progress socket) fsck instances to connect to it and sends
+progress report. systemd-fsckd then computes and writes to /dev/console the
+number of devices currently being checked and the minimum fsck progress.
 
 Plymouth and user interaction:
 Forward the progress to plymouth and support canellation of in progress fsck.
@@ -37,36 +36,28 @@ Misc:
 systemd-fsckd stops on idle when no fsck is connected.
 Add man page explaining the plymouth theme protocol, usage of the daemon
 as well as the socket activation part. Adapt existing fsck man page.
-Also, add mock fsck process.
 
-Note that this patch (without fsck direct connexion to systemd-fsckd) lived it
-upstream tree for a while, but was removed. More information at
+Note that fsckd had lived in the upstream tree for a while, but was removed.
+More information at
 http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
+-
 ---
  Makefile-man.am                    |  12 +
- Makefile.am                        |  17 +
- man/systemd-fsck@.service.xml      |  31 +-
+ Makefile.am                        |  16 +
  man/systemd-fsckd.service.xml      | 162 +++++++++
- src/fsck/fsck.c                    | 195 ++++-------
- src/fsckd/Makefile                 |   1 +
  src/fsckd/fsckd.c                  | 680 +++++++++++++++++++++++++++++++++++++
- src/fsckd/fsckd.h                  |  25 ++
- test/mocks/fsck                    |  27 ++
- units/systemd-fsck-root.service.in |   3 +-
- units/systemd-fsck@.service.in     |   4 +-
+ units/systemd-fsck-root.service.in |   2 +
+ units/systemd-fsck@.service.in     |   3 +-
  units/systemd-fsckd.service.in     |  17 +
  units/systemd-fsckd.socket         |  15 +
- 13 files changed, 1045 insertions(+), 144 deletions(-)
+ 8 files changed, 906 insertions(+), 1 deletion(-)
  create mode 100644 man/systemd-fsckd.service.xml
- create mode 120000 src/fsckd/Makefile
  create mode 100644 src/fsckd/fsckd.c
- create mode 100644 src/fsckd/fsckd.h
- create mode 100755 test/mocks/fsck
  create mode 100644 units/systemd-fsckd.service.in
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index d0fb9aa..7a9612e 100644
+index 85579e0..d52f445 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
 @@ -66,6 +66,7 @@ MANPAGES += \
@@ -77,7 +68,7 @@ index d0fb9aa..7a9612e 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -209,6 +210,8 @@ MANPAGES_ALIAS += \
+@@ -208,6 +209,8 @@ MANPAGES_ALIAS += \
  	man/systemd-ask-password-wall.service.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -86,7 +77,7 @@ index d0fb9aa..7a9612e 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -321,6 +324,8 @@ man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
+@@ -318,6 +321,8 @@ man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
  man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
@@ -95,7 +86,7 @@ index d0fb9aa..7a9612e 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -601,6 +606,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -596,6 +601,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -108,7 +99,7 @@ index d0fb9aa..7a9612e 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -1738,6 +1749,7 @@ EXTRA_DIST += \
+@@ -1808,6 +1819,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -117,10 +108,10 @@ index d0fb9aa..7a9612e 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 5c9e5cd..7974185 100644
+index f3691bc..85f5cab 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -391,6 +391,7 @@ rootlibexec_PROGRAMS = \
+@@ -399,6 +399,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -128,15 +119,15 @@ index 5c9e5cd..7974185 100644
  	systemd-machine-id-commit \
  	systemd-ac-power \
  	systemd-sysctl \
-@@ -495,6 +496,7 @@ dist_systemunit_DATA = \
+@@ -503,6 +504,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
  	units/x-.slice \
 +	units/systemd-fsckd.socket \
  	units/systemd-initctl.socket \
- 	units/systemd-shutdownd.socket \
  	units/syslog.socket \
-@@ -546,6 +548,7 @@ nodist_systemunit_DATA = \
+ 	units/dev-hugepages.mount \
+@@ -553,6 +555,7 @@ nodist_systemunit_DATA = \
  	units/systemd-kexec.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
@@ -144,7 +135,7 @@ index 5c9e5cd..7974185 100644
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -604,6 +607,7 @@ EXTRA_DIST += \
+@@ -610,6 +613,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \
@@ -152,13 +143,12 @@ index 5c9e5cd..7974185 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2362,6 +2366,19 @@ systemd_fsck_LDADD = \
+@@ -2396,6 +2400,18 @@ systemd_fsck_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------
 +systemd_fsckd_SOURCES = \
 +	src/fsckd/fsckd.c \
-+	src/fsckd/fsckd.h \
 +	$(NULL)
 +
 +systemd_fsckd_LDADD = \
@@ -172,63 +162,6 @@ index 5c9e5cd..7974185 100644
  systemd_machine_id_commit_SOURCES = \
  	src/machine-id-commit/machine-id-commit.c \
  	src/core/machine-id-setup.c \
-diff --git a/man/systemd-fsck@.service.xml b/man/systemd-fsck@.service.xml
-index 32ba062..aff212f 100644
---- a/man/systemd-fsck@.service.xml
-+++ b/man/systemd-fsck@.service.xml
-@@ -50,7 +50,7 @@
-   <refsynopsisdiv>
-     <para><filename>systemd-fsck@.service</filename></para>
-     <para><filename>systemd-fsck-root.service</filename></para>
--    <para><filename>/lib/systemd/systemd-fsck</filename></para>
-+    <para><filename>/usr/lib/systemd/systemd-fsck</filename></para>
-   </refsynopsisdiv>
- 
-   <refsect1>
-@@ -80,11 +80,11 @@
-     the filesystem should actually be checked based on the time since
-     last check, number of mounts, unclean unmount, etc.</para>
- 
--    <para><filename>systemd-fsck</filename> will forward file system
--    checking progress to the console. If a file system check fails for
--    a service without <option>nofail</option>, emergency mode is
--    activated, by isolating to
--    <filename>emergency.target</filename>.</para>
-+    <para><filename>systemd-fsck</filename> will forward fsck socket
-+    for checking progress to <filename>systemd-fsckd.service</filename>
-+    socket. If a file system check fails for a service without
-+    <option>nofail</option>, emergency mode is activated, by isolating
-+    to <filename>emergency.target</filename>.</para>
-   </refsect1>
- 
-   <refsect1>
-@@ -125,16 +125,17 @@
-     <title>See Also</title>
-     <para>
-       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-       <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.hfsplus</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.minix</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.ntfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
--      <citerefentry><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-+      <citerefentry project='man-pages'><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.hfsplus</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.minix</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.ntfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-+      <citerefentry project='man-pages'><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-     </para>
-   </refsect1>
-+
- </refentry>
 diff --git a/man/systemd-fsckd.service.xml b/man/systemd-fsckd.service.xml
 new file mode 100644
 index 0000000..c976062
@@ -397,357 +330,9 @@ index 0000000..c976062
 +  </refsect1>
 +
 +</refentry>
-diff --git a/src/fsck/fsck.c b/src/fsck/fsck.c
-index 78ceeb6..b3dbd29 100644
---- a/src/fsck/fsck.c
-+++ b/src/fsck/fsck.c
-@@ -22,11 +22,12 @@
- 
- #include <stdio.h>
- #include <stdbool.h>
--#include <string.h>
- #include <errno.h>
- #include <unistd.h>
- #include <fcntl.h>
- #include <sys/file.h>
-+#include <sys/stat.h>
-+#include <sys/socket.h>
- 
- #include "sd-bus.h"
- #include "libudev.h"
-@@ -36,13 +37,13 @@
- #include "bus-util.h"
- #include "bus-error.h"
- #include "bus-common-errors.h"
--#include "fileio.h"
- #include "udev-util.h"
- #include "path-util.h"
-+#include "socket-util.h"
-+#include "fsckd/fsckd.h"
- 
- static bool arg_skip = false;
- static bool arg_force = false;
--static bool arg_show_progress = false;
- static const char *arg_repair = "-a";
- 
- static void start_target(const char *target) {
-@@ -128,88 +129,26 @@ static void test_files(void) {
-         }
- #endif
- 
--        if (access("/run/systemd/show-status", F_OK) >= 0 || plymouth_running())
--                arg_show_progress = true;
- }
- 
--static double percent(int pass, unsigned long cur, unsigned long max) {
--        /* Values stolen from e2fsck */
--
--        static const int pass_table[] = {
--                0, 70, 90, 92, 95, 100
-+static int make_progress_fd(void) {
-+        static const union sockaddr_union sa = {
-+                .un.sun_family = AF_UNIX,
-+                .un.sun_path = FSCKD_SOCKET_PATH,
-         };
-+        int fsck_fd;
- 
--        if (pass <= 0)
--                return 0.0;
--
--        if ((unsigned) pass >= ELEMENTSOF(pass_table) || max == 0)
--                return 100.0;
--
--        return (double) pass_table[pass-1] +
--                ((double) pass_table[pass] - (double) pass_table[pass-1]) *
--                (double) cur / (double) max;
--}
--
--static int process_progress(int fd) {
--        _cleanup_fclose_ FILE *console = NULL, *f = NULL;
--        usec_t last = 0;
--        bool locked = false;
--        int clear = 0;
--
--        f = fdopen(fd, "r");
--        if (!f) {
--                safe_close(fd);
--                return -errno;
--        }
--
--        console = fopen("/dev/console", "we");
--        if (!console)
--                return -ENOMEM;
--
--        while (!feof(f)) {
--                int pass, m;
--                unsigned long cur, max;
--                _cleanup_free_ char *device = NULL;
--                double p;
--                usec_t t;
--
--                if (fscanf(f, "%i %lu %lu %ms", &pass, &cur, &max, &device) != 4)
--                        break;
-+        fsck_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-+        if (fsck_fd < 0)
-+                return log_warning_errno(errno, "Cannot crate fsck socket, we won't report fsck progress: %m");
- 
--                /* Only show one progress counter at max */
--                if (!locked) {
--                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0)
--                                continue;
-+        if (shutdown(fsck_fd, SHUT_RD) < 0)
-+                return log_warning_errno(errno, "Cannot make fsck socket write-only, we won't report fsck progress: %m");
- 
--                        locked = true;
--                }
--
--                /* Only update once every 50ms */
--                t = now(CLOCK_MONOTONIC);
--                if (last + 50 * USEC_PER_MSEC > t)
--                        continue;
--
--                last = t;
--
--                p = percent(pass, cur, max);
--                fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
--                fflush(console);
--
--                if (m > clear)
--                        clear = m;
--        }
--
--        if (clear > 0) {
--                unsigned j;
--
--                fputc('\r', console);
--                for (j = 0; j < (unsigned) clear; j++)
--                        fputc(' ', console);
--                fputc('\r', console);
--                fflush(console);
--        }
-+        if (connect(fsck_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
-+                return log_warning_errno(errno, "Cannot connect to fsckd socket, we won't report fsck progress: %m");
- 
--        return 0;
-+        return fsck_fd;
- }
- 
- int main(int argc, char *argv[]) {
-@@ -221,8 +160,9 @@ int main(int argc, char *argv[]) {
-         _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
-         const char *device, *type;
-         bool root_directory;
--        int progress_pipe[2] = { -1, -1 };
-+        _cleanup_close_ int fsck_fd = -1;
-         char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
-+        int fd_arg_index = -1;
-         struct stat st;
- 
-         if (argc > 2) {
-@@ -242,13 +182,15 @@ int main(int argc, char *argv[]) {
- 
-         test_files();
- 
--        if (!arg_force && arg_skip)
--                return 0;
-+        if (!arg_force && arg_skip) {
-+                r = 0;
-+                goto finish;
-+        }
- 
-         udev = udev_new();
-         if (!udev) {
--                log_oom();
--                return EXIT_FAILURE;
-+                r = log_oom();
-+                goto finish;
-         }
- 
-         if (argc > 1) {
-@@ -256,14 +198,14 @@ int main(int argc, char *argv[]) {
-                 root_directory = false;
- 
-                 if (stat(device, &st) < 0) {
--                        log_error_errno(errno, "Failed to stat '%s': %m", device);
--                        return EXIT_FAILURE;
-+                        r = log_error_errno(errno, "Failed to stat '%s': %m", device);
-+                        goto finish;
-                 }
- 
-                 udev_device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-                 if (!udev_device) {
--                        log_error("Failed to detect device %s", device);
--                        return EXIT_FAILURE;
-+                        r = log_error_errno(errno, "Failed to detect device %s", device);
-+                        goto finish;
-                 }
-         } else {
-                 struct timespec times[2];
-@@ -271,32 +213,37 @@ int main(int argc, char *argv[]) {
-                 /* Find root device */
- 
-                 if (stat("/", &st) < 0) {
--                        log_error_errno(errno, "Failed to stat() the root directory: %m");
--                        return EXIT_FAILURE;
-+                        r = log_error_errno(errno, "Failed to stat() the root directory: %m");
-+                        goto finish;
-                 }
- 
-                 /* Virtual root devices don't need an fsck */
--                if (major(st.st_dev) == 0)
--                        return EXIT_SUCCESS;
-+                if (major(st.st_dev) == 0) {
-+                        log_debug("Root directory is virtual, skipping check.");
-+                        r = 0;
-+                        goto finish;
-+                }
- 
-                 /* check if we are already writable */
-                 times[0] = st.st_atim;
-                 times[1] = st.st_mtim;
-                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
-                         log_info("Root directory is writable, skipping check.");
--                        return EXIT_SUCCESS;
-+                        r = 0;
-+                        goto finish;
-                 }
- 
-                 udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
-                 if (!udev_device) {
--                        log_error("Failed to detect root device.");
--                        return EXIT_FAILURE;
-+                        r = log_error_errno(errno, "Failed to detect root device.");
-+                        goto finish;
-                 }
- 
-                 device = udev_device_get_devnode(udev_device);
-                 if (!device) {
-                         log_error("Failed to detect device node of root directory.");
--                        return EXIT_FAILURE;
-+                        r = -ENXIO;
-+                        goto finish;
-                 }
- 
-                 root_directory = true;
-@@ -307,17 +254,12 @@ int main(int argc, char *argv[]) {
-                 r = fsck_exists(type);
-                 if (r == -ENOENT) {
-                         log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
--                        return EXIT_SUCCESS;
-+                        r = 0;
-+                        goto finish;
-                 } else if (r < 0)
-                         log_warning_errno(r, "fsck.%s cannot be used for %s: %m", type, device);
-         }
- 
--        if (arg_show_progress)
--                if (pipe(progress_pipe) < 0) {
--                        log_error_errno(errno, "pipe(): %m");
--                        return EXIT_FAILURE;
--                }
--
-         cmdline[i++] = "/sbin/fsck";
-         cmdline[i++] =  arg_repair;
-         cmdline[i++] = "-T";
-@@ -335,36 +277,37 @@ int main(int argc, char *argv[]) {
-         if (arg_force)
-                 cmdline[i++] = "-f";
- 
--        if (progress_pipe[1] >= 0) {
--                xsprintf(dash_c, "-C%i", progress_pipe[1]);
--                cmdline[i++] = dash_c;
--        }
--
-+        /* mark index for -C arg */
-+        fd_arg_index = i++;
-         cmdline[i++] = device;
-         cmdline[i++] = NULL;
- 
-         pid = fork();
-         if (pid < 0) {
--                log_error_errno(errno, "fork(): %m");
-+                r = log_error_errno(errno, "fork(): %m");
-                 goto finish;
-         } else if (pid == 0) {
-                 /* Child */
--                if (progress_pipe[0] >= 0)
--                        safe_close(progress_pipe[0]);
--                execv(cmdline[0], (char**) cmdline);
--                _exit(8); /* Operational error */
--        }
- 
--        progress_pipe[1] = safe_close(progress_pipe[1]);
-+                /* create and connect systemd-fsckd socket to fsck fd.
-+                   only log a warning if progress couldn't be reported
-+                   but don't stop. */
-+                fsck_fd = make_progress_fd();
-+                if (fsck_fd >= 0) {
-+                        xsprintf(dash_c, "-C%i", fsck_fd);
-+                        cmdline[fd_arg_index] = dash_c;
-+                } else
-+                        /* put in a harmless and redundant option */
-+                        cmdline[fd_arg_index] = "-T";
- 
--        if (progress_pipe[0] >= 0) {
--                process_progress(progress_pipe[0]);
--                progress_pipe[0] = -1;
-+                execv(cmdline[0], (char**) cmdline);
-+                _exit(8); /* Operational error */
-         }
-+        safe_close(fsck_fd);
- 
--        q = wait_for_terminate(pid, &status);
--        if (q < 0) {
--                log_error_errno(q, "waitid(): %m");
-+        r = wait_for_terminate(pid, &status);
-+        if (r < 0) {
-+                log_error_errno(r, "waitid(): %m");
-                 goto finish;
-         }
- 
-@@ -377,25 +320,25 @@ int main(int argc, char *argv[]) {
-                 else
-                         log_error("fsck failed due to unknown reason.");
- 
-+                r = -EINVAL;
-+
-                 if (status.si_code == CLD_EXITED && (status.si_status & 2) && root_directory)
-                         /* System should be rebooted. */
-                         start_target(SPECIAL_REBOOT_TARGET);
-                 else if (status.si_code == CLD_EXITED && (status.si_status & 6))
-                         /* Some other problem */
-                         start_target(SPECIAL_EMERGENCY_TARGET);
--                else {
--                        r = EXIT_SUCCESS;
-+                else if (status.si_status == 15) {
-+                        r = 0;
-                         log_warning("Ignoring error.");
-                 }
- 
-         } else
--                r = EXIT_SUCCESS;
-+                r = 0;
- 
-         if (status.si_code == CLD_EXITED && (status.si_status & 1))
-                 touch("/run/systemd/quotacheck");
- 
- finish:
--        safe_close_pair(progress_pipe);
--
--        return r;
-+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
- }
-diff --git a/src/fsckd/Makefile b/src/fsckd/Makefile
-new file mode 120000
-index 0000000..d0b0e8e
---- /dev/null
-+++ b/src/fsckd/Makefile
-@@ -0,0 +1 @@
-+../Makefile
-\ No newline at end of file
 diff --git a/src/fsckd/fsckd.c b/src/fsckd/fsckd.c
 new file mode 100644
-index 0000000..31add9b
+index 0000000..e170d7f
 --- /dev/null
 +++ b/src/fsckd/fsckd.c
 @@ -0,0 +1,680 @@
@@ -796,8 +381,8 @@ index 0000000..31add9b
 +#include "macro.h"
 +#include "socket-util.h"
 +#include "util.h"
-+#include "fsckd.h"
 +
++#define FSCKD_SOCKET_PATH "/run/systemd/fsck.progress"
 +#define IDLE_TIME_SECONDS 30
 +#define PLYMOUTH_REQUEST_KEY "K\2\2\3"
 +#define CLIENTS_MAX 128
@@ -1431,75 +1016,11 @@ index 0000000..31add9b
 +finish:
 +        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 +}
-diff --git a/src/fsckd/fsckd.h b/src/fsckd/fsckd.h
-new file mode 100644
-index 0000000..27a0d6b
---- /dev/null
-+++ b/src/fsckd/fsckd.h
-@@ -0,0 +1,25 @@
-+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-+
-+/***
-+  This file is part of systemd.
-+
-+  Copyright 2015 Canonical
-+
-+  Author:
-+    Didier Roche <didrocks@ubuntu.com>
-+
-+  systemd is free software; you can redistribute it and/or modify it
-+  under the terms of the GNU Lesser General Public License as published by
-+  the Free Software Foundation; either version 2.1 of the License, or
-+  (at your option) any later version.
-+
-+  systemd is distributed in the hope that it will be useful, but
-+  WITHOUT ANY WARRANTY; without even the implied warranty of
-+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+  Lesser General Public License for more details.
-+
-+  You should have received a copy of the GNU Lesser General Public License
-+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-+***/
-+
-+#define FSCKD_SOCKET_PATH "/run/systemd/fsckd"
-diff --git a/test/mocks/fsck b/test/mocks/fsck
-new file mode 100755
-index 0000000..77b50d7
---- /dev/null
-+++ b/test/mocks/fsck
-@@ -0,0 +1,27 @@
-+#!/bin/bash
-+fd=0
-+
-+OPTIND=1
-+while getopts "C:aTlM" opt; do
-+    case "$opt" in
-+        C)
-+            fd=$OPTARG
-+            ;;
-+        \?);;
-+    esac
-+done
-+
-+shift "$((OPTIND-1))"
-+device=$1
-+
-+echo "Running fake fsck on $device"
-+
-+declare -a maxpass=(30 5 2 30 60)
-+
-+for pass in {1..5}; do
-+    maxprogress=${maxpass[$((pass-1))]}
-+    for (( current=0; current<=${maxprogress}; current++)); do
-+        echo "$pass $current $maxprogress $device">&$fd
-+        sleep 0.1
-+    done
-+done
 diff --git a/units/systemd-fsck-root.service.in b/units/systemd-fsck-root.service.in
-index 6d76578..f493445 100644
+index 3617abf..f493445 100644
 --- a/units/systemd-fsck-root.service.in
 +++ b/units/systemd-fsck-root.service.in
-@@ -9,12 +9,13 @@
+@@ -9,7 +9,9 @@
  Description=File System Check on Root Device
  Documentation=man:systemd-fsck-root.service(8)
  DefaultDependencies=no
@@ -1509,16 +1030,11 @@ index 6d76578..f493445 100644
  ConditionPathIsReadWrite=!/
  
  [Service]
- Type=oneshot
- RemainAfterExit=yes
- ExecStart=@rootlibexecdir@/systemd-fsck
--StandardOutput=journal+console
- TimeoutSec=0
 diff --git a/units/systemd-fsck@.service.in b/units/systemd-fsck@.service.in
-index 857e625..e6d98c0 100644
+index 0468392..e6d98c0 100644
 --- a/units/systemd-fsck@.service.in
 +++ b/units/systemd-fsck@.service.in
-@@ -10,12 +10,12 @@ Description=File System Check on %f
+@@ -10,7 +10,8 @@ Description=File System Check on %f
  Documentation=man:systemd-fsck@.service(8)
  DefaultDependencies=no
  BindsTo=%i.device
@@ -1528,11 +1044,6 @@ index 857e625..e6d98c0 100644
  Before=shutdown.target
  
  [Service]
- Type=oneshot
- RemainAfterExit=yes
- ExecStart=@rootlibexecdir@/systemd-fsck %f
--StandardOutput=journal+console
- TimeoutSec=0
 diff --git a/units/systemd-fsckd.service.in b/units/systemd-fsckd.service.in
 new file mode 100644
 index 0000000..9c7ed51
@@ -1558,7 +1069,7 @@ index 0000000..9c7ed51
 +StandardOutput=journal+console
 diff --git a/units/systemd-fsckd.socket b/units/systemd-fsckd.socket
 new file mode 100644
-index 0000000..92e8eef
+index 0000000..61fec97
 --- /dev/null
 +++ b/units/systemd-fsckd.socket
 @@ -0,0 +1,15 @@
@@ -1575,5 +1086,5 @@ index 0000000..92e8eef
 +DefaultDependencies=no
 +
 +[Socket]
-+ListenStream=/run/systemd/fsckd
++ListenStream=/run/systemd/fsck.progress
 +SocketMode=0600

@@ -11,10 +11,10 @@ ourselves even if update-rc.d handled the corresponding SysV unit.
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 278f2f9..9a44839 100644
+index 2c9daee..32eb396 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5169,9 +5169,6 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5150,9 +5150,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                                  break;
                  }
  
@@ -24,7 +24,7 @@ index 278f2f9..9a44839 100644
                  p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
                  if (!p)
                          return log_oom();
-@@ -5181,7 +5178,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5162,7 +5159,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
@@ -33,7 +33,7 @@ index 278f2f9..9a44839 100644
  
                  if (!isempty(arg_root) && !streq(arg_root, "/")) {
                      log_error("Can not run update-rc.d when a root directory other than / is specified");
-@@ -5268,6 +5265,9 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5249,6 +5246,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                  } else
                          return -EPROTO;
  

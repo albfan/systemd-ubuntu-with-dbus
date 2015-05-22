@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/777601
  2 files changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index 10fdcc9..069d857 100644
+index 6474e08..c7533fe 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -839,7 +839,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
+@@ -840,7 +840,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
          if (!u->cgroup_path)
                  return;
  
@@ -27,10 +27,10 @@ index 10fdcc9..069d857 100644
                  log_debug_errno(r, "Failed to destroy cgroup %s: %m", u->cgroup_path);
                  return;
 diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
-index dfd8689..eae4d59 100644
+index c0b0ca4..0ba9dd5 100644
 --- a/src/shared/cgroup-util.c
 +++ b/src/shared/cgroup-util.c
-@@ -1626,8 +1626,6 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
+@@ -1751,8 +1751,6 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
          NULSTR_FOREACH(n, mask_names) {
                  if (mask & bit)
                          cg_create(n, path);

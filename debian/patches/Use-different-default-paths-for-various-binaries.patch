@@ -12,10 +12,10 @@ paths.  Closes: #721347
  1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 3f17532..f5929ab 100644
+index 48cedb5..e66cd0f 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -88,18 +88,18 @@ AC_PROG_CC_C99
+@@ -87,18 +87,18 @@ AC_PROG_CC_C99
  AC_PATH_PROG([M4], [m4])
  AC_PATH_PROG([XSLTPROC], [xsltproc])
  
@@ -39,9 +39,9 @@ index 3f17532..f5929ab 100644
 -AC_PATH_PROG([SULOGIN], [sulogin], [/usr/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
 +AC_PATH_PROG([SULOGIN], [sulogin], [/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
  
- AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
- 
-@@ -1202,13 +1202,13 @@ AC_ARG_WITH(kbd-loadkeys,
+ AC_PATH_PROG([MOUNT_PATH], [mount], [/usr/bin/mount], [$PATH:/usr/sbin:/sbin])
+ AC_PATH_PROG([UMOUNT_PATH], [umount], [/usr/bin/umount], [$PATH:/usr/sbin:/sbin])
+@@ -1267,13 +1267,13 @@ AC_ARG_WITH(kbd-loadkeys,
          AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                  [Path to loadkeys]),
          [KBD_LOADKEYS="$withval"],
