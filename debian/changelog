@@ -11,6 +11,8 @@ systemd (220-1) UNRELEASED; urgency=medium
   * Cherry-pick patch to fix udevd --daemon assertion regression.
   * systemd.install: systemd.pc moved back into /usr/share/pkgconfig/.
   * libsystemd0.symbols: Add new symbols from this release.
+  * Drop debian/extra/60-keyboard.hwdb for now. Upstream has a newer version,
+    and it's not nearly as often updated any more as it used to be.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 

@@ -15,7 +15,7 @@ usr/share/bash-completion/completions/udevadm
 usr/share/pkgconfig/udev.pc
 ../../extra/initramfs-tools usr/share/
 ../../extra/rules/*.rules lib/udev/rules.d/
-../../extra/*.hwdb lib/udev/hwdb.d/
+#../../extra/*.hwdb lib/udev/hwdb.d/
 ../../extra/fbdev-blacklist.conf etc/modprobe.d/
 ../../extra/udev-helpers/* lib/udev/
 ../../extra/udev-finish.service lib/systemd/system/
