@@ -6,6 +6,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  LIBSYSTEMD_216@LIBSYSTEMD_216 217
  LIBSYSTEMD_217@LIBSYSTEMD_217 217
  LIBSYSTEMD_219@LIBSYSTEMD_219 219
+ LIBSYSTEMD_220@LIBSYSTEMD_220 220
  sd_booted@LIBSYSTEMD_209 0
  sd_get_machine_names@LIBSYSTEMD_209 0
  sd_get_seats@LIBSYSTEMD_209 0
@@ -90,16 +91,18 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_peer_get_session@LIBSYSTEMD_211 211
  sd_peer_get_slice@LIBSYSTEMD_211 211
  sd_peer_get_unit@LIBSYSTEMD_211 211
+ sd_peer_get_user_slice@LIBSYSTEMD_220 220
  sd_peer_get_user_unit@LIBSYSTEMD_211 211
- sd_pid_notify@LIBSYSTEMD_214 214
- sd_pid_notify_with_fds@LIBSYSTEMD_219 219
- sd_pid_notifyf@LIBSYSTEMD_214 214
  sd_pid_get_machine_name@LIBSYSTEMD_209 0
  sd_pid_get_owner_uid@LIBSYSTEMD_209 0
  sd_pid_get_session@LIBSYSTEMD_209 0
  sd_pid_get_slice@LIBSYSTEMD_209 0
  sd_pid_get_unit@LIBSYSTEMD_209 0
+ sd_pid_get_user_slice@LIBSYSTEMD_220 220
  sd_pid_get_user_unit@LIBSYSTEMD_209 0
+ sd_pid_notify@LIBSYSTEMD_214 214
+ sd_pid_notify_with_fds@LIBSYSTEMD_219 219
+ sd_pid_notifyf@LIBSYSTEMD_214 214
  sd_seat_can_graphical@LIBSYSTEMD_209 0
  sd_seat_can_multi_session@LIBSYSTEMD_209 0
  sd_seat_can_tty@LIBSYSTEMD_209 0
