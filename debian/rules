@@ -91,9 +91,11 @@ override_dh_auto_configure:
 		-- $(CONFFLAGS) $(CONFFLAGS_deb)
 	dh_auto_configure --builddirectory=build-udeb \
 		-- $(CONFFLAGS) $(CONFFLAGS_udeb)
-	# workaround for broken 220 tarball, see
+	# workarounds for broken 220 tarball, see
 	# http://lists.freedesktop.org/archives/systemd-devel/2015-May/032148.html
 	rm -f src/journal/audit_type-to-name.h
+	# http://lists.freedesktop.org/archives/systemd-devel/2015-May/032148.html
+	rm -f src/udev/keyboard-keys-from-name.gperf
 
 override_dh_auto_build:
 	dh_auto_build --builddirectory=build-deb

@@ -13,8 +13,9 @@ systemd (220-1) UNRELEASED; urgency=medium
   * libsystemd0.symbols: Add new symbols from this release.
   * Drop debian/extra/60-keyboard.hwdb for now. Upstream has a newer version,
     and it's not nearly as often updated any more as it used to be.
-  * debian/rules: Remove shipped audit_type-to-name.h and regenerate it
-    during build.
+  * debian/rules: Remove shipped audit_type-to-name.h and
+    keyboard-keys-from-name.gperf and regenerate them during build (bug in
+    upstream 220 tarball).
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
