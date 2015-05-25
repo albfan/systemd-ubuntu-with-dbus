@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-GETTY\-GENERATOR" "8" "" "systemd 219" "systemd-getty-generator"
+.TH "SYSTEMD\-GETTY\-GENERATOR" "8" "" "systemd 220" "systemd-getty-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -45,11 +45,11 @@ for more information on the
 kernel parameter\&.
 .PP
 systemd\-getty\-generator
-implements the
-\m[blue]\fBgenerator specification\fR\m[]\&\s-2\u[3]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .PP
 Further information about configuration of gettys you may find in
-\m[blue]\fBsystemd for Administrators, Part XVI: Gettys on Serial Consoles (and Elsewhere)\fR\m[]\&\s-2\u[4]\d\s+2\&.
+\m[blue]\fBsystemd for Administrators, Part XVI: Gettys on Serial Consoles (and Elsewhere)\fR\m[]\&\s-2\u[3]\d\s+2\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
@@ -67,11 +67,6 @@ kernel-parameters.txt
 \%https://www.kernel.org/doc/Documentation/kernel-parameters.txt
 .RE
 .IP " 3." 4
-generator specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
-.RE
-.IP " 4." 4
 systemd for Administrators, Part XVI: Gettys on Serial Consoles (and Elsewhere)
 .RS 4
 \%http://0pointer.de/blog/projects/serial-console.html

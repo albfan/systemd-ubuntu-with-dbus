@@ -23,7 +23,6 @@
 
 #include "ethtool-util.h"
 #include "condition.h"
-#include "util.h"
 #include "list.h"
 #include "libudev.h"
 
@@ -67,8 +66,8 @@ struct link_config {
         NamePolicy *name_policy;
         char *name;
         char *alias;
-        unsigned int mtu;
-        unsigned int speed;
+        size_t mtu;
+        size_t speed;
         Duplex duplex;
         WakeOnLan wol;
 

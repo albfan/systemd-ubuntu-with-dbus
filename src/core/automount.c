@@ -32,8 +32,6 @@
 #include "unit.h"
 #include "automount.h"
 #include "mount.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "unit-name.h"
 #include "special.h"
 #include "label.h"
@@ -42,6 +40,9 @@
 #include "dbus-automount.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "async.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -49,6 +50,22 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
         [AUTOMOUNT_FAILED] = UNIT_FAILED
 };
+
+struct expire_data {
+        int dev_autofs_fd;
+        int ioctl_fd;
+};
+
+static inline void expire_data_free(struct expire_data *data) {
+        if (!data)
+                return;
+
+        safe_close(data->dev_autofs_fd);
+        safe_close(data->ioctl_fd);
+        free(data);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data*, expire_data_free);
 
 static int open_dev_autofs(Manager *m);
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata);
@@ -81,13 +98,16 @@ static void repeat_unmount(const char *path) {
         }
 }
 
+static int automount_send_ready(Automount *a, Set *tokens, int status);
+
 static void unmount_autofs(Automount *a) {
         assert(a);
 
         if (a->pipe_fd < 0)
                 return;
 
-        automount_send_ready(a, -EHOSTDOWN);
+        automount_send_ready(a, a->tokens, -EHOSTDOWN);
+        automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
 
         a->pipe_event_source = sd_event_source_unref(a->pipe_event_source);
         a->pipe_fd = safe_close(a->pipe_fd);
@@ -112,6 +132,10 @@ static void automount_done(Unit *u) {
 
         set_free(a->tokens);
         a->tokens = NULL;
+        set_free(a->expire_tokens);
+        a->expire_tokens = NULL;
+
+        a->expire_event_source = sd_event_source_unref(a->expire_event_source);
 }
 
 static int automount_add_mount_links(Automount *a) {
@@ -132,7 +156,7 @@ static int automount_add_default_dependencies(Automount *a) {
 
         assert(a);
 
-        if (UNIT(a)->manager->running_as != SYSTEMD_SYSTEM)
+        if (UNIT(a)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
@@ -143,26 +167,25 @@ static int automount_add_default_dependencies(Automount *a) {
 }
 
 static int automount_verify(Automount *a) {
-        bool b;
         _cleanup_free_ char *e = NULL;
+        int r;
+
         assert(a);
 
         if (UNIT(a)->load_state != UNIT_LOADED)
                 return 0;
 
         if (path_equal(a->where, "/")) {
-                log_unit_error(UNIT(a)->id, "Cannot have an automount unit for the root directory. Refusing.");
+                log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
                 return -EINVAL;
         }
 
-        e = unit_name_from_path(a->where, ".automount");
-        if (!e)
-                return -ENOMEM;
+        r = unit_name_from_path(a->where, ".automount", &e);
+        if (r < 0)
+                return log_unit_error(UNIT(a), "Failed to generate unit name from path: %m");
 
-        b = unit_has_name(UNIT(a), e);
-
-        if (!b) {
-                log_unit_error(UNIT(a)->id, "%s's Where setting doesn't match unit name. Refusing.", UNIT(a)->id);
+        if (!unit_has_name(UNIT(a), e)) {
+                log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");
                 return -EINVAL;
         }
 
@@ -185,9 +208,9 @@ static int automount_load(Unit *u) {
                 Unit *x;
 
                 if (!a->where) {
-                        a->where = unit_name_to_path(u->id);
-                        if (!a->where)
-                                return -ENOMEM;
+                        r = unit_name_to_path(u->id, &a->where);
+                        if (r < 0)
+                                return r;
                 }
 
                 path_kill_slashes(a->where);
@@ -226,11 +249,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
                 unmount_autofs(a);
 
         if (state != old_state)
-                log_unit_debug(UNIT(a)->id,
-                               "%s changed %s -> %s",
-                               UNIT(a)->id,
-                               automount_state_to_string(old_state),
-                               automount_state_to_string(state));
+                log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
 
         unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], true);
 }
@@ -250,12 +269,13 @@ static int automount_coldplug(Unit *u) {
 
                 if (a->deserialized_state == AUTOMOUNT_WAITING ||
                     a->deserialized_state == AUTOMOUNT_RUNNING) {
-
                         assert(a->pipe_fd >= 0);
 
                         r = sd_event_add_io(u->manager->event, &a->pipe_event_source, a->pipe_fd, EPOLLIN, automount_dispatch_io, u);
                         if (r < 0)
                                 return r;
+
+                        (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
                 }
 
                 automount_set_state(a, a->deserialized_state);
@@ -265,6 +285,7 @@ static int automount_coldplug(Unit *u) {
 }
 
 static void automount_dump(Unit *u, FILE *f, const char *prefix) {
+        char time_string[FORMAT_TIMESPAN_MAX];
         Automount *a = AUTOMOUNT(u);
 
         assert(a);
@@ -273,11 +294,13 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sAutomount State: %s\n"
                 "%sResult: %s\n"
                 "%sWhere: %s\n"
-                "%sDirectoryMode: %04o\n",
+                "%sDirectoryMode: %04o\n"
+                "%sTimeoutIdleUSec: %s\n",
                 prefix, automount_state_to_string(a->state),
                 prefix, automount_result_to_string(a->result),
                 prefix, a->where,
-                prefix, a->directory_mode);
+                prefix, a->directory_mode,
+                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, a->timeout_idle_usec, USEC_PER_SEC));
 }
 
 static void automount_enter_dead(Automount *a, AutomountResult f) {
@@ -336,7 +359,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
         if (param->ioctlfd < 0)
                 return -EIO;
 
-        fd_cloexec(param->ioctlfd, true);
+        (void) fd_cloexec(param->ioctlfd, true);
         return param->ioctlfd;
 }
 
@@ -367,7 +390,7 @@ static int autofs_protocol(int dev_autofs_fd, int ioctl_fd) {
         return 0;
 }
 
-static int autofs_set_timeout(int dev_autofs_fd, int ioctl_fd, time_t sec) {
+static int autofs_set_timeout(int dev_autofs_fd, int ioctl_fd, usec_t usec) {
         struct autofs_dev_ioctl param;
 
         assert(dev_autofs_fd >= 0);
@@ -375,7 +398,9 @@ static int autofs_set_timeout(int dev_autofs_fd, int ioctl_fd, time_t sec) {
 
         init_autofs_dev_ioctl(&param);
         param.ioctlfd = ioctl_fd;
-        param.timeout.timeout = sec;
+
+        /* Convert to seconds, rounding up. */
+        param.timeout.timeout = (usec + USEC_PER_SEC - 1) / USEC_PER_SEC;
 
         if (ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_TIMEOUT, &param) < 0)
                 return -errno;
@@ -404,7 +429,7 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
         return 0;
 }
 
-int automount_send_ready(Automount *a, int status) {
+static int automount_send_ready(Automount *a, Set *tokens, int status) {
         _cleanup_close_ int ioctl_fd = -1;
         unsigned token;
         int r;
@@ -412,7 +437,7 @@ int automount_send_ready(Automount *a, int status) {
         assert(a);
         assert(status <= 0);
 
-        if (set_isempty(a->tokens))
+        if (set_isempty(tokens))
                 return 0;
 
         ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
@@ -420,14 +445,14 @@ int automount_send_ready(Automount *a, int status) {
                 return ioctl_fd;
 
         if (status)
-                log_unit_debug_errno(UNIT(a)->id, status, "Sending failure: %m");
+                log_unit_debug_errno(UNIT(a), status, "Sending failure: %m");
         else
-                log_unit_debug(UNIT(a)->id, "Sending success.");
+                log_unit_debug(UNIT(a), "Sending success.");
 
         r = 0;
 
         /* Autofs thankfully does not hand out 0 as a token */
-        while ((token = PTR_TO_UINT(set_steal_first(a->tokens)))) {
+        while ((token = PTR_TO_UINT(set_steal_first(tokens)))) {
                 int k;
 
                 /* Autofs fun fact II:
@@ -446,6 +471,53 @@ int automount_send_ready(Automount *a, int status) {
         return r;
 }
 
+int automount_update_mount(Automount *a, MountState old_state, MountState state) {
+        assert(a);
+
+        switch (state) {
+        case MOUNT_MOUNTED:
+        case MOUNT_REMOUNTING:
+                automount_send_ready(a, a->tokens, 0);
+                break;
+         case MOUNT_DEAD:
+         case MOUNT_UNMOUNTING:
+         case MOUNT_MOUNTING_SIGTERM:
+         case MOUNT_MOUNTING_SIGKILL:
+         case MOUNT_REMOUNTING_SIGTERM:
+         case MOUNT_REMOUNTING_SIGKILL:
+         case MOUNT_UNMOUNTING_SIGTERM:
+         case MOUNT_UNMOUNTING_SIGKILL:
+         case MOUNT_FAILED:
+                if (old_state != state)
+                        automount_send_ready(a, a->tokens, -ENODEV);
+                break;
+        default:
+                break;
+        }
+
+        switch (state) {
+        case MOUNT_DEAD:
+                automount_send_ready(a, a->expire_tokens, 0);
+                break;
+         case MOUNT_MOUNTING:
+         case MOUNT_MOUNTING_DONE:
+         case MOUNT_MOUNTING_SIGTERM:
+         case MOUNT_MOUNTING_SIGKILL:
+         case MOUNT_REMOUNTING_SIGTERM:
+         case MOUNT_REMOUNTING_SIGKILL:
+         case MOUNT_UNMOUNTING_SIGTERM:
+         case MOUNT_UNMOUNTING_SIGKILL:
+         case MOUNT_FAILED:
+                if (old_state != state)
+                        automount_send_ready(a, a->expire_tokens, -ENODEV);
+                break;
+        default:
+                break;
+        }
+
+        return 0;
+}
+
 static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
@@ -460,19 +532,21 @@ static void automount_enter_waiting(Automount *a) {
         assert(a->pipe_fd < 0);
         assert(a->where);
 
-        if (a->tokens)
-                set_clear(a->tokens);
+        set_clear(a->tokens);
+
+        r = unit_fail_if_symlink(UNIT(a), a->where);
+        if (r < 0)
+                goto fail;
+
+        (void) mkdir_p_label(a->where, 0555);
+
+        unit_warn_if_dir_nonempty(UNIT(a), a->where);
 
         dev_autofs_fd = open_dev_autofs(UNIT(a)->manager);
         if (dev_autofs_fd < 0) {
                 r = dev_autofs_fd;
                 goto fail;
         }
-
-        /* We knowingly ignore the results of this call */
-        mkdir_p_label(a->where, 0555);
-
-        warn_if_dir_nonempty(a->meta.id, a->where);
 
         if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
                 r = -errno;
@@ -505,7 +579,7 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        r = autofs_set_timeout(dev_autofs_fd, ioctl_fd, 300);
+        r = autofs_set_timeout(dev_autofs_fd, ioctl_fd, a->timeout_idle_usec);
         if (r < 0)
                 goto fail;
 
@@ -518,6 +592,8 @@ static void automount_enter_waiting(Automount *a) {
         r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, p[0], EPOLLIN, automount_dispatch_io, a);
         if (r < 0)
                 goto fail;
+
+        (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
 
         a->pipe_fd = p[0];
         a->dev_id = st.st_dev;
@@ -532,9 +608,91 @@ fail:
         if (mounted)
                 repeat_unmount(a->where);
 
-        log_unit_error(UNIT(a)->id,
-                       "Failed to initialize automounter: %s", strerror(-r));
+        log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
+}
+
+static void *expire_thread(void *p) {
+        struct autofs_dev_ioctl param;
+        _cleanup_(expire_data_freep) struct expire_data *data = (struct expire_data*)p;
+        int r;
+
+        assert(data->dev_autofs_fd >= 0);
+        assert(data->ioctl_fd >= 0);
+
+        init_autofs_dev_ioctl(&param);
+        param.ioctlfd = data->ioctl_fd;
+
+        do {
+                r = ioctl(data->dev_autofs_fd, AUTOFS_DEV_IOCTL_EXPIRE, &param);
+        } while (r >= 0);
+
+        if (errno != EAGAIN)
+                log_warning_errno(errno, "Failed to expire automount, ignoring: %m");
+
+        return NULL;
+}
+
+static int automount_start_expire(Automount *a);
+
+static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void *userdata) {
+        Automount *a = AUTOMOUNT(userdata);
+        _cleanup_(expire_data_freep) struct expire_data *data = NULL;
+        int r;
+
+        assert(a);
+        assert(source == a->expire_event_source);
+
+        data = new0(struct expire_data, 1);
+        if (!data)
+                return log_oom();
+
+        data->ioctl_fd = -1;
+
+        data->dev_autofs_fd = fcntl(UNIT(a)->manager->dev_autofs_fd, F_DUPFD_CLOEXEC, 3);
+        if (data->dev_autofs_fd < 0)
+                return log_unit_error_errno(UNIT(a), errno, "Failed to duplicate autofs fd: %m");
+
+        data->ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
+        if (data->ioctl_fd < 0)
+                return log_unit_error_errno(UNIT(a), data->ioctl_fd, "Couldn't open autofs ioctl fd: %m");
+
+        r = asynchronous_job(expire_thread, data);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(a), r, "Failed to start expire job: %m");
+
+        data = NULL;
+
+        return automount_start_expire(a);
+}
+
+static int automount_start_expire(Automount *a) {
+        int r;
+        usec_t timeout;
+
+        assert(a);
+
+        timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec/10, USEC_PER_SEC);
+
+        if (a->expire_event_source) {
+                r = sd_event_source_set_time(a->expire_event_source, timeout);
+                if (r < 0)
+                        return r;
+
+                return sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_ONESHOT);
+        }
+
+        r = sd_event_add_time(
+                        UNIT(a)->manager->event,
+                        &a->expire_event_source,
+                        CLOCK_MONOTONIC, timeout, 0,
+                        automount_dispatch_expire, a);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(a->expire_event_source, "automount-expire");
+
+        return 0;
 }
 
 static void automount_enter_runnning(Automount *a) {
@@ -547,9 +705,9 @@ static void automount_enter_runnning(Automount *a) {
         /* We don't take mount requests anymore if we are supposed to
          * shut down anyway */
         if (unit_stop_pending(UNIT(a))) {
-                log_unit_debug(UNIT(a)->id,
-                               "Suppressing automount request on %s since unit stop is scheduled.", UNIT(a)->id);
-                automount_send_ready(a, -EHOSTDOWN);
+                log_unit_debug(UNIT(a), "Suppressing automount request since unit stop is scheduled.");
+                automount_send_ready(a, a->tokens, -EHOSTDOWN);
+                automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
                 return;
         }
 
@@ -557,24 +715,24 @@ static void automount_enter_runnning(Automount *a) {
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
-                log_unit_warning(UNIT(a)->id,
-                                 "%s failed to stat automount point: %m", UNIT(a)->id);
+                log_unit_warning_errno(UNIT(a), errno, "Failed to stat automount point: %m");
                 goto fail;
         }
 
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
-                log_unit_info(UNIT(a)->id,
-                              "%s's automount point already active?", UNIT(a)->id);
+                log_unit_info(UNIT(a), "Automount point already active?");
         else {
                 r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_TRIGGER(UNIT(a)),
                                     JOB_REPLACE, true, &error, NULL);
                 if (r < 0) {
-                        log_unit_warning(UNIT(a)->id,
-                                         "%s failed to queue mount startup job: %s",
-                                         UNIT(a)->id, bus_error_message(&error, r));
+                        log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                         goto fail;
                 }
         }
+
+        r = automount_start_expire(a);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
 
         automount_set_state(a, AUTOMOUNT_RUNNING);
         return;
@@ -589,10 +747,8 @@ static int automount_start(Unit *u) {
         assert(a);
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
 
-        if (path_is_mount_point(a->where, false)) {
-                log_unit_error(u->id,
-                               "Path %s is already a mount point, refusing start for %s",
-                               a->where, u->id);
+        if (path_is_mount_point(a->where, false) > 0) {
+                log_unit_error(u, "Path %s is already a mount point, refusing start.", a->where);
                 return -EEXIST;
         }
 
@@ -629,6 +785,8 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         SET_FOREACH(p, a->tokens, i)
                 unit_serialize_item_format(u, f, "token", "%u", PTR_TO_UINT(p));
+        SET_FOREACH(p, a->expire_tokens, i)
+                unit_serialize_item_format(u, f, "expire-token", "%u", PTR_TO_UINT(p));
 
         if (a->pipe_fd >= 0) {
                 int copy;
@@ -655,7 +813,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
 
                 state = automount_state_from_string(value);
                 if (state < 0)
-                        log_unit_debug(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         a->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -663,7 +821,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
 
                 f = automount_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u->id, "Failed to parse result value %s", value);
+                        log_unit_debug(u, "Failed to parse result value: %s", value);
                 else if (f != AUTOMOUNT_SUCCESS)
                         a->result = f;
 
@@ -671,34 +829,52 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                 unsigned d;
 
                 if (safe_atou(value, &d) < 0)
-                        log_unit_debug(u->id, "Failed to parse dev-id value %s", value);
+                        log_unit_debug(u, "Failed to parse dev-id value: %s", value);
                 else
                         a->dev_id = (unsigned) d;
         } else if (streq(key, "token")) {
                 unsigned token;
 
                 if (safe_atou(value, &token) < 0)
-                        log_unit_debug(u->id, "Failed to parse token value %s", value);
+                        log_unit_debug(u, "Failed to parse token value: %s", value);
                 else {
-                        if (!a->tokens)
-                                if (!(a->tokens = set_new(NULL)))
-                                        return -ENOMEM;
+                        r = set_ensure_allocated(&a->tokens, NULL);
+                        if (r < 0) {
+                                log_oom();
+                                return 0;
+                        }
 
                         r = set_put(a->tokens, UINT_TO_PTR(token));
                         if (r < 0)
-                                return r;
+                                log_unit_error_errno(u, r, "Failed to add token to set: %m");
+                }
+        } else if (streq(key, "expire-token")) {
+                unsigned token;
+
+                if (safe_atou(value, &token) < 0)
+                        log_unit_debug(u, "Failed to parse token value: %s", value);
+                else {
+                        r = set_ensure_allocated(&a->expire_tokens, NULL);
+                        if (r < 0) {
+                                log_oom();
+                                return 0;
+                        }
+
+                        r = set_put(a->expire_tokens, UINT_TO_PTR(token));
+                        if (r < 0)
+                                log_unit_error_errno(u, r, "Failed to add expire token to set: %m");
                 }
         } else if (streq(key, "pipe-fd")) {
                 int fd;
 
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u->id, "Failed to parse pipe-fd value %s", value);
+                        log_unit_debug(u, "Failed to parse pipe-fd value: %s", value);
                 else {
                         safe_close(a->pipe_fd);
                         a->pipe_fd = fdset_remove(fds, fd);
                 }
         } else
-                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
 }
@@ -725,25 +901,22 @@ static bool automount_check_gc(Unit *u) {
 }
 
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         union autofs_v5_packet_union packet;
         Automount *a = AUTOMOUNT(userdata);
-        ssize_t l;
         int r;
 
         assert(a);
         assert(fd == a->pipe_fd);
 
         if (events != EPOLLIN) {
-                log_unit_error(UNIT(a)->id, "Got invalid poll event on pipe.");
+                log_unit_error(UNIT(a), "Got invalid poll event %"PRIu32" on pipe (fd=%d)", events, fd);
                 goto fail;
         }
 
-        l = loop_read(a->pipe_fd, &packet, sizeof(packet), true);
-        if (l != sizeof(packet)) {
-                if (l < 0)
-                        log_unit_error_errno(UNIT(a)->id, l, "Invalid read from pipe: %m");
-                else
-                        log_unit_error(UNIT(a)->id, "Invalid read from pipe: short read");
+        r = loop_read_exact(a->pipe_fd, &packet, sizeof(packet), true);
+        if (r < 0) {
+                log_unit_error_errno(UNIT(a), r, "Invalid read from pipe: %m");
                 goto fail;
         }
 
@@ -755,29 +928,50 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         _cleanup_free_ char *p = NULL;
 
                         get_process_comm(packet.v5_packet.pid, &p);
-                        log_unit_info(UNIT(a)->id,
-                                       "Got automount request for %s, triggered by %"PRIu32" (%s)",
-                                       a->where, packet.v5_packet.pid, strna(p));
+                        log_unit_info(UNIT(a), "Got automount request for %s, triggered by %"PRIu32" (%s)", a->where, packet.v5_packet.pid, strna(p));
                 } else
-                        log_unit_debug(UNIT(a)->id, "Got direct mount request on %s", a->where);
+                        log_unit_debug(UNIT(a), "Got direct mount request on %s", a->where);
 
                 r = set_ensure_allocated(&a->tokens, NULL);
                 if (r < 0) {
-                        log_unit_error(UNIT(a)->id, "Failed to allocate token set.");
+                        log_unit_error(UNIT(a), "Failed to allocate token set.");
                         goto fail;
                 }
 
                 r = set_put(a->tokens, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
                 if (r < 0) {
-                        log_unit_error_errno(UNIT(a)->id, r, "Failed to remember token: %m");
+                        log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
                         goto fail;
                 }
 
                 automount_enter_runnning(a);
                 break;
 
+        case autofs_ptype_expire_direct:
+                log_unit_debug(UNIT(a), "Got direct umount request on %s", a->where);
+
+                (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
+
+                r = set_ensure_allocated(&a->expire_tokens, NULL);
+                if (r < 0) {
+                        log_unit_error(UNIT(a), "Failed to allocate token set.");
+                        goto fail;
+                }
+
+                r = set_put(a->expire_tokens, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
+                if (r < 0) {
+                        log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
+                        goto fail;
+                }
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, true, &error, NULL);
+                if (r < 0) {
+                        log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
+                        goto fail;
+                }
+                break;
+
         default:
-                log_unit_error(UNIT(a)->id, "Received unknown automount request %i", packet.hdr.type);
+                log_unit_error(UNIT(a), "Received unknown automount request %i", packet.hdr.type);
                 break;
         }
 
@@ -805,10 +999,8 @@ static void automount_reset_failed(Unit *u) {
         a->result = AUTOMOUNT_SUCCESS;
 }
 
-static bool automount_supported(Manager *m) {
+static bool automount_supported(void) {
         static int supported = -1;
-
-        assert(m);
 
         if (supported < 0)
                 supported = access("/dev/autofs", F_OK) >= 0;

@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -385,10 +384,10 @@ static const struct bus_properties_map kbdctx_locale_map[] = {
         { "X11Layout",  "s",    NULL, offsetof(kbdctx, locale_x11_layout) },
         { "X11Variant", "s",    NULL, offsetof(kbdctx, locale_x11_variant) },
         { "X11Options", "s",    NULL, offsetof(kbdctx, locale_x11_options) },
+        { },
 };
 
-static int kbdctx_locale_get_all_fn(sd_bus *bus,
-                                    sd_bus_message *m,
+static int kbdctx_locale_get_all_fn(sd_bus_message *m,
                                     void *userdata,
                                     sd_bus_error *ret_err) {
         kbdctx *kc = userdata;
@@ -404,7 +403,7 @@ static int kbdctx_locale_get_all_fn(sd_bus *bus,
                 return 0;
         }
 
-        r = bus_message_map_all_properties(bus, m, kbdctx_locale_map, kc);
+        r = bus_message_map_all_properties(m, kbdctx_locale_map, kc);
         if (r < 0) {
                 log_debug("idev-keyboard: erroneous GetAll() reply from locale1");
                 return 0;
@@ -448,8 +447,7 @@ error:
         return log_debug_errno(r, "idev-keyboard: cannot send GetAll to locale1: %m");
 }
 
-static int kbdctx_locale_props_changed_fn(sd_bus *bus,
-                                          sd_bus_message *signal,
+static int kbdctx_locale_props_changed_fn(sd_bus_message *signal,
                                           void *userdata,
                                           sd_bus_error *ret_err) {
         kbdctx *kc = userdata;
@@ -462,7 +460,7 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
         if (r < 0)
                 goto error;
 
-        r = bus_message_map_properties_changed(bus, signal, kbdctx_locale_map, kc);
+        r = bus_message_map_properties_changed(signal, kbdctx_locale_map, kc);
         if (r < 0)
                 goto error;
 
@@ -507,12 +505,9 @@ static void kbdctx_log_fn(struct xkb_context *ctx, enum xkb_log_level lvl, const
                 sd_lvl = LOG_INFO;
         else if (lvl >= XKB_LOG_LEVEL_WARNING)
                 sd_lvl = LOG_INFO; /* most XKB warnings really are informational */
-        else if (lvl >= XKB_LOG_LEVEL_ERROR)
-                sd_lvl = LOG_ERR;
-        else if (lvl >= XKB_LOG_LEVEL_CRITICAL)
-                sd_lvl = LOG_CRIT;
         else
-                sd_lvl = LOG_CRIT;
+                /* XKB_LOG_LEVEL_ERROR and worse */
+                sd_lvl = LOG_ERR;
 
         snprintf(buf, sizeof(buf), "idev-xkb: %s", format);
         log_internalv(sd_lvl, 0, __FILE__, __LINE__, __func__, buf, args);

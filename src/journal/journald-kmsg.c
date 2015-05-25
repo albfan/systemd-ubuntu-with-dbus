@@ -31,6 +31,8 @@
 #include "journald-server.h"
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
+#include "formats-util.h"
+#include "process-util.h"
 
 void server_forward_kmsg(
         Server *s,
@@ -201,8 +203,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
 
                 *e = 0;
 
-                m = cunescape_length_with_prefix(k, e - k, "_KERNEL_");
-                if (!m)
+                if (cunescape_length_with_prefix(k, e - k, "_KERNEL_", UNESCAPE_RELAX, &m) < 0)
                         break;
 
                 if (startswith(m, "_KERNEL_DEVICE="))
@@ -299,8 +300,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                 }
         }
 
-        message = cunescape_length_with_prefix(p, pl, "MESSAGE=");
-        if (message)
+        if (cunescape_length_with_prefix(p, pl, "MESSAGE=", UNESCAPE_RELAX, &message) >= 0)
                 IOVEC_SET_STRING(iovec[n++], message);
 
         server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority, 0);

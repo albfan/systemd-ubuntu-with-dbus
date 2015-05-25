@@ -156,7 +156,7 @@
         <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>.
         In the second case, an HTTP or HTTPS server will be spawned on
         this port, respectively for <option>--listen-http</option> and
-        <option>--listen-https</option>. Currenntly, only POST requests
+        <option>--listen-https</option>. Currently, only POST requests
         to <filename>/upload</filename> with <literal>Content-Type:
         application/vnd.fdo.journal</literal> are supported.</para>
         </listitem>
@@ -310,6 +310,7 @@ systemd-journal-remote --url http://some.host:19531/
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-journal-gatewayd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

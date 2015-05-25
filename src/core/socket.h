@@ -23,8 +23,6 @@
 
 typedef struct Socket Socket;
 
-#include "manager.h"
-#include "unit.h"
 #include "socket-util.h"
 #include "mount.h"
 #include "service.h"
@@ -168,6 +166,8 @@ struct Socket {
         bool selinux_context_from_net;
 
         char *user, *group;
+
+        bool reset_cpu_usage:1;
 };
 
 /* Called from the service code when collecting fds */

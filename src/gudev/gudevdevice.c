@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "gudevdevice.h"
 #include "gudevprivate.h"
@@ -992,7 +993,7 @@ g_udev_device_get_tags (GUdevDevice  *device)
  * g_udev_device_get_is_initialized:
  * @device: A #GUdevDevice.
  *
- * Gets whether @device has been initalized.
+ * Gets whether @device has been initialized.
  *
  * Returns: Whether @device has been initialized.
  *

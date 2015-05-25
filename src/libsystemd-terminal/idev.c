@@ -19,21 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <libudev.h>
-#include <linux/input.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
-#include <systemd/sd-login.h>
-#include <xkbcommon/xkbcommon.h>
 #include "hashmap.h"
 #include "idev.h"
 #include "idev-internal.h"
 #include "login-shared.h"
 #include "macro.h"
-#include "udev-util.h"
 #include "util.h"
 
 static void element_open(idev_element *e);
@@ -433,8 +428,7 @@ idev_session *idev_find_session(idev_context *c, const char *name) {
         return hashmap_get(c->session_map, name);
 }
 
-static int session_resume_device_fn(sd_bus *bus,
-                                    sd_bus_message *signal,
+static int session_resume_device_fn(sd_bus_message *signal,
                                     void *userdata,
                                     sd_bus_error *ret_error) {
         idev_session *s = userdata;
@@ -456,8 +450,7 @@ static int session_resume_device_fn(sd_bus *bus,
         return 0;
 }
 
-static int session_pause_device_fn(sd_bus *bus,
-                                   sd_bus_message *signal,
+static int session_pause_device_fn(sd_bus_message *signal,
                                    void *userdata,
                                    sd_bus_error *ret_error) {
         idev_session *s = userdata;

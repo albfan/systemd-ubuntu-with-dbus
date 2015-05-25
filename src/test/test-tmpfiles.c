@@ -19,14 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "util.h"
+#include "formats-util.h"
 
 int main(int argc, char** argv) {
         const char *p = argv[1] ?: "/tmp";

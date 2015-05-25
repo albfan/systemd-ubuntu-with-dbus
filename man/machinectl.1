@@ -1,5 +1,5 @@
 '\" t
-.TH "MACHINECTL" "1" "" "systemd 219" "machinectl"
+.TH "MACHINECTL" "1" "" "systemd 220" "machinectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -139,6 +139,19 @@ images with the
 "http://",
 "https://"
 URL\&.
+.RE
+.PP
+\fB\-\-format=\fR
+.RS 4
+When used with the
+\fBexport\-tar\fR
+or
+\fBexport\-raw\fR
+commands specifies the compression format to use for the resulting file\&. Takes one of
+"uncompressed",
+"xz",
+"gzip",
+"bzip2"\&. By default the format is determined automatically from the image file name passed\&.
 .RE
 .PP
 \fB\-H\fR, \fB\-\-host=\fR
@@ -337,23 +350,46 @@ if you are looking for formatted human\-readable output\&.
 .PP
 \fBclone\fR \fINAME\fR \fINAME\fR
 .RS 4
-Clones a container or disk image\&. The arguments specify the name of the image to clone and the name of the newly cloned image\&. Note that plain directory container images are cloned into subvolume images with this command\&. Note that cloning a container or VM image is optimized for btrfs file systems, and might not be efficient on others, due to file system limitations\&.
+Clones a container or VM image\&. The arguments specify the name of the image to clone and the name of the newly cloned image\&. Note that plain directory container images are cloned into subvolume images with this command\&. Note that cloning a container or VM image is optimized for btrfs file systems, and might not be efficient on others, due to file system limitations\&.
+.sp
+Note that this command leaves host name, machine ID and all other settings that could identify the instance unmodified\&. The original image and the cloned copy will hence share these credentials, and it might be necessary to manually change them in the copy\&.
 .RE
 .PP
 \fBrename\fR \fINAME\fR \fINAME\fR
 .RS 4
-Renames a container or disk image\&. The arguments specify the name of the image to rename and the new name of the image\&.
+Renames a container or VM image\&. The arguments specify the name of the image to rename and the new name of the image\&.
 .RE
 .PP
 \fBread\-only\fR \fINAME\fR [\fIBOOL\fR]
 .RS 4
-Marks or (unmarks) a container or disk image read\-only\&. Takes a VM or container image name, followed by a boolean as arguments\&. If the boolean is omitted, positive is implied, i\&.e\&. the image is marked read\-only\&.
+Marks or (unmarks) a container or VM image read\-only\&. Takes a VM or container image name, followed by a boolean as arguments\&. If the boolean is omitted, positive is implied, i\&.e\&. the image is marked read\-only\&.
 .RE
 .PP
 \fBremove\fR \fINAME\fR\&.\&.\&.
 .RS 4
-Removes one or more container or disk images\&. The special image
+Removes one or more container or VM images\&. The special image
 "\&.host", which refers to the host\*(Aqs own directory tree may not be removed\&.
+.RE
+.PP
+\fBset\-limit\fR [\fINAME\fR] \fIBYTES\fR
+.RS 4
+Sets the maximum size in bytes a specific container or VM image, or all images may grow up to on disk (disk quota)\&. Takes either one or two parameters\&. The first, optional parameter refers to a container or VM image name\&. If specified the size limit of the specified image is changed\&. If omitted the overall size limit of the sum of all images stored locally is changed\&. The final argument specifies the size limit in bytes, possibly suffixed by the usual K, M, G, T units\&. If the size limit shall be disabled, specify
+"\-"
+as size\&.
+.sp
+Note that per\-container size limits are only supported on btrfs file systems\&. Also note that if
+\fBset\-limit\fR
+is invoked without image parameter, and
+/var/lib/machines
+is empty, and the directory is not located on btrfs, a btrfs loopback file is implicitly created as
+/var/lib/machines\&.raw
+with the given size, and mounted to
+/var/lib/machines\&. The size of the loopback may later be readjusted with
+\fBset\-limit\fR, as well\&. If such a loopback\-mounted
+/var/lib/machines
+directory is used
+\fBset\-limit\fR
+without image name alters both the quota setting within the file system as well as the loopback file and file system size itself\&.
 .RE
 .SS "Image Transfer Commands"
 .PP
@@ -370,7 +406,7 @@ or
 \&.tar\&.xz
 or
 \&.tar\&.bz2
-archive file\&. If the local machine name is omitted the name it is automatically derived from the last component of the URL, with its suffix removed\&.
+archive file\&. If the local machine name is omitted it is automatically derived from the last component of the URL, with its suffix removed\&.
 .sp
 The image is verified before it is made available, unless
 \fB\-\-verify=no\fR
@@ -394,7 +430,7 @@ The container image will be downloaded and stored in a read\-only subvolume in
 as local machine name\&.
 .sp
 Note that the read\-only subvolume is prefixed with
-\&.tar\-, and is thus now shown by
+\&.tar\-, and is thus not shown by
 \fBlist\-images\fR, unless
 \fB\-\-all\fR
 is passed\&.
@@ -415,13 +451,13 @@ or
 or raw disk image, optionally compressed as
 \&.gz,
 \&.xz, or
-\&.bz2\&. If the local machine name is omitted the name it is automatically derived from the last component of the URL, with its suffix removed\&.
+\&.bz2\&. If the local machine name is omitted it is automatically derived from the last component of the URL, with its suffix removed\&.
 .sp
 Image verification is identical for raw and tar images (see above)\&.
 .sp
 If the the downloaded image is in
 \&.qcow2
-format it es converted into a raw image file before it is made available\&.
+format it is converted into a raw image file before it is made available\&.
 .sp
 Downloaded images of this type will be placed as read\-only
 \&.raw
@@ -432,7 +468,7 @@ as local machine name\&.
 .sp
 Similar to the behaviour of
 \fBpull\-tar\fR, the read\-only image is prefixed with
-\&.raw\-, and thus now shown by
+\&.raw\-, and thus not shown by
 \fBlist\-images\fR, unless
 \fB\-\-all\fR
 is passed\&.
@@ -463,7 +499,7 @@ This command downloads all (missing) layers for the specified container and plac
 as local machine name\&.
 .sp
 The read\-only layer subvolumes are prefixed with
-\&.dkr\-, and thus now shown by
+\&.dkr\-, and thus not shown by
 \fBlist\-images\fR, unless
 \fB\-\-all\fR
 is passed\&.
@@ -477,14 +513,61 @@ Note that pressing C\-c during execution of this command will not abort the down
 \fBcancel\-transfer\fR, described below\&.
 .RE
 .PP
+\fBimport\-tar\fR \fIFILE\fR [\fINAME\fR], \fBimport\-raw\fR \fIFILE\fR [\fINAME\fR]
+.RS 4
+Imports a TAR or RAW container or VM image, and places it under the specified name in
+/var/lib/machines/\&. When
+\fBimport\-tar\fR
+is used the file specified as first argument should be a tar archive, possibly compressed with xz, gzip or bzip2\&. It will then be unpacked into its own subvolume in
+/var/lib/machines\&. When
+\fBimport\-raw\fR
+is used the file should be a qcow2 or raw disk image, possibly compressed with xz, gzip or bzip2\&. If the second argument (the resulting image name) is not specified it is automatically derived from the file name\&. If the file name is passed as
+"\-"
+the image is read from standard input, in which case the second argument is mandatory\&.
+.sp
+Similar as with
+\fBpull\-tar\fR,
+\fBpull\-raw\fR
+the file system
+/var/lib/machines\&.raw
+is increased in size of necessary and appropriate\&. Optionally the
+\fB\-\-read\-only\fR
+switch may be used to create a read\-only container or VM image\&. No cryptographic validation is done when importing the images\&.
+.sp
+Much like image downloads, ongoing imports may be listed with
+\fBlist\-transfers\fR
+and aborted with
+\fBcancel\-transfer\fR\&.
+.RE
+.PP
+\fBexport\-tar\fR \fINAME\fR [\fIFILE\fR], \fBexport\-raw\fR \fINAME\fR [\fIFILE\fR]
+.RS 4
+Exports a TAR or RAW container or VM image and stores it in the specified file\&. The first parameter should be a VM or container image name\&. The second parameter should be a file path the TAR or RAW image is written to\&. If the path ends in
+"\&.gz"
+the file is compressed with gzip, if it ends in
+"\&.xz"
+with xz, and if it ends in
+"\&.bz2"
+with bzip2\&. If the path ends in neither the file is left uncompressed\&. If the second argument is missing the image is written to standard output\&. The compression may also be explicitly selected with the
+\fB\-\-format=\fR
+switch\&. This is in particular useful if the second parameter is left unspecified\&.
+.sp
+Much like image downloads and imports, ongoing exports may be listed with
+\fBlist\-transfers\fR
+and aborted with
+\fBcancel\-transfer\fR\&.
+.sp
+Note that currently only directory and subvolume images may be exported as TAR images, and only raw disk images as RAW images\&.
+.RE
+.PP
 \fBlist\-transfers\fR
 .RS 4
-Shows a list of container or VM image downloads that are currently in progress\&.
+Shows a list of container or VM image downloads, imports and exports that are currently in progress\&.
 .RE
 .PP
 \fBcancel\-transfers\fR \fIID\fR\&.\&.\&.
 .RS 4
-Aborts download of the container or VM image with the specified ID\&. To list ongoing transfers and their IDs, use
+Aborts a download, import or export of the container or VM image with the specified ID\&. To list ongoing transfers and their IDs, use
 \fBlist\-transfers\fR\&.
 .RE
 .SH "FILES AND DIRECTORIES"
@@ -501,6 +584,22 @@ are always considered read\-only\&. It is possible to symlink machines images fr
 /var/lib/machines/
 to make them available for control with
 \fBmachinectl\fR\&.
+.PP
+Note that many image operations are only supported, efficient or atomic on btrfs file systems\&. Due to this, if the
+\fBpull\-tar\fR,
+\fBpull\-raw\fR,
+\fBpull\-dkr\fR,
+\fBimport\-tar\fR,
+\fBimport\-raw\fR
+and
+\fBset\-limit\fR
+commands notice that
+/var/lib/machines
+is empty and not located on btrfs, they will implicitly set up a loopback file
+/var/lib/machines\&.raw
+containing a btrfs file system that is mounted to
+/var/lib/machines\&. The size of this loopback file may be controlled dynamically with
+\fBset\-limit\fR\&.
 .PP
 Disk images are understood by
 \fBsystemd-nspawn\fR(1)
@@ -576,11 +675,12 @@ to open a shell in it\&.
 .RS 4
 .\}
 .nf
-# machinectl pull\-raw \-\-verify=no
-      http://ftp\&.halifax\&.rwth\-aachen\&.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora\-Cloud\-Base\-20141203\-21\&.x86_64\&.raw\&.xz
-      # systemd\-nspawn \-M Fedora\-Cloud\-Base\-20141203\-21 # passwd #
-      exit # machinectl start Fedora\-Cloud\-Base\-20141203\-21 #
-      machinectl login Fedora\-Cloud\-Base\-20141203\-21
+# machinectl pull\-raw \-\-verify=no http://ftp\&.halifax\&.rwth\-aachen\&.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora\-Cloud\-Base\-20141203\-21\&.x86_64\&.raw\&.xz
+# systemd\-nspawn \-M Fedora\-Cloud\-Base\-20141203\-21
+# passwd
+# exit
+# machinectl start Fedora\-Cloud\-Base\-20141203\-21
+# machinectl login Fedora\-Cloud\-Base\-20141203\-21
 .fi
 .if n \{\
 .RE
@@ -607,6 +707,24 @@ Downloads a
 "dkr"
 image and opens a shell in it\&. Note that the specified download command might require an index server to be specified with the
 "\-\-dkr\-index\-url="\&.
+.PP
+\fBExample\ \&4.\ \&Exports a container image as tar file\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# machinectl export\-tar fedora myfedora\&.tar\&.xz
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Exports the container
+"fedora"
+in an xz\-compress tar file
+myfedora\&.tar\&.xz
+in the current directory\&.
 .SH "EXIT STATUS"
 .PP
 On success, 0 is returned, a non\-zero failure code otherwise\&.
@@ -633,4 +751,8 @@ Override the default options passed to
 .PP
 \fBsystemd-machined.service\fR(8),
 \fBsystemd-nspawn\fR(1),
-\fBsystemd.special\fR(7)
+\fBsystemd.special\fR(7),
+\fBtar\fR(1),
+\fBxz\fR(1),
+\fBgzip\fR(1),
+\fBbzip2\fR(1)

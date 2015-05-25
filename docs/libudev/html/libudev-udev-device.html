@@ -2,13 +2,13 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>libudev Reference Manual: udev_device</title>
+<title>udev_device: libudev Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
 <link rel="home" href="index.html" title="libudev Reference Manual">
 <link rel="up" href="ch01.html" title="API Reference">
 <link rel="prev" href="libudev-udev-list.html" title="udev_list">
 <link rel="next" href="libudev-udev-monitor.html" title="udev_monitor">
-<meta name="generator" content="GTK-Doc V1.21 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.23 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -308,7 +308,6 @@ udev_device_ref (<em class="parameter"><code><span class="type">struct udev_devi
 <div class="refsect3">
 <a name="id-1.2.4.6.2.6"></a><h4>Returns</h4>
 <p> the passed udev device</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -336,7 +335,6 @@ the resources of the device will be released.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.3.6"></a><h4>Returns</h4>
 <p> <span class="type">NULL</span></p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -363,7 +361,6 @@ udev_device_get_udev (<em class="parameter"><code><span class="type">struct udev
 <div class="refsect3">
 <a name="id-1.2.4.6.4.6"></a><h4>Returns</h4>
 <p> the udev library context</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -402,7 +399,6 @@ release the resources of the udev device.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.5.7"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span>, if it does not exist</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -448,7 +444,6 @@ release the resources of the udev device.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.6.7"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span>, if it does not exist</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -494,7 +489,6 @@ release the resources of the udev device.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.7.7"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span>, if it does not exist</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -537,7 +531,6 @@ release the resources of the udev device.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.8.7"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span>, if it does not exist</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -569,7 +562,6 @@ release the resources of the udev device.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.9.7"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span>, if it does not exist</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -603,7 +595,6 @@ references.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.10.9"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span>, if it no parent exist.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -653,7 +644,6 @@ references.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.11.9"></a><h4>Returns</h4>
 <p> a new udev device, or <span class="type">NULL</span> if no matching parent exists.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -681,7 +671,6 @@ does not contain the sys mount point, and starts with a '/'.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.12.6"></a><h4>Returns</h4>
 <p> the devpath of the udev device</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -709,7 +698,6 @@ contain any "/".</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.13.6"></a><h4>Returns</h4>
 <p> the subsystem name of the udev device, or <span class="type">NULL</span> if it can not be determined</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -736,7 +724,6 @@ udev_device_get_devtype (<em class="parameter"><code><span class="type">struct u
 <div class="refsect3">
 <a name="id-1.2.4.6.14.6"></a><h4>Returns</h4>
 <p> the devtype name of the udev device, or <span class="type">NULL</span> if it can not be determined</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -764,7 +751,6 @@ absolute path and starts with the sys mount point.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.15.6"></a><h4>Returns</h4>
 <p> the sys path of the udev device</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -791,7 +777,6 @@ udev_device_get_sysname (<em class="parameter"><code><span class="type">struct u
 <div class="refsect3">
 <a name="id-1.2.4.6.16.6"></a><h4>Returns</h4>
 <p> the name string of the device device</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -818,7 +803,6 @@ udev_device_get_sysnum (<em class="parameter"><code><span class="type">struct ud
 <div class="refsect3">
 <a name="id-1.2.4.6.17.6"></a><h4>Returns</h4>
 <p> the trailing number string of the device name</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -846,7 +830,6 @@ The path is an absolute path, and starts with the device directory.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.18.6"></a><h4>Returns</h4>
 <p> the device node file name of the udev device, or <span class="type">NULL</span> if no device node exists</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -877,7 +860,6 @@ or network interfaces. All other devices return 1 here.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.19.7"></a><h4>Returns</h4>
 <p> 1 if the device is set up. 0 otherwise.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -909,7 +891,6 @@ the device directory.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.20.6"></a><h4>Returns</h4>
 <p> the first entry of the device node link list</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -917,31 +898,8 @@ the device directory.</p>
 <a name="udev-device-get-properties-list-entry"></a><h3>udev_device_get_properties_list_entry ()</h3>
 <pre class="programlisting">struct <a class="link" href="libudev-udev-list.html#udev-list-entry" title="struct udev_list_entry"><span class="returnvalue">udev_list_entry</span></a> *
 udev_device_get_properties_list_entry (<em class="parameter"><code><span class="type">struct udev_device</span> *udev_device</code></em>);</pre>
-<p>Retrieve the list of key/value device properties of the udev
-device. The next list entry can be retrieved with <a class="link" href="libudev-udev-list.html#udev-list-entry-get-next" title="udev_list_entry_get_next ()"><code class="function">udev_list_entry_get_next()</code></a>,
-which returns <span class="type">NULL</span> if no more entries exist. The property name
-can be retrieved from the list entry by <a class="link" href="libudev-udev-list.html#udev-list-entry-get-name" title="udev_list_entry_get_name ()"><code class="function">udev_list_entry_get_name()</code></a>,
-the property value by <a class="link" href="libudev-udev-list.html#udev-list-entry-get-value" title="udev_list_entry_get_value ()"><code class="function">udev_list_entry_get_value()</code></a>.</p>
-<div class="refsect3">
-<a name="id-1.2.4.6.21.5"></a><h4>Parameters</h4>
-<div class="informaltable"><table width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody><tr>
-<td class="parameter_name"><p>udev_device</p></td>
-<td class="parameter_description"><p>udev device</p></td>
-<td class="parameter_annotations"> </td>
-</tr></tbody>
-</table></div>
-</div>
-<div class="refsect3">
-<a name="id-1.2.4.6.21.6"></a><h4>Returns</h4>
-<p> the first entry of the property list</p>
-<p></p>
-</div>
+<p>
+</p>
 </div>
 <hr>
 <div class="refsect2">
@@ -970,7 +928,6 @@ can be retrieved from the list entry by <a class="link" href="libudev-udev-list.
 <div class="refsect3">
 <a name="id-1.2.4.6.22.6"></a><h4>Returns</h4>
 <p> the first entry of the tag list</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1005,7 +962,6 @@ udev_device_get_property_value (<em class="parameter"><code><span class="type">s
 <div class="refsect3">
 <a name="id-1.2.4.6.23.6"></a><h4>Returns</h4>
 <p> the property string, or <span class="type">NULL</span> if there is no such property.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1032,7 +988,6 @@ udev_device_get_driver (<em class="parameter"><code><span class="type">struct ud
 <div class="refsect3">
 <a name="id-1.2.4.6.24.6"></a><h4>Returns</h4>
 <p> the driver name string, or <span class="type">NULL</span> if there is no driver attached.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1059,7 +1014,6 @@ udev_device_get_devnum (<em class="parameter"><code><span class="type">struct ud
 <div class="refsect3">
 <a name="id-1.2.4.6.25.6"></a><h4>Returns</h4>
 <p> the dev_t number.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1088,7 +1042,6 @@ offline.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.26.6"></a><h4>Returns</h4>
 <p> the kernel action value, or <span class="type">NULL</span> if there is no action value available.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1124,7 +1077,6 @@ value and not open the attribute again.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.27.6"></a><h4>Returns</h4>
 <p> the content of a sys attribute file, or <span class="type">NULL</span> if there is no sys attribute value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1165,7 +1117,6 @@ udev_device_set_sysattr_value (<em class="parameter"><code><span class="type">st
 <div class="refsect3">
 <a name="id-1.2.4.6.28.6"></a><h4>Returns</h4>
 <p> Negative error code on failure or 0 on success.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1194,7 +1145,6 @@ device without reading their values.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.29.6"></a><h4>Returns</h4>
 <p> the first entry of the property list</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1222,7 +1172,6 @@ sys do not have a sequence number.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.30.6"></a><h4>Returns</h4>
 <p> the kernel event sequence number, or 0 if there is no sequence number available.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1253,7 +1202,6 @@ in the udev database. All other devices return 0 here.</p>
 <div class="refsect3">
 <a name="id-1.2.4.6.31.7"></a><h4>Returns</h4>
 <p> the number of microseconds since the device was first seen.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1288,7 +1236,6 @@ udev_device_has_tag (<em class="parameter"><code><span class="type">struct udev_
 <div class="refsect3">
 <a name="id-1.2.4.6.32.6"></a><h4>Returns</h4>
 <p> 1 if the tag is found. 0 otherwise.</p>
-<p></p>
 </div>
 </div>
 </div>
@@ -1296,13 +1243,36 @@ udev_device_has_tag (<em class="parameter"><code><span class="type">struct udev_
 <a name="libudev-udev-device.other_details"></a><h2>Types and Values</h2>
 <div class="refsect2">
 <a name="udev-device"></a><h3>struct udev_device</h3>
-<pre class="programlisting">struct udev_device;</pre>
+<pre class="programlisting">struct udev_device {
+        struct udev *udev;
+
+        /* real device object */
+        sd_device *device;
+
+        /* legacy */
+        int refcount;
+
+        struct udev_device *parent;
+        bool parent_set;
+
+        struct udev_list properties;
+        uint64_t properties_generation;
+        struct udev_list tags;
+        uint64_t tags_generation;
+        struct udev_list devlinks;
+        uint64_t devlinks_generation;
+        bool properties_read:1;
+        bool tags_read:1;
+        bool devlinks_read:1;
+        struct udev_list sysattrs;
+        bool sysattrs_read;
+};
+</pre>
 <p>Opaque object representing one kernel sys device.</p>
 </div>
 </div>
 </div>
 <div class="footer">
-<hr>
-          Generated by GTK-Doc V1.21</div>
+<hr>Generated by GTK-Doc V1.23</div>
 </body>
 </html>

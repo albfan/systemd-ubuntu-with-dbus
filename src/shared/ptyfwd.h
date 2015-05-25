@@ -21,16 +21,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <signal.h>
 #include <stdbool.h>
 
-#include "util.h"
 #include "sd-event.h"
 
 typedef struct PTYForward PTYForward;
 
-int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward **f);
+int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, bool read_only, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
 
 int pty_forward_get_last_char(PTYForward *f, char *ch);

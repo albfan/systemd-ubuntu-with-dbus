@@ -35,75 +35,30 @@
 #include "conf-files.h"
 #include "fileio.h"
 #include "build.h"
+#include "sysctl-util.h"
 
 static char **arg_prefixes = NULL;
 
 static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysctl");
 
-static char* normalize_sysctl(char *s) {
-        char *n;
-
-        n = strpbrk(s, "/.");
-        /* If the first separator is a slash, the path is
-         * assumed to be normalized and slashes remain slashes
-         * and dots remains dots. */
-        if (!n || *n == '/')
-                return s;
-
-        /* Otherwise, dots become slashes and slashes become
-         * dots. Fun. */
-        while (n) {
-                if (*n == '.')
-                        *n = '/';
-                else
-                        *n = '.';
-
-                n = strpbrk(n + 1, "/.");
-        }
-
-        return s;
-}
-
-static int apply_sysctl(const char *property, const char *value) {
-        _cleanup_free_ char *p = NULL;
-        char *n;
-        int r = 0, k;
-
-        log_debug("Setting '%s' to '%s'", property, value);
-
-        p = new(char, strlen("/proc/sys/") + strlen(property) + 1);
-        if (!p)
-                return log_oom();
-
-        n = stpcpy(p, "/proc/sys/");
-        strcpy(n, property);
-
-        k = write_string_file(p, value);
-        if (k < 0) {
-                log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to write '%s' to '%s': %s", value, p, strerror(-k));
-
-                if (k != -ENOENT && r == 0)
-                        r = k;
-        }
-
-        return r;
-}
-
 static int apply_all(Hashmap *sysctl_options) {
-        int r = 0;
         char *property, *value;
         Iterator i;
-
-        assert(sysctl_options);
+        int r = 0;
 
         HASHMAP_FOREACH_KEY(value, property, sysctl_options, i) {
                 int k;
 
-                k = apply_sysctl(property, value);
-                if (k < 0 && r == 0)
-                        r = k;
+                k = sysctl_write(property, value);
+                if (k < 0) {
+                        log_full_errno(k == -ENOENT ? LOG_DEBUG : LOG_WARNING, k,
+                                       "Failed to write '%s' to '%s': %m", value, property);
+
+                        if (r == 0 && k != -ENOENT)
+                                r = k;
+                }
         }
+
         return r;
 }
 
@@ -121,7 +76,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
-        log_debug("parse: %s", path);
+        log_debug("Parsing %s", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
                 void *v;
@@ -154,7 +109,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 *value = 0;
                 value++;
 
-                p = normalize_sysctl(strstrip(p));
+                p = sysctl_normalize(strstrip(p));
                 value = strstrip(value);
 
                 if (!strv_isempty(arg_prefixes)) {
@@ -176,7 +131,7 @@ found:
                         if (streq(value, existing))
                                 continue;
 
-                        log_info("Overwriting earlier assignment of %s in file '%s'.", p, path);
+                        log_debug("Overwriting earlier assignment of %s in file '%s'.", p, path);
                         free(hashmap_remove(sysctl_options, p));
                         free(v);
                 }
@@ -251,14 +206,15 @@ static int parse_argv(int argc, char *argv[]) {
                          * in /proc/sys in the past. This is kinda useless, but
                          * we need to keep compatibility. We now support any
                          * sysctl name available. */
-                        normalize_sysctl(optarg);
+                        sysctl_normalize(optarg);
+
                         if (startswith(optarg, "/proc/sys"))
                                 p = strdup(optarg);
                         else
                                 p = strappend("/proc/sys/", optarg);
-
                         if (!p)
                                 return log_oom();
+
                         if (strv_consume(&arg_prefixes, p) < 0)
                                 return log_oom();
 

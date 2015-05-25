@@ -25,9 +25,11 @@
 #include <unistd.h>
 
 #include "util.h"
-#include "def.h"
 #include "killall.h"
 #include "set.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
 
 #define TIMEOUT_USEC (10 * USEC_PER_SEC)
 

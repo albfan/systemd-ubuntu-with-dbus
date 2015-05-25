@@ -25,7 +25,6 @@
 #include "util.h"
 #include "conf-parser.h"
 #include "fw-util.h"
-#include "network-internal.h"
 #include "networkd.h"
 #include "networkd-link.h"
 
@@ -210,9 +209,17 @@ int address_update(Address *address, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set prefixlen: %m");
 
-        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        address->flags |= IFA_F_PERMANENT;
+
+        r = sd_rtnl_message_addr_set_flags(req, address->flags & 0xff);
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
+
+        if (address->flags & ~0xff && link->rtnl_extended_attrs) {
+                r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set extended flags: %m");
+        }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0)
@@ -267,10 +274,8 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         /* The address is configured to be 0.0.0.0 or [::] by the user?
          * Then let's acquire something more useful from the pool. */
         r = manager_address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
-        if (r < 0) {
-                log_link_error(link, "Failed to acquire address from pool: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to acquire address from pool: %m");
         if (r == 0) {
                 log_link_error(link, "Couldn't find free address for interface, all taken.");
                 return -EBUSY;
@@ -336,9 +341,17 @@ int address_configure(Address *address, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set prefixlen: %m");
 
-        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        address->flags |= IFA_F_PERMANENT;
+
+        r = sd_rtnl_message_addr_set_flags(req, (address->flags & 0xff));
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
+
+        if (address->flags & ~0xff) {
+                r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set extended flags: %m");
+        }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0)

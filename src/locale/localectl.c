@@ -23,25 +23,19 @@
 #include <locale.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <string.h>
 #include <ftw.h>
-#include <sys/mman.h>
-#include <fcntl.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-message.h"
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
 #include "strv.h"
 #include "pager.h"
 #include "set.h"
-#include "path-util.h"
-#include "utf8.h"
 #include "def.h"
 #include "virt.h"
 #include "fileio.h"
@@ -83,7 +77,7 @@ typedef struct StatusInfo {
         const char *x11_options;
 } StatusInfo;
 
-static void print_overriden_variables(void) {
+static void print_overridden_variables(void) {
         int r;
         char *variables[_VARIABLE_LC_MAX] = {};
         LocaleVariable j;
@@ -182,7 +176,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                 goto fail;
         }
 
-        print_overriden_variables();
+        print_overridden_variables();
         print_status_info(&info);
 
 fail:

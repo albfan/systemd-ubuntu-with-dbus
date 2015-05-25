@@ -134,7 +134,7 @@
           derived from glibc's
           <varname>program_invocation_short_name</varname> variable,
           see
-          <citerefentry><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
+          <citerefentry project='die-net'><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
         </listitem>
 
       </varlistentry>
@@ -390,7 +390,7 @@
       </varlistentry>
     </variablelist>
 
-    <para>Priviledged programs (currently UID 0) may attach
+    <para>Privileged programs (currently UID 0) may attach
     <varname>OBJECT_PID=</varname> to a message. This will instruct
     <command>systemd-journald</command> to attach additional fields on
     behalf of the caller:</para>

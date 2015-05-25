@@ -22,22 +22,15 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <net/ethernet.h>
 #include <arpa/inet.h>
-#include <sys/param.h>
 
-#include "util.h"
-#include "list.h"
-#include "mkdir.h"
 #include "fileio.h"
 #include "unaligned.h"
 #include "in-addr-util.h"
-
+#include "hostname-util.h"
 #include "dhcp-protocol.h"
-#include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
 #include "sd-dhcp-lease.h"
-#include "sd-dhcp-client.h"
 #include "network-internal.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
@@ -679,7 +672,7 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0) {
                 _cleanup_free_ char *client_id_hex;
 
-                client_id_hex = hexmem (client_id, client_id_len);
+                client_id_hex = hexmem(client_id, client_id_len);
                 if (!client_id_hex) {
                         r = -ENOMEM;
                         goto finish;

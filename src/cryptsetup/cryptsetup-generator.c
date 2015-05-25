@@ -20,11 +20,8 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "dropin.h"
-#include "fileio.h"
 #include "generator.h"
 #include "hashmap.h"
 #include "log.h"
@@ -81,9 +78,9 @@ static int create_disk(
         if (!e)
                 return log_oom();
 
-        n = unit_name_build("systemd-cryptsetup", e, ".service");
-        if (!n)
-                return log_oom();
+        r = unit_name_build("systemd-cryptsetup", e, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         p = strjoin(arg_dest, "/", n, NULL);
         if (!p)
@@ -93,9 +90,9 @@ static int create_disk(
         if (!u)
                 return log_oom();
 
-        d = unit_name_from_path(u, ".device");
-        if (!d)
-                return log_oom();
+        r = unit_name_from_path(u, ".device", &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         f = fopen(p, "wxe");
         if (!f)
@@ -131,11 +128,11 @@ static int create_disk(
                         if (!path_equal(uu, "/dev/null")) {
 
                                 if (is_device_path(uu)) {
-                                        _cleanup_free_ char *dd;
+                                        _cleanup_free_ char *dd = NULL;
 
-                                        dd = unit_name_from_path(uu, ".device");
-                                        if (!dd)
-                                                return log_oom();
+                                        r = unit_name_from_path(uu, ".device", &dd);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to generate unit name: %m");
 
                                         fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
                                 } else
@@ -179,9 +176,9 @@ static int create_disk(
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
                         name);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write file %s: %m", p);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file %s: %m", p);
 
         from = strjoina("../", n);
 
@@ -376,13 +373,6 @@ static int add_crypttab_devices(void) {
                 log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
                 return 0;
         }
-
-        /* If we readd support for specifying passphrases
-         * directly in crypttab we should upgrade the warning
-         * below, though possibly only if a passphrase is
-         * specified directly. */
-        if (st.st_mode & 0005)
-                log_debug("/etc/crypttab is world-readable. This is usually not a good idea.");
 
         for (;;) {
                 int r, k;

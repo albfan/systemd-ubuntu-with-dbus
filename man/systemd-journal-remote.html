@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-journal-remote"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-journal-remote — Receive journal messages over the network</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-journal-remote</code>  [OPTIONS...] [-o/--output=<em class="replaceable"><code>DIR</code></em>|<em class="replaceable"><code>FILE</code></em>] [SOURCES...]</p></div></div><div class="refsect1"><a name="idm140254079057152"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-journal-remote"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-journal-remote — Receive journal messages over the network</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-journal-remote</code>  [OPTIONS...] [-o/--output=<em class="replaceable"><code>DIR</code></em>|<em class="replaceable"><code>FILE</code></em>] [SOURCES...]</p></div></div><div class="refsect1"><a name="idm140196813842000"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
       <code class="filename">systemd-journal-remote</code> is a command to
       receive serialized journal events and store them to the journal.
       Input streams are in the
@@ -30,7 +30,7 @@
       <span class="command"><strong>journalctl --output=export</strong></span>. For transport over
       the network, this serialized stream is usually carried over an
       HTTPS connection.
-    </p></div><div class="refsect1"><a name="idm140254079053632"></a><h2 id="Sources">Sources<a class="headerlink" title="Permalink to this headline" href="#Sources">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm140196808939312"></a><h2 id="Sources">Sources<a class="headerlink" title="Permalink to this headline" href="#Sources">¶</a></h2><p>
       Sources can be either "active"
       (<span class="command"><strong>systemd-journal-remote</strong></span> requests and pulls
       the data), or "passive"
@@ -75,7 +75,7 @@
         <code class="varname">$LISTEN_FDS</code>/<code class="varname">$LISTEN_PID</code>.
         In the second case, an HTTP or HTTPS server will be spawned on
         this port, respectively for <code class="option">--listen-http</code> and
-        <code class="option">--listen-https</code>. Currenntly, only POST requests
+        <code class="option">--listen-https</code>. Currently, only POST requests
         to <code class="filename">/upload</code> with "<code class="literal">Content-Type:
         application/vnd.fdo.journal</code>" are supported.</p></dd><dt id="$LISTEN_FDS"><span class="term"><code class="varname">$LISTEN_FDS</code></span><a class="headerlink" title="Permalink to this term" href="#%24LISTEN_FDS">¶</a></dt><dd><p><span class="command"><strong>systemd-journal-remote</strong></span>
         supports the
@@ -88,7 +88,7 @@
         <code class="option">--listen-https=-<em class="replaceable"><code>n</code></em></code>
         above. In the latter case, an HTTP or HTTPS server will be
         spawned using this descriptor and connections must be made
-        over the HTTP protocol.</p></dd></dl></div></div><div class="refsect1"><a name="idm140254082970112"></a><h2 id="Sinks">Sinks<a class="headerlink" title="Permalink to this headline" href="#Sinks">¶</a></h2><p>The location of the output journal can be specified
+        over the HTTP protocol.</p></dd></dl></div></div><div class="refsect1"><a name="idm140196808911072"></a><h2 id="Sinks">Sinks<a class="headerlink" title="Permalink to this headline" href="#Sinks">¶</a></h2><p>The location of the output journal can be specified
     with <code class="option">-o</code> or <code class="option">--output=</code>. For "active"
     sources, this option is required.
     </p><div class="variablelist"><dl class="variablelist"><dt id="--output=FILE"><span class="term"><code class="option">--output=<em class="replaceable"><code>FILE</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--output=FILE">¶</a></dt><dd><p>Will write to this journal file. The filename
@@ -110,7 +110,7 @@
     where the <em class="replaceable"><code>hostname</code></em> part is the
     escaped hostname of the source endpoint of the connection, or the
     numerical address if the hostname cannot be determined.</p><p>In case of "active" sources, the output file name must
-    always be given explicitly.</p></div><div class="refsect1"><a name="idm140254082958464"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--split-mode"><span class="term"><code class="option">--split-mode</code></span><a class="headerlink" title="Permalink to this term" href="#--split-mode">¶</a></dt><dd><p>One of <code class="constant">none</code> or
+    always be given explicitly.</p></div><div class="refsect1"><a name="idm140196808899824"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--split-mode"><span class="term"><code class="option">--split-mode</code></span><a class="headerlink" title="Permalink to this term" href="#--split-mode">¶</a></dt><dd><p>One of <code class="constant">none</code> or
         <code class="constant">host</code>. For the first, only one output
         journal file is used. For the latter, a separate output file
         is used, based on the hostname of the other endpoint of a
@@ -121,7 +121,7 @@
         data in the journal using Forward Secure Sealing.
         </p></dd><dt id="--getter=PROG --option1 --option2"><span class="term"><code class="option">--getter=<em class="replaceable"><code>PROG --option1 --option2</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--getter=PROG%20--option1%20--option2">¶</a></dt><dd><p>Program to invoke to retrieve data. The journal
         event stream must be generated on standard output.</p><p>Examples:</p><pre class="programlisting">--getter='curl "-HAccept: application/vnd.fdo.journal" https://some.host:19531/'</pre><pre class="programlisting">--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</pre></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140254077978496"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Copy local journal events to a different journal directory:
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140196808885728"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Copy local journal events to a different journal directory:
     </p><pre class="programlisting">
 journalctl -o export | systemd-journal-remote -o /tmp/dir -
     </pre><p>
@@ -132,9 +132,10 @@ journalctl -o export | systemd-journal-remote -o /tmp/dir -
     </p><pre class="programlisting">
 systemd-journal-remote --url http://some.host:19531/
     </pre><p>
-    </p></div><div class="refsect1"><a name="idm140254077974160"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm140196808881312"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-journal-upload.html"><span class="citerefentry"><span class="refentrytitle">systemd-journal-upload</span>(8)</span></a>,
       <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,
       <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
       <a href="systemd-journal-gatewayd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journal-gatewayd.service</span>(8)</span></a>
+      <a href="journal-remote.conf.html"><span class="citerefentry"><span class="refentrytitle">journal-remote.conf</span>(5)</span></a>
     </p></div></div></body></html>

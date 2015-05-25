@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-bootchart"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-bootchart — Boot performance graphing tool</p></div><div class="refsect1"><a name="idm140035128140592"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-bootchart"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-bootchart — Boot performance graphing tool</p></div><div class="refsect1"><a name="idm139917697112592"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
       <span class="command"><strong>systemd-bootchart</strong></span> is a tool, usually run at
       system startup, that collects the CPU load, disk load, memory
       usage, as well as per-process information from a running system.
@@ -51,7 +51,7 @@
       <code class="varname">MESSAGE_ID=9f26aa562cf440c2b16c773d0479b518</code>.
       Journal field <code class="varname">BOOTCHART=</code> contains the
       bootchart in SVG format.
-    </p></div><div class="refsect1"><a name="idm140035128681840"></a><h2 id="Invocation">Invocation<a class="headerlink" title="Permalink to this headline" href="#Invocation">¶</a></h2><p><span class="command"><strong>systemd-bootchart</strong></span> can be invoked in several different ways:</p><div class="variablelist"><dl class="variablelist"><dt id="Kernel invocation"><span class="term"><span class="emphasis"><em>Kernel invocation</em></span></span><a class="headerlink" title="Permalink to this term" href="#Kernel%20invocation">¶</a></dt><dd><p>The kernel can invoke
+    </p></div><div class="refsect1"><a name="idm139917692151152"></a><h2 id="Invocation">Invocation<a class="headerlink" title="Permalink to this headline" href="#Invocation">¶</a></h2><p><span class="command"><strong>systemd-bootchart</strong></span> can be invoked in several different ways:</p><div class="variablelist"><dl class="variablelist"><dt id="Kernel invocation"><span class="term"><span class="emphasis"><em>Kernel invocation</em></span></span><a class="headerlink" title="Permalink to this term" href="#Kernel%20invocation">¶</a></dt><dd><p>The kernel can invoke
         <span class="command"><strong>systemd-bootchart</strong></span> instead of the init
         process. In turn, <span class="command"><strong>systemd-bootchart</strong></span> will
         invoke <span class="command"><strong>/usr/lib/systemd/systemd</strong></span>.
@@ -62,7 +62,7 @@
         time elapsed since boot and before systemd-bootchart was
         started, as it may result in extremely large graphs. The time
         elapsed since boot might also include any time that the system
-        was suspended.</p></dd></dl></div></div><div class="refsect1"><a name="idm140035127220512"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>These options can also be set in the
+        was suspended.</p></dd></dl></div></div><div class="refsect1"><a name="idm139917692143024"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>These options can also be set in the
     <code class="filename">/etc/systemd/bootchart.conf</code> file. See
     <a href="http://man7.org/linux/man-pages/man5/bootchart.conf.5.html"><span class="citerefentry"><span class="refentrytitle">bootchart.conf</span>(5)</span></a>.
     </p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
@@ -95,14 +95,14 @@
         </p></dd><dt id="-e"><span class="term"><code class="option">-e</code>, </span><span class="term"><code class="option">--entropy</code></span><a class="headerlink" title="Permalink to this term" href="#-e">¶</a></dt><dd><p>Enable logging and graphing of the kernel
         random entropy pool size.</p></dd><dt id="-x"><span class="term"><code class="option">-x</code>, </span><span class="term"><code class="option">--scale-x <em class="replaceable"><code>N</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-x">¶</a></dt><dd><p>Horizontal scaling factor for all variable
         graph components.</p></dd><dt id="-y"><span class="term"><code class="option">-y</code>, </span><span class="term"><code class="option">--scale-y <em class="replaceable"><code>N</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-y">¶</a></dt><dd><p>Vertical scaling factor for all variable graph
-        components.</p></dd></dl></div></div><div class="refsect1"><a name="idm140035127271808"></a><h2 id="Output">Output<a class="headerlink" title="Permalink to this headline" href="#Output">¶</a></h2><p><span class="command"><strong>systemd-bootchart</strong></span> generates SVG graphs.
+        components.</p></dd></dl></div></div><div class="refsect1"><a name="idm139917692110176"></a><h2 id="Output">Output<a class="headerlink" title="Permalink to this headline" href="#Output">¶</a></h2><p><span class="command"><strong>systemd-bootchart</strong></span> generates SVG graphs.
     In order to render those on a graphical display any SVG capable
     viewer can be used. It should be noted that the SVG render engines
     in most browsers (including Chrome and Firefox) are many times
     faster than dedicated graphical applications like Gimp and
     Inkscape. Just point your browser at
     <a class="ulink" href="file:///run/log/" target="_top">file:///run/log/</a>!
-    </p></div><div class="refsect1"><a name="idm140035127033392"></a><h2 id="History">History<a class="headerlink" title="Permalink to this headline" href="#History">¶</a></h2><p>This version of bootchart was implemented from scratch, but
+    </p></div><div class="refsect1"><a name="idm139917692107680"></a><h2 id="History">History<a class="headerlink" title="Permalink to this headline" href="#History">¶</a></h2><p>This version of bootchart was implemented from scratch, but
     is inspired by former bootchart incantations:</p><div class="variablelist"><dl class="variablelist"><dt id="Original bash"><span class="term"><span class="emphasis"><em>Original bash</em></span></span><a class="headerlink" title="Permalink to this term" href="#Original%20bash">¶</a></dt><dd><p>The original bash/shell code implemented
         bootchart. This version created a compressed tarball for
         processing with external applications. This version did not
@@ -115,9 +115,9 @@
     it more efficient and simpler. There are no longer any timing
     issues with the data collector and the grapher, as the graphing
     cannot be run until the data has been collected. Also, the data
-    kept in memory is reduced to the absolute minimum needed.</p></div><div class="refsect1"><a name="idm140035128089024"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    kept in memory is reduced to the absolute minimum needed.</p></div><div class="refsect1"><a name="idm139917692098976"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="http://man7.org/linux/man-pages/man5/bootchart.conf.5.html"><span class="citerefentry"><span class="refentrytitle">bootchart.conf</span>(5)</span></a>
-    </p></div><div class="refsect1"><a name="idm140035126652032"></a><h2 id="Bugs">Bugs<a class="headerlink" title="Permalink to this headline" href="#Bugs">¶</a></h2><p>systemd-bootchart does not get the model information for the
+    </p></div><div class="refsect1"><a name="idm139917692096816"></a><h2 id="Bugs">Bugs<a class="headerlink" title="Permalink to this headline" href="#Bugs">¶</a></h2><p>systemd-bootchart does not get the model information for the
     hard drive unless the root device is specified with
     <code class="code">root=/dev/sdxY</code>. Using UUIDs or PARTUUIDs will boot
     fine, but the hard drive model will not be added to the

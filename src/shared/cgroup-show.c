@@ -25,10 +25,13 @@
 #include <errno.h>
 
 #include "util.h"
+#include "formats-util.h"
+#include "process-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "cgroup-util.h"
 #include "cgroup-show.h"
+#include "terminal-util.h"
 
 static int compare(const void *a, const void *b) {
         const pid_t *p = a, *q = b;

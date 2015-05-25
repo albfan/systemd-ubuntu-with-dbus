@@ -19,11 +19,11 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="machinectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machinectl — Control the systemd machine manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">machinectl</code>  [OPTIONS...] {COMMAND} [NAME...]</p></div></div><div class="refsect1"><a name="idm140317735547456"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>machinectl</strong></span> may be used to introspect and
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="machinectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machinectl — Control the systemd machine manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">machinectl</code>  [OPTIONS...] {COMMAND} [NAME...]</p></div></div><div class="refsect1"><a name="idm139807813729600"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>machinectl</strong></span> may be used to introspect and
     control the state of the
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
     virtual machine and container registration manager
-    <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140317735544096"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-p"><span class="term"><code class="option">-p</code>, </span><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#-p">¶</a></dt><dd><p>When showing machine or image properties,
+    <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm139807813726240"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-p"><span class="term"><code class="option">-p</code>, </span><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#-p">¶</a></dt><dd><p>When showing machine or image properties,
         limit the output to certain properties as specified by the
         argument. If not specified, all set properties are shown. The
         argument should be a property name, such as
@@ -74,7 +74,13 @@
         downloading "<code class="literal">dkr</code>" images with the
         <span class="command"><strong>pull-dkr</strong></span>. Takes a
         "<code class="literal">http://</code>", "<code class="literal">https://</code>"
-        URL.</p></dd><dt id="-H"><span class="term"><code class="option">-H</code>, </span><span class="term"><code class="option">--host=</code></span><a class="headerlink" title="Permalink to this term" href="#-H">¶</a></dt><dd><p><a name="host-text"></a>Execute the operation remotely. Specify a hostname, or a
+        URL.</p></dd><dt id="--format="><span class="term"><code class="option">--format=</code></span><a class="headerlink" title="Permalink to this term" href="#--format=">¶</a></dt><dd><p>When used with the <code class="option">export-tar</code>
+        or <code class="option">export-raw</code> commands specifies the
+        compression format to use for the resulting file. Takes one of
+        "<code class="literal">uncompressed</code>", "<code class="literal">xz</code>",
+        "<code class="literal">gzip</code>", "<code class="literal">bzip2</code>". By default
+        the format is determined automatically from the image file
+        name passed.</p></dd><dt id="-H"><span class="term"><code class="option">-H</code>, </span><span class="term"><code class="option">--host=</code></span><a class="headerlink" title="Permalink to this term" href="#-H">¶</a></dt><dd><p><a name="host-text"></a>Execute the operation remotely. Specify a hostname, or a
       username and hostname separated by "<code class="literal">@</code>", to
       connect to. The hostname may optionally be suffixed by a
       container name, separated by "<code class="literal">:</code>", which
@@ -85,7 +91,7 @@
       <em class="replaceable"><code>HOST</code></em></strong></span>.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
       container name to connect to.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd><dt id="--no-legend"><span class="term"><code class="option">--no-legend</code></span><a class="headerlink" title="Permalink to this term" href="#--no-legend">¶</a></dt><dd><p>Do not print the legend, i.e. column headers and the
       footer with hints.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140317734475984"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="refsect2"><a name="idm140317734474960"></a><h3 id="Machine Commands">Machine Commands<a class="headerlink" title="Permalink to this headline" href="#Machine%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>List currently running (online) virtual
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139807809059328"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="refsect2"><a name="idm139807809058304"></a><h3 id="Machine Commands">Machine Commands<a class="headerlink" title="Permalink to this headline" href="#Machine%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>List currently running (online) virtual
         machines and containers. To enumerate container images that
         can be started, use <span class="command"><strong>list-images</strong></span> (see
         below).</p></dd><dt id="status NAME..."><span class="term"><span class="command"><strong>status</strong></span> <em class="replaceable"><code>NAME</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#status%20NAME...">¶</a></dt><dd><p>Show terse runtime status information about
@@ -189,7 +195,7 @@
         into the host system. Takes a container name, followed by the
         source path in the container the destination path on the host.
         If the destination path is omitted the same as the source path
-        is used.</p></dd></dl></div></div><div class="refsect2"><a name="idm140317734417536"></a><h3 id="Image Commands">Image Commands<a class="headerlink" title="Permalink to this headline" href="#Image%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-images"><span class="term"><span class="command"><strong>list-images</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-images">¶</a></dt><dd><p>Show a list of locally installed container and
+        is used.</p></dd></dl></div></div><div class="refsect2"><a name="idm139807809000704"></a><h3 id="Image Commands">Image Commands<a class="headerlink" title="Permalink to this headline" href="#Image%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="list-images"><span class="term"><span class="command"><strong>list-images</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-images">¶</a></dt><dd><p>Show a list of locally installed container and
         VM images. This enumerates all raw disk images and container
         directories and subvolumes in
         <code class="filename">/var/lib/machines/</code> (and other search
@@ -213,28 +219,56 @@
         <code class="option">--property=</code>. This command is intended to be
         used whenever computer-parsable output is required. Use
         <span class="command"><strong>image-status</strong></span> if you are looking for
-        formatted human-readable output.</p></dd><dt id="clone NAME NAME"><span class="term"><span class="command"><strong>clone</strong></span> <em class="replaceable"><code>NAME</code></em> <em class="replaceable"><code>NAME</code></em></span><a class="headerlink" title="Permalink to this term" href="#clone%20NAME%20NAME">¶</a></dt><dd><p>Clones a container or disk image. The
+        formatted human-readable output.</p></dd><dt id="clone NAME NAME"><span class="term"><span class="command"><strong>clone</strong></span> <em class="replaceable"><code>NAME</code></em> <em class="replaceable"><code>NAME</code></em></span><a class="headerlink" title="Permalink to this term" href="#clone%20NAME%20NAME">¶</a></dt><dd><p>Clones a container or VM image. The
         arguments specify the name of the image to clone and the name
         of the newly cloned image. Note that plain directory container
         images are cloned into subvolume images with this command.
         Note that cloning a container or VM image is optimized for
         btrfs file systems, and might not be efficient on others, due
-        to file system limitations.</p></dd><dt id="rename NAME NAME"><span class="term"><span class="command"><strong>rename</strong></span> <em class="replaceable"><code>NAME</code></em> <em class="replaceable"><code>NAME</code></em></span><a class="headerlink" title="Permalink to this term" href="#rename%20NAME%20NAME">¶</a></dt><dd><p>Renames a container or disk image. The
+        to file system limitations.</p><p>Note that this command leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified. The original image and the cloned copy will hence
+        share these credentials, and it might be necessary to manually
+        change them in the copy.</p></dd><dt id="rename NAME NAME"><span class="term"><span class="command"><strong>rename</strong></span> <em class="replaceable"><code>NAME</code></em> <em class="replaceable"><code>NAME</code></em></span><a class="headerlink" title="Permalink to this term" href="#rename%20NAME%20NAME">¶</a></dt><dd><p>Renames a container or VM image. The
         arguments specify the name of the image to rename and the new
-        name of the image.</p></dd><dt id="read-only NAME [BOOL]"><span class="term"><span class="command"><strong>read-only</strong></span> <em class="replaceable"><code>NAME</code></em> [<em class="replaceable"><code>BOOL</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#read-only%20NAME%20%5BBOOL%5D">¶</a></dt><dd><p>Marks or (unmarks) a container or disk image
+        name of the image.</p></dd><dt id="read-only NAME [BOOL]"><span class="term"><span class="command"><strong>read-only</strong></span> <em class="replaceable"><code>NAME</code></em> [<em class="replaceable"><code>BOOL</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#read-only%20NAME%20%5BBOOL%5D">¶</a></dt><dd><p>Marks or (unmarks) a container or VM image
         read-only. Takes a VM or container image name, followed by a
         boolean as arguments. If the boolean is omitted, positive is
-        implied, i.e. the image is marked read-only.</p></dd><dt id="remove NAME..."><span class="term"><span class="command"><strong>remove</strong></span> <em class="replaceable"><code>NAME</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#remove%20NAME...">¶</a></dt><dd><p>Removes one or more container or disk images.
+        implied, i.e. the image is marked read-only.</p></dd><dt id="remove NAME..."><span class="term"><span class="command"><strong>remove</strong></span> <em class="replaceable"><code>NAME</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#remove%20NAME...">¶</a></dt><dd><p>Removes one or more container or VM images.
         The special image "<code class="literal">.host</code>", which refers to
         the host's own directory tree may not be
-        removed.</p></dd></dl></div></div><div class="refsect2"><a name="idm140317734393344"></a><h3 id="Image Transfer Commands">Image Transfer Commands<a class="headerlink" title="Permalink to this headline" href="#Image%20Transfer%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="pull-tar URL [NAME]"><span class="term"><span class="command"><strong>pull-tar</strong></span> <em class="replaceable"><code>URL</code></em> [<em class="replaceable"><code>NAME</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#pull-tar%20URL%20%5BNAME%5D">¶</a></dt><dd><p>Downloads a <code class="filename">.tar</code>
+        removed.</p></dd><dt id="set-limit [NAME] BYTES"><span class="term"><span class="command"><strong>set-limit</strong></span> [<em class="replaceable"><code>NAME</code></em>] <em class="replaceable"><code>BYTES</code></em></span><a class="headerlink" title="Permalink to this term" href="#set-limit%20%5BNAME%5D%20BYTES">¶</a></dt><dd><p>Sets the maximum size in bytes a specific
+        container or VM image, or all images may grow up to on disk
+        (disk quota). Takes either one or two parameters. The first,
+        optional parameter refers to a container or VM image name. If
+        specified the size limit of the specified image is changed. If
+        omitted the overall size limit of the sum of all images stored
+        locally is changed. The final argument specifies the size
+        limit in bytes, possibly suffixed by the usual K, M, G, T
+        units. If the size limit shall be disabled, specify
+        "<code class="literal">-</code>" as size.</p><p>Note that per-container size limits are only supported
+        on btrfs file systems. Also note that if
+        <span class="command"><strong>set-limit</strong></span> is invoked without image
+        parameter, and <code class="filename">/var/lib/machines</code> is
+        empty, and the directory is not located on btrfs, a btrfs
+        loopback file is implicitly created as
+        <code class="filename">/var/lib/machines.raw</code> with the given
+        size, and mounted to
+        <code class="filename">/var/lib/machines</code>. The size of the
+        loopback may later be readjusted with
+        <span class="command"><strong>set-limit</strong></span>, as well. If such a
+        loopback-mounted <code class="filename">/var/lib/machines</code>
+        directory is used <span class="command"><strong>set-limit</strong></span> without image
+        name alters both the quota setting within the file system as
+        well as the loopback file and file system size
+        itself.</p></dd></dl></div></div><div class="refsect2"><a name="idm139807808966896"></a><h3 id="Image Transfer Commands">Image Transfer Commands<a class="headerlink" title="Permalink to this headline" href="#Image%20Transfer%20Commands">¶</a></h3><div class="variablelist"><dl class="variablelist"><dt id="pull-tar URL [NAME]"><span class="term"><span class="command"><strong>pull-tar</strong></span> <em class="replaceable"><code>URL</code></em> [<em class="replaceable"><code>NAME</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#pull-tar%20URL%20%5BNAME%5D">¶</a></dt><dd><p>Downloads a <code class="filename">.tar</code>
         container image from the specified URL, and makes it available
         under the specified local machine name. The URL must be of
         type "<code class="literal">http://</code>" or
         "<code class="literal">https://</code>", and must refer to a
         <code class="filename">.tar</code>, <code class="filename">.tar.gz</code>,
         <code class="filename">.tar.xz</code> or <code class="filename">.tar.bz2</code>
-        archive file. If the local machine name is omitted the name it
+        archive file. If the local machine name is omitted it
         is automatically derived from the last component of the URL,
         with its suffix removed.</p><p>The image is verified before it is made available,
         unless <code class="option">--verify=no</code> is specified. Verification
@@ -260,7 +294,7 @@
         downloads are not necessary. In order to create only the
         read-only image, and avoid creating its writable snapshot,
         specify "<code class="literal">-</code>" as local machine name.</p><p>Note that the read-only subvolume is prefixed with
-        <code class="filename">.tar-</code>, and is thus now shown by
+        <code class="filename">.tar-</code>, and is thus not shown by
         <span class="command"><strong>list-images</strong></span>, unless <code class="option">--all</code>
         is passed.</p><p>Note that pressing C-c during execution of this command
         will not abort the download. Use
@@ -273,11 +307,11 @@
         be a <code class="filename">.qcow2</code> or raw disk image, optionally
         compressed as <code class="filename">.gz</code>,
         <code class="filename">.xz</code>, or <code class="filename">.bz2</code>. If the
-        local machine name is omitted the name it is automatically
+        local machine name is omitted it is automatically
         derived from the last component of the URL, with its suffix
         removed.</p><p>Image verification is identical for raw and tar images
         (see above).</p><p>If the the downloaded image is in
-        <code class="filename">.qcow2</code> format it es converted into a raw
+        <code class="filename">.qcow2</code> format it is converted into a raw
         image file before it is made available.</p><p>Downloaded images of this type will be placed as
         read-only <code class="filename">.raw</code> file in
         <code class="filename">/var/lib/machines/</code>. A local, writable
@@ -285,7 +319,7 @@
         machine name. To omit creation of the local, writable copy
         pass "<code class="literal">-</code>" as local machine name.</p><p>Similar to the behaviour of <span class="command"><strong>pull-tar</strong></span>,
         the read-only image is prefixed with
-        <code class="filename">.raw-</code>, and thus now shown by
+        <code class="filename">.raw-</code>, and thus not shown by
         <span class="command"><strong>list-images</strong></span>, unless <code class="option">--all</code>
         is passed.</p><p>Note that pressing C-c during execution of this command
         will not abort the download. Use
@@ -303,17 +337,56 @@
         of the newest layer is then created under the specified local
         machine name. To omit creation of this writable snapshot, pass
         "<code class="literal">-</code>" as local machine name.</p><p>The read-only layer subvolumes are prefixed with
-        <code class="filename">.dkr-</code>, and thus now shown by
+        <code class="filename">.dkr-</code>, and thus not shown by
         <span class="command"><strong>list-images</strong></span>, unless <code class="option">--all</code>
         is passed.</p><p>To specify the "<code class="literal">dkr</code>" index server to
         use for looking up the specified container, use
         <code class="option">--dkr-index-url=</code>.</p><p>Note that pressing C-c during execution of this command
         will not abort the download. Use
         <span class="command"><strong>cancel-transfer</strong></span>, described
-        below.</p></dd><dt id="list-transfers"><span class="term"><span class="command"><strong>list-transfers</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-transfers">¶</a></dt><dd><p>Shows a list of container or VM image
-        downloads that are currently in progress.</p></dd><dt id="cancel-transfers ID..."><span class="term"><span class="command"><strong>cancel-transfers</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#cancel-transfers%20ID...">¶</a></dt><dd><p>Aborts download of the container or VM image
-        with the specified ID. To list ongoing transfers and their
-        IDs, use <span class="command"><strong>list-transfers</strong></span>. </p></dd></dl></div></div></div><div class="refsect1"><a name="idm140317734341424"></a><h2 id="Files and Directories">Files and Directories<a class="headerlink" title="Permalink to this headline" href="#Files%20and%20Directories">¶</a></h2><p>Machine images are preferably stored in
+        below.</p></dd><dt id="import-tar FILE [NAME]"><span class="term"><span class="command"><strong>import-tar</strong></span> <em class="replaceable"><code>FILE</code></em> [<em class="replaceable"><code>NAME</code></em>], </span><span class="term"><span class="command"><strong>import-raw</strong></span> <em class="replaceable"><code>FILE</code></em> [<em class="replaceable"><code>NAME</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#import-tar%20FILE%20%5BNAME%5D">¶</a></dt><dd><p>Imports a TAR or RAW container or VM image,
+        and places it under the specified name in
+        <code class="filename">/var/lib/machines/</code>. When
+        <span class="command"><strong>import-tar</strong></span> is used the file specified as
+        first argument should be a tar archive, possibly compressed
+        with xz, gzip or bzip2. It will then be unpacked into its own
+        subvolume in <code class="filename">/var/lib/machines</code>. When
+        <span class="command"><strong>import-raw</strong></span> is used the file should be a
+        qcow2 or raw disk image, possibly compressed with xz, gzip or
+        bzip2. If the second argument (the resulting image name) is
+        not specified it is automatically derived from the file
+        name. If the file name is passed as "<code class="literal">-</code>" the
+        image is read from standard input, in which case the second
+        argument is mandatory.</p><p>Similar as with <span class="command"><strong>pull-tar</strong></span>,
+        <span class="command"><strong>pull-raw</strong></span> the file system
+        <code class="filename">/var/lib/machines.raw</code> is increased in
+        size of necessary and appropriate. Optionally the
+        <code class="option">--read-only</code> switch may be used to create a
+        read-only container or VM image. No cryptographic validation
+        is done when importing the images.</p><p>Much like image downloads, ongoing imports may be listed
+        with <span class="command"><strong>list-transfers</strong></span> and aborted with
+        <span class="command"><strong>cancel-transfer</strong></span>.</p></dd><dt id="export-tar NAME [FILE]"><span class="term"><span class="command"><strong>export-tar</strong></span> <em class="replaceable"><code>NAME</code></em> [<em class="replaceable"><code>FILE</code></em>], </span><span class="term"><span class="command"><strong>export-raw</strong></span> <em class="replaceable"><code>NAME</code></em> [<em class="replaceable"><code>FILE</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#export-tar%20NAME%20%5BFILE%5D">¶</a></dt><dd><p>Exports a TAR or RAW container or VM image and
+        stores it in the specified file. The first parameter should be
+        a VM or container image name. The second parameter should be a
+        file path the TAR or RAW image is written to. If the path ends
+        in "<code class="literal">.gz</code>" the file is compressed with gzip, if
+        it ends in "<code class="literal">.xz</code>" with xz, and if it ends in
+        "<code class="literal">.bz2</code>" with bzip2. If the path ends in
+        neither the file is left uncompressed. If the second argument
+        is missing the image is written to standard output. The
+        compression may also be explicitly selected with the
+        <code class="option">--format=</code> switch. This is in particular
+        useful if the second parameter is left unspecified.</p><p>Much like image downloads and imports, ongoing exports
+        may be listed with <span class="command"><strong>list-transfers</strong></span> and
+        aborted with
+        <span class="command"><strong>cancel-transfer</strong></span>.</p><p>Note that currently only directory and subvolume images
+        may be exported as TAR images, and only raw disk images as RAW
+        images.</p></dd><dt id="list-transfers"><span class="term"><span class="command"><strong>list-transfers</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-transfers">¶</a></dt><dd><p>Shows a list of container or VM image
+        downloads, imports and exports that are currently in
+        progress.</p></dd><dt id="cancel-transfers ID..."><span class="term"><span class="command"><strong>cancel-transfers</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#cancel-transfers%20ID...">¶</a></dt><dd><p>Aborts a download, import or export of the
+        container or VM image with the specified ID. To list ongoing
+        transfers and their IDs, use
+        <span class="command"><strong>list-transfers</strong></span>. </p></dd></dl></div></div></div><div class="refsect1"><a name="idm139807808893296"></a><h2 id="Files and Directories">Files and Directories<a class="headerlink" title="Permalink to this headline" href="#Files%20and%20Directories">¶</a></h2><p>Machine images are preferably stored in
     <code class="filename">/var/lib/machines/</code>, but are also searched for
     in <code class="filename">/usr/local/lib/machines/</code> and
     <code class="filename">/usr/lib/machines/</code>. For compatibility reasons
@@ -322,7 +395,18 @@
     <code class="filename">/usr</code> are always considered read-only. It is
     possible to symlink machines images from other directories into
     <code class="filename">/var/lib/machines/</code> to make them available for
-    control with <span class="command"><strong>machinectl</strong></span>.</p><p>Disk images are understood by
+    control with <span class="command"><strong>machinectl</strong></span>.</p><p>Note that many image operations are only supported,
+    efficient or atomic on btrfs file systems. Due to this, if the
+    <span class="command"><strong>pull-tar</strong></span>, <span class="command"><strong>pull-raw</strong></span>,
+    <span class="command"><strong>pull-dkr</strong></span>, <span class="command"><strong>import-tar</strong></span>,
+    <span class="command"><strong>import-raw</strong></span> and <span class="command"><strong>set-limit</strong></span>
+    commands notice that <code class="filename">/var/lib/machines</code> is
+    empty and not located on btrfs, they will implicitly set up a
+    loopback file <code class="filename">/var/lib/machines.raw</code>
+    containing a btrfs file system that is mounted to
+    <code class="filename">/var/lib/machines</code>. The size of this loopback
+    file may be controlled dynamically with
+    <span class="command"><strong>set-limit</strong></span>.</p><p>Disk images are understood by
     <a href="systemd-nspawn.html"><span class="citerefentry"><span class="refentrytitle">systemd-nspawn</span>(1)</span></a>
     and <span class="command"><strong>machinectl</strong></span> in three formats:</p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>A simple directory tree, containing the files
       and directories of the container to boot.</p></li><li class="listitem"><p>A subvolume (on btrfs file systems), which are
@@ -335,25 +419,28 @@
     <a href="systemd-nspawn.html"><span class="citerefentry"><span class="refentrytitle">systemd-nspawn</span>(1)</span></a>
     for more information on image formats, in particular it's
     <code class="option">--directory=</code> and <code class="option">--image=</code>
-    options.</p></div><div class="refsect1"><a name="idm140317734328864"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140317734328224"></a><p class="title"><b>Example 1. Download an Ubuntu image and open a shell in it</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
+    options.</p></div><div class="refsect1"><a name="idm139807808873680"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm139807808873040"></a><p class="title"><b>Example 1. Download an Ubuntu image and open a shell in it</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
 # systemd-nspawn -M trusty-server-cloudimg-amd64-root</pre><p>This downloads and verifies the specified
       <code class="filename">.tar</code> image, and then uses
       <a href="systemd-nspawn.html"><span class="citerefentry"><span class="refentrytitle">systemd-nspawn</span>(1)</span></a>
-      to open a shell in it.</p></div></div><br class="example-break"><div class="example"><a name="idm140317734324880"></a><p class="title"><b>Example 2. Download a Fedora image, set a root password in it, start
-      it as service</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-raw --verify=no
-      http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
-      # systemd-nspawn -M Fedora-Cloud-Base-20141203-21 # passwd #
-      exit # machinectl start Fedora-Cloud-Base-20141203-21 #
-      machinectl login Fedora-Cloud-Base-20141203-21</pre><p>This downloads the specified <code class="filename">.raw</code>
+      to open a shell in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139807808869696"></a><p class="title"><b>Example 2. Download a Fedora image, set a root password in it, start
+      it as service</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-20141203-21
+# passwd
+# exit
+# machinectl start Fedora-Cloud-Base-20141203-21
+# machinectl login Fedora-Cloud-Base-20141203-21</pre><p>This downloads the specified <code class="filename">.raw</code>
       image with verification disabled. Then a shell is opened in it
       and a root password is set. Afterwards the shell is left, and
       the machine started as system service. With the last command a
-      login prompt into the container is requested.</p></div></div><br class="example-break"><div class="example"><a name="idm140317739501408"></a><p class="title"><b>Example 3. Download a Fedora "<code class="literal">dkr</code>" image</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-dkr --verify=no mattdm/fedora
+      login prompt into the container is requested.</p></div></div><br class="example-break"><div class="example"><a name="idm139807808866592"></a><p class="title"><b>Example 3. Download a Fedora "<code class="literal">dkr</code>" image</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-dkr --verify=no mattdm/fedora
 # systemd-nspawn -M fedora</pre><p>Downloads a "<code class="literal">dkr</code>" image and opens a shell
       in it. Note that the specified download command might require an
       index server to be specified with the
-      "<code class="literal">--dkr-index-url=</code>".</p></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140317739497120"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure code
-    otherwise.</p></div><div class="refsect1"><a name="idm140317721004464"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+      "<code class="literal">--dkr-index-url=</code>".</p></div></div><br class="example-break"><div class="example"><a name="idm139807808862688"></a><p class="title"><b>Example 4. Exports a container image as tar file</b></p><div class="example-contents"><pre class="programlisting"># machinectl export-tar fedora myfedora.tar.xz</pre><p>Exports the container "<code class="literal">fedora</code>" in an
+      xz-compress tar file <code class="filename">myfedora.tar.xz</code> in the
+      current directory.</p></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139807808859536"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure code
+    otherwise.</p></div><div class="refsect1"><a name="idm139807795081152"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
                         <code class="option">--no-pager</code> is not given;
                         overrides <code class="varname">$PAGER</code>.  Setting
                         this to an empty string or the value
@@ -361,8 +448,12 @@
                         <code class="option">--no-pager</code>.</p></dd><dt id="$SYSTEMD_LESS"><span class="term"><code class="varname">$SYSTEMD_LESS</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LESS">¶</a></dt><dd><p>Override the default
                         options passed to
                         <span class="command"><strong>less</strong></span>
-                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm140317739495328"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm139807808857808"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>,
       <a href="systemd-nspawn.html"><span class="citerefentry"><span class="refentrytitle">systemd-nspawn</span>(1)</span></a>,
-      <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>
+      <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>,
+      <a href="http://linux.die.net/man/1/tar"><span class="citerefentry"><span class="refentrytitle">tar</span>(1)</span></a>,
+      <a href="http://linux.die.net/man/1/xz"><span class="citerefentry"><span class="refentrytitle">xz</span>(1)</span></a>,
+      <a href="http://linux.die.net/man/1/gzip"><span class="citerefentry"><span class="refentrytitle">gzip</span>(1)</span></a>,
+      <a href="http://linux.die.net/man/1/bzip2"><span class="citerefentry"><span class="refentrytitle">bzip2</span>(1)</span></a>
     </p></div></div></body></html>

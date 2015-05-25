@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FSCK@\&.SERVICE" "8" "" "systemd 219" "systemd-fsck@.service"
+.TH "SYSTEMD\-FSCK@\&.SERVICE" "8" "" "systemd 220" "systemd-fsck@.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -48,8 +48,7 @@ for the file system is set to a value greater than zero\&. The file system check
 systemd\-fsck
 does not know any details about specific filesystems, and simply executes file system checkers specific to each filesystem type (/sbin/fsck\&.*)\&. This helper will decide if the filesystem should actually be checked based on the time since last check, number of mounts, unclean unmount, etc\&.
 .PP
-systemd\-fsck
-will forward file system checking progress to the console\&. If a file system check fails for a service without
+If a file system check fails for a service without
 \fBnofail\fR, emergency mode is activated, by isolating to
 emergency\&.target\&.
 .SH "KERNEL COMMAND LINE"

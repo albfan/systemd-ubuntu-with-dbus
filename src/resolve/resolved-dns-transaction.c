@@ -22,6 +22,7 @@
 #include "af-list.h"
 
 #include "resolved-dns-transaction.h"
+#include "random-util.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;
@@ -252,7 +253,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
                 else {
                         union in_addr_union address;
-                        int family;
+                        int family = AF_UNSPEC;
 
                         /* Otherwise, try to talk to the owner of a
                          * the IP address, in case this is a reverse

@@ -24,13 +24,11 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/if_infiniband.h>
-#include <netinet/ether.h>
-#include <sys/param.h>
 #include <sys/ioctl.h>
 
 #include "util.h"
-#include "list.h"
 #include "refcnt.h"
+#include "random-util.h"
 #include "async.h"
 
 #include "dhcp-protocol.h"
@@ -40,7 +38,7 @@
 #include "sd-dhcp-client.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
-#define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
+#define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
 struct sd_dhcp_client {
         RefCount n_ref;

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.timer"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.timer — Timer unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>timer</code></em>.timer</code></p></div><div class="refsect1"><a name="idm139903850608352"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.timer"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.timer — Timer unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>timer</code></em>.timer</code></p></div><div class="refsect1"><a name="idm140065311258992"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     "<code class="literal">.timer</code>" encodes information about a timer
     controlled and supervised by systemd, for timer-based
     activation.</p><p>This man page lists the configuration options specific to
@@ -45,7 +45,7 @@
     being started before the system clock has been correctly set. Only
     timer units involved with early boot or late system shutdown
     should disable the <code class="varname">DefaultDependencies=</code>
-    option.</p></div><div class="refsect1"><a name="idm139903850597168"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Timer files must include a [Timer] section, which carries
+    option.</p></div><div class="refsect1"><a name="idm140065306351232"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Timer files must include a [Timer] section, which carries
     information about the timer it defines. The options specific to
     the [Timer] section of timer units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="OnActiveSec="><span class="term"><code class="varname">OnActiveSec=</code>, </span><span class="term"><code class="varname">OnBootSec=</code>, </span><span class="term"><code class="varname">OnStartupSec=</code>, </span><span class="term"><code class="varname">OnUnitActiveSec=</code>, </span><span class="term"><code class="varname">OnUnitInactiveSec=</code></span><a class="headerlink" title="Permalink to this term" href="#OnActiveSec=">¶</a></dt><dd><p>Defines monotonic timers relative to different
         starting points: <code class="varname">OnActiveSec=</code> defines a
@@ -130,7 +130,7 @@
         option will only make sure the system resumes on the
         appropriate times, it will not take care of suspending it
         again after any work that is to be done is finished. Defaults
-        to <code class="varname">false</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm139903854455120"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        to <code class="varname">false</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm140065306319632"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

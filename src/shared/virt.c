@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "process-util.h"
 #include "virt.h"
 #include "fileio.h"
 
@@ -102,15 +103,35 @@ static int detect_vm_cpuid(const char **_id) {
 }
 
 static int detect_vm_devicetree(const char **_id) {
-#if defined(__powerpc__) || defined(__powerpc64__)
+#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__)
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
-        r = read_one_line_file("/sys/firmware/devicetree/base/hypervisor/compatible", &hvtype);
+        r = read_one_line_file("/proc/device-tree/hypervisor/compatible", &hvtype);
         if (r >= 0) {
                 if (streq(hvtype, "linux,kvm")) {
                         *_id = "kvm";
                         return 1;
+                } else if (strstr(hvtype, "xen")) {
+                        *_id = "xen";
+                        return 1;
+                }
+        } else if (r == -ENOENT) {
+                _cleanup_closedir_ DIR *dir = NULL;
+                struct dirent *dent;
+
+                dir = opendir("/proc/device-tree");
+                if (!dir) {
+                        if (errno == ENOENT)
+                                return 0;
+                        return -errno;
+                }
+
+                FOREACH_DIRENT(dent, dir, return -errno) {
+                        if (strstr(dent->d_name, "fw-cfg")) {
+                                *_id = "qemu";
+                                return 1;
+                        }
                 }
         }
 #endif

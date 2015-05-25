@@ -23,15 +23,13 @@
 
 typedef struct Mount Mount;
 
-#include "unit.h"
 #include "kill.h"
 #include "execute.h"
-#include "cgroup.h"
 
 typedef enum MountState {
         MOUNT_DEAD,
-        MOUNT_MOUNTING,               /* /bin/mount is running, but the mount is not done yet. */
-        MOUNT_MOUNTING_DONE,          /* /bin/mount is running, and the mount is done. */
+        MOUNT_MOUNTING,               /* /usr/bin/mount is running, but the mount is not done yet. */
+        MOUNT_MOUNTING_DONE,          /* /usr/bin/mount is running, and the mount is done. */
         MOUNT_MOUNTED,
         MOUNT_REMOUNTING,
         MOUNT_UNMOUNTING,
@@ -88,6 +86,8 @@ struct Mount {
         bool just_mounted:1;
         bool just_changed:1;
 
+        bool reset_cpu_usage:1;
+
         bool sloppy_options;
 
         MountResult result;
@@ -128,5 +128,3 @@ MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
 const char* mount_result_to_string(MountResult i) _const_;
 MountResult mount_result_from_string(const char *s) _pure_;
-
-void warn_if_dir_nonempty(const char *unit, const char* where);

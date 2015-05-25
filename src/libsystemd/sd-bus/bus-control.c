@@ -34,7 +34,6 @@
 #include "bus-bloom.h"
 #include "bus-util.h"
 #include "capability.h"
-#include "cgroup-util.h"
 
 _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
@@ -42,6 +41,9 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         assert_return(bus, -EINVAL);
         assert_return(unique, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -77,7 +79,7 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
         if (r < 0)
                 return -errno;
 
-        if (n->flags & KDBUS_NAME_IN_QUEUE)
+        if (n->return_flags & KDBUS_NAME_IN_QUEUE)
                 return 0;
 
         return 1;
@@ -131,11 +133,13 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags)
 _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return(bus->bus_client, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         /* Don't allow requesting the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
@@ -214,10 +218,12 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
 _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return(bus->bus_client, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         /* Don't allow releasing the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
@@ -375,6 +381,9 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
         assert_return(acquired || activatable, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
@@ -412,6 +421,26 @@ static int bus_populate_creds_from_items(
                         if (mask & SD_BUS_CREDS_TID && item->pids.tid > 0) {
                                 c->tid = (pid_t) item->pids.tid;
                                 c->mask |= SD_BUS_CREDS_TID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_PPID) {
+                                if (item->pids.ppid > 0) {
+                                        c->ppid = (pid_t) item->pids.ppid;
+                                        c->mask |= SD_BUS_CREDS_PPID;
+                                } else if (item->pids.pid == 1) {
+                                        /* The structure doesn't
+                                         * really distuingish the case
+                                         * where a process has no
+                                         * parent and where we don't
+                                         * know it because it could
+                                         * not be translated due to
+                                         * namespaces. However, we
+                                         * know that PID 1 has no
+                                         * parent process, hence let's
+                                         * patch that in, manually. */
+                                        c->ppid = 0;
+                                        c->mask |= SD_BUS_CREDS_PPID;
+                                }
                         }
 
                         break;
@@ -551,12 +580,12 @@ static int bus_populate_creds_from_items(
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        if (mask & SD_BUS_CREDS_AUDIT_SESSION_ID && (uint32_t) item->audit.sessionid != (uint32_t) -1) {
+                        if (mask & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                                 c->audit_session_id = (uint32_t) item->audit.sessionid;
                                 c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
                         }
 
-                        if (mask & SD_BUS_CREDS_AUDIT_LOGIN_UID && (uid_t) item->audit.loginuid != UID_INVALID) {
+                        if (mask & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                                 c->audit_login_uid = (uid_t) item->audit.loginuid;
                                 c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
                         }
@@ -584,15 +613,16 @@ static int bus_populate_creds_from_items(
 
                 case KDBUS_ITEM_AUXGROUPS:
                         if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                                size_t n;
+                                size_t i, n;
                                 uid_t *g;
 
-                                assert_cc(sizeof(gid_t) == sizeof(uint32_t));
-
-                                n = (item->size - offsetof(struct kdbus_item, data32)) / sizeof(uint32_t);
-                                g = newdup(gid_t, item->data32, n);
+                                n = (item->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
+                                g = new(gid_t, n);
                                 if (!g)
                                         return -ENOMEM;
+
+                                for (i = 0; i < n; i++)
+                                        g[i] = item->data64[i];
 
                                 free(c->supplementary_gids);
                                 c->supplementary_gids = g;
@@ -622,7 +652,7 @@ int bus_get_name_creds_kdbus(
         int r;
 
         if (streq(name, "org.freedesktop.DBus"))
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         r = bus_kernel_parse_unique_name(name, &id);
         if (r < 0)
@@ -644,7 +674,8 @@ int bus_get_name_creds_kdbus(
          * the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
         if ((mask & SD_BUS_CREDS_AUGMENT) &&
-            (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+            (mask & (SD_BUS_CREDS_PPID|
+                     SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                      SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
                      SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
                      SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
@@ -654,7 +685,7 @@ int bus_get_name_creds_kdbus(
                 mask |= SD_BUS_CREDS_PID;
 
         cmd->size = size;
-        cmd->flags = attach_flags_to_kdbus(mask);
+        cmd->attach_flags = attach_flags_to_kdbus(mask);
 
         r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);
         if (r < 0)
@@ -875,11 +906,13 @@ _public_ int sd_bus_get_name_creds(
 
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -ENOTSUP);
+        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(mask == 0 || creds, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
-        assert_return(bus->bus_client, -ENODATA);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         if (streq(name, "org.freedesktop.DBus.Local"))
                 return -EINVAL;
@@ -910,7 +943,8 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
          * to get the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
         if ((mask & SD_BUS_CREDS_AUGMENT) &&
-            (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+            (mask & (SD_BUS_CREDS_PPID|
+                     SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                      SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
                      SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
                      SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
@@ -919,7 +953,7 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
                      SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))
                 mask |= SD_BUS_CREDS_PID;
 
-        cmd.flags = attach_flags_to_kdbus(mask);
+        cmd.attach_flags = attach_flags_to_kdbus(mask);
 
         r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
         if (r < 0)
@@ -989,7 +1023,7 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
 
 _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         assert_return(bus, -EINVAL);
-        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -ENOTSUP);
+        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -1393,6 +1427,9 @@ int bus_add_match_internal(
 
         assert(bus);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         if (bus->is_kernel)
                 return bus_add_match_internal_kernel(bus, components, n_components, cookie);
         else
@@ -1452,6 +1489,9 @@ int bus_remove_match_internal(
 
         assert(bus);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         if (bus->is_kernel)
                 return bus_remove_match_internal_kernel(bus, cookie);
         else
@@ -1468,6 +1508,9 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         assert_return(machine, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;

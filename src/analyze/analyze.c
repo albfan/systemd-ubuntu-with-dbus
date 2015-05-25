@@ -24,23 +24,21 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <locale.h>
-#include <sys/utsname.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "install.h"
 #include "log.h"
 #include "build.h"
 #include "util.h"
 #include "strxcpyx.h"
-#include "fileio.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "special.h"
 #include "hashmap.h"
 #include "pager.h"
 #include "analyze-verify.h"
+#include "terminal-util.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
@@ -1330,7 +1328,7 @@ int main(int argc, char *argv[]) {
 
         if (streq_ptr(argv[optind], "verify"))
                 r = verify_units(argv+optind+1,
-                                 arg_user ? SYSTEMD_USER : SYSTEMD_SYSTEM,
+                                 arg_user ? MANAGER_USER : MANAGER_SYSTEM,
                                  arg_man);
         else {
                 _cleanup_bus_close_unref_ sd_bus *bus = NULL;

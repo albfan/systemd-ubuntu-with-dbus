@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FSTAB\-GENERATOR" "8" "" "systemd 219" "systemd-fstab-generator"
+.TH "SYSTEMD\-FSTAB\-GENERATOR" "8" "" "systemd 220" "systemd-fstab-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -46,8 +46,8 @@ for more information about special
 mount options this generator understands\&.
 .PP
 systemd\-fstab\-generator
-implements the
-\m[blue]\fBgenerator specification\fR\m[]\&\s-2\u[1]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .SH "KERNEL COMMAND LINE"
 .PP
 systemd\-fstab\-generator
@@ -141,7 +141,7 @@ filesystem mount options to use\&. If
 or
 \fImount\&.usrfstype=\fR
 is set, then
-\fImount\&.usrflages=\fR
+\fImount\&.usrflags=\fR
 will default to the value set in
 \fIrootflags=\fR\&.
 .sp
@@ -161,9 +161,3 @@ is honored by the initrd\&.
 \fBsystemd.mount\fR(5),
 \fBsystemd.swap\fR(5),
 \fBsystemd-cryptsetup-generator\fR(8)
-.SH "NOTES"
-.IP " 1." 4
-generator specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
-.RE

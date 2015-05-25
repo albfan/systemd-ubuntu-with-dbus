@@ -19,24 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
-#include <sys/select.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <netinet/in.h>
-#include <arpa/nameser.h>
 #include <resolv.h>
-#include <dirent.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/prctl.h>
@@ -461,7 +450,7 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                  assert(length >= sizeof(ResRequest));
                  assert(length == sizeof(ResRequest) + res_req->dname_len);
 
-                 dname = (const char *) req + sizeof(ResRequest);
+                 dname = (const char *) res_req + sizeof(ResRequest);
 
                  if (req->type == REQUEST_RES_QUERY)
                          ret = res_query(dname, res_req->class, res_req->type, (unsigned char *) &answer, BUFSIZE);
@@ -664,7 +653,7 @@ static void resolve_free(sd_resolve *resolve) {
 
                 /* Send one termination packet for each worker */
                 for (i = 0; i < resolve->n_valid_workers; i++)
-                        send(resolve->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
+                        (void) send(resolve->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
         }
 
         /* Now terminate them and wait until they are gone. */

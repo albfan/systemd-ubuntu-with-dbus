@@ -28,7 +28,6 @@
 #include "util.h"
 #include "mkdir.h"
 #include "hashmap.h"
-#include "strv.h"
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
@@ -36,6 +35,7 @@
 #include "bus-error.h"
 #include "machine.h"
 #include "machine-dbus.h"
+#include "formats-util.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;
@@ -74,20 +74,20 @@ fail:
 void machine_free(Machine *m) {
         assert(m);
 
+        while (m->operations)
+                machine_operation_unref(m->operations);
+
         if (m->in_gc_queue)
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
 
-        if (m->unit) {
-                hashmap_remove(m->manager->machine_units, m->unit);
-                free(m->unit);
-        }
+        machine_release_unit(m);
 
         free(m->scope_job);
 
-        hashmap_remove(m->manager->machines, m->name);
+        (void) hashmap_remove(m->manager->machines, m->name);
 
         if (m->leader > 0)
-                hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+                (void) hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
 
         sd_bus_message_unref(m->create_message);
 
@@ -210,9 +210,9 @@ int machine_save(Machine *m) {
 
                 /* Create a symlink from the unit name to the machine
                  * name, so that we can quickly find the machine for
-                 * each given unit */
+                 * each given unit. Ignore error. */
                 sl = strjoina("/run/systemd/machines/unit:", m->unit);
-                symlink(m->name, sl);
+                (void) symlink(m->name, sl);
         }
 
 finish:
@@ -499,6 +499,39 @@ int machine_kill(Machine *m, KillWho who, int signo) {
 
         /* Otherwise make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
+}
+
+MachineOperation *machine_operation_unref(MachineOperation *o) {
+        if (!o)
+                return NULL;
+
+        sd_event_source_unref(o->event_source);
+
+        safe_close(o->errno_fd);
+
+        if (o->pid > 1)
+                (void) kill(o->pid, SIGKILL);
+
+        sd_bus_message_unref(o->message);
+
+        if (o->machine) {
+                LIST_REMOVE(operations, o->machine->operations, o);
+                o->machine->n_operations--;
+        }
+
+        free(o);
+        return NULL;
+}
+
+void machine_release_unit(Machine *m) {
+        assert(m);
+
+        if (!m->unit)
+                return;
+
+        (void) hashmap_remove(m->manager->machine_units, m->unit);
+        free(m->unit);
+        m->unit = NULL;
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

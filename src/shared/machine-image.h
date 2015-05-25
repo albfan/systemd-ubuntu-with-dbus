@@ -22,6 +22,7 @@
 ***/
 
 #include "time-util.h"
+#include "lockfile-util.h"
 #include "hashmap.h"
 
 typedef enum ImageType {
@@ -45,6 +46,8 @@ typedef struct Image {
         uint64_t usage_exclusive;
         uint64_t limit;
         uint64_t limit_exclusive;
+
+        void *userdata;
 } Image;
 
 Image *image_unref(Image *i);
@@ -68,3 +71,5 @@ bool image_name_is_valid(const char *s) _pure_;
 
 int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local);
 int image_name_lock(const char *name, int operation, LockFile *ret);
+
+int image_set_limit(Image *i, uint64_t referenced_max);

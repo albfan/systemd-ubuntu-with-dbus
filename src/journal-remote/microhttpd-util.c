@@ -121,7 +121,7 @@ static struct {
         { {"9", "enc", "int"},    LOG_DEBUG },
 };
 
-void log_func_gnutls(int level, const char *message) {
+static void log_func_gnutls(int level, const char *message) {
         assert_se(message);
 
         if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
@@ -133,7 +133,18 @@ void log_func_gnutls(int level, const char *message) {
         }
 }
 
-int log_enable_gnutls_category(const char *cat) {
+static void log_reset_gnutls_level(void) {
+        int i;
+
+        for (i = ELEMENTSOF(gnutls_log_map) - 1; i >= 0; i--)
+                if (gnutls_log_map[i].enabled) {
+                        log_debug("Setting gnutls log level to %d", i);
+                        gnutls_global_set_log_level(i);
+                        break;
+                }
+}
+
+static int log_enable_gnutls_category(const char *cat) {
         unsigned i;
 
         if (streq(cat, "all")) {
@@ -152,15 +163,22 @@ int log_enable_gnutls_category(const char *cat) {
         return -EINVAL;
 }
 
-void log_reset_gnutls_level(void) {
-        int i;
+int setup_gnutls_logger(char **categories) {
+        char **cat;
+        int r;
 
-        for (i = ELEMENTSOF(gnutls_log_map) - 1; i >= 0; i--)
-                if (gnutls_log_map[i].enabled) {
-                        log_debug("Setting gnutls log level to %d", i);
-                        gnutls_global_set_log_level(i);
-                        break;
+        gnutls_global_set_log_function(log_func_gnutls);
+
+        if (categories) {
+                STRV_FOREACH(cat, categories) {
+                        r = log_enable_gnutls_category(*cat);
+                        if (r < 0)
+                                return r;
                 }
+        } else
+                log_reset_gnutls_level();
+
+        return 0;
 }
 
 static int verify_cert_authorized(gnutls_session_t session) {
@@ -178,7 +196,8 @@ static int verify_cert_authorized(gnutls_session_t session) {
         if (r < 0)
                 return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
 
-        log_info("Certificate status: %s", out.data);
+        log_debug("Certificate status: %s", out.data);
+        gnutls_free(out.data);
 
         return status == 0 ? 0 : -EPERM;
 }
@@ -238,10 +257,14 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         return 0;
 }
 
+static inline void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
+        gnutls_x509_crt_deinit(*p);
+}
+
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         const union MHD_ConnectionInfo *ci;
         gnutls_session_t session;
-        gnutls_x509_crt_t client_cert;
+        _cleanup_(gnutls_x509_crt_deinitp) gnutls_x509_crt_t client_cert = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
 
@@ -275,7 +298,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
                 return -EPERM;
         }
 
-        log_info("Connection from %s", buf);
+        log_debug("Connection from %s", buf);
 
         if (hostname) {
                 *hostname = buf;
@@ -294,5 +317,11 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 #else
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         return -EPERM;
+}
+
+int setup_gnutls_logger(char **categories) {
+        if (categories)
+                log_notice("Ignoring specified gnutls logging categories — gnutls not available.");
+        return 0;
 }
 #endif

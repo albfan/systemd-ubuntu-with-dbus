@@ -20,14 +20,9 @@
 ***/
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <pwd.h>
 
 #include "manager.h"
 #include "unit.h"
-#include "util.h"
 #include "macro.h"
 #include "test-helper.h"
 
@@ -40,7 +35,7 @@ static int test_cgroup_mask(void) {
 
         /* Prepare the manager. */
         assert_se(set_unit_path(TEST_DIR) >= 0);
-        r = manager_new(SYSTEMD_USER, true, &m);
+        r = manager_new(MANAGER_USER, true, &m);
         if (r == -EPERM || r == -EACCES) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;

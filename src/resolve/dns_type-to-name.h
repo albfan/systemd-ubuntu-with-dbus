@@ -76,8 +76,7 @@ const char *dns_type_to_string(int type) {
         case DNS_TYPE_CAA: return "CAA";
         case DNS_TYPE_TA: return "TA";
         case DNS_TYPE_DLV: return "DLV";
-
-default: return NULL;
+        default: return NULL;
 	}
 }
 

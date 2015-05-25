@@ -20,7 +20,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
@@ -37,6 +36,7 @@
 #include "strv.h"
 #include "fileio.h"
 #include "test-helper.h"
+#include "hostname-util.h"
 
 static int test_unit_file_get_set(void) {
         int r;
@@ -92,6 +92,7 @@ static void check_execcommand(ExecCommand *c,
 
 static void test_config_parse_exec(void) {
         /* int config_parse_exec(
+                 const char *unit,
                  const char *filename,
                  unsigned line,
                  const char *section,
@@ -303,6 +304,41 @@ static void test_config_parse_exec(void) {
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
+        log_info("/* missing ending ' */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "/path 'foo",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* missing ending ' with trailing backslash */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "/path 'foo\\",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* invalid space between modifiers */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "- /path",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* only modifiers, no path */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "-",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* empty argument, reset */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c == NULL);
+
         exec_command_free_list(c);
 }
 
@@ -439,12 +475,12 @@ static void test_install_printf(void) {
         char    name[] = "name.service",
                 path[] = "/run/systemd/system/name.service",
                 user[] = "xxxx-no-such-user";
-        InstallInfo i = {name, path, user};
-        InstallInfo i2 = {name, path, NULL};
+        UnitFileInstallInfo i = {name, path, user};
+        UnitFileInstallInfo i2 = {name, path, NULL};
         char    name3[] = "name@inst.service",
                 path3[] = "/run/systemd/system/name.service";
-        InstallInfo i3 = {name3, path3, user};
-        InstallInfo i4 = {name3, path3, NULL};
+        UnitFileInstallInfo i3 = {name3, path3, user};
+        UnitFileInstallInfo i4 = {name3, path3, NULL};
 
         _cleanup_free_ char *mid, *bid, *host;
 

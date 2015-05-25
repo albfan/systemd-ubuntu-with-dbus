@@ -19,33 +19,35 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="journald.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journald.conf, journald.conf.d — Journal service configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journald.conf</code></p><p><code class="filename">/etc/systemd/journald.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/journald.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/journald.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm139697228175840"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These files configure various parameters of the systemd
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="journald.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journald.conf, journald.conf.d — Journal service configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journald.conf</code></p><p><code class="filename">/etc/systemd/journald.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/journald.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/journald.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm139651278486960"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These files configure various parameters of the systemd
     journal service,
-    <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>.</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
-    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
-    <code class="filename">/usr/lib/</code>, in order of precedence.
-    Each configuration file in these configuration directories shall be named in
-    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
-    Files in <code class="filename">/etc/</code> override files with the same name in
-    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
-    <code class="filename">/run/</code> override files with the same name in
-    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
-    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
-    reserved for the local administrator, who may use this logic to override the
-    configuration files installed by vendor packages. All configuration files
-    are sorted by their filename in lexicographic order, regardless of which of
-    the directories they reside in. If multiple files specify the same option,
-    the entry in the file with the lexicographically latest name will take
-    precedence. It is recommended to prefix all filenames with a two-digit number
-    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
-    the vendor, the recommended way is to place a symlink to
+    <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>.</p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
+    configuration file is only needed when it is necessary to deviate
+    from those defaults. By default the configuration file in
+    <code class="filename">/etc/systemd/</code> contains commented out entries
+    showing the defaults as a guide to the administrator. This file
+    can be edited to create local overrides.
+    </p><p>When packages need to customize the configuration, they can
+    install configuration snippets in
+    <code class="filename">/usr/lib/systemd/*.conf.d/</code>. Files in
+    <code class="filename">/etc/</code> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. The main
+    configuration file is read before any of the configuration
+    directories, and has the lowest precedence; entries in a file in
+    any configuration directory override entries in the single
+    configuration file. Files in the
+    <code class="filename">*.conf.d/</code> configuration subdirectories
+    are sorted by their filename in lexicographic order, regardless of
+    which of the subdirectories they reside in. If multiple files
+    specify the same option, the entry in the file with the
+    lexicographically latest name takes precedence.  It is recommended
+    to prefix all filenames in those subdirectories with a two-digit
+    number and a dash, to simplify the ordering of the files.</p><p>To disable a configuration file supplied by the vendor, the
+    recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsection"><a name="conf"></a><h2>Configuration File</h2><p>Configuration is also read from a single configuration file in
-    <code class="filename">/etc/</code>. This file is read before any of the
-    configuration directories, and has the lowest precedence; entries in a file
-    in any configuration directory override entries in the single configuration
-    file.</p></div><div class="refsect1"><a name="idm139697228172096"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+    configuration file.</p></div><div class="refsect1"><a name="idm139651273530096"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
     "<code class="literal">[Journal]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="Storage="><span class="term"><code class="varname">Storage=</code></span><a class="headerlink" title="Permalink to this term" href="#Storage=">¶</a></dt><dd><p>Controls where to store journal data. One of
         "<code class="literal">volatile</code>",
         "<code class="literal">persistent</code>",
@@ -66,7 +68,7 @@
         needed, so that its existence controls where log data goes.
         "<code class="literal">none</code>" turns off all storage, all log data
         received will be dropped. Forwarding to other targets, such as
-        the console, the kernel log buffer or a syslog daemon will
+        the console, the kernel log buffer, or a syslog socket will
         still work however. Defaults to
         "<code class="literal">auto</code>".</p></dd><dt id="Compress="><span class="term"><code class="varname">Compress=</code></span><a class="headerlink" title="Permalink to this term" href="#Compress=">¶</a></dt><dd><p>Takes a boolean value. If enabled (the
         default), data objects that shall be stored in the journal and
@@ -146,27 +148,19 @@
         enough free space before and journal files were created, and
         subsequently something else causes the file system to fill up,
         journald will stop using more space, but it will not be
-        removing existing files to go reduce footprint either.</p><p><code class="varname">SystemMaxFileSize=</code>
-        and
-        <code class="varname">RuntimeMaxFileSize=</code>
-        control how large individual journal
-        files may grow at maximum. This
-        influences the granularity in which
-        disk space is made available through
-        rotation, i.e. deletion of historic
-        data. Defaults to one eighth of the
-        values configured with
+        removing existing files to go reduce footprint either.</p><p><code class="varname">SystemMaxFileSize=</code> and
+        <code class="varname">RuntimeMaxFileSize=</code> control how large
+        individual journal files may grow at maximum. This influences
+        the granularity in which disk space is made available through
+        rotation, i.e. deletion of historic data. Defaults to one
+        eighth of the values configured with
         <code class="varname">SystemMaxUse=</code> and
-        <code class="varname">RuntimeMaxUse=</code>, so
-        that usually seven rotated journal
-        files are kept as history. Specify
-        values in bytes or use K, M, G, T, P,
-        E as units for the specified sizes
-        (equal to 1024, 1024²,... bytes).
-        Note that size limits are enforced
-        synchronously when journal files are
-        extended, and no explicit rotation
-        step triggered by time is
+        <code class="varname">RuntimeMaxUse=</code>, so that usually seven
+        rotated journal files are kept as history. Specify values in
+        bytes or use K, M, G, T, P, E as units for the specified sizes
+        (equal to 1024, 1024²,... bytes).  Note that size limits are
+        enforced synchronously when journal files are extended, and no
+        explicit rotation step triggered by time is
         needed.</p></dd><dt id="MaxFileSec="><span class="term"><code class="varname">MaxFileSec=</code></span><a class="headerlink" title="Permalink to this term" href="#MaxFileSec=">¶</a></dt><dd><p>The maximum time to store entries in a single
         journal file before rotating to the next one. Normally,
         time-based rotation should not be required as size-based
@@ -206,13 +200,13 @@
         daemon, to the kernel log buffer (kmsg), to the system
         console, or sent as wall messages to all logged-in users.
         These options take boolean arguments. If forwarding to syslog
-        is enabled but no syslog daemon is running, the respective
-        option has no effect. By default, only forwarding wall is
-        enabled. These settings may be overridden at boot time with
-        the kernel command line options
+        is enabled but nothing reads messages from the socket,
+        forwarding to syslog has no effect. By default, only
+        forwarding to wall is enabled. These settings may be
+        overridden at boot time with the kernel command line options
         "<code class="literal">systemd.journald.forward_to_syslog=</code>",
         "<code class="literal">systemd.journald.forward_to_kmsg=</code>",
-        "<code class="literal">systemd.journald.forward_to_console=</code>" and
+        "<code class="literal">systemd.journald.forward_to_console=</code>", and
         "<code class="literal">systemd.journald.forward_to_wall=</code>". When
         forwarding to the console, the TTY to log to can be changed
         with <code class="varname">TTYPath=</code>, described
@@ -240,7 +234,27 @@
         and "<code class="literal">emerg</code>" for
         <code class="varname">MaxLevelWall=</code>.</p></dd><dt id="TTYPath="><span class="term"><code class="varname">TTYPath=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYPath=">¶</a></dt><dd><p>Change the console TTY to use if
         <code class="varname">ForwardToConsole=yes</code> is used. Defaults to
-        <code class="filename">/dev/console</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm139697227065728"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        <code class="filename">/dev/console</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm139651273443536"></a><h2 id="Forwarding to traditional syslog daemons">Forwarding to traditional syslog daemons<a class="headerlink" title="Permalink to this headline" href="#Forwarding%20to%20traditional%20syslog%20daemons">¶</a></h2><p>
+      Journal events can be transferred to a different logging daemon
+      in two different ways. In the first method, messages are
+      immediately forwarded to a socket
+      (<code class="filename">/run/systemd/journal/syslog</code>), where the
+      traditional syslog daemon can read them. This method is
+      controlled by <code class="varname">ForwardToSyslog=</code> option.  In a
+      second method, a syslog daemon behaves like a normal journal
+      client, and reads messages from the journal files, similarly to
+      <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>.
+      In this method, messages do not have to be read immediately,
+      which allows a logging daemon which is only started late in boot
+      to access all messages since the start of the system. In
+      addition, full structured meta-data is available to it. This
+      method of course is available only if the messages are stored in
+      a journal file at all. So it will not work if
+      <code class="varname">Storage=none</code> is set. It should be noted that
+      usually the <span class="emphasis"><em>second</em></span> method is used by syslog
+      daemons, so the <code class="varname">Storage=</code> option, and not the
+      <code class="varname">ForwardToSyslog=</code> option, is relevant for them.
+    </p></div><div class="refsect1"><a name="idm139651273438176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
         <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,

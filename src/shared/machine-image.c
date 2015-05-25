@@ -23,12 +23,12 @@
 #include <linux/fs.h>
 #include <fcntl.h>
 
-#include "strv.h"
 #include "utf8.h"
 #include "btrfs-util.h"
 #include "path-util.h"
 #include "copy.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "machine-image.h"
 
 static const char image_search_path[] =
@@ -136,12 +136,11 @@ static int image_make(
 
                 /* btrfs subvolumes have inode 256 */
                 if (st.st_ino == 256) {
-                        struct statfs sfs;
 
-                        if (fstatfs(fd, &sfs) < 0)
-                                return -errno;
-
-                        if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC)) {
+                        r = btrfs_is_filesystem(fd);
+                        if (r < 0)
+                                return r;
+                        if (r) {
                                 BtrfsSubvolInfo info;
                                 BtrfsQuotaInfo quota;
 
@@ -164,10 +163,10 @@ static int image_make(
 
                                 r = btrfs_subvol_get_quota_fd(fd, &quota);
                                 if (r >= 0) {
-                                        (*ret)->usage = quota.referred;
+                                        (*ret)->usage = quota.referenced;
                                         (*ret)->usage_exclusive = quota.exclusive;
 
-                                        (*ret)->limit = quota.referred_max;
+                                        (*ret)->limit = quota.referenced_max;
                                         (*ret)->limit_exclusive = quota.exclusive_max;
                                 }
 
@@ -358,19 +357,21 @@ int image_remove(Image *i) {
         switch (i->type) {
 
         case IMAGE_SUBVOLUME:
-                return btrfs_subvol_remove(i->path);
+                return btrfs_subvol_remove(i->path, true);
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
                 (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
-
-                /* fall through */
+                return rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         case IMAGE_RAW:
-                return rm_rf_dangerous(i->path, false, true, false);
+                if (unlink(i->path) < 0)
+                        return -errno;
+
+                return 0;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 }
 
@@ -431,7 +432,7 @@ int image_rename(Image *i, const char *new_name) {
         }
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (!new_path)
@@ -441,8 +442,9 @@ int image_rename(Image *i, const char *new_name) {
         if (!nn)
                 return -ENOMEM;
 
-        if (renameat2(AT_FDCWD, i->path, AT_FDCWD, new_path, RENAME_NOREPLACE) < 0)
-                return -errno;
+        r = rename_noreplace(AT_FDCWD, i->path, AT_FDCWD, new_path);
+        if (r < 0)
+                return r;
 
         /* Restore the immutable bit, if it was set before */
         if (file_attr & FS_IMMUTABLE_FL)
@@ -488,7 +490,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_DIRECTORY:
                 new_path = strjoina("/var/lib/machines/", new_name);
 
-                r = btrfs_subvol_snapshot(i->path, new_path, read_only, true);
+                r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE);
                 break;
 
         case IMAGE_RAW:
@@ -498,7 +500,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 break;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (r < 0)
@@ -563,7 +565,7 @@ int image_read_only(Image *i, bool b) {
         }
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         return 0;
@@ -601,7 +603,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                 return r;
 
         if (p) {
-                mkdir_p("/run/systemd/nspawn/locks", 0600);
+                mkdir_p("/run/systemd/nspawn/locks", 0700);
 
                 r = make_lock_file(p, operation, global);
                 if (r < 0) {
@@ -612,6 +614,19 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 
         *local = t;
         return 0;
+}
+
+int image_set_limit(Image *i, uint64_t referenced_max) {
+        assert(i);
+
+        if (path_equal(i->path, "/") ||
+            path_startswith(i->path, "/usr"))
+                return -EROFS;
+
+        if (i->type != IMAGE_SUBVOLUME)
+                return -EOPNOTSUPP;
+
+        return btrfs_quota_limit(i->path, referenced_max);
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {
@@ -628,7 +643,7 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
         if (streq(name, ".host"))
                 return -EBUSY;
 
-        mkdir_p("/run/systemd/nspawn/locks", 0600);
+        mkdir_p("/run/systemd/nspawn/locks", 0700);
         p = strjoina("/run/systemd/nspawn/locks/name-", name);
 
         return make_lock_file(p, operation, ret);

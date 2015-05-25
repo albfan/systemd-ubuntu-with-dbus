@@ -31,11 +31,14 @@
 
 #include "util.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "strv.h"
 #include "def.h"
 #include "fileio.h"
 #include "conf-parser.h"
 #include "virt.h"
+#include "process-util.h"
+#include "hostname-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -416,24 +419,46 @@ static void test_cescape(void) {
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
 
-        unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00");
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+        free(unescaped);
+        unescaped = NULL;
 
         /* incomplete sequences */
-        unescaped = cunescape("\\x0");
+        assert_se(cunescape("\\x0", 0, &unescaped) < 0);
+        assert_se(cunescape("\\x0", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\x0"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\x");
+        assert_se(cunescape("\\x", 0, &unescaped) < 0);
+        assert_se(cunescape("\\x", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\x"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\");
+        assert_se(cunescape("\\", 0, &unescaped) < 0);
+        assert_se(cunescape("\\", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\11");
+        assert_se(cunescape("\\11", 0, &unescaped) < 0);
+        assert_se(cunescape("\\11", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\11"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\1");
+        assert_se(cunescape("\\1", 0, &unescaped) < 0);
+        assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\1"));
+        free(unescaped);
+        unescaped = NULL;
+
+        assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
+        assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
+        assert_se(streq_ptr(unescaped, "ßßΠA"));
 }
 
 static void test_foreach_word(void) {
@@ -498,21 +523,6 @@ static void test_foreach_word_quoted(void) {
               true);
 }
 
-static void test_default_term_for_tty(void) {
-        puts(default_term_for_tty("/dev/tty23"));
-        puts(default_term_for_tty("/dev/ttyS23"));
-        puts(default_term_for_tty("/dev/tty0"));
-        puts(default_term_for_tty("/dev/pty0"));
-        puts(default_term_for_tty("/dev/pts/0"));
-        puts(default_term_for_tty("/dev/console"));
-        puts(default_term_for_tty("tty23"));
-        puts(default_term_for_tty("ttyS23"));
-        puts(default_term_for_tty("tty0"));
-        puts(default_term_for_tty("pty0"));
-        puts(default_term_for_tty("pts/0"));
-        puts(default_term_for_tty("console"));
-}
-
 static void test_memdup_multiply(void) {
         int org[] = {1, 2, 3};
         int *dup;
@@ -539,6 +549,52 @@ static void test_hostname_is_valid(void) {
         assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
+static void test_read_hostname_config(void) {
+        char path[] = "/tmp/hostname.XXXXXX";
+        char *hostname;
+        int fd;
+
+        fd = mkostemp_safe(path, O_RDWR|O_CLOEXEC);
+        assert(fd > 0);
+        close(fd);
+
+        /* simple hostname */
+        write_string_file(path, "foo");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        free(hostname);
+
+        /* with comment */
+        write_string_file(path, "# comment\nfoo");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        free(hostname);
+
+        /* with comment and extra whitespace */
+        write_string_file(path, "# comment\n\n foo ");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        free(hostname);
+
+        /* cleans up name */
+        write_string_file(path, "!foo/bar.com");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foobar.com"));
+        free(hostname);
+
+        /* no value set */
+        hostname = (char*) 0x1234;
+        write_string_file(path, "# nothing here\n");
+        assert_se(read_hostname_config(path, &hostname) == -ENOENT);
+        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+
+        /* nonexisting file */
+        assert_se(read_hostname_config("/non/existing", &hostname) == -ENOENT);
+        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+
+        unlink(path);
+}
+
 static void test_u64log2(void) {
         assert_se(u64log2(0) == 0);
         assert_se(u64log2(8) == 3);
@@ -547,69 +603,6 @@ static void test_u64log2(void) {
         assert_se(u64log2(16) == 4);
         assert_se(u64log2(1024*1024) == 20);
         assert_se(u64log2(1024*1024+5) == 20);
-}
-
-static void test_get_process_comm(void) {
-        struct stat st;
-        _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL, *cwd = NULL, *root = NULL;
-        _cleanup_free_ char *env = NULL;
-        pid_t e;
-        uid_t u;
-        gid_t g;
-        dev_t h;
-        int r;
-        pid_t me;
-
-        if (stat("/proc/1/comm", &st) == 0) {
-                assert_se(get_process_comm(1, &a) >= 0);
-                log_info("pid1 comm: '%s'", a);
-        } else {
-                log_warning("/proc/1/comm does not exist.");
-        }
-
-        assert_se(get_process_cmdline(1, 0, true, &c) >= 0);
-        log_info("pid1 cmdline: '%s'", c);
-
-        assert_se(get_process_cmdline(1, 8, false, &d) >= 0);
-        log_info("pid1 cmdline truncated: '%s'", d);
-
-        assert_se(get_parent_of_pid(1, &e) >= 0);
-        log_info("pid1 ppid: "PID_FMT, e);
-        assert_se(e == 0);
-
-        assert_se(is_kernel_thread(1) == 0);
-
-        r = get_process_exe(1, &f);
-        assert_se(r >= 0 || r == -EACCES);
-        log_info("pid1 exe: '%s'", strna(f));
-
-        assert_se(get_process_uid(1, &u) == 0);
-        log_info("pid1 uid: "UID_FMT, u);
-        assert_se(u == 0);
-
-        assert_se(get_process_gid(1, &g) == 0);
-        log_info("pid1 gid: "GID_FMT, g);
-        assert_se(g == 0);
-
-        me = getpid();
-
-        r = get_process_cwd(me, &cwd);
-        assert_se(r >= 0 || r == -EACCES);
-        log_info("pid1 cwd: '%s'", cwd);
-
-        r = get_process_root(me, &root);
-        assert_se(r >= 0 || r == -EACCES);
-        log_info("pid1 root: '%s'", root);
-
-        r = get_process_environ(me, &env);
-        assert_se(r >= 0 || r == -EACCES);
-        log_info("self strlen(environ): '%zu'", strlen(env));
-
-        if (!detect_container(NULL))
-                assert_se(get_ctty_devnr(1, &h) == -ENOENT);
-
-        getenv_for_pid(1, "PATH", &i);
-        log_info("pid1 $PATH: '%s'", strna(i));
 }
 
 static void test_protect_errno(void) {
@@ -1017,39 +1010,7 @@ static void test_readlink_and_make_absolute(void) {
         free(r);
         assert_se(unlink(name_alias) >= 0);
 
-        assert_se(rm_rf_dangerous(tempdir, false, true, false) >= 0);
-}
-
-static void test_read_one_char(void) {
-        _cleanup_fclose_ FILE *file = NULL;
-        char r;
-        bool need_nl;
-        char name[] = "/tmp/test-read_one_char.XXXXXX";
-        int fd;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        file = fdopen(fd, "r+");
-        assert_se(file);
-        assert_se(fputs("c\n", file) >= 0);
-        rewind(file);
-
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) >= 0);
-        assert_se(!need_nl);
-        assert_se(r == 'c');
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        rewind(file);
-        assert_se(fputs("foobar\n", file) >= 0);
-        rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        rewind(file);
-        assert_se(fputs("\n", file) >= 0);
-        rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        unlink(name);
+        assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_ignore_signals(void) {
@@ -1113,40 +1074,6 @@ static void test_is_symlink(void) {
 
         unlink(name);
         unlink(name_link);
-}
-
-static void test_pid_is_unwaited(void) {
-        pid_t pid;
-
-        pid = fork();
-        assert_se(pid >= 0);
-        if (pid == 0) {
-                _exit(EXIT_SUCCESS);
-        } else {
-                int status;
-
-                waitpid(pid, &status, 0);
-                assert_se(!pid_is_unwaited(pid));
-        }
-        assert_se(pid_is_unwaited(getpid()));
-        assert_se(!pid_is_unwaited(-1));
-}
-
-static void test_pid_is_alive(void) {
-        pid_t pid;
-
-        pid = fork();
-        assert_se(pid >= 0);
-        if (pid == 0) {
-                _exit(EXIT_SUCCESS);
-        } else {
-                int status;
-
-                waitpid(pid, &status, 0);
-                assert_se(!pid_is_alive(pid));
-        }
-        assert_se(pid_is_alive(getpid()));
-        assert_se(!pid_is_alive(-1));
 }
 
 static void test_search_and_fopen(void) {
@@ -1274,8 +1201,8 @@ static void test_execute_directory(void) {
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        rm_rf_dangerous(template_lo, false, true, false);
-        rm_rf_dangerous(template_hi, false, true, false);
+        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_unquote_first_word(void) {
@@ -1283,64 +1210,87 @@ static void test_unquote_first_word(void) {
         char *t;
 
         p = original = "foobar waldo";
-        assert_se(unquote_first_word(&p, &t, false) > 0);
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 7);
 
-        assert_se(unquote_first_word(&p, &t, false) > 0);
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
         assert_se(p == original + 12);
 
-        assert_se(unquote_first_word(&p, &t, false) == 0);
+        assert_se(unquote_first_word(&p, &t, 0) == 0);
         assert_se(!t);
         assert_se(p == original + 12);
 
         p = original = "\"foobar\" \'waldo\'";
-        assert_se(unquote_first_word(&p, &t, false) > 0);
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 9);
 
-        assert_se(unquote_first_word(&p, &t, false) > 0);
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
         assert_se(p == original + 16);
 
-        assert_se(unquote_first_word(&p, &t, false) == 0);
+        assert_se(unquote_first_word(&p, &t, 0) == 0);
         assert_se(!t);
         assert_se(p == original + 16);
 
         p = original = "\"";
-        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, 0) == -EINVAL);
         assert_se(p == original + 1);
 
         p = original = "\'";
-        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, 0) == -EINVAL);
         assert_se(p == original + 1);
 
         p = original = "\'fooo";
-        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, 0) == -EINVAL);
         assert_se(p == original + 5);
 
         p = original = "\'fooo";
-        assert_se(unquote_first_word(&p, &t, true) > 0);
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "fooo"));
         free(t);
         assert_se(p == original + 5);
 
         p = original = "yay\'foo\'bar";
-        assert_se(unquote_first_word(&p, &t, false) > 0);
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "yayfoobar"));
         free(t);
         assert_se(p == original + 11);
 
         p = original = "   foobar   ";
-        assert_se(unquote_first_word(&p, &t, false) > 0);
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 12);
+
+        p = original = " foo\\ba\\x6ar ";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "foo\ba\x6ar"));
+        free(t);
+        assert_se(p == original + 13);
+
+        p = original = " foo\\ba\\x6ar ";
+        assert_se(unquote_first_word(&p, &t, 0) > 0);
+        assert_se(streq(t, "foobax6ar"));
+        free(t);
+        assert_se(p == original + 13);
+
+        p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "föo"));
+        free(t);
+        assert_se(p == original + 13);
+
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "pi\360\237\222\251le"));
+        free(t);
+        assert_se(p == original + 32);
 }
 
 static void test_unquote_many_words(void) {
@@ -1348,7 +1298,7 @@ static void test_unquote_many_words(void) {
         char *a, *b, *c;
 
         p = original = "foobar waldi piep";
-        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 3);
+        assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 3);
         assert_se(p == original + 17);
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
@@ -1358,7 +1308,7 @@ static void test_unquote_many_words(void) {
         free(c);
 
         p = original = "'foobar' wa\"ld\"i   ";
-        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 2);
+        assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 2);
         assert_se(p == original + 19);
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
@@ -1367,31 +1317,31 @@ static void test_unquote_many_words(void) {
         free(b);
 
         p = original = "";
-        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 0);
+        assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 0);
         assert_se(p == original);
         assert_se(streq_ptr(a, NULL));
         assert_se(streq_ptr(b, NULL));
         assert_se(streq_ptr(c, NULL));
 
         p = original = "  ";
-        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 0);
+        assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 0);
         assert_se(p == original+2);
         assert_se(streq_ptr(a, NULL));
         assert_se(streq_ptr(b, NULL));
         assert_se(streq_ptr(c, NULL));
 
         p = original = "foobar";
-        assert_se(unquote_many_words(&p, NULL) == 0);
+        assert_se(unquote_many_words(&p, 0, NULL) == 0);
         assert_se(p == original);
 
         p = original = "foobar waldi";
-        assert_se(unquote_many_words(&p, &a, NULL) == 1);
+        assert_se(unquote_many_words(&p, 0, &a, NULL) == 1);
         assert_se(p == original+7);
         assert_se(streq_ptr(a, "foobar"));
         free(a);
 
         p = original = "     foobar    ";
-        assert_se(unquote_many_words(&p, &a, NULL) == 1);
+        assert_se(unquote_many_words(&p, 0, &a, NULL) == 1);
         assert_se(p == original+15);
         assert_se(streq_ptr(a, "foobar"));
         free(a);
@@ -1512,6 +1462,38 @@ static void test_sparse_write(void) {
         test_sparse_write_one(fd, test_e, sizeof(test_e));
 }
 
+static void test_shell_maybe_quote_one(const char *s, const char *expected) {
+        _cleanup_free_ char *r;
+
+        assert_se(r = shell_maybe_quote(s));
+        assert_se(streq(r, expected));
+}
+
+static void test_shell_maybe_quote(void) {
+
+        test_shell_maybe_quote_one("", "");
+        test_shell_maybe_quote_one("\\", "\"\\\\\"");
+        test_shell_maybe_quote_one("\"", "\"\\\"\"");
+        test_shell_maybe_quote_one("foobar", "foobar");
+        test_shell_maybe_quote_one("foo bar", "\"foo bar\"");
+        test_shell_maybe_quote_one("foo \"bar\" waldo", "\"foo \\\"bar\\\" waldo\"");
+        test_shell_maybe_quote_one("foo$bar", "\"foo\\$bar\"");
+}
+
+static void test_parse_mode(void) {
+        mode_t m;
+
+        assert_se(parse_mode("-1", &m) < 0);
+        assert_se(parse_mode("", &m) < 0);
+        assert_se(parse_mode("888", &m) < 0);
+        assert_se(parse_mode("77777", &m) < 0);
+
+        assert_se(parse_mode("544", &m) >= 0 && m == 0544);
+        assert_se(parse_mode("777", &m) >= 0 && m == 0777);
+        assert_se(parse_mode("7777", &m) >= 0 && m == 07777);
+        assert_se(parse_mode("0", &m) >= 0 && m == 0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1543,11 +1525,10 @@ int main(int argc, char *argv[]) {
         test_cunescape();
         test_foreach_word();
         test_foreach_word_quoted();
-        test_default_term_for_tty();
         test_memdup_multiply();
         test_hostname_is_valid();
+        test_read_hostname_config();
         test_u64log2();
-        test_get_process_comm();
         test_protect_errno();
         test_parse_size();
         test_config_parse_iec_off();
@@ -1571,13 +1552,10 @@ int main(int argc, char *argv[]) {
         test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
-        test_read_one_char();
         test_ignore_signals();
         test_strshorten();
         test_strjoina();
         test_is_symlink();
-        test_pid_is_unwaited();
-        test_pid_is_alive();
         test_search_and_fopen();
         test_search_and_fopen_nulstr();
         test_glob_exists();
@@ -1589,6 +1567,8 @@ int main(int argc, char *argv[]) {
         test_same_fd();
         test_uid_ptr();
         test_sparse_write();
+        test_shell_maybe_quote();
+        test_parse_mode();
 
         return 0;
 }

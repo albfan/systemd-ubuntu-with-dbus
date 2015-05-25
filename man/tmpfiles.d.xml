@@ -101,9 +101,12 @@
     the lexicographically earliest name will be applied.  All other
     conflicting entries will be logged as errors. When two lines are
     prefix and suffix of each other, then the prefix is always
-    processed first, the suffix later. Otherwise, the
-    files/directories are processed in the order they are
-    listed.</para>
+    processed first, the suffix later. Lines that take globs are
+    applied after those accepting no globs. If multiple operations
+    shall be applied on the same file (such as ACL, xattr, file
+    attribute adjustments) these are always done in the same fixed
+    order. Otherwise, the files/directories are processed in the order
+    they are listed.</para>
 
     <para>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
@@ -118,6 +121,8 @@
     d    /run/user   0755 root root 10d -
     L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
+    <para>Fields may be enclosed within quotes and contain C-style escapes.</para>
+
     <refsect2>
       <title>Type</title>
 
@@ -131,13 +136,13 @@
           <term><varname>f</varname></term>
           <listitem><para>Create a file if it does not exist yet. If
           the argument parameter is given, it will be written to the
-          file.</para></listitem>
+          file. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>F</varname></term>
           <listitem><para>Create or truncate a file. If the argument
-          parameter is given, it will be written to the file.</para>
+          parameter is given, it will be written to the file. Does not follow symlinks.</para>
           </listitem>
         </varlistentry>
 
@@ -147,7 +152,8 @@
           the file exists.  Lines of this type accept shell-style
           globs in place of normal path names. The argument parameter
           will be written without a trailing newline. C-style
-          backslash escapes are interpreted.</para></listitem>
+          backslash escapes are interpreted. Follows
+          symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -225,7 +231,7 @@
           copy operation is skipped. If the argument is omitted, files
           from the source directory
           <filename>/usr/share/factory/</filename> with the same name
-          are copied.</para></listitem>
+          are copied. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -257,7 +263,7 @@
           This may not be used to remove non-empty directories, use
           <varname>R</varname> for that.  Lines of this type accept
           shell-style globs in place of normal path
-          names.</para></listitem>
+          names. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -265,7 +271,7 @@
           <listitem><para>Recursively remove a path and all its
           subdirectories (if it is a directory). Lines of this type
           accept shell-style globs in place of normal path
-          names.</para></listitem>
+          names. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -273,7 +279,7 @@
           <listitem><para>Adjust the access mode, group and user, and
           restore the SELinux security context of a file or directory,
           if it exists. Lines of this type accept shell-style globs in
-          place of normal path names.</para></listitem>
+          place of normal path names. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -282,23 +288,56 @@
           user, and restore the SELinux security context of a file or
           directory if it exists, as well as of its subdirectories and
           the files contained therein (if applicable). Lines of this
-          type accept shell-style globs in place of normal path names.
-          </para></listitem>
+          type accept shell-style globs in place of normal path
+          names. Does not follow symlinks.  </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>t</varname></term>
           <listitem><para>Set extended attributes. Lines of this type
           accept shell-style globs in place of normal path names.
-          This can be useful for setting SMACK labels.
-          </para></listitem>
+          This can be useful for setting SMACK labels. Does not follow
+          symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>T</varname></term>
           <listitem><para>Recursively set extended attributes. Lines
           of this type accept shell-style globs in place of normal
-          path names.  This can be useful for setting SMACK labels.
+          path names.  This can be useful for setting SMACK
+          labels. Does not follow symlinks.  </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>h</varname></term>
+          <listitem><para>Set file/directory attributes. Lines of this type
+          accept shell-style globs in place of normal path names.</para>
+
+          <para>The format of the argument field is
+          <varname>[+-=][aAcCdDeijsStTu] </varname>. The prefix
+          <varname>+</varname> (the default one) causes the
+          attribute(s) to be added; <varname>-</varname> causes the
+          attribute(s) to be removed; <varname>=</varname> causes the
+          attributes to set exactly as the following letters. The
+          letters <literal>aAcCdDeijsStTu</literal> select the new
+          attributes for the files, see
+          <citerefentry><refentrytitle>chattr</refentrytitle>
+          <manvolnum>1</manvolnum></citerefentry> for further information.
+          </para>
+          <para>Passing only <varname>=</varname> as argument resets
+          all the file attributes listed above. It has to be pointed
+          out that the <varname>=</varname> prefix, limits itself to
+          the attributes corresponding to the letters listed here. All
+          other attributes will be left untouched. Does not follow
+          symlinks.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>H</varname></term>
+          <listitem><para>Recursively set file/directory attributes. Lines
+          of this type accept shell-style globs in place of normal
+          path names. Does not follow symlinks.
           </para></listitem>
         </varlistentry>
 
@@ -315,14 +354,15 @@
           specified explicitly or already present. Lines of this type
           accept shell-style globs in place of normal path names. This
           can be useful for allowing additional access to certain
-          files.</para></listitem>
+          files. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>A</varname></term>
           <term><varname>A+</varname></term>
           <listitem><para>Same as <varname>a</varname> and
-          <varname>a+</varname>, but recursive.</para></listitem>
+          <varname>a+</varname>, but recursive. Does not follow
+          symlinks.</para></listitem>
         </varlistentry>
       </variablelist>
 
@@ -443,23 +483,22 @@
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
       format is a series of integers each followed by one of the
-      following postfixes for the respective time units:</para>
-
-      <variablelist>
-        <varlistentry>
-          <term><varname>s</varname></term>
-          <term><varname>min</varname></term>
-          <term><varname>h</varname></term>
-          <term><varname>d</varname></term>
-          <term><varname>w</varname></term>
-          <term><varname>ms</varname></term>
-          <term><varname>m</varname></term>
-        <term><varname>us</varname></term></varlistentry>
-      </variablelist>
+      following postfixes for the respective time units:
+      <constant>s</constant>,
+      <constant>m</constant> or <constant>min</constant>,
+      <constant>h</constant>,
+      <constant>d</constant>,
+      <constant>w</constant>,
+      <constant>ms</constant>,
+      <constant>us</constant>,
+      respectively meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds. Full names of the time units can
+      be used too.
+      </para>
 
       <para>If multiple integers and units are specified, the time
-      values are summed up. If an integer is given without a unit,
-      <varname>s</varname> is assumed.
+      values are summed. If an integer is given without a unit,
+      <constant>s</constant> is assumed.
       </para>
 
       <para>When the age is set to zero, the files are cleaned
@@ -490,9 +529,12 @@
       <varname>w</varname> may be used to specify a short string that
       is written to the file, suffixed by a newline. For
       <varname>C</varname>, specifies the source file or
-      directory. For <varname>t</varname> determines extended
-      attributes to be set. For <varname>a</varname> determines
-      ACL attributes to be set. Ignored for all other lines.</para>
+      directory. For <varname>t</varname>, <varname>T</varname>
+      determines extended attributes to be set. For
+      <varname>a</varname>, <varname>A</varname> determines ACL
+      attributes to be set. For <varname>h</varname>,
+      <varname>H</varname> determines the file attributes to
+      set. Ignored for all other lines.</para>
     </refsect2>
 
   </refsect1>
@@ -505,15 +547,15 @@
       boot with specific modes and ownership.</para>
 
       <programlisting>d /run/screens  1777 root root 10d
-      d /run/uscreens 0755 root root 10d12h
-      t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
+d /run/uscreens 0755 root root 10d12h
+t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
     </example>
     <example>
       <title>/etc/tmpfiles.d/abrt.conf example</title>
       <para><command>abrt</command> needs a directory created at boot with specific mode and ownership and its content should be preserved.</para>
 
       <programlisting>d /var/tmp/abrt 0755 abrt abrt
-      x /var/tmp/abrt/*</programlisting>
+x /var/tmp/abrt/*</programlisting>
     </example>
   </refsect1>
 
@@ -528,7 +570,8 @@
       <citerefentry project='man-pages'><refentrytitle>getfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>setfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -19,12 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <errno.h>
 #include <unistd.h>
 
-#include "systemd/sd-journal.h"
 #include "systemd/sd-messages.h"
 #include "systemd/sd-daemon.h"
 
@@ -34,6 +30,7 @@
 #include "journald-syslog.h"
 
 #include "sigbus.h"
+#include "formats-util.h"
 
 int main(int argc, char *argv[]) {
         Server server;

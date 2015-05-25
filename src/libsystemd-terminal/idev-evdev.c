@@ -20,20 +20,16 @@
 ***/
 
 #include <fcntl.h>
-#include <inttypes.h>
 #include <libevdev/libevdev.h>
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
-#include <unistd.h>
 #include "bus-util.h"
-#include "hashmap.h"
 #include "idev.h"
 #include "idev-internal.h"
 #include "macro.h"
-#include "udev-util.h"
 #include "util.h"
 
 typedef struct idev_evdev idev_evdev;
@@ -531,8 +527,7 @@ static const idev_element_vtable unmanaged_evdev_vtable = {
  * you run inside a user session with exclusive device access.
  */
 
-static int managed_evdev_take_device_fn(sd_bus *bus,
-                                        sd_bus_message *reply,
+static int managed_evdev_take_device_fn(sd_bus_message *reply,
                                         void *userdata,
                                         sd_bus_error *ret_error) {
         managed_evdev *em = userdata;

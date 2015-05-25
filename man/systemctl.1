@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMCTL" "1" "" "systemd 219" "systemctl"
+.TH "SYSTEMCTL" "1" "" "systemd 220" "systemctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -84,7 +84,7 @@ Show reverse dependencies between units with
 \fBlist\-dependencies\fR, i\&.e\&. follow dependencies of type
 \fIWantedBy=\fR,
 \fIRequiredBy=\fR,
-\fIRequiredByOverrridable=\fR,
+\fIRequiredByOverridable=\fR,
 \fIPartOf=\fR,
 \fIBoundBy=\fR, instead of
 \fIWants=\fR
@@ -205,7 +205,7 @@ and
 .RS 4
 Do not synchronously wait for the requested operation to finish\&. If this is not specified, the job will be verified, enqueued and
 \fBsystemctl\fR
-will wait until it is completed\&. By passing this argument, it is only verified and enqueued\&.
+will wait until the unit\*(Aqs start\-up is completed\&. By passing this argument, it is only verified and enqueued\&.
 .RE
 .PP
 \fB\-\-user\fR
@@ -301,6 +301,15 @@ is specified twice for these operations, they will be executed immediately witho
 twice with any of these operations might result in data loss\&.
 .RE
 .PP
+\fB\-\-now\fR
+.RS 4
+When used with
+\fBenable\fR, the units will also be started\&. When used with
+\fBdisable\fR
+or
+\fBmask\fR, the units will also be stopped\&. The start or stop operation is only carried out when the respective enable or disable operation has been successful\&.
+.RE
+.PP
 \fB\-\-root=\fR
 .RS 4
 When used with
@@ -347,6 +356,13 @@ When used with
 \fBstatus\fR, controls the formatting of the journal entries that are shown\&. For the available choices, see
 \fBjournalctl\fR(1)\&. Defaults to
 "short"\&.
+.RE
+.PP
+\fB\-\-firmware\-setup\fR
+.RS 4
+When used with the
+\fBreboot\fR
+command, indicate to the system\*(Aqs firmware to boot into setup mode\&. Note that this is currently only supported on some EFI systems and only if the system was booted in EFI mode\&.
 .RE
 .PP
 \fB\-\-plain\fR
@@ -636,7 +652,9 @@ Enable one or more unit files or unit file instances, as specified on the comman
 sections of the unit files\&. After the symlinks have been created, the systemd configuration is reloaded (in a way that is equivalent to
 \fBdaemon\-reload\fR) to ensure the changes are taken into account immediately\&. Note that this does
 \fInot\fR
-have the effect of also starting any of the units being enabled\&. If this is desired, a separate
+have the effect of also starting any of the units being enabled\&. If this is desired, either
+\fB\-\-now\fR
+should be used together with this command, or an additional
 \fBstart\fR
 command must be invoked for the unit\&. Also note that in case of instance enablement, symlinks named the same as instances are created in the install location, however they all point to the same template unit file\&.
 .sp
@@ -667,7 +685,9 @@ on masked units results in an error\&.
 .RS 4
 Disables one or more units\&. This removes all symlinks to the specified unit files from the unit configuration directory, and hence undoes the changes made by
 \fBenable\fR\&. Note however that this removes all symlinks to the unit files (i\&.e\&. including manual additions), not just those actually created by
-\fBenable\fR\&. This call implicitly reloads the systemd daemon configuration after completing the disabling of the units\&. Note that this command does not implicitly stop the units that are being disabled\&. If this is desired, an additional
+\fBenable\fR\&. This call implicitly reloads the systemd daemon configuration after completing the disabling of the units\&. Note that this command does not implicitly stop the units that are being disabled\&. If this is desired, either
+\fB\-\-now\fR
+should be used together with this command, or an additional
 \fBstop\fR
 command should be executed afterwards\&.
 .sp
@@ -813,7 +833,9 @@ Mask one or more unit files, as specified on the command line\&. This will link 
 /dev/null, making it impossible to start them\&. This is a stronger version of
 \fBdisable\fR, since it prohibits all kinds of activation of the unit, including enablement and manual activation\&. Use this option with care\&. This honors the
 \fB\-\-runtime\fR
-option to only mask temporarily until the next reboot of the system\&.
+option to only mask temporarily until the next reboot of the system\&. The
+\fB\-\-now\fR
+option can be used to ensure that the units are also stopped\&.
 .RE
 .PP
 \fBunmask \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
@@ -1061,7 +1083,7 @@ Enter emergency mode\&. This is mostly equivalent to
 \fBhalt\fR
 .RS 4
 Shut down and halt the system\&. This is mostly equivalent to
-\fBstart halt\&.target \-\-irreversible\fR, but also prints a wall message to all users\&. If combined with
+\fBstart halt\&.target \-\-job\-mode=replace\-irreversibly\fR, but also prints a wall message to all users\&. If combined with
 \fB\-\-force\fR, shutdown of all running services is skipped, however all processes are killed and all file systems are unmounted or mounted read\-only, immediately followed by the system halt\&. If
 \fB\-\-force\fR
 is specified twice, the operation is immediately executed without terminating any processes or unmounting any file systems\&. This may result in data loss\&.
@@ -1070,7 +1092,7 @@ is specified twice, the operation is immediately executed without terminating an
 \fBpoweroff\fR
 .RS 4
 Shut down and power\-off the system\&. This is mostly equivalent to
-\fBstart poweroff\&.target \-\-irreversible\fR, but also prints a wall message to all users\&. If combined with
+\fBstart poweroff\&.target \-\-job\-mode=replace\-irreversibly\fR, but also prints a wall message to all users\&. If combined with
 \fB\-\-force\fR, shutdown of all running services is skipped, however all processes are killed and all file systems are unmounted or mounted read\-only, immediately followed by the powering off\&. If
 \fB\-\-force\fR
 is specified twice, the operation is immediately executed without terminating any processes or unmounting any file systems\&. This may result in data loss\&.
@@ -1079,7 +1101,7 @@ is specified twice, the operation is immediately executed without terminating an
 \fBreboot \fR\fB[\fIarg\fR]\fR
 .RS 4
 Shut down and reboot the system\&. This is mostly equivalent to
-\fBstart reboot\&.target \-\-irreversible\fR, but also prints a wall message to all users\&. If combined with
+\fBstart reboot\&.target \-\-job\-mode=replace\-irreversibly\fR, but also prints a wall message to all users\&. If combined with
 \fB\-\-force\fR, shutdown of all running services is skipped, however all processes are killed and all file systems are unmounted or mounted read\-only, immediately followed by the reboot\&. If
 \fB\-\-force\fR
 is specified twice, the operation is immediately executed without terminating any processes or unmounting any file systems\&. This may result in data loss\&.
@@ -1100,7 +1122,7 @@ update\&.
 \fBkexec\fR
 .RS 4
 Shut down and reboot the system via kexec\&. This is mostly equivalent to
-\fBstart kexec\&.target \-\-irreversible\fR, but also prints a wall message to all users\&. If combined with
+\fBstart kexec\&.target \-\-job\-mode=replace\-irreversibly\fR, but also prints a wall message to all users\&. If combined with
 \fB\-\-force\fR, shutdown of all running services is skipped, however all processes are killed and all file systems are unmounted or mounted read\-only, immediately followed by the reboot\&.
 .RE
 .PP
@@ -1313,7 +1335,7 @@ Override the default options passed to
 \fBloginctl\fR(1),
 \fBmachinectl\fR(1),
 \fBsystemd.unit\fR(5),
-\fBsystemd.resource-management\fR(5),
+\fBsystemd.resource-control\fR(5),
 \fBsystemd.special\fR(7),
 \fBwall\fR(1),
 \fBsystemd.preset\fR(5),

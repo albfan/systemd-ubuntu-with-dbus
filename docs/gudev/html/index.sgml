@@ -17,6 +17,9 @@
 <ANCHOR id="GUdevClient-struct" href="gudev/GUdevClient.html#GUdevClient-struct">
 <ANCHOR id="GUdevClientClass" href="gudev/GUdevClient.html#GUdevClientClass">
 <ANCHOR id="GUdevDeviceType" href="gudev/GUdevClient.html#GUdevDeviceType">
+<ANCHOR id="G-UDEV-DEVICE-TYPE-NONE:CAPS" href="gudev/GUdevClient.html#G-UDEV-DEVICE-TYPE-NONE:CAPS">
+<ANCHOR id="G-UDEV-DEVICE-TYPE-BLOCK:CAPS" href="gudev/GUdevClient.html#G-UDEV-DEVICE-TYPE-BLOCK:CAPS">
+<ANCHOR id="G-UDEV-DEVICE-TYPE-CHAR:CAPS" href="gudev/GUdevClient.html#G-UDEV-DEVICE-TYPE-CHAR:CAPS">
 <ANCHOR id="GUdevDeviceNumber" href="gudev/GUdevClient.html#GUdevDeviceNumber">
 <ANCHOR id="GUdevClient.property-details" href="gudev/GUdevClient.html#GUdevClient.property-details">
 <ANCHOR id="GUdevClient--subsystems" href="gudev/GUdevClient.html#GUdevClient--subsystems">

@@ -35,6 +35,7 @@
 #include "strbuf.h"
 #include "strv.h"
 #include "util.h"
+#include "sysctl-util.h"
 
 #define PREALLOC_TOKEN          2048
 
@@ -128,6 +129,7 @@ enum token_type {
         TK_M_DRIVER,                    /* val */
         TK_M_WAITFOR,                   /* val */
         TK_M_ATTR,                      /* val, attr */
+        TK_M_SYSCTL,                    /* val, attr */
 
         TK_M_PARENTS_MIN,
         TK_M_KERNELS,                   /* val */
@@ -166,6 +168,7 @@ enum token_type {
         TK_A_NAME,                      /* val */
         TK_A_DEVLINK,                   /* val */
         TK_A_ATTR,                      /* val, attr */
+        TK_A_SYSCTL,                    /* val, attr */
         TK_A_RUN_BUILTIN,               /* val, bool */
         TK_A_RUN_PROGRAM,               /* val, bool */
         TK_A_GOTO,                      /* size_t */
@@ -262,6 +265,7 @@ static const char *token_str(enum token_type type) {
                 [TK_M_DRIVER] =                 "M DRIVER",
                 [TK_M_WAITFOR] =                "M WAITFOR",
                 [TK_M_ATTR] =                   "M ATTR",
+                [TK_M_SYSCTL] =                 "M SYSCTL",
 
                 [TK_M_PARENTS_MIN] =            "M PARENTS_MIN",
                 [TK_M_KERNELS] =                "M KERNELS",
@@ -300,6 +304,7 @@ static const char *token_str(enum token_type type) {
                 [TK_A_NAME] =                   "A NAME",
                 [TK_A_DEVLINK] =                "A DEVLINK",
                 [TK_A_ATTR] =                   "A ATTR",
+                [TK_A_SYSCTL] =                 "A SYSCTL",
                 [TK_A_RUN_BUILTIN] =            "A RUN_BUILTIN",
                 [TK_A_RUN_PROGRAM] =            "A RUN_PROGRAM",
                 [TK_A_GOTO] =                   "A GOTO",
@@ -363,9 +368,11 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
                 log_debug("%s %i '%s'", token_str(type), token->key.builtin_cmd, value);
                 break;
         case TK_M_ATTR:
+        case TK_M_SYSCTL:
         case TK_M_ATTRS:
         case TK_M_ENV:
         case TK_A_ATTR:
+        case TK_A_SYSCTL:
         case TK_A_ENV:
                 log_debug("%s %s '%s' '%s'(%s)",
                           token_str(type), operation_str(op), attr, value, string_glob_str(glob));
@@ -555,7 +562,6 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
         char *key;
         char *val;
         size_t len;
-        struct udev_list_entry *entry;
 
         /* find key */
         key = line;
@@ -606,10 +612,7 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
                 val++;
         }
 
-        entry = udev_device_add_property(dev, key, val);
-        /* store in db, skip private keys */
-        if (key[0] != '.')
-                udev_list_entry_set_num(entry, true);
+        udev_device_add_property(dev, key, val);
 
         return 0;
 }
@@ -670,12 +673,7 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
                 const char *val = udev_list_entry_get_value(list_entry);
 
                 if (fnmatch(filter, key, 0) == 0) {
-                        struct udev_list_entry *entry;
-
-                        entry = udev_device_add_property(dev, key, val);
-                        /* store in db, skip private keys */
-                        if (key[0] != '.')
-                                udev_list_entry_set_num(entry, true);
+                        udev_device_add_property(dev, key, val);
                 }
         }
         return 0;
@@ -906,8 +904,10 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 break;
         case TK_M_ENV:
         case TK_M_ATTR:
+        case TK_M_SYSCTL:
         case TK_M_ATTRS:
         case TK_A_ATTR:
+        case TK_A_SYSCTL:
         case TK_A_ENV:
         case TK_A_SECLABEL:
                 attr = data;
@@ -1144,11 +1144,27 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 log_error("invalid ATTR operation");
                                 goto invalid;
                         }
-                        if (op < OP_MATCH_MAX) {
+                        if (op < OP_MATCH_MAX)
                                 rule_add_key(&rule_tmp, TK_M_ATTR, op, value, attr);
-                        } else {
+                        else
                                 rule_add_key(&rule_tmp, TK_A_ATTR, op, value, attr);
+                        continue;
+                }
+
+                if (startswith(key, "SYSCTL{")) {
+                        attr = get_key_attribute(rules->udev, key + strlen("SYSCTL"));
+                        if (attr == NULL) {
+                                log_error("error parsing SYSCTL attribute");
+                                goto invalid;
                         }
+                        if (op == OP_REMOVE) {
+                                log_error("invalid SYSCTL operation");
+                                goto invalid;
+                        }
+                        if (op < OP_MATCH_MAX)
+                                rule_add_key(&rule_tmp, TK_M_SYSCTL, op, value, attr);
+                        else
+                                rule_add_key(&rule_tmp, TK_A_SYSCTL, op, value, attr);
                         continue;
                 }
 
@@ -1995,6 +2011,23 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         if (match_attr(rules, event->dev, event, cur) != 0)
                                 goto nomatch;
                         break;
+                case TK_M_SYSCTL: {
+                        char filename[UTIL_PATH_SIZE];
+                        _cleanup_free_ char *value = NULL;
+                        size_t len;
+
+                        udev_event_apply_format(event, rules_str(rules, cur->key.attr_off), filename, sizeof(filename));
+                        sysctl_normalize(filename);
+                        if (sysctl_read(filename, &value) < 0)
+                                goto nomatch;
+
+                        len = strlen(value);
+                        while (len > 0 && isspace(value[--len]))
+                                value[len] = '\0';
+                        if (match_key(rules, cur, value) != 0)
+                                goto nomatch;
+                        break;
+                }
                 case TK_M_KERNELS:
                 case TK_M_SUBSYSTEMS:
                 case TK_M_DRIVERS:
@@ -2178,12 +2211,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         const char *value;
 
                         value = udev_device_get_property_value(event->dev_db, key);
-                        if (value != NULL) {
-                                struct udev_list_entry *entry;
-
-                                entry = udev_device_add_property(event->dev, key, value);
-                                udev_list_entry_set_num(entry, true);
-                        } else {
+                        if (value != NULL)
+                                udev_device_add_property(event->dev, key, value);
+                        else {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         }
@@ -2203,13 +2233,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
 
                                         pos = strstr(cmdline, key);
                                         if (pos != NULL) {
-                                                struct udev_list_entry *entry;
-
                                                 pos += strlen(key);
                                                 if (pos[0] == '\0' || isspace(pos[0])) {
                                                         /* we import simple flags as 'FLAG=1' */
-                                                        entry = udev_device_add_property(event->dev, key, "1");
-                                                        udev_list_entry_set_num(entry, true);
+                                                        udev_device_add_property(event->dev, key, "1");
                                                         imported = true;
                                                 } else if (pos[0] == '=') {
                                                         const char *value;
@@ -2219,8 +2246,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                                         while (pos[0] != '\0' && !isspace(pos[0]))
                                                                 pos++;
                                                         pos[0] = '\0';
-                                                        entry = udev_device_add_property(event->dev, key, value);
-                                                        udev_list_entry_set_num(entry, true);
+                                                        udev_device_add_property(event->dev, key, value);
                                                         imported = true;
                                                 }
                                         }
@@ -2393,7 +2419,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         char *value = rules_str(rules, cur->key.value_off);
                         char value_new[UTIL_NAME_SIZE];
                         const char *value_old = NULL;
-                        struct udev_list_entry *entry;
 
                         if (value[0] == '\0') {
                                 if (cur->key.op == OP_ADD)
@@ -2413,10 +2438,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         } else
                                 udev_event_apply_format(event, value, value_new, sizeof(value_new));
 
-                        entry = udev_device_add_property(event->dev, name, value_new);
-                        /* store in db, skip private keys */
-                        if (name[0] != '.')
-                                udev_list_entry_set_num(entry, true);
+                        udev_device_add_property(event->dev, name, value_new);
                         break;
                 }
                 case TK_A_TAG: {
@@ -2540,6 +2562,21 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         } else {
                                 log_error_errno(errno, "error opening ATTR{%s} for writing: %m", attr);
                         }
+                        break;
+                }
+                case TK_A_SYSCTL: {
+                        char filename[UTIL_PATH_SIZE];
+                        char value[UTIL_NAME_SIZE];
+                        int r;
+
+                        udev_event_apply_format(event, rules_str(rules, cur->key.attr_off), filename, sizeof(filename));
+                        sysctl_normalize(filename);
+                        udev_event_apply_format(event, rules_str(rules, cur->key.value_off), value, sizeof(value));
+                        log_debug("SYSCTL '%s' writing '%s' %s:%u", filename, value,
+                                  rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
+                        r = sysctl_write(filename, value);
+                        if (r < 0)
+                                log_error("error writing SYSCTL{%s}='%s': %s", filename, value, strerror(-r));
                         break;
                 }
                 case TK_A_RUN_BUILTIN:

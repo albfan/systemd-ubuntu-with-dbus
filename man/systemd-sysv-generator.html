@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-sysv-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-sysv-generator — Unit generator for SysV init scripts</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-sysv-generator</code></p></div><div class="refsect1"><a name="idm140482621215952"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-sysv-generator</code> is a generator
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-sysv-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-sysv-generator — Unit generator for SysV init scripts</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-sysv-generator</code></p></div><div class="refsect1"><a name="idm140704296474784"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-sysv-generator</code> is a generator
     that creates wrapper .service units for
     <a class="ulink" href="https://savannah.nongnu.org/projects/sysvinit" target="_top">SysV init</a>
     scripts in <code class="filename">/etc/init.d/*</code> at boot and when
@@ -40,9 +40,8 @@
     which correspond to runlevels for which the script is
     enabled.</p><p><span class="command"><strong>systemd</strong></span> does not supports SysV scripts as
     part of early boot, so all wrapper units are ordered after
-    <code class="filename">basic.target</code>.</p><p><code class="filename">systemd-sysv-generator</code>
-    implements the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Generators" target="_top">generator
-    specification</a>.</p></div><div class="refsect1"><a name="idm140482621304272"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    <code class="filename">basic.target</code>.</p><p><code class="filename">systemd-sysv-generator</code> implements
+    <a href="systemd.generator.html"><span class="citerefentry"><span class="refentrytitle">systemd.generator</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140704298320784"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
       <a href="systemd.target.html"><span class="citerefentry"><span class="refentrytitle">systemd.target</span>(5)</span></a>

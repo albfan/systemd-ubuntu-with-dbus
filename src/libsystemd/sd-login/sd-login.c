@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "fileio.h"
 #include "login-shared.h"
+#include "formats-util.h"
 #include "sd-login.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
@@ -73,6 +74,14 @@ _public_ int sd_pid_get_slice(pid_t pid, char **slice) {
         return cg_pid_get_slice(pid, slice);
 }
 
+_public_ int sd_pid_get_user_slice(pid_t pid, char **slice) {
+
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(slice, -EINVAL);
+
+        return cg_pid_get_user_slice(pid, slice);
+}
+
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
 
         assert_return(pid >= 0, -EINVAL);
@@ -82,7 +91,7 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
 }
 
 _public_ int sd_peer_get_session(int fd, char **session) {
-        struct ucred ucred;
+        struct ucred ucred = {};
         int r;
 
         assert_return(fd >= 0, -EINVAL);
@@ -163,6 +172,20 @@ _public_ int sd_peer_get_slice(int fd, char **slice) {
                 return r;
 
         return cg_pid_get_slice(ucred.pid, slice);
+}
+
+_public_ int sd_peer_get_user_slice(int fd, char **slice) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(slice, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_user_slice(ucred.pid, slice);
 }
 
 static int file_of_uid(uid_t uid, char **p) {
@@ -496,9 +519,9 @@ _public_ int sd_session_get_desktop(const char *session, char **desktop) {
         if (r < 0)
                 return r;
 
-        t = cunescape(escaped);
-        if (!t)
-                return -ENOMEM;
+        r = cunescape(escaped, 0, &t);
+        if (r < 0)
+                return r;
 
         *desktop = t;
         return 0;

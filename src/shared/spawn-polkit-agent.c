@@ -19,18 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
-#include <sys/prctl.h>
 #include <signal.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
 
 #include "log.h"
 #include "util.h"
+#include "process-util.h"
 #include "spawn-polkit-agent.h"
 
 #ifdef ENABLE_POLKIT

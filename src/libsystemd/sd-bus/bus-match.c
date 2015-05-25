@@ -22,7 +22,6 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-match.h"
-#include "bus-error.h"
 #include "bus-util.h"
 #include "strv.h"
 
@@ -329,7 +328,7 @@ int bus_match_run(
                                 bus->current_handler = node->leaf.callback->callback;
                                 bus->current_userdata = slot->userdata;
                         }
-                        r = node->leaf.callback->callback(bus, m, slot->userdata, &error_buffer);
+                        r = node->leaf.callback->callback(m, slot->userdata, &error_buffer);
                         if (bus) {
                                 bus->current_userdata = NULL;
                                 bus->current_handler = NULL;

@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2015 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -34,4 +34,4 @@ RawImport* raw_import_unref(RawImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
-int raw_import_pull(RawImport *import, const char *url, const char *local, bool force_local, ImportVerify verify);
+int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, bool read_only);

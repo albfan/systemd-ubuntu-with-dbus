@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD" "1" "" "systemd 219" "systemd"
+.TH "SYSTEMD" "1" "" "systemd 220" "systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -389,13 +389,13 @@ For more information about the concepts and ideas behind systemd, please refer t
 Note that some but not all interfaces provided by systemd are covered by the
 \m[blue]\fBInterface Stability Promise\fR\m[]\&\s-2\u[3]\d\s+2\&.
 .PP
-Units may be generated dynamically at boot and system manager reload time, for example based on other configuration files or parameters passed on the kernel command line\&. For details see the
-\m[blue]\fBGenerators Specification\fR\m[]\&\s-2\u[4]\d\s+2\&.
+Units may be generated dynamically at boot and system manager reload time, for example based on other configuration files or parameters passed on the kernel command line\&. For details see
+\fBsystemd.generator\fR(7)\&.
 .PP
 Systems which invoke systemd in a container or initrd environment should implement the
-\m[blue]\fBContainer Interface\fR\m[]\&\s-2\u[5]\d\s+2
+\m[blue]\fBContainer Interface\fR\m[]\&\s-2\u[4]\d\s+2
 or
-\m[blue]\fBinitrd Interface\fR\m[]\&\s-2\u[6]\d\s+2
+\m[blue]\fBinitrd Interface\fR\m[]\&\s-2\u[5]\d\s+2
 specifications, respectively\&.
 .SH "DIRECTORIES"
 .PP
@@ -420,7 +420,7 @@ tool\&. Full list of directories is provided in
 User unit directories
 .RS 4
 Similar rules apply for the user unit directories\&. However, here the
-\m[blue]\fBXDG Base Directory specification\fR\m[]\&\s-2\u[7]\d\s+2
+\m[blue]\fBXDG Base Directory specification\fR\m[]\&\s-2\u[6]\d\s+2
 is followed to find units\&. Applications should place their unit files in the directory returned by
 \fBpkg\-config systemd \-\-variable=systemduserunitdir\fR\&. Global configuration is done in the directory reported by
 \fBpkg\-config systemd \-\-variable=systemduserconfdir\fR\&. The
@@ -663,7 +663,7 @@ Controls whether systemd prints the code location along with log messages\&. Thi
 \fI$XDG_CONFIG_HOME\fR, \fI$XDG_CONFIG_DIRS\fR, \fI$XDG_DATA_HOME\fR, \fI$XDG_DATA_DIRS\fR
 .RS 4
 The systemd user manager uses these variables in accordance to the
-\m[blue]\fBXDG Base Directory specification\fR\m[]\&\s-2\u[7]\d\s+2
+\m[blue]\fBXDG Base Directory specification\fR\m[]\&\s-2\u[6]\d\s+2
 to find its configuration\&.
 .RE
 .PP
@@ -697,7 +697,7 @@ for more information\&.
 .RE
 .SH "KERNEL COMMAND LINE"
 .PP
-When run as system instance systemd parses a number of kernel command line arguments\&\s-2\u[8]\d\s+2:
+When run as system instance systemd parses a number of kernel command line arguments\&\s-2\u[7]\d\s+2:
 .PP
 \fIsystemd\&.unit=\fR, \fIrd\&.systemd\&.unit=\fR
 .RS 4
@@ -835,15 +835,6 @@ datagram socket and is used to implement the daemon notification logic as implem
 \fBsd_notify\fR(3)\&.
 .RE
 .PP
-/run/systemd/shutdownd
-.RS 4
-Used internally by the
-\fBshutdown\fR(8)
-tool to implement delayed shutdowns\&. This is an
-\fBAF_UNIX\fR
-datagram socket\&.
-.RE
-.PP
 /run/systemd/private
 .RS 4
 Used internally as communication channel between
@@ -862,7 +853,7 @@ unit\&. This is a named pipe in the file system\&. This interface is obsolete an
 .SH "SEE ALSO"
 .PP
 The
-\m[blue]\fBsystemd Homepage\fR\m[]\&\s-2\u[9]\d\s+2,
+\m[blue]\fBsystemd Homepage\fR\m[]\&\s-2\u[8]\d\s+2,
 \fBsystemd-system.conf\fR(5),
 \fBlocale.conf\fR(5),
 \fBsystemctl\fR(1),
@@ -893,30 +884,25 @@ Interface Stability Promise
 \%http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise
 .RE
 .IP " 4." 4
-Generators Specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
-.RE
-.IP " 5." 4
 Container Interface
 .RS 4
 \%http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface
 .RE
-.IP " 6." 4
+.IP " 5." 4
 initrd Interface
 .RS 4
 \%http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface
 .RE
-.IP " 7." 4
+.IP " 6." 4
 XDG Base Directory specification
 .RS 4
 \%http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
 .RE
-.IP " 8." 4
+.IP " 7." 4
 If run inside a Linux container these arguments may be passed as command line arguments to systemd itself, next to any of the command line options listed in the Options section above. If run outside of Linux containers, these arguments are parsed from
 /proc/cmdline
 instead.
-.IP " 9." 4
+.IP " 8." 4
 systemd Homepage
 .RS 4
 \%http://www.freedesktop.org/wiki/Software/systemd/

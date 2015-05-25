@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.AUTOMOUNT" "5" "" "systemd 219" "systemd.automount"
+.TH "SYSTEMD\&.AUTOMOUNT" "5" "" "systemd 220" "systemd.automount"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -81,6 +81,11 @@ Takes an absolute path of a directory of the automount point\&. If the automount
 \fIDirectoryMode=\fR
 .RS 4
 Directories of automount points (and any parent directories) are automatically created if needed\&. This option specifies the file system access mode used when creating these directories\&. Takes an access mode in octal notation\&. Defaults to 0755\&.
+.RE
+.PP
+\fITimeoutIdleSec=\fR
+.RS 4
+Configures an idleness timeout\&. Once the mount has been idle for the specified time, systemd will attempt to unmount\&. Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. The timeout is disabled by default\&.
 .RE
 .SH "SEE ALSO"
 .PP

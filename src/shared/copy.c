@@ -285,7 +285,7 @@ static int fd_copy_directory(
                 else if (S_ISBLK(buf.st_mode) || S_ISCHR(buf.st_mode))
                         q = fd_copy_node(dirfd(d), de->d_name, &buf, fdt, de->d_name);
                 else
-                        q = -ENOTSUP;
+                        q = -EOPNOTSUPP;
 
                 if (q == -EEXIST && merge)
                         q = 0;
@@ -317,7 +317,7 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, bool merge)
         else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode))
                 return fd_copy_node(fdf, from, &st, fdt, to);
         else
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 }
 
 int copy_tree(const char *from, const char *to, bool merge) {
@@ -360,7 +360,7 @@ int copy_file_fd(const char *from, int fdt, bool try_reflink) {
 }
 
 int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned chattr_flags) {
-        int fdt, r;
+        int fdt = -1, r;
 
         assert(from);
         assert(to);
@@ -372,7 +372,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
         }
 
         if (chattr_flags != 0)
-                (void) chattr_fd(fdt, true, chattr_flags);
+                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1);
 
         r = copy_file_fd(from, fdt, true);
         if (r < 0) {
@@ -390,7 +390,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
 }
 
 int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace, unsigned chattr_flags) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(from);
@@ -404,9 +404,15 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace
         if (r < 0)
                 return r;
 
-        if (renameat2(AT_FDCWD, t, AT_FDCWD, to, replace ? 0 : RENAME_NOREPLACE) < 0) {
-                unlink_noerrno(t);
-                return -errno;
+        if (replace) {
+                r = renameat(AT_FDCWD, t, AT_FDCWD, to);
+                if (r < 0)
+                        r = -errno;
+        } else
+                r = rename_noreplace(AT_FDCWD, t, AT_FDCWD, to);
+        if (r < 0) {
+                (void) unlink_noerrno(t);
+                return r;
         }
 
         return 0;
@@ -415,7 +421,7 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace
 int copy_times(int fdf, int fdt) {
         struct timespec ut[2];
         struct stat st;
-        usec_t crtime;
+        usec_t crtime = 0;
 
         assert(fdf >= 0);
         assert(fdt >= 0);

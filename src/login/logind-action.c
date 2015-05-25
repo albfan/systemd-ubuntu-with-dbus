@@ -21,13 +21,15 @@
 
 #include <unistd.h>
 
-#include "sd-messages.h"
 #include "conf-parser.h"
 #include "special.h"
 #include "sleep-config.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind-action.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
 
 int manager_handle_action(
                 Manager *m,
@@ -113,7 +115,7 @@ int manager_handle_action(
 
         if (!supported) {
                 log_warning("Requested operation not supported, ignoring.");
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (m->action_what) {

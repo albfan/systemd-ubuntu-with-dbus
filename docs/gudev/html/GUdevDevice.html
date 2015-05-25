@@ -2,13 +2,13 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>GUdev Reference Manual: GUdevDevice</title>
+<title>GUdevDevice: GUdev Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
 <link rel="home" href="index.html" title="GUdev Reference Manual">
 <link rel="up" href="ref-API.html" title="API Reference">
 <link rel="prev" href="GUdevClient.html" title="GUdevClient">
 <link rel="next" href="GUdevEnumerator.html" title="GUdevEnumerator">
-<meta name="generator" content="GTK-Doc V1.21 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.23 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -386,7 +386,6 @@ g_udev_device_get_subsystem (<em class="parameter"><code><a class="link" href="G
 <a name="id-1.2.3.7.2.6"></a><h4>Returns</h4>
 <p> The subsystem for <em class="parameter"><code>device</code></em>
 .</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -415,7 +414,6 @@ g_udev_device_get_devtype (<em class="parameter"><code><a class="link" href="GUd
 <a name="id-1.2.3.7.3.6"></a><h4>Returns</h4>
 <p> The devtype for <em class="parameter"><code>device</code></em>
 .</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -444,7 +442,6 @@ g_udev_device_get_name (<em class="parameter"><code><a class="link" href="GUdevD
 <a name="id-1.2.3.7.4.6"></a><h4>Returns</h4>
 <p> The name of <em class="parameter"><code>device</code></em>
 .</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -473,7 +470,6 @@ g_udev_device_get_number (<em class="parameter"><code><a class="link" href="GUde
 <a name="id-1.2.3.7.5.6"></a><h4>Returns</h4>
 <p> The number of <em class="parameter"><code>device</code></em>
 .</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -502,7 +498,6 @@ g_udev_device_get_sysfs_path (<em class="parameter"><code><a class="link" href="
 <a name="id-1.2.3.7.6.6"></a><h4>Returns</h4>
 <p> The sysfs path for <em class="parameter"><code>device</code></em>
 .</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -560,7 +555,6 @@ g_udev_device_get_action (<em class="parameter"><code><a class="link" href="GUde
 <div class="refsect3">
 <a name="id-1.2.3.7.8.6"></a><h4>Returns</h4>
 <p> An action string.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -588,7 +582,6 @@ g_udev_device_get_seqnum (<em class="parameter"><code><a class="link" href="GUde
 <div class="refsect3">
 <a name="id-1.2.3.7.9.6"></a><h4>Returns</h4>
 <p> A sequence number.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -617,7 +610,6 @@ g_udev_device_get_device_type (<em class="parameter"><code><a class="link" href=
 <a name="id-1.2.3.7.10.6"></a><h4>Returns</h4>
 <p> The device number for <em class="parameter"><code>device</code></em>
 or <a class="link" href="GUdevClient.html#G-UDEV-DEVICE-TYPE-NONE:CAPS"><span class="type">G_UDEV_DEVICE_TYPE_NONE</span></a> if the device does not have a device file.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -646,7 +638,6 @@ g_udev_device_get_device_number (<em class="parameter"><code><a class="link" hre
 <a name="id-1.2.3.7.11.6"></a><h4>Returns</h4>
 <p> The device number for <em class="parameter"><code>device</code></em>
 or 0 if unknown.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -819,7 +810,7 @@ g_udev_device_get_tags (<em class="parameter"><code><a class="link" href="GUdevD
 and should not be freed by the caller. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span></p>
 </div>
-<p class="since">Since 165</p>
+<p class="since">Since: <a class="link" href="ix02.html#api-index-165">165</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -827,7 +818,7 @@ and should not be freed by the caller. </p>
 <pre class="programlisting"><span class="returnvalue">gboolean</span>
 g_udev_device_get_is_initialized (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>);</pre>
 <p>Gets whether <em class="parameter"><code>device</code></em>
- has been initalized.</p>
+ has been initialized.</p>
 <div class="refsect3">
 <a name="id-1.2.3.7.17.5"></a><h4>Parameters</h4>
 <div class="informaltable"><table width="100%" border="0">
@@ -847,9 +838,8 @@ g_udev_device_get_is_initialized (<em class="parameter"><code><a class="link" hr
 <a name="id-1.2.3.7.17.6"></a><h4>Returns</h4>
 <p> Whether <em class="parameter"><code>device</code></em>
 has been initialized.</p>
-<p></p>
 </div>
-<p class="since">Since 165</p>
+<p class="since">Since: <a class="link" href="ix02.html#api-index-165">165</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -880,9 +870,8 @@ database. All other devices return 0.</p>
 <a name="id-1.2.3.7.18.7"></a><h4>Returns</h4>
 <p> Number of micro-seconds since <em class="parameter"><code>device</code></em>
 was initialized or 0 if unknown.</p>
-<p></p>
 </div>
-<p class="since">Since 165</p>
+<p class="since">Since: <a class="link" href="ix02.html#api-index-165">165</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -946,7 +935,6 @@ g_udev_device_has_property (<em class="parameter"><code><a class="link" href="GU
 <a name="id-1.2.3.7.20.6"></a><h4>Returns</h4>
 <p> <code class="literal">TRUE</code> only if the value for <em class="parameter"><code>key</code></em>
 exist.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1029,7 +1017,6 @@ using <code class="function">strtol()</code>.</p>
 or 0 if <em class="parameter"><code>key</code></em>
 doesn't exist or
 isn't an integer.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1070,7 +1057,6 @@ g_udev_device_get_property_as_uint64 (<em class="parameter"><code><a class="link
 or 0 if <em class="parameter"><code>key</code></em>
 doesn't  exist or isn't a
 <span class="type">guint64</span>.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1111,7 +1097,6 @@ precision floating point number using <code class="function">strtod()</code>.</p
 or 0.0 if <em class="parameter"><code>key</code></em>
 doesn't exist or isn't a
 <span class="type">gdouble</span>.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1153,7 +1138,6 @@ on the string value against "1" and "true".</p>
 or <code class="literal">FALSE</code> if <em class="parameter"><code>key</code></em>
 doesn't exist or
 isn't a <span class="type">gboolean</span>.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1291,7 +1275,6 @@ using <code class="function">strtol()</code>.</p>
 <a name="id-1.2.3.7.30.6"></a><h4>Returns</h4>
 <p> The value of the sysfs attribute or 0 if there is no such
 attribute.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1331,7 +1314,6 @@ g_udev_device_get_sysfs_attr_as_uint64
 <a name="id-1.2.3.7.31.6"></a><h4>Returns</h4>
 <p> The value of the sysfs attribute or 0 if there is no such
 attribute.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1371,7 +1353,6 @@ precision floating point number using <code class="function">strtod()</code>.</p
 <a name="id-1.2.3.7.32.6"></a><h4>Returns</h4>
 <p> The value of the sysfs attribute or 0.0 if there is no such
 attribute.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1412,7 +1393,6 @@ on the string value against "1" and "true".</p>
 <a name="id-1.2.3.7.33.6"></a><h4>Returns</h4>
 <p> The value of the sysfs attribute or <code class="literal">FALSE</code> if there is no such
 attribute.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -1494,7 +1474,6 @@ should not be freed by the caller. </p>
 </div>
 </div>
 <div class="footer">
-<hr>
-          Generated by GTK-Doc V1.21</div>
+<hr>Generated by GTK-Doc V1.23</div>
 </body>
 </html>

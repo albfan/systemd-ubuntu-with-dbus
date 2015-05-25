@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-EFI\-BOOT\-GENERATOR" "8" "" "systemd 219" "systemd-efi-boot-generator"
+.TH "SYSTEMD\-EFI\-BOOT\-GENERATOR" "8" "" "systemd 220" "systemd-efi-boot-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,19 +36,12 @@ is an explicitly configured mount (for example, listed in
 mount point is non\-empty\&. Since this generator creates an automount unit, the mount will only be activated on\-demand, when accessed\&.
 .PP
 systemd\-efi\-boot\-generator
-implements the
-\m[blue]\fBgenerator specification\fR\m[]\&\s-2\u[1]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
 \fBsystemd.mount\fR(5),
 \fBsystemd.automount\fR(5),
 \fBsystemd-gpt-auto-generator\fR(8),
-\fBgummiboot\fR(8),
 \fBfstab\fR(5)
-.SH "NOTES"
-.IP " 1." 4
-generator specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
-.RE

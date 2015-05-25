@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-GPT\-AUTO\-GENERATOR" "8" "" "systemd 219" "systemd-gpt-auto-generator"
+.TH "SYSTEMD\-GPT\-AUTO\-GENERATOR" "8" "" "systemd 220" "systemd-gpt-auto-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -139,8 +139,8 @@ When using this generator in conjunction with btrfs file systems, make sure to s
 \fBbtrfs subvolume set\-default\fR\&.
 .PP
 systemd\-gpt\-auto\-generator
-implements the
-\m[blue]\fBGenerator Specification\fR\m[]\&\s-2\u[2]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
@@ -157,9 +157,4 @@ implements the
 Discoverable Partitions Specification
 .RS 4
 \%http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
-.RE
-.IP " 2." 4
-Generator Specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
 .RE

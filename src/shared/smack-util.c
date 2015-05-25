@@ -24,6 +24,7 @@
 #include <sys/xattr.h>
 
 #include "util.h"
+#include "process-util.h"
 #include "path-util.h"
 #include "fileio.h"
 #include "smack-util.h"
@@ -187,7 +188,7 @@ int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 r = lsetxattr(path, "security.SMACK64", label, strlen(label), 0);
 
                 /* If the FS doesn't support labels, then exit without warning */
-                if (r < 0 && errno == ENOTSUP)
+                if (r < 0 && errno == EOPNOTSUPP)
                         return 0;
         }
 

@@ -1,0 +1,90 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>sd_event_wait</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sd_event_wait"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_event_wait, sd_event_prepare, sd_event_dispatch — Run parts of libsystemd event loop</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-event.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_event_prepare</b>(</code></td><td>sd_event *<var class="pdparam">event</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_event_wait</b>(</code></td><td>sd_event *<var class="pdparam">event</var>, </td></tr><tr><td> </td><td>uint64_t <var class="pdparam">timeout</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_event_dispatch</b>(</code></td><td>sd_event *<var class="pdparam">event</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm140719517802064"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Functions described here form parts of an event loop.</p><p><code class="function">sd_event_prepare</code> checks for pending
+    events and arms necessary timers. If any events are ready to be
+    processed, it returns a positive value, and the events should be
+    processed with <code class="function">sd_event_dispatch</code>.
+    <code class="function">sd_event_dispatch</code> runs a handler for one of
+    the events from the sources with the highest priority. On success,
+    <code class="function">sd_event_dispatch</code> returns either 0, which
+    means that the loop is finished, or a positive value, which means
+    that the loop is again in the initial state and
+    <code class="function">sd_event_prepare</code> should be called again.
+    </p><p>In case <code class="function">sd_event_prepare</code> returned 0,
+    <code class="function">sd_event_wait</code> should be called to wait for
+    events or a timeout. If any events are ready to be processed, it
+    returns a positive value, and the events should be processed with
+    <code class="function">sd_event_dispatch</code>. Otherwise, the loop is
+    back in the initial state and <code class="function">sd_event_prepare</code>
+    should be called again.</p><pre class="programlisting">
+             ┌──────────┐
+             │ initial  ├──←←←←←←←←←←←←←←←←←←←─┐
+             └───┬──────┘                      ↑
+                 │                             ↑
+           sd_event_prepare   ┌─────────┐      ↑
+                 ├ 0 →→→→→→→──┤  armed  │      ↑
+                 1            └───┬─────┘      ↑
+                 ↓                │            ↑
+                 ↓           sd_event_wait     ↑
+                 ├───←←←←←←←─── 1 ┴─ 0 →→→→→→→─┘
+             ┌───┴──────┐                      ↑
+             │ pending  │                      ↑
+             └───┬──────┘                      ↑
+                 │                             ↑
+           sd_event_dispatch                   ↑
+                 ↓                             ↑
+                 ├ 1 ──────────→→→→→→→─────────┘
+                 0
+                 ↓
+             ┌───┴──────┐
+             │ finished │
+             └──────────┘
+    </pre><p>All three functions as the first argument take the event
+    loop object <em class="parameter"><code>event</code></em> that is created with with
+    <code class="function">sd_event_new</code>. The timeout for
+    <code class="function">sd_event_wait</code> is specified with
+    <em class="parameter"><code>timeout</code></em> in milliseconds.
+    <code class="constant">(uint64_t) -1</code> may be used to specify an
+    infinite timeout.</p></div><div class="refsect1"><a name="idm140719517788240"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On success, these functions return 0 or a positive integer.
+    On failure, they return a negative errno-style error code. In case
+    of <code class="function">sd_event_prepare</code> and
+    <code class="function">sd_event_wait</code> a positive value means that
+    events are ready to be processed and 0 means that no events are
+    ready. In case of <code class="function">sd_event_dispatch</code> a
+    positive value means that the loop is again in the initial state
+    and 0 means the loop is finished. For any of those functions, a
+    negative return value means the loop must be aborted.</p></div><div class="refsect1"><a name="idm140719517784720"></a><h2 id="Errors">Errors<a class="headerlink" title="Permalink to this headline" href="#Errors">¶</a></h2><p>Returned errors may indicate the following problems:</p><div class="variablelist"><dl class="variablelist"><dt id="-EINVAL"><span class="term"><code class="constant">-EINVAL</code></span><a class="headerlink" title="Permalink to this term" href="#-EINVAL">¶</a></dt><dd><p>Parameter <em class="parameter"><code>event</code></em> is
+        <code class="constant">NULL</code>.</p></dd><dt id="-EBUSY"><span class="term"><code class="constant">-EBUSY</code></span><a class="headerlink" title="Permalink to this term" href="#-EBUSY">¶</a></dt><dd><p>The event loop object is not in the right
+        state.</p></dd><dt id="-ESTALE"><span class="term"><code class="constant">-ESTALE</code></span><a class="headerlink" title="Permalink to this term" href="#-ESTALE">¶</a></dt><dd><p>The event loop is already terminated.</p></dd><dt id="-ECHILD"><span class="term"><code class="constant">-ECHILD</code></span><a class="headerlink" title="Permalink to this term" href="#-ECHILD">¶</a></dt><dd><p>The event loop has been created in a different process.</p></dd></dl></div><p>Other errors are possible too.</p></div><div class="refsect1"><a name="idm140719517776160"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>Functions described here are available
+    as a shared library, which can be compiled and linked to with the
+    <code class="constant">libsystemd</code> <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+    file.</p></div><div class="refsect1"><a name="idm140719517773488"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+      <a href="sd_event_new.html"><span class="citerefentry"><span class="refentrytitle">sd_event_new</span>(3)</span></a>,
+      <a href="sd_event_run.html"><span class="citerefentry"><span class="refentrytitle">sd_event_run</span>(3)</span></a>,
+      <a href="sd_event_add_io.html"><span class="citerefentry"><span class="refentrytitle">sd_event_add_io</span>(3)</span></a>,
+      <a href="sd_event_add_time.html"><span class="citerefentry"><span class="refentrytitle">sd_event_add_time</span>(3)</span></a>,
+      <a href="sd_event_add_signal.html"><span class="citerefentry"><span class="refentrytitle">sd_event_add_signal</span>(3)</span></a>,
+      <a href="sd_event_add_defer.html"><span class="citerefentry"><span class="refentrytitle">sd_event_add_defer</span>(3)</span></a>,
+      <a href="sd_event_add_exit.html"><span class="citerefentry"><span class="refentrytitle">sd_event_add_exit</span>(3)</span></a>,
+      <a href="sd_event_add_post.html"><span class="citerefentry"><span class="refentrytitle">sd_event_add_post</span>(3)</span></a>.
+    </p></div></div></body></html>

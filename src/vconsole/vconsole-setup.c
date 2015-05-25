@@ -23,23 +23,20 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <stdbool.h>
-#include <stdarg.h>
 #include <limits.h>
 #include <sys/ioctl.h>
-#include <sys/wait.h>
 #include <linux/tiocl.h>
 #include <linux/kd.h>
 #include <linux/vt.h>
 
 #include "util.h"
 #include "log.h"
-#include "macro.h"
 #include "virt.h"
 #include "fileio.h"
+#include "process-util.h"
+#include "terminal-util.h"
 
 static bool is_vconsole(int fd) {
         unsigned char data[1];
@@ -101,16 +98,14 @@ static int enable_utf8(int fd) {
         return r;
 }
 
-static int keymap_load(const char *vc, const char *map, const char *map_toggle, bool utf8, pid_t *_pid) {
+static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
         const char *args[8];
-        int i = 0;
+        int i = 0, r;
         pid_t pid;
 
-        if (isempty(map)) {
-                /* An empty map means kernel map */
-                *_pid = 0;
-                return 0;
-        }
+        /* An empty map means kernel map */
+        if (isempty(map))
+                return 1;
 
         args[i++] = KBD_LOADKEYS;
         args[i++] = "-q";
@@ -131,20 +126,21 @@ static int keymap_load(const char *vc, const char *map, const char *map_toggle, 
                 _exit(EXIT_FAILURE);
         }
 
-        *_pid = pid;
-        return 0;
+        r = wait_for_terminate_and_warn(KBD_LOADKEYS, pid, true);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
-static int font_load(const char *vc, const char *font, const char *map, const char *unimap, pid_t *_pid) {
+static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
         const char *args[9];
-        int i = 0;
+        int i = 0, r;
         pid_t pid;
 
-        if (isempty(font)) {
-                /* An empty font means kernel font */
-                *_pid = 0;
-                return 0;
-        }
+        /* An empty font means kernel font */
+        if (isempty(font))
+                return 1;
 
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
@@ -168,8 +164,11 @@ static int font_load(const char *vc, const char *font, const char *map, const ch
                 _exit(EXIT_FAILURE);
         }
 
-        *_pid = pid;
-        return 0;
+        r = wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
 /*
@@ -188,11 +187,13 @@ static void font_copy_to_all_vcs(int fd) {
 
         /* get active, and 16 bit mask of used VT numbers */
         r = ioctl(fd, VT_GETSTATE, &vcs);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(errno, "VT_GETSTATE failed, ignoring: %m");
                 return;
+        }
 
         for (i = 1; i <= 15; i++) {
-                char vcname[16];
+                char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
                 _cleanup_close_ int vcfd = -1;
                 struct console_font_op cfo = {};
 
@@ -216,11 +217,11 @@ static void font_copy_to_all_vcs(int fd) {
 
                 /* copy map of 8bit chars */
                 if (ioctl(fd, GIO_SCRNMAP, map8) >= 0)
-                    (void) ioctl(vcfd, PIO_SCRNMAP, map8);
+                        (void) ioctl(vcfd, PIO_SCRNMAP, map8);
 
                 /* copy map of 8bit chars -> 16bit Unicode values */
                 if (ioctl(fd, GIO_UNISCRNMAP, map16) >= 0)
-                    (void) ioctl(vcfd, PIO_UNISCRNMAP, map16);
+                        (void) ioctl(vcfd, PIO_UNISCRNMAP, map16);
 
                 /* copy unicode translation table */
                 /* unimapd is a ushort count and a pointer to an
@@ -242,9 +243,7 @@ int main(int argc, char **argv) {
                 *vc_keymap = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
-        bool utf8;
-        pid_t font_pid = 0, keymap_pid = 0;
-        bool font_copy = false;
+        bool utf8, font_copy = false, font_ok, keyboard_ok;
         int r = EXIT_FAILURE;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -299,31 +298,16 @@ int main(int argc, char **argv) {
         }
 
         if (utf8)
-                enable_utf8(fd);
+                (void) enable_utf8(fd);
         else
-                disable_utf8(fd);
+                (void) disable_utf8(fd);
 
-        r = font_load(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start " KBD_SETFONT ": %m");
-                return EXIT_FAILURE;
-        }
+        font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) > 0;
+        keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;
 
-        if (font_pid > 0)
-                wait_for_terminate_and_warn(KBD_SETFONT, font_pid, true);
+        /* Only copy the font when we executed setfont successfully */
+        if (font_copy && font_ok)
+                (void) font_copy_to_all_vcs(fd);
 
-        r = keymap_load(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start " KBD_LOADKEYS ": %m");
-                return EXIT_FAILURE;
-        }
-
-        if (keymap_pid > 0)
-                wait_for_terminate_and_warn(KBD_LOADKEYS, keymap_pid, true);
-
-        /* Only copy the font when we started setfont successfully */
-        if (font_copy && font_pid > 0)
-                font_copy_to_all_vcs(fd);
-
-        return EXIT_SUCCESS;
+        return font_ok && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

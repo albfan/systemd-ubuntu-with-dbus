@@ -1,0 +1,56 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>journal-remote.conf</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="journal-remote.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journal-remote.conf, journal-remote.conf.d — Journal remote service configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journal-remote.conf</code></p><p><code class="filename">/etc/systemd/journald.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/journald.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/journald.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140468258471536"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These files configure various parameters of the systemd-remote-journal
+    application,
+    <a href="systemd-journal-remote.html"><span class="citerefentry"><span class="refentrytitle">systemd-journal-remote</span>(8)</span></a>.</p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
+    configuration file is only needed when it is necessary to deviate
+    from those defaults. By default the configuration file in
+    <code class="filename">/etc/systemd/</code> contains commented out entries
+    showing the defaults as a guide to the administrator. This file
+    can be edited to create local overrides.
+    </p><p>When packages need to customize the configuration, they can
+    install configuration snippets in
+    <code class="filename">/usr/lib/systemd/*.conf.d/</code>. Files in
+    <code class="filename">/etc/</code> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. The main
+    configuration file is read before any of the configuration
+    directories, and has the lowest precedence; entries in a file in
+    any configuration directory override entries in the single
+    configuration file. Files in the
+    <code class="filename">*.conf.d/</code> configuration subdirectories
+    are sorted by their filename in lexicographic order, regardless of
+    which of the subdirectories they reside in. If multiple files
+    specify the same option, the entry in the file with the
+    lexicographically latest name takes precedence.  It is recommended
+    to prefix all filenames in those subdirectories with a two-digit
+    number and a dash, to simplify the ordering of the files.</p><p>To disable a configuration file supplied by the vendor, the
+    recommended way is to place a symlink to
+    <code class="filename">/dev/null</code> in the configuration directory in
+    <code class="filename">/etc/</code>, with the same filename as the vendor
+    configuration file.</p></div><div class="refsect1"><a name="idm140468253564480"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+    "<code class="literal">[Remote]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="SplitMode="><span class="term"><code class="varname">SplitMode=</code></span><a class="headerlink" title="Permalink to this term" href="#SplitMode=">¶</a></dt><dd><p>One of "<code class="literal">host</code>" or "<code class="literal">none</code>".
+        </p></dd><dt id="ServerKeyFile="><span class="term"><code class="varname">ServerKeyFile=</code></span><a class="headerlink" title="Permalink to this term" href="#ServerKeyFile=">¶</a></dt><dd><p>SSL key in PEM format</p></dd><dt id="ServerCertificateFile="><span class="term"><code class="varname">ServerCertificateFile=</code></span><a class="headerlink" title="Permalink to this term" href="#ServerCertificateFile=">¶</a></dt><dd><p>SSL CA certificate in PEM format.</p></dd><dt id="TrustedCertificateFile="><span class="term"><code class="varname">TrustedCertificateFile=</code></span><a class="headerlink" title="Permalink to this term" href="#TrustedCertificateFile=">¶</a></dt><dd><p>SSL CA certificate.</p></dd></dl></div></div><div class="refsect1"><a name="idm140468253555440"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        <a href="systemd-journal-remote.html"><span class="citerefentry"><span class="refentrytitle">systemd-journal-remote</span>(1)</span></a>,
+        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+        <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>
+      </p></div></div></body></html>

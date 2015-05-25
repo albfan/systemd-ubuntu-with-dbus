@@ -40,6 +40,9 @@
 #include "socket-util.h"
 #include "fileio.h"
 #include "bus-error.h"
+#include "formats-util.h"
+#include "terminal-util.h"
+#include "hostname-util.h"
 
 static int parse_argv(
                 pam_handle_t *handle,
@@ -334,7 +337,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* If this fails vtnr will be 0, that's intended */
         if (!isempty(cvtnr))
-                safe_atou32(cvtnr, &vtnr);
+                (void) safe_atou32(cvtnr, &vtnr);
 
         if (!isempty(display) && !vtnr) {
                 if (isempty(seat))

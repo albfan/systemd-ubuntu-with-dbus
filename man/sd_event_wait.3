@@ -1,0 +1,154 @@
+'\" t
+.TH "SD_EVENT_WAIT" "3" "" "systemd 220" "sd_event_wait"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sd_event_wait, sd_event_prepare, sd_event_dispatch \- Run parts of libsystemd event loop
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <systemd/sd\-event\&.h>
+.fi
+.ft
+.HP \w'int\ sd_event_prepare('u
+.BI "int sd_event_prepare(sd_event\ *" "event" ");"
+.HP \w'int\ sd_event_wait('u
+.BI "int sd_event_wait(sd_event\ *" "event" ", uint64_t\ " "timeout" ");"
+.HP \w'int\ sd_event_dispatch('u
+.BI "int sd_event_dispatch(sd_event\ *" "event" ");"
+.SH "DESCRIPTION"
+.PP
+Functions described here form parts of an event loop\&.
+.PP
+\fBsd_event_prepare\fR
+checks for pending events and arms necessary timers\&. If any events are ready to be processed, it returns a positive value, and the events should be processed with
+\fBsd_event_dispatch\fR\&.
+\fBsd_event_dispatch\fR
+runs a handler for one of the events from the sources with the highest priority\&. On success,
+\fBsd_event_dispatch\fR
+returns either 0, which means that the loop is finished, or a positive value, which means that the loop is again in the initial state and
+\fBsd_event_prepare\fR
+should be called again\&.
+.PP
+In case
+\fBsd_event_prepare\fR
+returned 0,
+\fBsd_event_wait\fR
+should be called to wait for events or a timeout\&. If any events are ready to be processed, it returns a positive value, and the events should be processed with
+\fBsd_event_dispatch\fR\&. Otherwise, the loop is back in the initial state and
+\fBsd_event_prepare\fR
+should be called again\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+             ┌──────────┐
+             │ initial  ├──←←←←←←←←←←←←←←←←←←←─┐
+             └───┬──────┘                      ↑
+                 │                             ↑
+           sd_event_prepare   ┌─────────┐      ↑
+                 ├ 0 →→→→→→→──┤  armed  │      ↑
+                 1            └───┬─────┘      ↑
+                 ↓                │            ↑
+                 ↓           sd_event_wait     ↑
+                 ├───←←←←←←←─── 1 ┴─ 0 →→→→→→→─┘
+             ┌───┴──────┐                      ↑
+             │ pending  │                      ↑
+             └───┬──────┘                      ↑
+                 │                             ↑
+           sd_event_dispatch                   ↑
+                 ↓                             ↑
+                 ├ 1 ──────────→→→→→→→─────────┘
+                 0
+                 ↓
+             ┌───┴──────┐
+             │ finished │
+             └──────────┘
+    
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+All three functions as the first argument take the event loop object
+\fIevent\fR
+that is created with with
+\fBsd_event_new\fR\&. The timeout for
+\fBsd_event_wait\fR
+is specified with
+\fItimeout\fR
+in milliseconds\&.
+\fB(uint64_t) \-1\fR
+may be used to specify an infinite timeout\&.
+.SH "RETURN VALUE"
+.PP
+On success, these functions return 0 or a positive integer\&. On failure, they return a negative errno\-style error code\&. In case of
+\fBsd_event_prepare\fR
+and
+\fBsd_event_wait\fR
+a positive value means that events are ready to be processed and 0 means that no events are ready\&. In case of
+\fBsd_event_dispatch\fR
+a positive value means that the loop is again in the initial state and 0 means the loop is finished\&. For any of those functions, a negative return value means the loop must be aborted\&.
+.SH "ERRORS"
+.PP
+Returned errors may indicate the following problems:
+.PP
+\fB\-EINVAL\fR
+.RS 4
+Parameter
+\fIevent\fR
+is
+\fBNULL\fR\&.
+.RE
+.PP
+\fB\-EBUSY\fR
+.RS 4
+The event loop object is not in the right state\&.
+.RE
+.PP
+\fB\-ESTALE\fR
+.RS 4
+The event loop is already terminated\&.
+.RE
+.PP
+\fB\-ECHILD\fR
+.RS 4
+The event loop has been created in a different process\&.
+.RE
+.PP
+Other errors are possible too\&.
+.SH "NOTES"
+.PP
+Functions described here are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+file\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsd_event_new\fR(3),
+\fBsd_event_run\fR(3),
+\fBsd_event_add_io\fR(3),
+\fBsd_event_add_time\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_exit\fR(3),
+\fBsd_event_add_post\fR(3)\&.

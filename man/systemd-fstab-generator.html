@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-fstab-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-fstab-generator — Unit generator for /etc/fstab</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-fstab-generator</code></p></div><div class="refsect1"><a name="idm140677893584544"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-fstab-generator</code> is a generator
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-fstab-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-fstab-generator — Unit generator for /etc/fstab</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-fstab-generator</code></p></div><div class="refsect1"><a name="idm139781169760992"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-fstab-generator</code> is a generator
     that translates <code class="filename">/etc/fstab</code> (see
-    <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
+    <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
     for details) into native systemd units early at boot and when
     configuration of the system manager is reloaded. This will
     instantiate mount and swap units as necessary.</p><p>The <code class="varname">passno</code> field is treated like a simple
@@ -32,9 +32,8 @@
     and
     <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>
     for more information about special <code class="filename">/etc/fstab</code>
-    mount options this generator understands.</p><p><code class="filename">systemd-fstab-generator</code> implements the
-    <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Generators" target="_top">generator
-    specification</a>.</p></div><div class="refsect1"><a name="idm140677893575792"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-fstab-generator</code> understands the
+    mount options this generator understands.</p><p><code class="filename">systemd-fstab-generator</code> implements
+    <a href="systemd.generator.html"><span class="citerefentry"><span class="refentrytitle">systemd.generator</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm139781173397632"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-fstab-generator</code> understands the
     following kernel command line parameters:</p><div class="variablelist"><dl class="variablelist"><dt id="fstab="><span class="term"><code class="varname">fstab=</code>, </span><span class="term"><code class="varname">rd.fstab=</code></span><a class="headerlink" title="Permalink to this term" href="#fstab=">¶</a></dt><dd><p>Takes a boolean argument. Defaults to
         "<code class="literal">yes</code>". If "<code class="literal">no</code>", causes the
         generator to ignore any mounts or swaps configured in
@@ -66,13 +65,13 @@
         initrd.</p></dd><dt id="mount.usrflags="><span class="term"><code class="varname">mount.usrflags=</code></span><a class="headerlink" title="Permalink to this term" href="#mount.usrflags=">¶</a></dt><dd><p>Takes the <code class="filename">/usr</code> filesystem
         mount options to use. If <code class="varname">mount.usr=</code> or
         <code class="varname">mount.usrfstype=</code> is set, then
-        <code class="varname">mount.usrflages=</code> will default to the value
+        <code class="varname">mount.usrflags=</code> will default to the value
         set in <code class="varname">rootflags=</code>.</p><p>Otherwise this value will be read from the
         <code class="filename">/usr</code> entry in
         <code class="filename">/etc/fstab</code> on the root filesystem.</p><p><code class="varname">mount.usrflags=</code> is honored by the
-        initrd.</p></dd></dl></div></div><div class="refsect1"><a name="idm140677897486400"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        initrd.</p></dd></dl></div></div><div class="refsect1"><a name="idm139781168699376"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
-      <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>,
+      <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>,
       <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
       <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>,
       <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>

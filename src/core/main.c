@@ -23,11 +23,9 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <getopt.h>
 #include <signal.h>
-#include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/mount.h>
@@ -40,14 +38,12 @@
 #endif
 
 #include "sd-daemon.h"
-#include "sd-messages.h"
 #include "sd-bus.h"
 #include "log.h"
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
 #include "missing.h"
-#include "label.h"
 #include "pager.h"
 #include "build.h"
 #include "strv.h"
@@ -55,7 +51,6 @@
 #include "virt.h"
 #include "architecture.h"
 #include "watchdog.h"
-#include "path-util.h"
 #include "switch-root.h"
 #include "capability.h"
 #include "killall.h"
@@ -77,6 +72,9 @@
 #include "ima-setup.h"
 #include "smack-setup.h"
 #include "kmod-setup.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
 
 static enum {
         ACTION_RUN,
@@ -87,7 +85,7 @@ static enum {
         ACTION_DONE
 } arg_action = ACTION_RUN;
 static char *arg_default_unit = NULL;
-static SystemdRunningAs arg_running_as = _SYSTEMD_RUNNING_AS_INVALID;
+static ManagerRunningAs arg_running_as = _MANAGER_RUNNING_AS_INVALID;
 static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
@@ -161,7 +159,7 @@ noreturn static void crash(int sig) {
                         setrlimit(RLIMIT_CORE, &rl);
 
                         /* Just to be sure... */
-                        chdir("/");
+                        (void) chdir("/");
 
                         /* Raise the signal again */
                         pid = raw_getpid();
@@ -280,10 +278,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 "s",         SPECIAL_RESCUE_TARGET,
                 "S",         SPECIAL_RESCUE_TARGET,
                 "1",         SPECIAL_RESCUE_TARGET,
-                "2",         SPECIAL_RUNLEVEL2_TARGET,
-                "3",         SPECIAL_RUNLEVEL3_TARGET,
-                "4",         SPECIAL_RUNLEVEL4_TARGET,
-                "5",         SPECIAL_RUNLEVEL5_TARGET,
+                "2",         SPECIAL_MULTI_USER_TARGET,
+                "3",         SPECIAL_MULTI_USER_TARGET,
+                "4",         SPECIAL_MULTI_USER_TARGET,
+                "5",         SPECIAL_GRAPHICAL_TARGET,
         };
         int r;
 
@@ -473,7 +471,7 @@ static int config_parse_cpu_affinity2(
 
         if (c) {
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
-                        log_unit_warning(unit, "Failed to set CPU affinity: %m");
+                        log_warning("Failed to set CPU affinity: %m");
 
                 CPU_FREE(c);
         }
@@ -678,8 +676,8 @@ static int parse_config_file(void) {
 
         const char *fn, *conf_dirs_nulstr;
 
-        fn = arg_running_as == SYSTEMD_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
-        conf_dirs_nulstr = arg_running_as == SYSTEMD_SYSTEM ? CONF_DIRS_NULSTR("systemd/system.conf") : CONF_DIRS_NULSTR("systemd/user.conf");
+        fn = arg_running_as == MANAGER_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
+        conf_dirs_nulstr = arg_running_as == MANAGER_SYSTEM ? CONF_DIRS_NULSTR("systemd/system.conf") : CONF_DIRS_NULSTR("systemd/user.conf");
         config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
                           config_item_table_lookup, items, false, NULL);
 
@@ -816,11 +814,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SYSTEM:
-                        arg_running_as = SYSTEMD_SYSTEM;
+                        arg_running_as = MANAGER_SYSTEM;
                         break;
 
                 case ARG_USER:
-                        arg_running_as = SYSTEMD_USER;
+                        arg_running_as = MANAGER_USER;
                         break;
 
                 case ARG_TEST:
@@ -1277,7 +1275,7 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1 && detect_container(NULL) <= 0) {
 
                 /* Running outside of a container as PID 1 */
-                arg_running_as = SYSTEMD_SYSTEM;
+                arg_running_as = MANAGER_SYSTEM;
                 make_null_stdio();
                 log_set_target(LOG_TARGET_KMSG);
                 log_open();
@@ -1351,7 +1349,7 @@ int main(int argc, char *argv[]) {
 
         } else if (getpid() == 1) {
                 /* Running inside a container, as PID 1 */
-                arg_running_as = SYSTEMD_SYSTEM;
+                arg_running_as = MANAGER_SYSTEM;
                 log_set_target(LOG_TARGET_CONSOLE);
                 log_close_console(); /* force reopen of /dev/console */
                 log_open();
@@ -1366,7 +1364,7 @@ int main(int argc, char *argv[]) {
 
         } else {
                 /* Running as user instance */
-                arg_running_as = SYSTEMD_USER;
+                arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_AUTO);
                 log_open();
 
@@ -1386,7 +1384,7 @@ int main(int argc, char *argv[]) {
 
         r = initialize_join_controllers();
         if (r < 0) {
-                error_message = "Failed to initalize cgroup controllers";
+                error_message = "Failed to initialize cgroup controllers";
                 goto finish;
         }
 
@@ -1415,7 +1413,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_running_as == SYSTEMD_SYSTEM) {
+        if (arg_running_as == MANAGER_SYSTEM) {
                 r = parse_proc_cmdline(parse_proc_cmdline_item);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
@@ -1436,14 +1434,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_running_as == SYSTEMD_USER &&
+        if (arg_running_as == MANAGER_USER &&
             arg_action == ACTION_RUN &&
             sd_booted() <= 0) {
                 log_error("Trying to run as user instance, but the system has not been booted with systemd.");
                 goto finish;
         }
 
-        if (arg_running_as == SYSTEMD_SYSTEM &&
+        if (arg_running_as == MANAGER_SYSTEM &&
             arg_action == ACTION_RUN &&
             running_in_chroot() > 0) {
                 log_error("Cannot be run in a chroot() environment.");
@@ -1470,7 +1468,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_running_as == SYSTEMD_USER &&
+        if (arg_running_as == MANAGER_USER &&
             !getenv("XDG_RUNTIME_DIR")) {
                 log_error("Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
                 goto finish;
@@ -1493,7 +1491,7 @@ int main(int argc, char *argv[]) {
         if (arg_serialization)
                 assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
 
-        if (arg_running_as == SYSTEMD_SYSTEM)
+        if (arg_running_as == MANAGER_SYSTEM)
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
@@ -1502,7 +1500,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (arg_running_as == SYSTEMD_SYSTEM && arg_action == ACTION_RUN) {
+        if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN) {
 
                 /* If we are init, we connect stdin/stdout/stderr to
                  * /dev/null and make sure we don't have a controlling
@@ -1529,7 +1527,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        if (arg_running_as == SYSTEMD_SYSTEM) {
+        if (arg_running_as == MANAGER_SYSTEM) {
                 const char *virtualization = NULL;
 
                 log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
@@ -1537,11 +1535,11 @@ int main(int argc, char *argv[]) {
 
                 detect_virtualization(&virtualization);
                 if (virtualization)
-                        log_info("Detected virtualization '%s'.", virtualization);
+                        log_info("Detected virtualization %s.", virtualization);
 
                 write_container_id();
 
-                log_info("Detected architecture '%s'.", architecture_to_string(uname_architecture()));
+                log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
 
                 if (in_initrd())
                         log_info("Running in initial RAM disk.");
@@ -1565,8 +1563,8 @@ int main(int argc, char *argv[]) {
                           arg_action == ACTION_TEST ? " test" : "", getuid(), t);
         }
 
-        if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
-                if (arg_show_status > 0 || plymouth_running())
+        if (arg_running_as == MANAGER_SYSTEM && !skip_setup) {
+                if (arg_show_status > 0)
                         status_welcome();
 
                 hostname_setup();
@@ -1577,7 +1575,7 @@ int main(int argc, char *argv[]) {
                 test_usr();
         }
 
-        if (arg_running_as == SYSTEMD_SYSTEM && arg_runtime_watchdog > 0)
+        if (arg_running_as == MANAGER_SYSTEM && arg_runtime_watchdog > 0)
                 watchdog_set_timeout(&arg_runtime_watchdog);
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
@@ -1607,7 +1605,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_running_as == SYSTEMD_USER) {
+        if (arg_running_as == MANAGER_USER) {
                 /* Become reaper of our children */
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
                         log_warning_errno(errno, "Failed to make us a subreaper: %m");
@@ -1616,11 +1614,11 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_running_as == SYSTEMD_SYSTEM) {
+        if (arg_running_as == MANAGER_SYSTEM) {
                 bump_rlimit_nofile(&saved_rlimit_nofile);
 
                 if (empty_etc) {
-                        r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_FULL, false, NULL, 0);
+                        r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, false, NULL, 0);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to populate /etc with preset unit settings, ignoring: %m");
                         else
@@ -1897,7 +1895,7 @@ finish:
                         args[i++] = SYSTEMD_BINARY_PATH;
                         if (switch_root_dir)
                                 args[i++] = "--switched-root";
-                        args[i++] = arg_running_as == SYSTEMD_SYSTEM ? "--system" : "--user";
+                        args[i++] = arg_running_as == MANAGER_SYSTEM ? "--system" : "--user";
                         args[i++] = "--deserialize";
                         args[i++] = sfd;
                         args[i++] = NULL;

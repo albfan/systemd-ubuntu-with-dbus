@@ -19,14 +19,14 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-remount-fs.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-remount-fs.service, systemd-remount-fs — Remount root and kernel file systems</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-remount-fs.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-remount-fs</code></p></div><div class="refsect1"><a name="idm140706982908208"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-remount-fs.service</code> is an
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-remount-fs.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-remount-fs.service, systemd-remount-fs — Remount root and kernel file systems</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-remount-fs.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-remount-fs</code></p></div><div class="refsect1"><a name="idm140032626575232"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-remount-fs.service</code> is an
     early-boot service that applies mount options listed in
-    <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
-    to the root file system, the <code class="filename">/usr</code> file system
+    <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
+    to the root file system, the <code class="filename">/usr</code> file system,
     and the kernel API file systems. This is required so that the
-    mount options of these file systems -- which are pre-mounted by
+    mount options of these file systems — which are pre-mounted by
     the kernel, the initial RAM disk, container environments or system
-    manager code -- are updated to those listed in
+    manager code — are updated to those listed in
     <code class="filename">/etc/fstab</code>. This service ignores normal file
     systems and only changes the root file system (i.e.
     <code class="filename">/</code>), <code class="filename">/usr</code> and the virtual
@@ -36,8 +36,8 @@
     does not exist or lists no entries for the mentioned file
     systems.</p><p>For a longer discussion of kernel API file systems see
     <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems" target="_top">API
-    File Systems</a>.</p></div><div class="refsect1"><a name="idm140706982898576"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    File Systems</a>.</p></div><div class="refsect1"><a name="idm140032621666176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
-      <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>,
-      <a href="mount.html"><span class="citerefentry"><span class="refentrytitle">mount</span>(8)</span></a>
+      <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>,
+      <a href="http://man7.org/linux/man-pages/man8/mount.8.html"><span class="citerefentry"><span class="refentrytitle">mount</span>(8)</span></a>
     </p></div></div></body></html>

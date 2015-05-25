@@ -12,20 +12,12 @@ Bugfixes:
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
 
-* MEMORY return code is overloaded for syntax errors in the command line.
-  str_split_quoted() should return a real return code, so spawn_child can
-  report the failure properly.
-
 * When systemctl --host is used, underlying ssh connection can remain open.
   bus_close does not kill children?
 
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
-
-* Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
-
-* Fedora: remove /etc/resolv.conf tmpfiles hack
 
 * wiki: update journal format documentation for lz4 additions
 
@@ -34,14 +26,96 @@ External:
 
 Features:
 
+* introduce an NSS module that uses machined info to give container UIDs pretty names when user namespacing is used.
+
+* stop using off_t, it's a crazy type. Use uint64_t instead.
+
+* logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
+
+* change to KillMode=mixed by default
+
+* introduce argv0contains=
+
+* invent a better systemd-run scheme for naming scopes, that works with remoting
+
+* add journalctl -H that talks via ssh to a remote peer and passes through binary logs data
+
+* change journalctl -M to acquire fd to journal directory via machined, and then operate on that via openat() instead of absolute paths
+
+* add a version of --merge which also merges /var/log/journal/remote
+
+* log accumulated resource usage after each service invocation
+
+* networkd: dhcp server: try to assign stable IP addresses based on client's MAC address
+
+* nspawn: a nice way to boot up without machine id set, so that it is set at boot automatically for supporting --ephemeral. Maybe hash the host machine id together with the machine name to generate the machine id for the container
+
+* logind: rename session scope so that it includes the UID. THat way
+  the session scope can be arranged freely in slices and we don't have
+  make assumptions about their slice anymore.
+
+* journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
+
+* nspawn: don't copy /etc/resolv.conf from host into container unless we are in shared-network mode
+
+* nspawn: optionally automatically add FORWARD rules to iptables whenever nspawn is running, remove them when shut down.
+
+* importd: generate a nice warning if mkfs.btrfs is missing
+
+* nspawn: add a logic for cleaning up read-only, hidden container images in /var/lib/machines that are not ancestors of any non-hidden containers
+
+* nspawn: Improve error message when --bind= is used on a non-existing source directory
+
+* nspawn: maybe make copying of /etc/resolv.conf optional, and skip it if --read-only is used
+
+* man: document how update dkr images works with machinectl
+  http://lists.freedesktop.org/archives/systemd-devel/2015-February/028630.html
+
+* nspawn: as soon as networkd has a bus interface, hook up --network-interface=, --network-bridge= with networkd, to trigger netdev creation should an interface be missing
+
+* networkd: make DHCP server IP range configurable, including only with a single IP address
+
+* rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
+  to unicode chars, to make things more expressive.
+
+* "machinectl migrate" or similar to copy a container from or to a
+  difference host, via ssh
+
+* tmpfiles: creating new directories/subvolumes/fifos/device nodes
+  should not follow symlinks. None of the other adjustment or creation
+  calls follow symlinks.
+
+* fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
+
+* docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
+
+* mounting and unmounting mount points manually with different source
+  devices will result in collected collected on all devices used.
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030225.html
+
+* add a job mode that will fail if a transaction would mean stopping
+  running units. Use this in timedated to manage the NTP service
+  state.
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
+
+* Maybe add support for the equivalent of "ethtool advertise" to .link files?
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030112.html
+
+* .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
+
+* create a btrfs qgroup for /var/lib/machines, and add all container
+  subvolumes we create to it.
+
+* When logging about multiple units (stopping BoundTo units, conflicts, etc.),
+  log both units as UNIT=, so that journalctl -u triggers on both.
+
+* to allow "linking" of nspawn containers, extend --network-bridge= so
+  that it can dynamically create bridge interfaces that are refcounted
+  by the containers on them. For each group of containers to link together
+
 * journalctl --verify: don't show files that are currently being
   written to as FAIL, but instead show that their are being written
   to.
-
-* nspawn: allow configuring cgroup (and other) properties via
-  --property= when invoking from the command line.
-
-* add udev rule construct SYSCTL{} to write to sysctls
 
 * assign MESSAGE_ID to log messages about failed services
 
@@ -50,42 +124,12 @@ Features:
   infinity by default for all services. This then allows per-service
   control of coredumping.
 
-* introduce some call that iterates through cmsg and closes all fds
-  passed in, and use it everywhere...
-
 * generate better errors when people try to set transient properties
   that are not supported...
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
 
-* nspawn, if stdout/stderr/stdin are non-ttys, don't set up
-  /dev/console, but instead just pass the fds through directly.
-
-* When runlevel3.target is used to define dependencies on other units,
-  then we don't pick it up currently, since nothing ever references
-  runlevel3.target, and never figure out it actually is just an alias
-  for multi-user.target. A hackish fix could be to add a .wants link
-  from multi-user.target to runlevel3.target, if it is a symlink to
-  it. Best would be to create this .wants/ symlink from
-  sysv-generator. systemd would then load the referenced unit, figure
-  out it is just an alias and that the dependency would be on itself
-  and suppress it. Thus the alias and its deps would be loaded as
-  desired.
-
-* PID 1: when invoking systemctl preset-all on first boots, operate in
-  an exclusively additive way, i.e. never remove any pre-existing
-  symlinks, only add new ones.
-
 * Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
   colon separated list of identifiers for the fds passed.
-
-* networkd: implement BindCarrier= logic to .network units that binds
-  application of the file to the carrier sense on another interface,
-  in order to implement uplink/downlink logic.
-
-* make networkd subscribe to PrepareForSleep(false) and refresh all
-  DHCP leases then.
-
-* when the fstab-generator runs in the initrd, it should create a /dev/null mask for systemd-fsck-root.service, to avoid that the the root fs is fsck'ed twice.
 
 * maybe introduce WantsMountsFor=? Usecase:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
@@ -98,8 +142,6 @@ Features:
   be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
   picked up by systemd unless they contain a medium. This would mirror
   the behaviour we already have for CD drives.
-
-* We should remove really old cruft from cdrom_id
 
 * nspawn: emulate /dev/kmsg using CUSE and turn off the syslog syscall
   with seccomp. That should provide us with a useful log buffer that
@@ -120,7 +162,7 @@ Features:
 
 * logind: maybe allow configuration of the StopTimeout for session scopes
 
-* Set NoNewPriviliges= on all of our own services, where that makes sense
+* Set NoNewPrivileges= on all of our own services, where that makes sense
 
 * Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
 
@@ -130,13 +172,9 @@ Features:
 
 * import-dkr: convert json bits to nspawn configuration
 
-* import: support import from local files, and export to local files
-
 * core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
-
-* logind,machined: add generic catch-all polkit verbs for most privileged operations, similar to systemd itself
 
 * "machinectl status" should also show internal logs of the container in question
 
@@ -152,13 +190,7 @@ Features:
 
 * "machinectl commit" that takes a writable snapshot of a tree, invokes a shell in it, and marks it read-only after use
 
-* "machinectl status" should show 10 most recent log lines of both the host logs of the unit of the machine, plus the logs generated in the machine
-
-* add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
-
 * systemd-nspawn -x should support ephemeral instances of gpt images
-
-* move machinectl's mount and copy commands into machined
 
 * hostnamectl: show root image uuid
 
@@ -189,16 +221,9 @@ Features:
 * as soon as we have kdbus, and sender timestamps, revisit coalescing multiple parallel daemon reloads:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
 
-* set $REMOTE_IP (or $REMOTE_ADDR/$REMOTE_PORT) environment variable when doing per-connection socket activation. use format introduced by xinetd or CGI for this
-
 * the install state probably shouldn't get confused by generated units, think dbus1/kdbus compat!
 
 * in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
-
-* we should try harder to collapse start jobs for swaps that end up being the same:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-November/025359.html
-
-* timedated should compensate on SetTime for the time spent in polkit
 
 * figure out when we can use the coarse timers
 
@@ -255,8 +280,6 @@ Features:
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
 
-* tmpfiles: port to unquote_many_words(), similar to sysusers
-
 * unquote_many_words() should probably be used by a lot of code that
   currently uses FOREACH_WORD and friends. For example, most conf
   parsing callbacks should use it.
@@ -265,6 +288,9 @@ Features:
 
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
+
+* add systemd.abort_on_kill or some other such flag to send SIGABRT instead of SIGKILL
+  (throughout the codebase, not only PID1)
 
 * networkd:
   - add LLDP client side support
@@ -381,7 +407,6 @@ Features:
     the hierarchies of child processes
 
 * transient units:
-  - allow creating auxiliary units with the same call
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
   - ensure scope units may be started only a single time
 
@@ -541,7 +566,6 @@ Features:
   - logind: when the power button is pressed short, just popup a
     logout dialog. If it is pressed for 1s, do the usual
     shutdown. Inspiration are Macs here.
-  - logind: allow users to kill or lock their own sessions
   - expose "Locked" property on logind sesison objects
   - given that logind now lets PID 1 do all nasty work, we can
     probably reduce the capability set it retains substantially.
@@ -713,17 +737,6 @@ Features:
 
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
-* automount: implement expire:
-   - set superblock timeout AUTOFS_DEV_IOCTL_TIMEOUT_CMD
-   - periodically run AUTOFS_DEV_IOCTL_EXPIRE_CMD
-     - every timeout/4 (original autofs logic)
-     - blocking, needs a thread
-     - run until -EAGAIN
-   - receive expire packet on pipe if kernel tells the timeout is over
-     - call umount
-     - answer expire packet on pipe with AUTOFS_DEV_IOCTL_{READY,FAIL}_CMD
-   - AUTOFS_DEV_IOCTL_EXPIRE_CMD returns
-
 * ExecOnFailure=/usr/bin/foo
 
 * udev:
@@ -731,7 +744,6 @@ Features:
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
   - reimport udev db after MOVE events for devices without dev_t
-  - don't keep stale db in case event processing fails (also notify userspace about the failure)
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
@@ -866,7 +878,6 @@ Features:
    - add functions to set previously stored IPv6 addresses on startup and get
      them at shutdown; store them in client->ia_na
    - write more test cases
-   - implement and do duplicate address detection, see rfc 4862, 5.4.
    - implement reconfigure support, see 5.3., 15.11. and 22.20.
    - implement support for temporary adressess (IA_TA)
    - implement dhcpv6 authentication

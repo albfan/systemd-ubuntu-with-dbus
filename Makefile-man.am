@@ -83,7 +83,6 @@ MANPAGES += \
 	man/systemd-path.1 \
 	man/systemd-remount-fs.service.8 \
 	man/systemd-run.1 \
-	man/systemd-shutdownd.service.8 \
 	man/systemd-sleep.conf.5 \
 	man/systemd-socket-proxyd.8 \
 	man/systemd-suspend.service.8 \
@@ -222,8 +221,6 @@ MANPAGES_ALIAS += \
 	man/systemd-reboot.service.8 \
 	man/systemd-remount-fs.8 \
 	man/systemd-shutdown.8 \
-	man/systemd-shutdownd.8 \
-	man/systemd-shutdownd.socket.8 \
 	man/systemd-sleep.8 \
 	man/systemd-sysctl.8 \
 	man/systemd-sysusers.service.8 \
@@ -334,8 +331,6 @@ man/systemd-poweroff.service.8: man/systemd-halt.service.8
 man/systemd-reboot.service.8: man/systemd-halt.service.8
 man/systemd-remount-fs.8: man/systemd-remount-fs.service.8
 man/systemd-shutdown.8: man/systemd-halt.service.8
-man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
-man/systemd-shutdownd.socket.8: man/systemd-shutdownd.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
 man/systemd-sysusers.service.8: man/systemd-sysusers.8
@@ -640,12 +635,6 @@ man/systemd-remount-fs.html: man/systemd-remount-fs.service.html
 man/systemd-shutdown.html: man/systemd-halt.service.html
 	$(html-alias)
 
-man/systemd-shutdownd.html: man/systemd-shutdownd.service.html
-	$(html-alias)
-
-man/systemd-shutdownd.socket.html: man/systemd-shutdownd.service.html
-	$(html-alias)
-
 man/systemd-sleep.html: man/systemd-suspend.service.html
 	$(html-alias)
 
@@ -780,6 +769,7 @@ if ENABLE_KDBUS
 MANPAGES += \
 	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_creds_new_from_pid.3 \
+	man/sd_bus_default.3 \
 	man/sd_bus_error.3 \
 	man/sd_bus_message_append.3 \
 	man/sd_bus_message_append_array.3 \
@@ -790,7 +780,6 @@ MANPAGES += \
 	man/sd_bus_message_get_monotonic_usec.3 \
 	man/sd_bus_negotiate_fds.3 \
 	man/sd_bus_new.3 \
-	man/sd_bus_open_user.3 \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
 	man/sd_event_add_child.3 \
@@ -799,7 +788,9 @@ MANPAGES += \
 	man/sd_event_add_time.3 \
 	man/sd_event_get_fd.3 \
 	man/sd_event_new.3 \
+	man/sd_event_run.3 \
 	man/sd_event_set_name.3 \
+	man/sd_event_wait.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
 MANPAGES_ALIAS += \
@@ -808,16 +799,25 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_cgroup.3 \
 	man/sd_bus_creds_get_cmdline.3 \
 	man/sd_bus_creds_get_comm.3 \
-	man/sd_bus_creds_get_connection_name.3 \
+	man/sd_bus_creds_get_description.3 \
+	man/sd_bus_creds_get_egid.3 \
+	man/sd_bus_creds_get_euid.3 \
 	man/sd_bus_creds_get_exe.3 \
+	man/sd_bus_creds_get_fsgid.3 \
+	man/sd_bus_creds_get_fsuid.3 \
 	man/sd_bus_creds_get_gid.3 \
 	man/sd_bus_creds_get_mask.3 \
 	man/sd_bus_creds_get_owner_uid.3 \
+	man/sd_bus_creds_get_ppid.3 \
 	man/sd_bus_creds_get_selinux_context.3 \
 	man/sd_bus_creds_get_session.3 \
+	man/sd_bus_creds_get_sgid.3 \
 	man/sd_bus_creds_get_slice.3 \
+	man/sd_bus_creds_get_suid.3 \
+	man/sd_bus_creds_get_supplementary_gids.3 \
 	man/sd_bus_creds_get_tid.3 \
 	man/sd_bus_creds_get_tid_comm.3 \
+	man/sd_bus_creds_get_tty.3 \
 	man/sd_bus_creds_get_uid.3 \
 	man/sd_bus_creds_get_unique_name.3 \
 	man/sd_bus_creds_get_unit.3 \
@@ -850,9 +850,11 @@ MANPAGES_ALIAS += \
 	man/sd_bus_message_get_seqnum.3 \
 	man/sd_bus_negotiate_creds.3 \
 	man/sd_bus_negotiate_timestamps.3 \
+	man/sd_bus_open.3 \
 	man/sd_bus_open_system.3 \
-	man/sd_bus_open_system_container.3 \
+	man/sd_bus_open_system_machine.3 \
 	man/sd_bus_open_system_remote.3 \
+	man/sd_bus_open_user.3 \
 	man/sd_bus_path_decode.3 \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
@@ -860,7 +862,10 @@ MANPAGES_ALIAS += \
 	man/sd_event_add_exit.3 \
 	man/sd_event_add_post.3 \
 	man/sd_event_default.3 \
+	man/sd_event_dispatch.3 \
 	man/sd_event_get_name.3 \
+	man/sd_event_loop.3 \
+	man/sd_event_prepare.3 \
 	man/sd_event_ref.3 \
 	man/sd_event_source_get_child_pid.3 \
 	man/sd_event_source_get_signal.3 \
@@ -876,16 +881,25 @@ man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cgroup.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
-man/sd_bus_creds_get_connection_name.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_description.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_egid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_euid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_exe.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_fsgid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_fsuid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_gid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_mask.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_get_owner_uid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_ppid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_selinux_context.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_session.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_sgid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_slice.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_suid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_supplementary_gids.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_tid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_tid_comm.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_tty.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unique_name.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unit.3: man/sd_bus_creds_get_pid.3
@@ -897,8 +911,8 @@ man/sd_bus_creds_has_inheritable_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_permitted_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_ref.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_unref.3: man/sd_bus_creds_new_from_pid.3
-man/sd_bus_default_system.3: man/sd_bus_open_user.3
-man/sd_bus_default_user.3: man/sd_bus_open_user.3
+man/sd_bus_default_system.3: man/sd_bus_default.3
+man/sd_bus_default_user.3: man/sd_bus_default.3
 man/sd_bus_error_copy.3: man/sd_bus_error.3
 man/sd_bus_error_free.3: man/sd_bus_error.3
 man/sd_bus_error_get_errno.3: man/sd_bus_error.3
@@ -918,9 +932,11 @@ man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_negotiate_creds.3: man/sd_bus_negotiate_fds.3
 man/sd_bus_negotiate_timestamps.3: man/sd_bus_negotiate_fds.3
-man/sd_bus_open_system.3: man/sd_bus_open_user.3
-man/sd_bus_open_system_container.3: man/sd_bus_open_user.3
-man/sd_bus_open_system_remote.3: man/sd_bus_open_user.3
+man/sd_bus_open.3: man/sd_bus_default.3
+man/sd_bus_open_system.3: man/sd_bus_default.3
+man/sd_bus_open_system_machine.3: man/sd_bus_default.3
+man/sd_bus_open_system_remote.3: man/sd_bus_default.3
+man/sd_bus_open_user.3: man/sd_bus_default.3
 man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
@@ -928,7 +944,10 @@ man/sd_bus_unref.3: man/sd_bus_new.3
 man/sd_event_add_exit.3: man/sd_event_add_defer.3
 man/sd_event_add_post.3: man/sd_event_add_defer.3
 man/sd_event_default.3: man/sd_event_new.3
+man/sd_event_dispatch.3: man/sd_event_wait.3
 man/sd_event_get_name.3: man/sd_event_set_name.3
+man/sd_event_loop.3: man/sd_event_run.3
+man/sd_event_prepare.3: man/sd_event_wait.3
 man/sd_event_ref.3: man/sd_event_new.3
 man/sd_event_source_get_child_pid.3: man/sd_event_add_child.3
 man/sd_event_source_get_signal.3: man/sd_event_add_signal.3
@@ -954,10 +973,22 @@ man/sd_bus_creds_get_cmdline.html: man/sd_bus_creds_get_pid.html
 man/sd_bus_creds_get_comm.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
-man/sd_bus_creds_get_connection_name.html: man/sd_bus_creds_get_pid.html
+man/sd_bus_creds_get_description.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_egid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_euid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_exe.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_fsgid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_fsuid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_gid.html: man/sd_bus_creds_get_pid.html
@@ -969,19 +1000,34 @@ man/sd_bus_creds_get_mask.html: man/sd_bus_creds_new_from_pid.html
 man/sd_bus_creds_get_owner_uid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_ppid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_selinux_context.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_session.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_sgid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_slice.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_suid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_supplementary_gids.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_tid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_tid_comm.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_tty.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_uid.html: man/sd_bus_creds_get_pid.html
@@ -1017,10 +1063,10 @@ man/sd_bus_creds_ref.html: man/sd_bus_creds_new_from_pid.html
 man/sd_bus_creds_unref.html: man/sd_bus_creds_new_from_pid.html
 	$(html-alias)
 
-man/sd_bus_default_system.html: man/sd_bus_open_user.html
+man/sd_bus_default_system.html: man/sd_bus_default.html
 	$(html-alias)
 
-man/sd_bus_default_user.html: man/sd_bus_open_user.html
+man/sd_bus_default_user.html: man/sd_bus_default.html
 	$(html-alias)
 
 man/sd_bus_error_copy.html: man/sd_bus_error.html
@@ -1080,13 +1126,19 @@ man/sd_bus_negotiate_creds.html: man/sd_bus_negotiate_fds.html
 man/sd_bus_negotiate_timestamps.html: man/sd_bus_negotiate_fds.html
 	$(html-alias)
 
-man/sd_bus_open_system.html: man/sd_bus_open_user.html
+man/sd_bus_open.html: man/sd_bus_default.html
 	$(html-alias)
 
-man/sd_bus_open_system_container.html: man/sd_bus_open_user.html
+man/sd_bus_open_system.html: man/sd_bus_default.html
 	$(html-alias)
 
-man/sd_bus_open_system_remote.html: man/sd_bus_open_user.html
+man/sd_bus_open_system_machine.html: man/sd_bus_default.html
+	$(html-alias)
+
+man/sd_bus_open_system_remote.html: man/sd_bus_default.html
+	$(html-alias)
+
+man/sd_bus_open_user.html: man/sd_bus_default.html
 	$(html-alias)
 
 man/sd_bus_path_decode.html: man/sd_bus_path_encode.html
@@ -1110,7 +1162,16 @@ man/sd_event_add_post.html: man/sd_event_add_defer.html
 man/sd_event_default.html: man/sd_event_new.html
 	$(html-alias)
 
+man/sd_event_dispatch.html: man/sd_event_wait.html
+	$(html-alias)
+
 man/sd_event_get_name.html: man/sd_event_set_name.html
+	$(html-alias)
+
+man/sd_event_loop.html: man/sd_event_run.html
+	$(html-alias)
+
+man/sd_event_prepare.html: man/sd_event_wait.html
 	$(html-alias)
 
 man/sd_event_ref.html: man/sd_event_new.html
@@ -1330,14 +1391,20 @@ endif
 
 if HAVE_MICROHTTPD
 MANPAGES += \
+	man/journal-remote.conf.5 \
 	man/systemd-journal-gatewayd.service.8 \
 	man/systemd-journal-remote.8 \
 	man/systemd-journal-upload.8
 MANPAGES_ALIAS += \
+	man/journal-remote.conf.d.5 \
 	man/systemd-journal-gatewayd.8 \
 	man/systemd-journal-gatewayd.socket.8
+man/journal-remote.conf.d.5: man/journal-remote.conf.5
 man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
 man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
+man/journal-remote.conf.d.html: man/journal-remote.conf.html
+	$(html-alias)
+
 man/systemd-journal-gatewayd.html: man/systemd-journal-gatewayd.service.html
 	$(html-alias)
 
@@ -1634,6 +1701,7 @@ EXTRA_DIST += \
 	man/hostname.xml \
 	man/hostnamectl.xml \
 	man/hwdb.xml \
+	man/journal-remote.conf.xml \
 	man/journalctl.xml \
 	man/journald.conf.xml \
 	man/kernel-command-line.xml \
@@ -1663,6 +1731,7 @@ EXTRA_DIST += \
 	man/sd_booted.xml \
 	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_creds_new_from_pid.xml \
+	man/sd_bus_default.xml \
 	man/sd_bus_error.xml \
 	man/sd_bus_message_append.xml \
 	man/sd_bus_message_append_array.xml \
@@ -1673,7 +1742,6 @@ EXTRA_DIST += \
 	man/sd_bus_message_get_monotonic_usec.xml \
 	man/sd_bus_negotiate_fds.xml \
 	man/sd_bus_new.xml \
-	man/sd_bus_open_user.xml \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
 	man/sd_event_add_child.xml \
@@ -1682,7 +1750,9 @@ EXTRA_DIST += \
 	man/sd_event_add_time.xml \
 	man/sd_event_get_fd.xml \
 	man/sd_event_new.xml \
+	man/sd_event_run.xml \
 	man/sd_event_set_name.xml \
+	man/sd_event_wait.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
 	man/sd_id128_randomize.xml \
@@ -1770,7 +1840,6 @@ EXTRA_DIST += \
 	man/systemd-resolved.service.xml \
 	man/systemd-rfkill@.service.xml \
 	man/systemd-run.xml \
-	man/systemd-shutdownd.service.xml \
 	man/systemd-sleep.conf.xml \
 	man/systemd-socket-proxyd.xml \
 	man/systemd-suspend.service.xml \

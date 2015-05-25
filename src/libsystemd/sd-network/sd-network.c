@@ -20,19 +20,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/inotify.h>
 #include <poll.h>
-#include <net/if.h>
 
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
 #include "sd-network.h"
-#include "network-internal.h"
 
 _public_ int sd_network_get_operational_state(char **state) {
         _cleanup_free_ char *s = NULL;
@@ -262,6 +259,14 @@ _public_ int sd_network_link_get_ntp(int ifindex, char ***ret) {
 
 _public_ int sd_network_link_get_domains(int ifindex, char ***ret) {
         return network_get_link_strv("DOMAINS", ifindex, ret);
+}
+
+_public_ int sd_network_link_get_carrier_bound_to(int ifindex, char ***ret) {
+        return network_get_link_strv("CARRIER_BOUND_TO", ifindex, ret);
+}
+
+_public_ int sd_network_link_get_carrier_bound_by(int ifindex, char ***ret) {
+        return network_get_link_strv("CARRIER_BOUND_BY", ifindex, ret);
 }
 
 _public_ int sd_network_link_get_wildcard_domain(int ifindex) {

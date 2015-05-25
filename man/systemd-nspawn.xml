@@ -84,13 +84,10 @@
     kernel modules may not be loaded from within the container.</para>
 
     <para>Note that even though these security precautions are taken
-    <command>systemd-nspawn</command> is not suitable for secure
+    <command>systemd-nspawn</command> is not suitable for fully secure
     container setups. Many of the security features may be
     circumvented and are hence primarily useful to avoid accidental
-    changes to the host system from the container. The intended use of
-    this program is debugging and testing as well as building of
-    packages, distributions and software involved with boot and
-    systems management.</para>
+    changes to the host system from the container.</para>
 
     <para>In contrast to
     <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
@@ -144,7 +141,7 @@
     <replaceable>COMMAND</replaceable> specifies the program to launch
     in the container, and the remaining arguments are used as
     arguments for this program. If <option>-b</option> is not used and
-    no arguments are specifed, a shell is launched in the
+    no arguments are specified, a shell is launched in the
     container.</para>
 
     <para>The following options are understood:</para>
@@ -190,7 +187,11 @@
         system, so that the <literal>btrfs</literal> subvolume may be
         created. May not be specified together with
         <option>--image=</option> or
-        <option>--ephemeral</option>.</para></listitem>
+        <option>--ephemeral</option>.</para>
+
+        <para>Note that this switch leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -204,7 +205,10 @@
         This option is only supported if the root file system is
         <literal>btrfs</literal>. May not be specified together with
         <option>--image=</option> or
-        <option>--template=</option>.</para></listitem>
+        <option>--template=</option>.</para>
+        <para>Note that this switch leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -297,9 +301,60 @@
 
         <listitem><para>Make the container part of the specified
         slice, instead of the default
-        <filename>machine.slice</filename>.</para>
+        <filename>machine.slice</filename>. This is only applies if
+        the machine is run in its own scope unit, i.e. if
+        <option>--keep-unit</option> is not used.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--property=</option></term>
+
+        <listitem><para>Set a unit property on the scope unit to
+        register for the machine. This only applies if the machine is
+        run in its own scope unit, i.e. if
+        <option>--keep-unit</option> is not used. Takes unit property
+        assignments in the same format as <command>systemctl
+        set-property</command>. This is useful to set memory limits
+        and similar for machines.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users=</option></term>
+
+        <listitem><para>Enables user namespacing. If enabled the
+        container will run with its own private set of Unix user and
+        group ids (UIDs and GIDs). Takes none, one or two
+        colon-separated parameters: the first parameter specifies the
+        first host UID to assign to the container, the second
+        parameter specifies the number of host UIDs to assign to the
+        container. If the second parameter is omitted, 65536 UIDs are
+        assigned. If the first parameter is also ommitted (and hence
+        no parameter passed at all), the first UID assigned to the
+        container is read from the owner of the root directory of the
+        container's directory tree. By default no user namespacing is
+        applied.</para>
+
+        <para>Note that user namespacing currently requires OS trees
+        that are prepared for the UID shift that is being applied:
+        UIDs and GIDs used for file ownership or in file ACL entries
+        must be shifted to the container UID base that is
+        used during container runtime.</para>
+
+        <para>It is recommended to assign as least 65536 UIDs to each
+        container, so that the usable UID range in the container
+        covers 16bit. For best security do not assign overlapping UID
+        ranges to multiple containers. It is hence a good idea to use
+        the upper 16bit of the host 32bit UIDs as container
+        identifier, while the lower 16bit encode the container UID
+        used.</para>
+
+        <para>When user namespaces are used the GID range assigned to
+        each container is always chosen identical to the UID
+        range.</para></listitem>
+      </varlistentry>
+
 
       <varlistentry>
         <term><option>--private-network</option></term>
@@ -456,6 +511,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--kill-signal=</option></term>
+
+        <listitem><para>Specify the process signal to send to the
+        container's PID 1 when nspawn itself receives SIGTERM, in
+        order to trigger an orderly shutdown of the
+        container. Defaults to SIGRTMIN+3 if <option>--boot</option>
+        is used (on systemd-compatible init systems SIGRTMIN+3
+        triggers an orderly shutdown). Takes a signal name like
+        <literal>SIGHUP</literal>, <literal>SIGTERM</literal> or
+        similar as argument.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--link-journal=</option></term>
 
         <listitem><para>Control whether the container's journal shall
@@ -510,8 +578,10 @@
         same path in the container --, or a colon-separated pair of
         paths -- in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container. The <option>--bind-ro=</option> option creates
-        read-only bind mounts.</para></listitem>
+        container. This option may be specified multiple times for
+        creating multiple independent bind mount points. The
+        <option>--bind-ro=</option> option creates read-only bind
+        mounts.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -528,6 +598,52 @@
         mounting directories such as <filename>/var</filename> as
         tmpfs, to allow state-less systems, in particular when
         combined with <option>--read-only</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--overlay=</option></term>
+        <term><option>--overlay-ro=</option></term>
+
+        <listitem><para>Combine multiple directory trees into one
+        overlay file system and mount it into the container. Takes a
+        list of colon-separated paths to the directory trees to
+        combine and the destination mount point.</para>
+
+        <para>If three or more paths are specified, then the last
+        specified path is the destination mount point in the
+        container, all paths specified before refer to directory trees
+        on the host and are combined in the specified order into one
+        overlay file system. The left-most path is hence the lowest
+        directory tree, the second-to-last path the highest directory
+        tree in the stacking order. If <option>--overlay-ro=</option>
+        is used instead of <option>--overlay=</option> a read-only
+        overlay file system is created. If a writable overlay file
+        system is created all changes made to it are written to the
+        highest directory tree in the stacking order, i.e. the
+        second-to-last specified.</para>
+
+        <para>If only two paths are specified, then the second
+        specified path is used both as the top-level directory tree in
+        the stacking order as seen from the host, as well as the mount
+        point for the overlay file system in the container. At least
+        two paths have to be specified.</para>
+
+        <para>For details about overlay file systems, see <ulink
+        url="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt">overlayfs.txt</ulink>. Note
+        that the semantics of overlay file systems are substantially
+        different from normal file systems, in particular regarding
+        reported device and inode information. Device and inode
+        information may change for a file while it is being written
+        to, and processes might see out-of-date versions of files at
+        times. Note that this switch automatically derives the
+        <literal>workdir=</literal> mount option for the overlay file
+        system from the top-level directory tree, making it a sibling
+        of it. It is hence essential that the top-level directory tree
+        is not a mount point itself (since the working directory must
+        be on the same file system as the top-most directory
+        tree). Also note that the <literal>lowerdir=</literal> mount
+        option receives the paths to stack in the opposite order of
+        this switch.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -598,7 +714,7 @@
 
         <listitem><para>Control the architecture ("personality")
         reported by
-        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         in the container. Currently, only <literal>x86</literal> and
         <literal>x86-64</literal> are supported. This is useful when
         running a 32-bit container on a 64-bit host. If this setting
@@ -693,7 +809,7 @@
       <programlisting># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
-      <para>This installs a mimimal Arch Linux distribution into the
+      <para>This installs a minimal Arch Linux distribution into the
       directory <filename>~/arch-tree/</filename> and then boots an OS
       in a namespace container in it.</para>
     </example>
@@ -735,7 +851,7 @@
       <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

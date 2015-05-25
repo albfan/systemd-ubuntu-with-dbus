@@ -180,13 +180,25 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", u);
 }
 
-static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_KILL,
+                        "org.freedesktop.login1.manage",
+                        false,
+                        s->user->uid,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = session_stop(s, true);
         if (r < 0)
@@ -195,11 +207,10 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -210,28 +221,39 @@ static int method_activate(sd_bus *bus, sd_bus_message *message, void *userdata,
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_lock(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
-        r = session_send_lock(s, streq(sd_bus_message_get_member(message), "Lock"));
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.lock-sessions",
+                        false,
+                        s->user->uid,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = session_send_lock(s, strstr(sd_bus_message_get_member(message), "Lock"));
         if (r < 0)
                 return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Session *s = userdata;
         uid_t uid;
         int r, b;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -255,14 +277,13 @@ static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *user
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         const char *swho;
         int32_t signo;
         KillWho who;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -281,6 +302,19 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_KILL,
+                        "org.freedesktop.login1.manage",
+                        false,
+                        s->user->uid,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = session_kill(s, who, signo);
         if (r < 0)
                 return r;
@@ -288,13 +322,12 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Session *s = userdata;
         int r, force;
         uid_t uid;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -320,10 +353,9 @@ static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_release_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_release_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -335,14 +367,13 @@ static int method_release_control(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
         dev_t dev;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -374,14 +405,13 @@ static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userda
         return r;
 }
 
-static int method_release_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_release_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
         dev_t dev;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -401,14 +431,13 @@ static int method_release_device(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_pause_device_complete(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_pause_device_complete(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
         dev_t dev;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -456,12 +485,12 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("Activate", NULL, NULL, method_activate, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Lock", NULL, NULL, method_lock, 0),
-        SD_BUS_METHOD("Unlock", NULL, NULL, method_lock, 0),
+        SD_BUS_METHOD("Terminate", NULL, NULL, bus_session_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Activate", NULL, NULL, bus_session_method_activate, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Lock", NULL, NULL, bus_session_method_lock, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Unlock", NULL, NULL, bus_session_method_lock, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetIdleHint", "b", NULL, method_set_idle_hint, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Kill", "si", NULL, method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Kill", "si", NULL, bus_session_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("TakeControl", "b", NULL, method_take_control, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReleaseControl", NULL, NULL, method_release_control, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("TakeDevice", "uu", "hb", method_take_device, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -27,7 +27,6 @@
 #include "utf8.h"
 #include "strv.h"
 #include "time-util.h"
-#include "cgroup-util.h"
 #include "memfd-util.h"
 
 #include "sd-bus.h"
@@ -421,7 +420,7 @@ static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
         else {
                 /* 64bit cookies are not supported on dbus1 */
                 if (cookie > 0xffffffffUL)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 return message_append_field_uint32(m, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) cookie);
         }
@@ -441,7 +440,7 @@ int bus_message_from_header(
                 size_t extra,
                 sd_bus_message **ret) {
 
-        sd_bus_message *m;
+        _cleanup_free_ sd_bus_message *m = NULL;
         struct bus_header *h;
         size_t a, label_sz;
 
@@ -460,15 +459,13 @@ int bus_message_from_header(
                 return -EBADMSG;
 
         h = header;
-        if (h->version != 1 &&
-            h->version != 2)
+        if (!IN_SET(h->version, 1, 2))
                 return -EBADMSG;
 
         if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
                 return -EBADMSG;
 
-        if (h->endian != BUS_LITTLE_ENDIAN &&
-            h->endian != BUS_BIG_ENDIAN)
+        if (!IN_SET(h->endian, BUS_LITTLE_ENDIAN, BUS_BIG_ENDIAN))
                 return -EBADMSG;
 
         /* Note that we are happy with unknown flags in the flags header! */
@@ -557,6 +554,7 @@ int bus_message_from_header(
 
         m->bus = sd_bus_ref(bus);
         *ret = m;
+        m = NULL;
 
         return 0;
 }
@@ -633,6 +631,9 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->allow_fds = !bus || bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
         m->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(m);
         m->bus = sd_bus_ref(bus);
+
+        if (bus->allow_interactive_authorization)
+                m->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
 
         return m;
 }
@@ -749,7 +750,7 @@ static int message_new_reply(
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = BUS_MESSAGE_COOKIE(call);
         if (t->reply_cookie == 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
@@ -1462,7 +1463,7 @@ static int message_push_fd(sd_bus_message *m, int fd) {
                 return -EINVAL;
 
         if (!m->allow_fds)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (copy < 0)
@@ -2941,7 +2942,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
         if (cookie > 0xffffffffULL &&
             !BUS_MESSAGE_IS_GVARIANT(m))
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         /* In vtables the return signature of method calls is listed,
          * let's check if they match if this is a response */
@@ -3487,8 +3488,6 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                 if (r < 0)
                         return r;
         } else {
-
-                rindex = m->rindex;
 
                 if (IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH)) {
                         uint32_t l;
@@ -4797,7 +4796,7 @@ _public_ int sd_bus_message_read_array(
         assert_return(bus_type_is_trivial(type), -EINVAL);
         assert_return(ptr, -EINVAL);
         assert_return(size, -EINVAL);
-        assert_return(!BUS_MESSAGE_NEED_BSWAP(m), -ENOTSUP);
+        assert_return(!BUS_MESSAGE_NEED_BSWAP(m), -EOPNOTSUPP);
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
         if (r <= 0)
@@ -5508,7 +5507,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
         /* Try to read the error message, but if we can't it's a non-issue */
         if (m->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
-                sd_bus_message_read(m, "s", &m->error.message);
+                (void) sd_bus_message_read(m, "s", &m->error.message);
 
         return 0;
 }
@@ -5551,6 +5550,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
 }
 
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
+        const char *s;
         int r;
 
         assert(m);
@@ -5560,19 +5560,13 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         if (r <= 0)
                 return r;
 
-        for (;;) {
-                const char *s;
-
-                r = sd_bus_message_read_basic(m, 's', &s);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
+        while ((r = sd_bus_message_read_basic(m, 's', &s)) > 0) {
                 r = strv_extend(l, s);
                 if (r < 0)
                         return r;
         }
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_exit_container(m);
         if (r < 0)

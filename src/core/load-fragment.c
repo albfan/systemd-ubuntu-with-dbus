@@ -21,26 +21,18 @@
 ***/
 
 #include <linux/oom.h>
-#include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
-#include <sys/prctl.h>
-#include <sys/mount.h>
 #include <linux/fs.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/resource.h>
-#include <sys/types.h>
-#include <grp.h>
 
 #ifdef HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 
-#include "sd-messages.h"
 #include "unit.h"
 #include "strv.h"
 #include "conf-parser.h"
@@ -364,7 +356,7 @@ int config_parse_socket_listen(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to resolve unit specifiers on %s, ignoring: %s", rvalue, strerror(-r));
 
-                r = socket_address_parse(&p->address, k ? k : rvalue);
+                r = socket_address_parse_and_warn(&p->address, k ? k : rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse address value, ignoring: %s", rvalue);
@@ -381,7 +373,7 @@ int config_parse_socket_listen(const char *unit,
                 }
 
                 if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET) {
-                        log_syntax(unit, LOG_ERR, filename, line, ENOTSUP,
+                        log_syntax(unit, LOG_ERR, filename, line, EOPNOTSUPP,
                                    "Address family not supported, ignoring: %s", rvalue);
                         return 0;
                 }
@@ -515,16 +507,17 @@ int config_parse_exec_oom_score_adjust(const char* unit,
         return 0;
 }
 
-int config_parse_exec(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+int config_parse_exec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecCommand **e = data, *nce;
         char *path, **n;
@@ -576,15 +569,13 @@ int config_parse_exec(const char *unit,
                                                 word ++;
                                         }
                                 }
-                        } else
-                                if (strneq(word, ";", MAX(l, 1U)))
-                                        goto found;
+                        } else if (strneq(word, ";", MAX(l, 1U)))
+                                goto found;
 
                         k++;
                 }
                 if (!isempty(state)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Trailing garbage, ignoring.");
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Trailing garbage, ignoring.");
                         return 0;
                 }
 
@@ -604,7 +595,12 @@ int config_parse_exec(const char *unit,
                                 skip = separate_argv0 + ignore;
 
                                 /* skip special chars in the beginning */
-                                assert(skip < l);
+                                if (l <= skip) {
+                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                                   "Empty path in command line, ignoring: \"%s\"", rvalue);
+                                        r = 0;
+                                        goto fail;
+                                }
 
                         } else if (strneq(word, ";", MAX(l, 1U)))
                                 /* new commandline */
@@ -613,9 +609,10 @@ int config_parse_exec(const char *unit,
                         else
                                 skip = strneq(word, "\\;", MAX(l, 1U));
 
-                        c = cunescape_length(word + skip, l - skip);
-                        if (!c) {
-                                r = log_oom();
+                        r = cunescape_length(word + skip, l - skip, 0, &c);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to unescape command line, ignoring: %s", rvalue);
+                                r = 0;
                                 goto fail;
                         }
 
@@ -634,8 +631,6 @@ int config_parse_exec(const char *unit,
 
                 n[k] = NULL;
 
-                log_debug("path: %s", path ?: n[0]);
-
                 if (!n[0])
                         reason = "Empty executable name or zeroeth argument";
                 else if (!string_is_safe(path ?: n[0]))
@@ -647,8 +642,7 @@ int config_parse_exec(const char *unit,
                 else
                         goto ok;
 
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "%s, ignoring: %s", reason, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "%s, ignoring: %s", reason, rvalue);
                 r = 0;
                 goto fail;
 
@@ -1213,17 +1207,15 @@ int config_parse_exec_mount_flags(const char *unit,
                         flags = MS_SHARED;
                 else if (streq(t, "slave"))
                         flags = MS_SLAVE;
-                else if (streq(word, "private"))
+                else if (streq(t, "private"))
                         flags = MS_PRIVATE;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
                         return 0;
                 }
         }
         if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Trailing garbage, ignoring.");
 
         c->mount_flags = flags;
         return 0;
@@ -1986,8 +1978,7 @@ int config_parse_environ(const char *unit,
         if (u) {
                 r = unit_full_printf(u, rvalue, &k);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                   "Failed to resolve specifiers, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
         }
 
         if (!k)
@@ -1999,13 +1990,14 @@ int config_parse_environ(const char *unit,
                 _cleanup_free_ char *n;
                 char **x;
 
-                n = cunescape_length(word, l);
-                if (!n)
-                        return log_oom();
+                r = cunescape_length(word, l, 0, &n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Couldn't unescape assignment, ignoring: %s", rvalue);
+                        continue;
+                }
 
                 if (!env_assignment_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Invalid environment assignment, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid environment assignment, ignoring: %s", rvalue);
                         continue;
                 }
 
@@ -2380,7 +2372,7 @@ int config_parse_syscall_filter(
                                         continue;
 
                                 r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
-                                if (r == -EEXIST)
+                                if (r == 0)
                                         continue;
                                 if (r < 0)
                                         return log_oom();
@@ -2408,7 +2400,7 @@ int config_parse_syscall_filter(
                  */
                 if (!invert == c->syscall_whitelist)  {
                         r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
-                        if (r == -EEXIST)
+                        if (r == 0)
                                 continue;
                         if (r < 0)
                                 return log_oom();
@@ -2421,7 +2413,7 @@ int config_parse_syscall_filter(
 
         /* Turn on NNP, but only if it wasn't configured explicitly
          * before, and only if we are in user mode. */
-        if (!c->no_new_privileges_set && u->manager->running_as == SYSTEMD_USER)
+        if (!c->no_new_privileges_set && u->manager->running_as == MANAGER_USER)
                 c->no_new_privileges = true;
 
         return 0;
@@ -2470,7 +2462,7 @@ int config_parse_syscall_archs(
                 }
 
                 r = set_put(*archs, UINT32_TO_PTR(a + 1));
-                if (r == -EEXIST)
+                if (r == 0)
                         continue;
                 if (r < 0)
                         return log_oom();
@@ -2581,7 +2573,7 @@ int config_parse_address_families(
                  */
                 if (!invert == c->address_families_whitelist)  {
                         r = set_put(c->address_families, INT_TO_PTR(af));
-                        if (r == -EEXIST)
+                        if (r == 0)
                                 continue;
                         if (r < 0)
                                 return log_oom();
@@ -3054,7 +3046,7 @@ int config_parse_personality(
         assert(personality);
 
         p = personality_from_string(rvalue);
-        if (p == 0xffffffffUL) {
+        if (p == PERSONALITY_INVALID) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Failed to parse personality, ignoring: %s", rvalue);
                 return 0;
@@ -3407,7 +3399,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = basename(*filename);
 
-                if (unit_name_is_valid(name, TEMPLATE_VALID)) {
+                if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
 
                         id = set_get(names, name);
                         if (!id) {
@@ -3440,9 +3432,8 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
 
         f = fdopen(fd, "re");
         if (!f) {
-                r = -errno;
                 safe_close(fd);
-                return r;
+                return -errno;
         }
 
         *_f = f;
@@ -3656,11 +3647,11 @@ int unit_load_fragment(Unit *u) {
 
         /* Look for a template */
         if (u->load_state == UNIT_STUB && u->instance) {
-                _cleanup_free_ char *k;
+                _cleanup_free_ char *k = NULL;
 
-                k = unit_name_template(u->id);
-                if (!k)
-                        return -ENOMEM;
+                r = unit_name_template(u->id, &k);
+                if (r < 0)
+                        return r;
 
                 r = load_from_path(u, k);
                 if (r < 0)
@@ -3673,9 +3664,9 @@ int unit_load_fragment(Unit *u) {
                                 if (t == u->id)
                                         continue;
 
-                                z = unit_name_template(t);
-                                if (!z)
-                                        return -ENOMEM;
+                                r = unit_name_template(t, &z);
+                                if (r < 0)
+                                        return r;
 
                                 r = load_from_path(u, z);
                                 if (r < 0)

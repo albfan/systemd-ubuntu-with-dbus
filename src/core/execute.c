@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -29,14 +27,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/prctl.h>
-#include <linux/sched.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <grp.h>
-#include <pwd.h>
-#include <sys/mount.h>
-#include <linux/fs.h>
-#include <linux/oom.h>
 #include <poll.h>
 #include <glob.h>
 #include <sys/personality.h>
@@ -57,6 +49,7 @@
 #include <sys/apparmor.h>
 #endif
 
+#include "rm-rf.h"
 #include "execute.h"
 #include "strv.h"
 #include "macro.h"
@@ -80,11 +73,16 @@
 #include "errno-list.h"
 #include "af-list.h"
 #include "mkdir.h"
-#include "apparmor-util.h"
 #include "smack-util.h"
 #include "bus-endpoint.h"
-#include "label.h"
 #include "cap-list.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
+
+#ifdef HAVE_APPARMOR
+#include "apparmor-util.h"
+#endif
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -394,11 +392,12 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(const ExecContext *context, int fileno, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin, uid_t uid, gid_t gid) {
+static int setup_output(Unit *unit, const ExecContext *context, int fileno, int socket_fd, const char *ident, bool apply_tty_stdin, uid_t uid, gid_t gid) {
         ExecOutput o;
         ExecInput i;
         int r;
 
+        assert(unit);
         assert(context);
         assert(ident);
 
@@ -461,15 +460,9 @@ static int setup_output(const ExecContext *context, int fileno, int socket_fd, c
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(context, o, ident, unit_id, fileno, uid, gid);
+                r = connect_logger_as(context, o, ident, unit->id, fileno, uid, gid);
                 if (r < 0) {
-                        log_unit_struct(unit_id,
-                                        LOG_ERR,
-                                        LOG_MESSAGE("Failed to connect %s of %s to the journal socket: %s",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr",
-                                                    unit_id, strerror(-r)),
-                                        LOG_ERRNO(-r),
-                                        NULL);
+                        log_unit_error_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m", fileno == STDOUT_FILENO ? "stdout" : "stderr");
                         r = open_null_as(O_WRONLY, fileno);
                 }
                 return r;
@@ -1165,10 +1158,10 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 
                 if (idle_pipe[3] >= 0 && r == 0 /* timeout */) {
                         /* Signal systemd that we are bored and want to continue. */
-                        write(idle_pipe[3], "x", 1);
-
-                        /* Wait for systemd to react to the signal above. */
-                        fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
+                        r = write(idle_pipe[3], "x", 1);
+                        if (r > 0)
+                                /* Wait for systemd to react to the signal above. */
+                                fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
                 }
 
                 safe_close(idle_pipe[0]);
@@ -1264,7 +1257,38 @@ static int build_environment(
         return 0;
 }
 
+static bool exec_needs_mount_namespace(
+                const ExecContext *context,
+                const ExecParameters *params,
+                ExecRuntime *runtime) {
+
+        assert(context);
+        assert(params);
+
+        if (!strv_isempty(context->read_write_dirs) ||
+            !strv_isempty(context->read_only_dirs) ||
+            !strv_isempty(context->inaccessible_dirs))
+                return true;
+
+        if (context->mount_flags != 0)
+                return true;
+
+        if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
+                return true;
+
+        if (params->bus_endpoint_path)
+                return true;
+
+        if (context->private_devices ||
+            context->protect_system != PROTECT_SYSTEM_NO ||
+            context->protect_home != PROTECT_HOME_NO)
+                return true;
+
+        return false;
+}
+
 static int exec_child(
+                Unit *unit,
                 ExecCommand *command,
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -1283,7 +1307,9 @@ static int exec_child(
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r;
+        bool needs_mount_namespace;
 
+        assert(unit);
         assert(command);
         assert(context);
         assert(params);
@@ -1385,13 +1411,13 @@ static int exec_child(
                 return r;
         }
 
-        r = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, STDOUT_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return r;
         }
 
-        r = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, STDERR_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return r;
@@ -1417,7 +1443,7 @@ static int exec_child(
                 r = write_string_file("/proc/self/oom_score_adj", t);
                 if (r == -EPERM || r == -EACCES) {
                         log_open();
-                        log_unit_debug_errno(params->unit_id, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                        log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                         log_close();
                 } else if (r < 0) {
                         *exit_status = EXIT_OOM_ADJUST;
@@ -1465,7 +1491,7 @@ static int exec_child(
                         return -errno;
                 }
 
-        if (context->personality != 0xffffffffUL)
+        if (context->personality != PERSONALITY_INVALID)
                 if (personality(context->personality) < 0) {
                         *exit_status = EXIT_PERSONALITY;
                         return -errno;
@@ -1560,16 +1586,9 @@ static int exec_child(
                 }
         }
 
-        if (!strv_isempty(context->read_write_dirs) ||
-            !strv_isempty(context->read_only_dirs) ||
-            !strv_isempty(context->inaccessible_dirs) ||
-            context->mount_flags != 0 ||
-            (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir)) ||
-            params->bus_endpoint_path ||
-            context->private_devices ||
-            context->protect_system != PROTECT_SYSTEM_NO ||
-            context->protect_home != PROTECT_HOME_NO) {
+        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
 
+        if (needs_mount_namespace) {
                 char *tmp = NULL, *var = NULL;
 
                 /* The runtime struct only contains the parent
@@ -1586,6 +1605,7 @@ static int exec_child(
                 }
 
                 r = setup_namespace(
+                                params->apply_chroot ? context->root_directory : NULL,
                                 context->read_write_dirs,
                                 context->read_only_dirs,
                                 context->inaccessible_dirs,
@@ -1602,7 +1622,7 @@ static int exec_child(
                  * silently proceeed. */
                 if (r == -EPERM || r == -EACCES) {
                         log_open();
-                        log_unit_debug_errno(params->unit_id, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
+                        log_unit_debug_errno(unit, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
                         log_close();
                 } else if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
@@ -1611,7 +1631,7 @@ static int exec_child(
         }
 
         if (params->apply_chroot) {
-                if (context->root_directory)
+                if (!needs_mount_namespace && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
@@ -1803,20 +1823,22 @@ static int exec_child(
                 line = exec_command_line(final_argv);
                 if (line) {
                         log_open();
-                        log_unit_struct(params->unit_id,
-                                        LOG_DEBUG,
-                                        "EXECUTABLE=%s", command->path,
-                                        LOG_MESSAGE("Executing: %s", line),
-                                        NULL);
+                        log_struct(LOG_DEBUG,
+                                   LOG_UNIT_ID(unit),
+                                   "EXECUTABLE=%s", command->path,
+                                   LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
+                                   NULL);
                         log_close();
                 }
         }
+
         execve(command->path, final_argv, final_env);
         *exit_status = EXIT_EXEC;
         return -errno;
 }
 
-int exec_spawn(ExecCommand *command,
+int exec_spawn(Unit *unit,
+               ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *params,
                ExecRuntime *runtime,
@@ -1829,6 +1851,7 @@ int exec_spawn(ExecCommand *command,
         char **argv;
         pid_t pid;
 
+        assert(unit);
         assert(command);
         assert(context);
         assert(ret);
@@ -1840,7 +1863,7 @@ int exec_spawn(ExecCommand *command,
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
                 if (params->n_fds != 1) {
-                        log_unit_error(params->unit_id, "Got more than one socket.");
+                        log_unit_error(unit, "Got more than one socket.");
                         return -EINVAL;
                 }
 
@@ -1851,28 +1874,29 @@ int exec_spawn(ExecCommand *command,
                 n_fds = params->n_fds;
         }
 
-        r = exec_context_load_environment(context, params->unit_id, &files_env);
+        r = exec_context_load_environment(unit, context, &files_env);
         if (r < 0)
-                return log_unit_error_errno(params->unit_id, r, "Failed to load environment files: %m");
+                return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
         argv = params->argv ?: command->argv;
         line = exec_command_line(argv);
         if (!line)
                 return log_oom();
 
-        log_unit_struct(params->unit_id,
-                        LOG_DEBUG,
-                        "EXECUTABLE=%s", command->path,
-                        LOG_MESSAGE("About to execute: %s", line),
-                        NULL);
+        log_struct(LOG_DEBUG,
+                   LOG_UNIT_ID(unit),
+                   LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
+                   "EXECUTABLE=%s", command->path,
+                   NULL);
         pid = fork();
         if (pid < 0)
-                return log_unit_error_errno(params->unit_id, r, "Failed to fork: %m");
+                return log_unit_error_errno(unit, r, "Failed to fork: %m");
 
         if (pid == 0) {
                 int exit_status;
 
-                r = exec_child(command,
+                r = exec_child(unit,
+                               command,
                                context,
                                params,
                                runtime,
@@ -1883,21 +1907,20 @@ int exec_spawn(ExecCommand *command,
                                &exit_status);
                 if (r < 0) {
                         log_open();
-                        log_unit_struct(params->unit_id,
-                                        LOG_ERR,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
-                                        "EXECUTABLE=%s", command->path,
-                                        LOG_MESSAGE("Failed at step %s spawning %s: %s",
-                                                    exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
-                                                    command->path, strerror(-r)),
-                                        LOG_ERRNO(r),
-                                        NULL);
+                        log_struct_errno(LOG_ERR, r,
+                                         LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                         LOG_UNIT_ID(unit),
+                                         LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
+                                                          exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
+                                                          command->path),
+                                         "EXECUTABLE=%s", command->path,
+                                         NULL);
                 }
 
                 _exit(exit_status);
         }
 
-        log_unit_debug(params->unit_id, "Forked %s as "PID_FMT, command->path, pid);
+        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed
@@ -1905,7 +1928,7 @@ int exec_spawn(ExecCommand *command,
          * sure that when we kill the cgroup the process will be
          * killed too). */
         if (params->cgroup_path)
-                cg_attach(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, pid);
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 
@@ -1923,7 +1946,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_level_prefix = true;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = NSEC_INFINITY;
-        c->personality = 0xffffffffUL;
+        c->personality = PERSONALITY_INVALID;
         c->runtime_directory_mode = 0755;
 }
 
@@ -2026,7 +2049,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
                 /* We execute this synchronously, since we need to be
                  * sure this is gone when we start the service
                  * next. */
-                rm_rf(p, false, true, false);
+                (void) rm_rf(p, REMOVE_ROOT);
         }
 
         return 0;
@@ -2069,17 +2092,17 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
 }
 
 typedef struct InvalidEnvInfo {
-        const char *unit_id;
+        Unit *unit;
         const char *path;
 } InvalidEnvInfo;
 
 static void invalid_env(const char *p, void *userdata) {
         InvalidEnvInfo *info = userdata;
 
-        log_unit_error(info->unit_id, "Ignoring invalid environment assignment '%s': %s", p, info->path);
+        log_unit_error(info->unit, "Ignoring invalid environment assignment '%s': %s", p, info->path);
 }
 
-int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l) {
+int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
         char **i, **r = NULL;
 
         assert(c);
@@ -2137,7 +2160,7 @@ int exec_context_load_environment(const ExecContext *c, const char *unit_id, cha
                         /* Log invalid environment variables with filename */
                         if (p) {
                                 InvalidEnvInfo info = {
-                                        .unit_id = unit_id,
+                                        .unit = unit,
                                         .path = pglob.gl_pathv[n]
                                 };
 
@@ -2404,7 +2427,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sSELinuxContext: %s%s\n",
                         prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
 
-        if (c->personality != 0xffffffffUL)
+        if (c->personality != PERSONALITY_INVALID)
                 fprintf(f,
                         "%sPersonality: %s\n",
                         prefix, strna(personality_to_string(c->personality)));
@@ -2735,17 +2758,18 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *r) {
         assert(r->n_ref > 0);
 
         r->n_ref--;
-        if (r->n_ref <= 0) {
-                free(r->tmp_dir);
-                free(r->var_tmp_dir);
-                safe_close_pair(r->netns_storage_socket);
-                free(r);
-        }
+        if (r->n_ref > 0)
+                return NULL;
+
+        free(r->tmp_dir);
+        free(r->var_tmp_dir);
+        safe_close_pair(r->netns_storage_socket);
+        free(r);
 
         return NULL;
 }
 
-int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds) {
+int exec_runtime_serialize(Unit *u, ExecRuntime *rt, FILE *f, FDSet *fds) {
         assert(u);
         assert(f);
         assert(fds);
@@ -2782,7 +2806,7 @@ int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, const char *value, FDSet *fds) {
+int exec_runtime_deserialize_item(Unit *u, ExecRuntime **rt, const char *key, const char *value, FDSet *fds) {
         int r;
 
         assert(rt);
@@ -2794,7 +2818,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 copy = strdup(value);
                 if (!copy)
@@ -2808,7 +2832,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 copy = strdup(value);
                 if (!copy)
@@ -2822,10 +2846,10 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u->id, "Failed to parse netns socket value %s", value);
+                        log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                 else {
                         safe_close((*rt)->netns_storage_socket[0]);
                         (*rt)->netns_storage_socket[0] = fdset_remove(fds, fd);
@@ -2835,10 +2859,10 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u->id, "Failed to parse netns socket value %s", value);
+                        log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                 else {
                         safe_close((*rt)->netns_storage_socket[1]);
                         (*rt)->netns_storage_socket[1] = fdset_remove(fds, fd);
@@ -2852,7 +2876,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 static void *remove_tmpdir_thread(void *p) {
         _cleanup_free_ char *path = p;
 
-        rm_rf_dangerous(path, false, true, false);
+        (void) rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL);
         return NULL;
 }
 

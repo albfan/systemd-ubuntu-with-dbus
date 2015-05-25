@@ -31,13 +31,7 @@ typedef enum UnitActiveState UnitActiveState;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
-#include "sd-event.h"
-#include "set.h"
-#include "util.h"
 #include "list.h"
-#include "socket-util.h"
-#include "execute.h"
-#include "cgroup.h"
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
@@ -58,6 +52,8 @@ typedef enum KillOperation {
         KILL_TERMINATE,
         KILL_KILL,
         KILL_ABORT,
+        _KILL_OPERATION_MAX,
+        _KILL_OPERATION_INVALID = -1
 } KillOperation;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
@@ -76,7 +72,6 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return t == UNIT_INACTIVE || t == UNIT_FAILED;
 }
 
-#include "manager.h"
 #include "job.h"
 
 struct UnitRef {
@@ -109,6 +104,7 @@ struct Unit {
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
         char **dropin_paths;
+
         usec_t fragment_mtime;
         usec_t source_mtime;
         usec_t dropin_mtime;
@@ -170,18 +166,18 @@ struct Unit {
         /* Used during GC sweeps */
         unsigned gc_marker;
 
-        /* When deserializing, temporarily store the job type for this
-         * unit here, if there was a job scheduled.
-         * Only for deserializing from a legacy version. New style uses full
-         * serialized jobs. */
-        int deserialized_job; /* This is actually of type JobType */
-
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
+
+        /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
+        RateLimit auto_stop_ratelimit;
 
         /* Cached unit file state and preset */
         UnitFileState unit_file_state;
         int unit_file_preset;
+
+        /* Where the cpuacct.usage cgroup counter was at the time the unit was started */
+        nsec_t cpuacct_usage_base;
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
@@ -235,6 +231,9 @@ struct Unit {
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
         bool cgroup_subtree_mask_valid:1;
+
+        /* Did we already invoke unit_coldplug() for this unit? */
+        bool coldplugged:1;
 };
 
 struct UnitStatusMessageFormats {
@@ -249,13 +248,11 @@ typedef enum UnitSetPropertiesMode {
         UNIT_PERSISTENT = 2,
 } UnitSetPropertiesMode;
 
-#include "service.h"
 #include "socket.h"
 #include "busname.h"
 #include "target.h"
 #include "snapshot.h"
 #include "device.h"
-#include "mount.h"
 #include "automount.h"
 #include "swap.h"
 #include "timer.h"
@@ -402,7 +399,7 @@ struct UnitVTable {
 
         /* If this function is set and return false all jobs for units
          * of this type will immediately fail. */
-        bool (*supported)(Manager *m);
+        bool (*supported)(void);
 
         /* The interface name */
         const char *bus_interface;
@@ -601,25 +598,38 @@ int unit_make_transient(Unit *u);
 
 int unit_require_mounts_for(Unit *u, const char *path);
 
+bool unit_type_supported(UnitType t);
+
+static inline bool unit_supported(Unit *u) {
+        return unit_type_supported(u->type);
+}
+
+void unit_warn_if_dir_nonempty(Unit *u, const char* where);
+int unit_fail_if_symlink(Unit *u, const char* where);
+
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
-#define log_unit_full_errno(unit, level, error, ...) log_object_internal(level, error, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
-#define log_unit_full(unit, level, ...) log_unit_full_errno(unit, level, 0, __VA_ARGS__)
+#define log_unit_full(unit, level, error, ...)                          \
+        ({                                                              \
+                Unit *_u = (unit);                                      \
+                _u ? log_object_internal(level, error, __FILE__, __LINE__, __func__, _u->manager->unit_log_field, _u->id, ##__VA_ARGS__) : \
+                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+        })
 
-#define log_unit_debug(unit, ...)       log_unit_full(unit, LOG_DEBUG, __VA_ARGS__)
-#define log_unit_info(unit, ...)        log_unit_full(unit, LOG_INFO, __VA_ARGS__)
-#define log_unit_notice(unit, ...)      log_unit_full(unit, LOG_NOTICE, __VA_ARGS__)
-#define log_unit_warning(unit, ...)     log_unit_full(unit, LOG_WARNING, __VA_ARGS__)
-#define log_unit_error(unit, ...)       log_unit_full(unit, LOG_ERR, __VA_ARGS__)
+#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, 0, ##__VA_ARGS__)
+#define log_unit_error(unit, ...)   log_unit_full(unit, LOG_ERR, 0, ##__VA_ARGS__)
 
-#define log_unit_debug_errno(unit, error, ...)       log_unit_full_errno(unit, LOG_DEBUG, error, __VA_ARGS__)
-#define log_unit_info_errno(unit, error, ...)        log_unit_full_errno(unit, LOG_INFO, error, __VA_ARGS__)
-#define log_unit_notice_errno(unit, error, ...)      log_unit_full_errno(unit, LOG_NOTICE, error, __VA_ARGS__)
-#define log_unit_warning_errno(unit, error, ...)     log_unit_full_errno(unit, LOG_WARNING, error, __VA_ARGS__)
-#define log_unit_error_errno(unit, error, ...)       log_unit_full_errno(unit, LOG_ERR, error, __VA_ARGS__)
+#define log_unit_debug_errno(unit, error, ...)   log_unit_full(unit, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_unit_info_errno(unit, error, ...)    log_unit_full(unit, LOG_INFO, error, ##__VA_ARGS__)
+#define log_unit_notice_errno(unit, error, ...)  log_unit_full(unit, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_unit_warning_errno(unit, error, ...) log_unit_full(unit, LOG_WARNING, error, ##__VA_ARGS__)
+#define log_unit_error_errno(unit, error, ...)   log_unit_full(unit, LOG_ERR, error, ##__VA_ARGS__)
 
-#define log_unit_struct(unit, level, ...) log_struct(level, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
-#define log_unit_struct_errno(unit, level, error, ...) log_struct_errno(level, error, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
+#define LOG_UNIT_MESSAGE(unit, fmt, ...) "MESSAGE=%s: " fmt, (unit)->id, ##__VA_ARGS__
+#define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id

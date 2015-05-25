@@ -54,14 +54,14 @@ int lldp_read_chassis_id(tlv_packet *tlv,
 
                 break;
         default:
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 break;
         }
 
         *type = subtype;
 
  out1:
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
  out2:
         return r;
@@ -106,14 +106,14 @@ int lldp_read_port_id(tlv_packet *tlv,
 
                 break;
         default:
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 break;
         }
 
         *type = subtype;
 
  out1:
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
  out2:
         return r;
@@ -130,7 +130,7 @@ int lldp_read_ttl(tlv_packet *tlv, uint16_t *ttl) {
 
         r = tlv_packet_read_u16(tlv, ttl);
 
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
  out:
         return r;
@@ -155,7 +155,7 @@ int lldp_read_system_name(tlv_packet *tlv,
         *data = (char *) s;
 
  out:
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
         return r;
 }
@@ -179,7 +179,7 @@ int lldp_read_system_description(tlv_packet *tlv,
         *data = (char *) s;
 
  out:
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
         return r;
 }
@@ -203,7 +203,7 @@ int lldp_read_port_description(tlv_packet *tlv,
         *data = (char *) s;
 
  out:
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
         return r;
 }
@@ -224,7 +224,7 @@ int lldp_read_system_capability(tlv_packet *tlv, uint16_t *data) {
         return 0;
  out:
 
-        (void)lldp_tlv_packet_exit_container(tlv);
+        (void) lldp_tlv_packet_exit_container(tlv);
 
         return r;
 }

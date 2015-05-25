@@ -21,7 +21,6 @@
 ***/
 
 #include <errno.h>
-#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -33,6 +32,8 @@
 #include "pager.h"
 #include "build.h"
 #include "strv.h"
+#include "process-util.h"
+#include "terminal-util.h"
 
 static const char prefixes[] =
         "/etc\0"

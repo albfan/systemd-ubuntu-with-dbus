@@ -193,13 +193,25 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", u);
 }
 
-static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_KILL,
+                        "org.freedesktop.login1.manage",
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = seat_stop_sessions(s, true);
         if (r < 0)
@@ -208,13 +220,12 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_activate_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         const char *name;
         Session *session;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -236,12 +247,11 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_to(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         unsigned int to;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -259,11 +269,10 @@ static int method_switch_to(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_to_next(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -274,11 +283,10 @@ static int method_switch_to_next(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_to_previous(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -302,7 +310,7 @@ const sd_bus_vtable seat_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SwitchTo", "u", NULL, method_switch_to, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -24,12 +24,10 @@
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
 
-#include "unit.h"
 #include "path.h"
 #include "ratelimit.h"
 #include "kill.h"
 #include "exit-status.h"
-#include "failure-action.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -191,6 +189,8 @@ struct Service {
         bool forbid_restart:1;
         bool start_timeout_defined:1;
 
+        bool reset_cpu_usage:1;
+
         char *bus_name;
 
         char *status_text;
@@ -215,8 +215,6 @@ struct Service {
 };
 
 extern const UnitVTable service_vtable;
-
-struct Socket;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
 

@@ -26,8 +26,6 @@
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <getopt.h>
 
@@ -35,13 +33,11 @@
 #include "journal-file.h"
 #include "journald-native.h"
 #include "socket-util.h"
-#include "mkdir.h"
 #include "build.h"
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
 #include "conf-parser.h"
-#include "siphash24.h"
 
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
@@ -147,7 +143,7 @@ static int spawn_getter(const char *getter, const char *url) {
         _cleanup_strv_free_ char **words = NULL;
 
         assert(getter);
-        r = strv_split_quoted(&words, getter, false);
+        r = strv_split_quoted(&words, getter, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to split getter option: %m");
 
@@ -207,7 +203,7 @@ static int open_output(Writer *w, const char* host) {
                 log_error_errno(r, "Failed to open output journal %s: %m",
                                 output);
         else
-                log_info("Opened output file %s", w->journal->path);
+                log_debug("Opened output file %s", w->journal->path);
         return r;
 }
 
@@ -289,6 +285,8 @@ static int dispatch_raw_source_event(sd_event_source *event,
                                      int fd,
                                      uint32_t revents,
                                      void *userdata);
+static int dispatch_raw_source_until_block(sd_event_source *event,
+                                           void *userdata);
 static int dispatch_blocking_source_event(sd_event_source *event,
                                           void *userdata);
 static int dispatch_raw_connection_event(sd_event_source *event,
@@ -351,7 +349,7 @@ static int remove_source(RemoteServer *s, int fd) {
 
 static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
-        RemoteSource *source;
+        RemoteSource *source = NULL;
         int r;
 
         /* This takes ownership of name, even on failure, if own_name is true. */
@@ -376,8 +374,15 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
         r = sd_event_add_io(s->events, &source->event,
                             fd, EPOLLIN|EPOLLRDHUP|EPOLLPRI,
-                            dispatch_raw_source_event, s);
-        if (r == -EPERM) {
+                            dispatch_raw_source_event, source);
+        if (r == 0) {
+                /* Add additional source for buffer processing. It will be
+                 * enabled later. */
+                r = sd_event_add_defer(s->events, &source->buffer_event,
+                                       dispatch_raw_source_until_block, source);
+                if (r == 0)
+                        sd_event_source_set_enabled(source->buffer_event, SD_EVENT_OFF);
+        } else if (r == -EPERM) {
                 log_debug("Falling back to sd_event_add_defer for fd:%d (%s)", fd, name);
                 r = sd_event_add_defer(s->events, &source->event,
                                        dispatch_blocking_source_event, source);
@@ -511,7 +516,7 @@ static int process_http_upload(
 
         while (true) {
                 r = process_source(source, arg_compress, arg_seal);
-                if (r == -EAGAIN || r == -EWOULDBLOCK)
+                if (r == -EAGAIN)
                         break;
                 else if (r < 0) {
                         log_warning("Failed to process data for connection %p", connection);
@@ -693,7 +698,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info) {
                 log_error("µhttp returned NULL daemon info");
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 goto error;
         }
 
@@ -747,7 +752,7 @@ static int setup_microhttpd_socket(RemoteServer *s,
                                    const char *trust) {
         int fd;
 
-        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM | SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM | SOCK_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -844,7 +849,7 @@ static int remoteserver_init(RemoteServer *s,
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
         else
-                log_info("Received %d descriptors", n);
+                log_debug("Received %d descriptors", n);
 
         if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n) {
                 log_error("Received fewer sockets than expected");
@@ -853,7 +858,7 @@ static int remoteserver_init(RemoteServer *s,
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
-                        log_info("Received a listening socket (fd:%d)", fd);
+                        log_debug("Received a listening socket (fd:%d)", fd);
 
                         if (fd == http_socket)
                                 r = setup_microhttpd_server(s, fd, NULL, NULL, NULL);
@@ -868,7 +873,7 @@ static int remoteserver_init(RemoteServer *s,
                         if (r < 0)
                                 return log_error_errno(r, "Failed to retrieve remote name: %m");
 
-                        log_info("Received a connection socket (fd:%d) from %s", fd, hostname);
+                        log_debug("Received a connection socket (fd:%d) from %s", fd, hostname);
 
                         r = add_source(s, fd, hostname, true);
                 } else {
@@ -908,7 +913,7 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         if (arg_listen_raw) {
-                log_info("Listening on a socket...");
+                log_debug("Listening on a socket...");
                 r = setup_raw_socket(s, arg_listen_raw);
                 if (r < 0)
                         return r;
@@ -930,12 +935,12 @@ static int remoteserver_init(RemoteServer *s,
                 const char *output_name;
 
                 if (streq(*file, "-")) {
-                        log_info("Using standard input as source.");
+                        log_debug("Using standard input as source.");
 
                         fd = STDIN_FILENO;
                         output_name = "stdin";
                 } else {
-                        log_info("Reading file %s...", *file);
+                        log_debug("Reading file %s...", *file);
 
                         fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                         if (fd < 0)
@@ -997,14 +1002,17 @@ static void server_destroy(RemoteServer *s) {
  **********************************************************************
  **********************************************************************/
 
-static int dispatch_raw_source_event(sd_event_source *event,
-                                     int fd,
-                                     uint32_t revents,
-                                     void *userdata) {
+static int handle_raw_source(sd_event_source *event,
+                             int fd,
+                             uint32_t revents,
+                             RemoteServer *s) {
 
-        RemoteServer *s = userdata;
         RemoteSource *source;
         int r;
+
+        /* Returns 1 if there might be more data pending,
+         * 0 if data is currently exhausted, negative on error.
+         */
 
         assert(fd >= 0 && fd < (ssize_t) s->sources_size);
         source = s->sources[fd];
@@ -1014,33 +1022,70 @@ static int dispatch_raw_source_event(sd_event_source *event,
         if (source->state == STATE_EOF) {
                 size_t remaining;
 
-                log_info("EOF reached with source fd:%d (%s)",
-                         source->fd, source->name);
+                log_debug("EOF reached with source fd:%d (%s)",
+                          source->fd, source->name);
 
                 remaining = source_non_empty(source);
                 if (remaining > 0)
-                        log_warning("Premature EOF. %zu bytes lost.", remaining);
+                        log_notice("Premature EOF. %zu bytes lost.", remaining);
                 remove_source(s, source->fd);
-                log_info("%zu active sources remaining", s->active);
+                log_debug("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
-                log_error("Entry too big, skipped");
+                log_notice_errno(E2BIG, "Entry too big, skipped");
                 return 1;
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
-                log_info_errno(r, "Closing connection: %m");
+                log_debug_errno(r, "Closing connection: %m");
                 remove_source(server, fd);
                 return 0;
         } else
                 return 1;
 }
 
+static int dispatch_raw_source_until_block(sd_event_source *event,
+                                           void *userdata) {
+        RemoteSource *source = userdata;
+        int r;
+
+        /* Make sure event stays around even if source is destroyed */
+        sd_event_source_ref(event);
+
+        r = handle_raw_source(event, source->fd, EPOLLIN, server);
+        if (r != 1)
+                /* No more data for now */
+                sd_event_source_set_enabled(event, SD_EVENT_OFF);
+
+        sd_event_source_unref(event);
+
+        return r;
+}
+
+static int dispatch_raw_source_event(sd_event_source *event,
+                                     int fd,
+                                     uint32_t revents,
+                                     void *userdata) {
+        RemoteSource *source = userdata;
+        int r;
+
+        assert(source->event);
+        assert(source->buffer_event);
+
+        r = handle_raw_source(event, fd, EPOLLIN, server);
+        if (r == 1)
+                /* Might have more data. We need to rerun the handler
+                 * until we are sure the buffer is exhausted. */
+                sd_event_source_set_enabled(source->buffer_event, SD_EVENT_ON);
+
+        return r;
+}
+
 static int dispatch_blocking_source_event(sd_event_source *event,
                                           void *userdata) {
         RemoteSource *source = userdata;
 
-        return dispatch_raw_source_event(event, source->fd, EPOLLIN, server);
+        return handle_raw_source(event, source->fd, EPOLLIN, server);
 }
 
 static int accept_connection(const char* type, int fd,
@@ -1071,10 +1116,10 @@ static int accept_connection(const char* type, int fd,
                         return r;
                 }
 
-                log_info("Accepted %s %s connection from %s",
-                         type,
-                         socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
-                         a);
+                log_debug("Accepted %s %s connection from %s",
+                          type,
+                          socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
+                          a);
 
                 *hostname = b;
 
@@ -1099,7 +1144,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
                 .size = sizeof(union sockaddr_union),
                 .type = SOCK_STREAM,
         };
-        char *hostname;
+        char *hostname = NULL;
 
         fd2 = accept_connection("raw", fd, &addr, &hostname);
         if (fd2 < 0)
@@ -1458,31 +1503,6 @@ static int load_certificates(char **key, char **cert, char **trust) {
         return 0;
 }
 
-static int setup_gnutls_logger(char **categories) {
-        if (!arg_listen_http && !arg_listen_https)
-                return 0;
-
-#ifdef HAVE_GNUTLS
-        {
-                char **cat;
-                int r;
-
-                gnutls_global_set_log_function(log_func_gnutls);
-
-                if (categories) {
-                        STRV_FOREACH(cat, categories) {
-                                r = log_enable_gnutls_category(*cat);
-                                if (r < 0)
-                                        return r;
-                        }
-                } else
-                        log_reset_gnutls_level();
-        }
-#endif
-
-        return 0;
-}
-
 int main(int argc, char **argv) {
         RemoteServer s = {};
         int r;
@@ -1499,9 +1519,12 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-        r = setup_gnutls_logger(arg_gnutls_log);
-        if (r < 0)
-                return EXIT_FAILURE;
+
+        if (arg_listen_http || arg_listen_https) {
+                r = setup_gnutls_logger(arg_gnutls_log);
+                if (r < 0)
+                        return EXIT_FAILURE;
+        }
 
         if (arg_listen_https || https_socket >= 0)
                 if (load_certificates(&key, &cert, &trust) < 0)

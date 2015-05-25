@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 
+#include "process-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "cgroup-util.h"
@@ -907,7 +908,7 @@ int manager_setup_cgroup(Manager *m) {
         /* LEGACY: Already in /system.slice? If so, let's cut this
          * off. This is to support live upgrades from older systemd
          * versions where PID 1 was moved there. */
-        if (m->running_as == SYSTEMD_SYSTEM) {
+        if (m->running_as == MANAGER_SYSTEM) {
                 char *e;
 
                 e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
@@ -932,7 +933,7 @@ int manager_setup_cgroup(Manager *m) {
         if (!m->test_run) {
 
                 /* 3. Install agent */
-                if (m->running_as == SYSTEMD_SYSTEM) {
+                if (m->running_as == MANAGER_SYSTEM) {
                         r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to install release agent, ignoring: %m");
@@ -1029,16 +1030,100 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         assert(cgroup);
 
         u = manager_get_unit_by_cgroup(m, cgroup);
-        if (u) {
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
-                if (r > 0) {
-                        if (UNIT_VTABLE(u)->notify_cgroup_empty)
-                                UNIT_VTABLE(u)->notify_cgroup_empty(u);
+        if (!u)
+                return 0;
 
-                        unit_add_to_gc_queue(u);
-                }
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
+        if (r <= 0)
+                return r;
+
+        if (UNIT_VTABLE(u)->notify_cgroup_empty)
+                UNIT_VTABLE(u)->notify_cgroup_empty(u);
+
+        unit_add_to_gc_queue(u);
+        return 0;
+}
+
+int unit_get_memory_current(Unit *u, uint64_t *ret) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        if ((u->cgroup_realized_mask & CGROUP_MEMORY) == 0)
+                return -ENODATA;
+
+        r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        return safe_atou64(v, ret);
+}
+
+static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
+        _cleanup_free_ char *v = NULL;
+        uint64_t ns;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        if ((u->cgroup_realized_mask & CGROUP_CPUACCT) == 0)
+                return -ENODATA;
+
+        r = cg_get_attribute("cpuacct", u->cgroup_path, "cpuacct.usage", &v);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(v, &ns);
+        if (r < 0)
+                return r;
+
+        *ret = ns;
+        return 0;
+}
+
+int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
+        nsec_t ns;
+        int r;
+
+        r = unit_get_cpu_usage_raw(u, &ns);
+        if (r < 0)
+                return r;
+
+        if (ns > u->cpuacct_usage_base)
+                ns -= u->cpuacct_usage_base;
+        else
+                ns = 0;
+
+        *ret = ns;
+        return 0;
+}
+
+int unit_reset_cpu_usage(Unit *u) {
+        nsec_t ns;
+        int r;
+
+        assert(u);
+
+        r = unit_get_cpu_usage_raw(u, &ns);
+        if (r < 0) {
+                u->cpuacct_usage_base = 0;
+                return r;
         }
 
+        u->cpuacct_usage_base = ns;
         return 0;
 }
 

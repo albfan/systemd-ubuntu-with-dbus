@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RUN" "1" "" "systemd 219" "systemd-run"
+.TH "SYSTEMD\-RUN" "1" "" "systemd 220" "systemd-run"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -205,6 +205,13 @@ but only for created timer unit\&. This option only has effect in conjunction wi
 command\&.
 .RE
 .PP
+\fB\-\-no\-block\fR
+.RS 4
+Do not synchronously wait for the requested operation to finish\&. If this is not specified, the job will be verified, enqueued and
+\fBsystemd\-run\fR
+will wait until the unit\*(Aqs start\-up is completed\&. By passing this argument, it is only verified and enqueued\&.
+.RE
+.PP
 \fB\-\-user\fR
 .RS 4
 Talk to the service manager of the calling user, rather than the service manager of the system\&.
@@ -291,11 +298,11 @@ The following command will touch a file after 30 seconds\&.
 Mon Dec  8 20:44:24 KST 2014
 Running as unit run\-71\&.timer\&.
 Will run as unit run\-71\&.service\&.
-# journalctl \-b \-u run\-73\&.timer
+# journalctl \-b \-u run\-71\&.timer
 \-\- Logs begin at Fri 2014\-12\-05 19:09:21 KST, end at Mon 2014\-12\-08 20:44:54 KST\&. \-\-
 Dec 08 20:44:38 container systemd[1]: Starting /bin/touch /tmp/foo\&.
 Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo\&.
-# journalctl \-b \-u run\-73\&.service
+# journalctl \-b \-u run\-71\&.service
 \-\- Logs begin at Fri 2014\-12\-05 19:09:21 KST, end at Mon 2014\-12\-08 20:44:54 KST\&. \-\-
 Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo\&.\&.\&.
 Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo\&.

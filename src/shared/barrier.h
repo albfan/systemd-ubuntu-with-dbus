@@ -21,14 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 
 #include "macro.h"
-#include "util.h"
 
 /* See source file for an API description. */
 
@@ -91,6 +86,6 @@ static inline bool barrier_is_aborted(Barrier *b) {
 }
 
 static inline bool barrier_place_and_sync(Barrier *b) {
-        (void)barrier_place(b);
+        (void) barrier_place(b);
         return barrier_sync(b);
 }

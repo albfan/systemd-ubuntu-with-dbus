@@ -20,13 +20,11 @@
 ***/
 
 #include <stdlib.h>
-#include <getopt.h>
 
 #include "manager.h"
 #include "bus-util.h"
 #include "log.h"
 #include "strv.h"
-#include "build.h"
 #include "pager.h"
 #include "analyze-verify.h"
 
@@ -74,8 +72,7 @@ static int verify_socket(Unit *u) {
         /* This makes sure instance is created if necessary. */
         r = socket_instantiate_service(SOCKET(u));
         if (r < 0) {
-                log_unit_error(u->id, "Socket %s cannot be started, failed to create instance.",
-                               u->id);
+                log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
                 return r;
         }
 
@@ -84,11 +81,10 @@ static int verify_socket(Unit *u) {
                 Service *service;
 
                 service = SERVICE(UNIT_DEREF(SOCKET(u)->service));
-                log_unit_debug(u->id, "%s uses %s", u->id, UNIT(service)->id);
+                log_unit_debug(u, "Using %s", UNIT(service)->id);
 
                 if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_unit_error(u->id, "Service %s not loaded, %s cannot be started.",
-                                       UNIT(service)->id, u->id);
+                        log_unit_error(u, "Service %s not loaded, %s cannot be started.", UNIT(service)->id, u->id);
                         return -ENOENT;
                 }
         }
@@ -100,11 +96,8 @@ static int verify_executable(Unit *u, ExecCommand *exec) {
         if (exec == NULL)
                 return 0;
 
-        if (access(exec->path, X_OK) < 0) {
-                log_unit_error(u->id, "%s: command %s is not executable: %m",
-                               u->id, exec->path);
-                return -errno;
-        }
+        if (access(exec->path, X_OK) < 0)
+                return log_unit_error_errno(u, errno, "Command %s is not executable: %m", exec->path);
 
         return 0;
 }
@@ -145,16 +138,15 @@ static int verify_documentation(Unit *u, bool check_man) {
         int r = 0, k;
 
         STRV_FOREACH(p, u->documentation) {
-                log_unit_debug(u->id, "%s: found documentation item %s.", u->id, *p);
+                log_unit_debug(u, "Found documentation item: %s", *p);
+
                 if (check_man && startswith(*p, "man:")) {
                         k = show_man_page(*p + 4, true);
                         if (k != 0) {
                                 if (k < 0)
-                                        log_unit_error(u->id, "%s: can't show %s: %s",
-                                                       u->id, *p, strerror(-r));
+                                        log_unit_error_errno(u, r, "Can't show %s: %m", *p);
                                 else {
-                                        log_unit_error(u->id, "%s: man %s command failed with code %d",
-                                                       u->id, *p + 4, k);
+                                        log_unit_error_errno(u, r, "man %s command failed with code %d", *p + 4, k);
                                         k = -ENOEXEC;
                                 }
                                 if (r == 0)
@@ -178,14 +170,12 @@ static int verify_unit(Unit *u, bool check_man) {
         if (log_get_max_level() >= LOG_DEBUG)
                 unit_dump(u, stdout, "\t");
 
-        log_unit_debug(u->id, "Creating %s/start job", u->id);
+        log_unit_debug(u, "Creating %s/start job", u->id);
         r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, false, &err, &j);
         if (sd_bus_error_is_set(&err))
-                log_unit_error(u->id, "Error: %s: %s",
-                               err.name, err.message);
+                log_unit_error(u, "Error: %s: %s", err.name, err.message);
         if (r < 0)
-                log_unit_error(u->id, "Failed to create %s/start: %s",
-                               u->id, strerror(-r));
+                log_unit_error_errno(u, r, "Failed to create %s/start: %m", u->id);
 
         k = verify_socket(u);
         if (k < 0 && r == 0)
@@ -202,7 +192,7 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) {
+int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         FILE *serial = NULL;
@@ -228,7 +218,7 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
 
         r = manager_new(running_as, true, &m);
         if (r < 0)
-                return log_error_errno(r, "Failed to initalize manager: %m");
+                return log_error_errno(r, "Failed to initialize manager: %m");
 
         log_debug("Starting manager...");
 

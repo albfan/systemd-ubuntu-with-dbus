@@ -23,7 +23,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 #include <sys/xattr.h>
 
 #ifdef HAVE_ELFUTILS
@@ -44,12 +43,12 @@
 #include "conf-parser.h"
 #include "copy.h"
 #include "stacktrace.h"
-#include "path-util.h"
 #include "compress.h"
 #include "acl-util.h"
 #include "capability.h"
 #include "journald-native.h"
 #include "coredump-vacuum.h"
+#include "process-util.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
@@ -244,7 +243,7 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
 
 static int make_filename(const char *info[_INFO_LEN], char **ret) {
         _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
-        sd_id128_t boot;
+        sd_id128_t boot = {};
         int r;
 
         assert(info);
@@ -843,7 +842,7 @@ log:
         /* Optionally store the entire coredump in the journal */
         if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&
             coredump_size <= (off_t) arg_journal_size_max) {
-                size_t sz;
+                size_t sz = 0;
 
                 /* Store the coredump itself in the journal */
 

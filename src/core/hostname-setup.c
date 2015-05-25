@@ -19,39 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
-#include <string.h>
 #include <stdlib.h>
 
-#include "hostname-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"
 #include "fileio.h"
-
-static int read_and_strip_hostname(const char *path, char **hn) {
-        char *s;
-        int r;
-
-        assert(path);
-        assert(hn);
-
-        r = read_one_line_file(path, &s);
-        if (r < 0)
-                return r;
-
-        hostname_cleanup(s, false);
-
-        if (isempty(s)) {
-                free(s);
-                return -ENOENT;
-        }
-
-        *hn = s;
-        return 0;
-}
+#include "hostname-util.h"
+#include "hostname-setup.h"
 
 int hostname_setup(void) {
         int r;
@@ -59,7 +36,7 @@ int hostname_setup(void) {
         const char *hn;
         bool enoent = false;
 
-        r = read_and_strip_hostname("/etc/hostname", &b);
+        r = read_hostname_config("/etc/hostname", &b);
         if (r < 0) {
                 if (r == -ENOENT)
                         enoent = true;

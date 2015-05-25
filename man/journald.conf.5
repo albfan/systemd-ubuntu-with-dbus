@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALD\&.CONF" "5" "" "systemd 219" "journald.conf"
+.TH "JOURNALD\&.CONF" "5" "" "systemd 220" "journald.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,33 +36,21 @@ These files configure various parameters of the systemd journal service,
 \fBsystemd-journald.service\fR(8)\&.
 .SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
 .PP
-Configuration files are read from directories in
-/etc/,
-/run/, and
-/usr/lib/, in order of precedence\&. Each configuration file in these configuration directories shall be named in the style of
-\fIfilename\fR\&.conf\&. Files in
-/etc/
-override files with the same name in
-/run/
-and
-/usr/lib/\&. Files in
-/run/
-override files with the same name in
-/usr/lib/\&.
+Default configuration is defined during compilation, so a configuration file is only needed when it is necessary to deviate from those defaults\&. By default the configuration file in
+/etc/systemd/
+contains commented out entries showing the defaults as a guide to the administrator\&. This file can be edited to create local overrides\&.
 .PP
-Packages should install their configuration files in
-/usr/lib/\&. Files in
+When packages need to customize the configuration, they can install configuration snippets in
+/usr/lib/systemd/*\&.conf\&.d/\&. Files in
 /etc/
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name will take precedence\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. The main configuration file is read before any of the configuration directories, and has the lowest precedence; entries in a file in any configuration directory override entries in the single configuration file\&. Files in the
+*\&.conf\&.d/
+configuration subdirectories are sorted by their filename in lexicographic order, regardless of which of the subdirectories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name takes precedence\&. It is recommended to prefix all filenames in those subdirectories with a two\-digit number and a dash, to simplify the ordering of the files\&.
 .PP
-If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+To disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
 in the configuration directory in
 /etc/, with the same filename as the vendor configuration file\&.
-.SH "CONFIGURATION FILE"
-.PP
-Configuration is also read from a single configuration file in
-/etc/\&. This file is read before any of the configuration directories, and has the lowest precedence; entries in a file in any configuration directory override entries in the single configuration file\&.
 .SH "OPTIONS"
 .PP
 All options are configured in the
@@ -92,7 +80,7 @@ but the directory
 /var/log/journal
 is not created if needed, so that its existence controls where log data goes\&.
 "none"
-turns off all storage, all log data received will be dropped\&. Forwarding to other targets, such as the console, the kernel log buffer or a syslog daemon will still work however\&. Defaults to
+turns off all storage, all log data received will be dropped\&. Forwarding to other targets, such as the console, the kernel log buffer, or a syslog socket will still work however\&. Defaults to
 "auto"\&.
 .RE
 .PP
@@ -223,11 +211,10 @@ The timeout before synchronizing journal files to disk\&. After syncing, journal
 .PP
 \fIForwardToSyslog=\fR, \fIForwardToKMsg=\fR, \fIForwardToConsole=\fR, \fIForwardToWall=\fR
 .RS 4
-Control whether log messages received by the journal daemon shall be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall messages to all logged\-in users\&. These options take boolean arguments\&. If forwarding to syslog is enabled but no syslog daemon is running, the respective option has no effect\&. By default, only forwarding wall is enabled\&. These settings may be overridden at boot time with the kernel command line options
+Control whether log messages received by the journal daemon shall be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall messages to all logged\-in users\&. These options take boolean arguments\&. If forwarding to syslog is enabled but nothing reads messages from the socket, forwarding to syslog has no effect\&. By default, only forwarding to wall is enabled\&. These settings may be overridden at boot time with the kernel command line options
 "systemd\&.journald\&.forward_to_syslog=",
 "systemd\&.journald\&.forward_to_kmsg=",
-"systemd\&.journald\&.forward_to_console="
-and
+"systemd\&.journald\&.forward_to_console=", and
 "systemd\&.journald\&.forward_to_wall="\&. When forwarding to the console, the TTY to log to can be changed with
 \fITTYPath=\fR, described below\&.
 .RE
@@ -266,6 +253,20 @@ Change the console TTY to use if
 is used\&. Defaults to
 /dev/console\&.
 .RE
+.SH "FORWARDING TO TRADITIONAL SYSLOG DAEMONS"
+.PP
+Journal events can be transferred to a different logging daemon in two different ways\&. In the first method, messages are immediately forwarded to a socket (/run/systemd/journal/syslog), where the traditional syslog daemon can read them\&. This method is controlled by
+\fIForwardToSyslog=\fR
+option\&. In a second method, a syslog daemon behaves like a normal journal client, and reads messages from the journal files, similarly to
+\fBjournalctl\fR(1)\&. In this method, messages do not have to be read immediately, which allows a logging daemon which is only started late in boot to access all messages since the start of the system\&. In addition, full structured meta\-data is available to it\&. This method of course is available only if the messages are stored in a journal file at all\&. So it will not work if
+\fIStorage=none\fR
+is set\&. It should be noted that usually the
+\fIsecond\fR
+method is used by syslog daemons, so the
+\fIStorage=\fR
+option, and not the
+\fIForwardToSyslog=\fR
+option, is relevant for them\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

@@ -19,18 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
 
 #ifdef HAVE_KMOD
 #include <libkmod.h>
 #endif
 
 #include "macro.h"
-#include "execute.h"
 #include "capability.h"
+#include "bus-util.h"
 #include "kmod-setup.h"
 
 #ifdef HAVE_KMOD
@@ -47,10 +45,6 @@ static void systemd_kmod_log(
         log_internalv(LOG_DEBUG, 0, file, line, fn, format, args);
         REENABLE_WARNING;
 }
-
-static bool cmdline_check_kdbus(void) {
-        return get_proc_cmdline_key("kdbus", NULL) > 0;
-}
 #endif
 
 int kmod_setup(void) {
@@ -63,16 +57,23 @@ int kmod_setup(void) {
                 bool (*condition_fn)(void);
         } kmod_table[] = {
                 /* auto-loading on use doesn't work before udev is up */
-                { "autofs4", "/sys/class/misc/autofs", true, NULL                 },
+                { "autofs4",   "/sys/class/misc/autofs",    true,  NULL                },
 
                 /* early configure of ::1 on the loopback device */
-                { "ipv6",    "/sys/module/ipv6",       true, NULL                 },
+                { "ipv6",      "/sys/module/ipv6",          true,  NULL                },
 
                 /* this should never be a module */
-                { "unix",    "/proc/net/unix",         true, NULL                 },
+                { "unix",      "/proc/net/unix",            true,  NULL                },
 
+#ifdef ENABLE_KDBUS
                 /* IPC is needed before we bring up any other services */
-                { "kdbus",   "/sys/fs/kdbus",          false, cmdline_check_kdbus },
+                { "kdbus",     "/sys/fs/kdbus",             false, is_kdbus_wanted     },
+#endif
+
+#ifdef HAVE_LIBIPTC
+                /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
+                { "ip_tables", "/proc/net/ip_tables_names", false, NULL                },
+#endif
         };
         struct kmod_ctx *ctx = NULL;
         unsigned int i;

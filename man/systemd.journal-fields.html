@@ -19,14 +19,14 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.journal-fields"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.journal-fields — Special journal fields</p></div><div class="refsect1"><a name="idm139894911856720"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Entries in the journal resemble an environment block in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.journal-fields"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.journal-fields — Special journal fields</p></div><div class="refsect1"><a name="idm140018127926496"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Entries in the journal resemble an environment block in
     their syntax but with fields that can include binary data.
     Primarily, fields are formatted UTF-8 text strings, and binary
     formatting is used only where formatting as UTF-8 text strings
     makes little sense. New fields may freely be defined by
     applications, but a few fields have special meaning. All fields
     with special meanings are optional. In some cases, fields may
-    appear more than once per entry.</p></div><div class="refsect1"><a name="idm139894908072976"></a><h2 id="User Journal Fields">User Journal Fields<a class="headerlink" title="Permalink to this headline" href="#User%20Journal%20Fields">¶</a></h2><p>User fields are fields that are directly passed from clients
+    appear more than once per entry.</p></div><div class="refsect1"><a name="idm140018127924816"></a><h2 id="User Journal Fields">User Journal Fields<a class="headerlink" title="Permalink to this headline" href="#User%20Journal%20Fields">¶</a></h2><p>User fields are fields that are directly passed from clients
     and stored in the journal.</p><div class="variablelist"><dl class="variablelist"><dt id="MESSAGE="><span class="term"><code class="varname">MESSAGE=</code></span><a class="headerlink" title="Permalink to this term" href="#MESSAGE=">¶</a></dt><dd><p>The human-readable message string for this entry. This
           is supposed to be the primary text shown to the user. It is
           usually not translated (but might be in some cases), and is
@@ -52,7 +52,7 @@
           derived from glibc's
           <code class="varname">program_invocation_short_name</code> variable,
           see
-          <a href="program_invocation_short_name.html"><span class="citerefentry"><span class="refentrytitle">program_invocation_short_name</span>(3)</span></a>.)</p></dd></dl></div></div><div class="refsect1"><a name="idm139894911953200"></a><h2 id="Trusted Journal Fields">Trusted Journal Fields<a class="headerlink" title="Permalink to this headline" href="#Trusted%20Journal%20Fields">¶</a></h2><p>Fields prefixed with an underscore are trusted fields, i.e.
+          <a href="http://linux.die.net/man/3/program_invocation_short_name"><span class="citerefentry"><span class="refentrytitle">program_invocation_short_name</span>(3)</span></a>.)</p></dd></dl></div></div><div class="refsect1"><a name="idm140018123002528"></a><h2 id="Trusted Journal Fields">Trusted Journal Fields<a class="headerlink" title="Permalink to this headline" href="#Trusted%20Journal%20Fields">¶</a></h2><p>Fields prefixed with an underscore are trusted fields, i.e.
     fields that are implicitly added by the journal and cannot be
     altered by client code.</p><div class="variablelist"><dl class="variablelist"><dt id="_PID="><span class="term"><code class="varname">_PID=</code>, </span><span class="term"><code class="varname">_UID=</code>, </span><span class="term"><code class="varname">_GID=</code></span><a class="headerlink" title="Permalink to this term" href="#_PID=">¶</a></dt><dd><p>The process, user, and group ID of the process the
           journal entry originates from formatted as a decimal
@@ -103,7 +103,7 @@
               "><span class="term">
                 <code class="option">kernel</code>
               </span><a class="headerlink" title="Permalink to this term" href="#%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20kernel%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20">¶</a></dt><dd><p>for those read from the kernel
-                </p></dd></dl></div></dd></dl></div></div><div class="refsect1"><a name="idm139894906994224"></a><h2 id="Kernel Journal Fields">Kernel Journal Fields<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Journal%20Fields">¶</a></h2><p>Kernel fields are fields that are used by messages
+                </p></dd></dl></div></dd></dl></div></div><div class="refsect1"><a name="idm140018122963760"></a><h2 id="Kernel Journal Fields">Kernel Journal Fields<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Journal%20Fields">¶</a></h2><p>Kernel fields are fields that are used by messages
     originating in the kernel and stored in the journal.</p><div class="variablelist"><dl class="variablelist"><dt id="_KERNEL_DEVICE="><span class="term"><code class="varname">_KERNEL_DEVICE=</code></span><a class="headerlink" title="Permalink to this term" href="#_KERNEL_DEVICE=">¶</a></dt><dd><p>The kernel device name. If the entry is associated to
           a block device, the major and minor of the device node,
           separated by "<code class="literal">:</code>" and prefixed by
@@ -116,14 +116,14 @@
           tree below <code class="filename">/sys</code>.</p></dd><dt id="_UDEV_DEVNODE="><span class="term"><code class="varname">_UDEV_DEVNODE=</code></span><a class="headerlink" title="Permalink to this term" href="#_UDEV_DEVNODE=">¶</a></dt><dd><p>The device node path of this device in
           <code class="filename">/dev</code>.</p></dd><dt id="_UDEV_DEVLINK="><span class="term"><code class="varname">_UDEV_DEVLINK=</code></span><a class="headerlink" title="Permalink to this term" href="#_UDEV_DEVLINK=">¶</a></dt><dd><p>Additional symlink names pointing to the device node
           in <code class="filename">/dev</code>. This field is frequently set
-          more than once per entry.</p></dd></dl></div></div><div class="refsect1"><a name="idm139894906978032"></a><h2 id="Fields to log on behalf of a different program">Fields to log on behalf of a different program<a class="headerlink" title="Permalink to this headline" href="#Fields%20to%20log%20on%20behalf%20of%20a%20different%20program">¶</a></h2><p>Fields in this section are used by programs to specify that
+          more than once per entry.</p></dd></dl></div></div><div class="refsect1"><a name="idm140018122947472"></a><h2 id="Fields to log on behalf of a different program">Fields to log on behalf of a different program<a class="headerlink" title="Permalink to this headline" href="#Fields%20to%20log%20on%20behalf%20of%20a%20different%20program">¶</a></h2><p>Fields in this section are used by programs to specify that
     they are logging on behalf of another program or unit.
     </p><p>Fields used by the <span class="command"><strong>systemd-coredump</strong></span>
     coredump kernel helper:
     </p><div class="variablelist"><dl class="variablelist"><dt id="COREDUMP_UNIT="><span class="term"><code class="varname">COREDUMP_UNIT=</code>, </span><span class="term"><code class="varname">COREDUMP_USER_UNIT=</code></span><a class="headerlink" title="Permalink to this term" href="#COREDUMP_UNIT=">¶</a></dt><dd><p>Used to annotate messages containing coredumps from
           system and session units. See
           <a href="coredumpctl.html"><span class="citerefentry"><span class="refentrytitle">coredumpctl</span>(1)</span></a>.
-          </p></dd></dl></div><p>Priviledged programs (currently UID 0) may attach
+          </p></dd></dl></div><p>Privileged programs (currently UID 0) may attach
     <code class="varname">OBJECT_PID=</code> to a message. This will instruct
     <span class="command"><strong>systemd-journald</strong></span> to attach additional fields on
     behalf of the caller:</p><div class="variablelist"><dl class="variablelist"><dt id="OBJECT_PID=PID"><span class="term"><code class="varname">OBJECT_PID=<em class="replaceable"><code>PID</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#OBJECT_PID=PID">¶</a></dt><dd><p>PID of the program that this message pertains to.
@@ -144,7 +144,7 @@
           <code class="varname">_SYSTEMD_OWNER_UID=</code>
           as described above, except that the process identified by
           <em class="replaceable"><code>PID</code></em> is described, instead of the
-          process which logged the message.</p></dd></dl></div></div><div class="refsect1"><a name="idm139894906954848"></a><h2 id="Address Fields">Address Fields<a class="headerlink" title="Permalink to this headline" href="#Address%20Fields">¶</a></h2><p>During serialization into external formats, such as the
+          process which logged the message.</p></dd></dl></div></div><div class="refsect1"><a name="idm140018122924368"></a><h2 id="Address Fields">Address Fields<a class="headerlink" title="Permalink to this headline" href="#Address%20Fields">¶</a></h2><p>During serialization into external formats, such as the
     <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/export" target="_top">Journal
     Export Format</a> or the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/json" target="_top">Journal
     JSON Format</a>, the addresses of journal entries are
@@ -171,7 +171,7 @@
           formatted as a decimal string. To be useful as an address
           for the entry, this should be combined with the boot ID in
           "<code class="literal">_BOOT_ID=</code>".
-          </p></dd></dl></div></div><div class="refsect1"><a name="idm139894906942192"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+          </p></dd></dl></div></div><div class="refsect1"><a name="idm140018122911712"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,
         <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>,

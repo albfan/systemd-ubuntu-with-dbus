@@ -1,5 +1,5 @@
 '\" t
-.TH "FILE\-HIERARCHY" "7" "" "systemd 219" "file-hierarchy"
+.TH "FILE\-HIERARCHY" "7" "" "systemd 220" "file-hierarchy"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -161,26 +161,11 @@ for the primary architecture of the system, invoke:
 .RS 4
 .\}
 .nf
-# pkg\-config \-\-variable=libdir
-        systemd
+# systemd\-path system\-library\-arch
 .fi
 .if n \{\
 .RE
 .\}
-.sp
-or
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-# systemd\-path
-        system\-library\-arch
-.fi
-.if n \{\
-.RE
-.\}
-.sp
 .RE
 .PP
 /usr/share

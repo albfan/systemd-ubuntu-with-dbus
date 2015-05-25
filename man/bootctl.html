@@ -19,17 +19,26 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="bootctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootctl — Control the firmware and boot manager settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">bootctl</code>  [OPTIONS...] {COMMAND}</p></div></div><div class="refsect1"><a name="idm140378023982448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>bootctl</strong></span> may be used to query or (in the
-    future) change the firmware and boot manager settings.</p><p>Firmware information is available only on EFI systems.
-    </p><p>Currently, only the
-    <span class="citerefentry"><span class="refentrytitle">gummiboot</span>(8)</span>
-    boot manager implements the required boot loader interface to
-    provide complete boot manager information.</p></div><div class="refsect1"><a name="idm140378025972432"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="status"><span class="term"><span class="command"><strong>status</strong></span></span><a class="headerlink" title="Permalink to this term" href="#status">¶</a></dt><dd><p>Show firmware and boot manager information
-        about the system, including secure boot mode status and
-        selected firmware entry (where available).</p></dd></dl></div></div><div class="refsect1"><a name="idm140378024984608"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure code
-    otherwise.</p></div><div class="refsect1"><a name="idm140378024532128"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
-      <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface" target="_top">Boot loader interface</a>,
-      <a class="ulink" href="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec" target="_top">Boot loader specification</a>,
-      <a class="ulink" href="http://www.freedesktop.org/wiki/Software/gummiboot/" target="_top">gummiboot</a>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="bootctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootctl — Control the firmware and boot manager settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">bootctl [OPTIONS...]status</code> </p></div><div class="cmdsynopsis"><p><code class="command">bootctl [OPTIONS...]update</code> </p></div><div class="cmdsynopsis"><p><code class="command">bootctl [OPTIONS...]install</code> </p></div><div class="cmdsynopsis"><p><code class="command">bootctl [OPTIONS...]remove</code> </p></div></div><div class="refsect1"><a name="idm140657015801152"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>bootctl</strong></span> checks, updates,
+    installs or removes the boot loader from the current
+    system.</p><p><span class="command"><strong>bootctl status</strong></span> checks and prints the
+    currently installed versions of the boot loader binaries and the
+    all current EFI boot variables.</p><p><span class="command"><strong>bootctl update</strong></span> updates all installed
+    versions of systemd-boot, if the current version is newer than the
+    version installed in the EFI system partition. This also includes
+    the EFI default/fallback loader at /EFI/Boot/boot*.efi. A
+    systemd-boot entry in the EFI boot variables is created, if there
+    is no current entry. The created entry will be added to the end of
+    the boot order list.</p><p><span class="command"><strong>bootctl install</strong></span> installs systemd-boot into
+    the EFI system partition. A copy of systemd-boot will be stored as
+    the EFI default/fallback loader at /EFI/Boot/boot*.efi. A systemd-boot
+    entry in the EFI boot variables is created and added to the top
+    of the boot order list.</p><p><span class="command"><strong>bootctl remove</strong></span> removes all installed
+    versions of systemd-boot from the EFI system partition, and removes
+    systemd-boot from the EFI boot variables.</p><p>If no command is passed <span class="command"><strong>status</strong></span> is
+    implied.</p></div><div class="refsect1"><a name="idm140657015793984"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--path"><span class="term"><code class="option">--path</code></span><a class="headerlink" title="Permalink to this term" href="#--path">¶</a></dt><dd><p>Path to the EFI system partition. The default is /boot.</p></dd><dt id="--no-variables"><span class="term"><code class="option">--no-variables</code></span><a class="headerlink" title="Permalink to this term" href="#--no-variables">¶</a></dt><dd><p>Do not touch the EFI boot variables.</p></dd></dl></div></div><div class="refsect1"><a name="idm140657015788160"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm140657015787008"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a class="ulink" href="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec" target="_top">Boot loader specification</a>
+      <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface" target="_top">Systemd boot loader interface</a>
     </p></div></div></body></html>

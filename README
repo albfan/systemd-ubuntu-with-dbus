@@ -77,9 +77,10 @@ REQUIREMENTS:
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
-          CONFIG_TMPFS_POSIX_ACL
           CONFIG_TMPFS_XATTR
+          CONFIG_{TMPFS,EXT4,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
+          CONFIG_CHECKPOINT_RESTORE (for the kcmp() syscall)
 
         Required for CPUShares in resource control unit settings
           CONFIG_CGROUP_SCHED
@@ -110,7 +111,7 @@ REQUIREMENTS:
         with audit being enabled. This works correctly only on kernels
         3.14 and newer though. TL;DR: turn audit off, still.
 
-        glibc >= 2.14
+        glibc >= 2.16
         libcap
         libmount >= 2.20 (from util-linux)
         libseccomp >= 1.0.0 (optional)
@@ -143,6 +144,7 @@ REQUIREMENTS:
         When building from git, you need the following additional
         dependencies:
 
+        pkg-config
         docbook-xsl
         xsltproc
         automake

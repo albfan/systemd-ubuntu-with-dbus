@@ -24,19 +24,19 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <linux/vt.h>
-#include <sys/timerfd.h>
 
 #include "sd-daemon.h"
 #include "strv.h"
 #include "conf-parser.h"
-#include "mkdir.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind.h"
 #include "udev-util.h"
+#include "formats-util.h"
 
-Manager *manager_new(void) {
+static void manager_free(Manager *m);
+
+static Manager *manager_new(void) {
         Manager *m;
         int r;
 
@@ -57,6 +57,7 @@ Manager *manager_new(void) {
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->handle_lid_switch_docked = HANDLE_IGNORE;
         m->lid_switch_ignore_inhibited = true;
+        m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
 
         m->idle_action_usec = 30 * USEC_PER_MINUTE;
         m->idle_action = HANDLE_IGNORE;
@@ -101,7 +102,7 @@ fail:
         return NULL;
 }
 
-void manager_free(Manager *m) {
+static void manager_free(Manager *m) {
         Session *session;
         User *u;
         Device *d;
@@ -142,6 +143,10 @@ void manager_free(Manager *m) {
         set_free_free(m->busnames);
 
         sd_event_source_unref(m->idle_action_event_source);
+        sd_event_source_unref(m->inhibit_timeout_source);
+        sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        sd_event_source_unref(m->nologin_timeout_source);
+        sd_event_source_unref(m->wall_message_timeout_source);
 
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->udev_seat_event_source);
@@ -164,6 +169,9 @@ void manager_free(Manager *m) {
         if (m->udev)
                 udev_unref(m->udev);
 
+        if (m->unlink_nologin)
+                unlink("/run/nologin");
+
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         sd_bus_unref(m->bus);
@@ -174,6 +182,9 @@ void manager_free(Manager *m) {
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
+        free(m->scheduled_shutdown_type);
+        free(m->scheduled_shutdown_tty);
+        free(m->wall_message);
         free(m->action_job);
         free(m);
 }
@@ -890,7 +901,7 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-void manager_gc(Manager *m, bool drop_not_started) {
+static void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
@@ -1001,7 +1012,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         return 0;
 }
 
-int manager_startup(Manager *m) {
+static int manager_startup(Manager *m) {
         int r;
         Seat *seat;
         Session *session;
@@ -1032,7 +1043,7 @@ int manager_startup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add seat0: %m");
 
-        r = manager_set_lid_switch_ignore(m, 0 + IGNORE_LID_SWITCH_STARTUP_USEC);
+        r = manager_set_lid_switch_ignore(m, 0 + m->holdoff_timeout_usec);
         if (r < 0)
                 log_warning_errno(r, "Failed to set up lid switch ignore event source: %m");
 
@@ -1088,14 +1099,12 @@ int manager_startup(Manager *m) {
         return 0;
 }
 
-int manager_run(Manager *m) {
+static int manager_run(Manager *m) {
         int r;
 
         assert(m);
 
         for (;;) {
-                usec_t us = (uint64_t) -1;
-
                 r = sd_event_get_state(m->event);
                 if (r < 0)
                         return r;
@@ -1104,19 +1113,7 @@ int manager_run(Manager *m) {
 
                 manager_gc(m, true);
 
-                if (manager_dispatch_delayed(m) > 0)
-                        continue;
-
-                if (m->action_what != 0 && !m->action_job) {
-                        usec_t x, y;
-
-                        x = now(CLOCK_MONOTONIC);
-                        y = m->action_timestamp + m->inhibit_delay_max;
-
-                        us = x >= y ? 0 : y - x;
-                }
-
-                r = sd_event_run(m->event, us);
+                r = sd_event_run(m->event, (uint64_t) -1);
                 if (r < 0)
                         return r;
         }

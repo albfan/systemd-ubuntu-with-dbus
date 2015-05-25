@@ -24,8 +24,8 @@
 #include "sd-event.h"
 #include "sd-bus.h"
 #include "hashmap.h"
+#include "install.h"
 #include "time-util.h"
-#include "util.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
@@ -46,19 +46,9 @@ struct bus_properties_map {
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
-int bus_message_map_all_properties(sd_bus *bus,
-                                   sd_bus_message *m,
-                                   const struct bus_properties_map *map,
-                                   void *userdata);
-int bus_message_map_properties_changed(sd_bus *bus,
-                                       sd_bus_message *m,
-                                       const struct bus_properties_map *map,
-                                       void *userdata);
-int bus_map_all_properties(sd_bus *bus,
-                           const char *destination,
-                           const char *path,
-                           const struct bus_properties_map *map,
-                           void *userdata);
+int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map,  void *userdata);
+int bus_message_map_properties_changed(sd_bus_message *m, const struct bus_properties_map *map, void *userdata);
+int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map, void *userdata);
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name);
 
@@ -70,9 +60,9 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error);
 
 int bus_check_peercred(sd_bus *c);
 
-int bus_verify_polkit(sd_bus_message *call, int capability, const char *action, bool interactive, bool *_challenge, sd_bus_error *e);
+int bus_test_polkit(sd_bus_message *call, int capability, const char *action, uid_t good_user, bool *_challenge, sd_bus_error *e);
 
-int bus_verify_polkit_async(sd_bus_message *call, int capability, const char *action, bool interactive, Hashmap **registry, sd_bus_error *error);
+int bus_verify_polkit_async(sd_bus_message *call, int capability, const char *action, bool interactive, uid_t good_user, Hashmap **registry, sd_bus_error *error);
 void bus_verify_polkit_async_registry_free(Hashmap *registry);
 
 int bus_open_system_systemd(sd_bus **_bus);
@@ -208,7 +198,14 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
 void bus_wait_for_jobs_free(BusWaitForJobs *d);
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
 int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet);
+int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);
 
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, UnitFileChange **changes, unsigned *n_changes);
+
+int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);
+int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external);
+
+bool is_kdbus_wanted(void);
+bool is_kdbus_available(void);

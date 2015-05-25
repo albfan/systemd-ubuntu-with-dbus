@@ -295,7 +295,7 @@
       <varlistentry>
         <term><varname>root=</varname></term>
         <term><varname>rootfstype=</varname></term>
-        <term><varname>rootfsflags=</varname></term>
+        <term><varname>rootflags=</varname></term>
         <term><varname>ro</varname></term>
         <term><varname>rw</varname></term>
 
@@ -336,7 +336,7 @@
         <listitem>
           <para>Enables resume from hibernation using the specified
           device. All
-          <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
+          <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>

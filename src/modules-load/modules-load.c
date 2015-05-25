@@ -19,13 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <limits.h>
-#include <dirent.h>
 #include <getopt.h>
 #include <libkmod.h>
 
@@ -33,7 +30,6 @@
 #include "util.h"
 #include "strv.h"
 #include "conf-files.h"
-#include "fileio.h"
 #include "build.h"
 
 static char **arg_proc_cmdline_modules = NULL;
@@ -256,7 +252,7 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                _cleanup_free_ char **files = NULL;
+                _cleanup_strv_free_ char **files = NULL;
                 char **fn, **i;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {

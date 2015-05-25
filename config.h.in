@@ -1,8 +1,5 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Whether on mips arch */
-#undef ARCH_MIPS
-
 /* Canonical host string. */
 #undef CANONICAL_HOST
 
@@ -32,6 +29,9 @@
 
 /* Define if terminal support is to be enabled */
 #undef ENABLE_TERMINAL
+
+/* systemd */
+#undef GETTEXT_PACKAGE
 
 /* ACL available */
 #undef HAVE_ACL
@@ -70,6 +70,10 @@
 /* Define to 1 if you have the declaration of `gettid', and to 0 if you don't.
    */
 #undef HAVE_DECL_GETTID
+
+/* Define to 1 if you have the declaration of `IFA_FLAGS', and to 0 if you
+   don't. */
+#undef HAVE_DECL_IFA_FLAGS
 
 /* Define to 1 if you have the declaration of `IFLA_BOND_AD_INFO', and to 0 if
    you don't. */
@@ -127,6 +131,10 @@
    you don't. */
 #undef HAVE_DECL_NAME_TO_HANDLE_AT
 
+/* Define to 1 if you have the declaration of `NDA_IFINDEX', and to 0 if you
+   don't. */
+#undef HAVE_DECL_NDA_IFINDEX
+
 /* Define to 1 if you have the declaration of `pivot_root', and to 0 if you
    don't. */
 #undef HAVE_DECL_PIVOT_ROOT
@@ -165,6 +173,9 @@
 
 /* Define if glib is available */
 #undef HAVE_GLIB
+
+/* Define if gnuefi is available */
+#undef HAVE_GNUEFI
 
 /* Define if gnutls is available */
 #undef HAVE_GNUTLS

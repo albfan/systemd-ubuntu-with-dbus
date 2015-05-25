@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.UNIT" "5" "" "systemd 219" "systemd.unit"
+.TH "SYSTEMD\&.UNIT" "5" "" "systemd 220" "systemd.unit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -285,8 +285,8 @@ T}
 Additional units might be loaded into systemd ("linked") from directories not on the unit load path\&. See the
 \fBlink\fR
 command for
-\fBsystemctl\fR(1)\&. Also, some units are dynamically created via generators
-\m[blue]\fBGenerators\fR\m[]\&\s-2\u[3]\d\s+2\&.
+\fBsystemctl\fR(1)\&. Also, some units are dynamically created via a
+\fBsystemd.generator\fR(7)\&.
 .SH "[UNIT] SECTION OPTIONS"
 .PP
 Unit file may include a [Unit] section, which carries generic information about the unit that is not dependent on the type of unit:
@@ -980,7 +980,7 @@ T{
 T}:T{
 Host name
 T}:T{
-The hostname of the running system at the point in time the unit configuation is loaded\&.
+The hostname of the running system at the point in time the unit configuration is loaded\&.
 T}
 T{
 "%v"
@@ -1185,9 +1185,4 @@ XDG Desktop Entry Specification
 Interface Stability Promise
 .RS 4
 \%http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise
-.RE
-.IP " 3." 4
-Generators
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators/
 .RE

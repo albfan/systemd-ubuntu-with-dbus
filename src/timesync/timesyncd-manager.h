@@ -25,7 +25,6 @@
 #include "sd-resolve.h"
 #include "sd-network.h"
 #include "list.h"
-#include "socket-util.h"
 #include "ratelimit.h"
 
 typedef struct Manager Manager;
@@ -56,6 +55,7 @@ struct Manager {
         int missed_replies;
         uint64_t packet_count;
         sd_event_source *event_timeout;
+        bool good;
 
         /* last sent packet */
         struct timespec trans_time_mon;

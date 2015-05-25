@@ -19,14 +19,14 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="crypttab"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>crypttab — Configuration for encrypted block devices</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/crypttab</code></p></div><div class="refsect1"><a name="idm140688860579392"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/crypttab</code> file describes
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="crypttab"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>crypttab — Configuration for encrypted block devices</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/crypttab</code></p></div><div class="refsect1"><a name="idm140690977240896"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/crypttab</code> file describes
     encrypted block devices that are set up during system boot.</p><p>Empty lines and lines starting with the "<code class="literal">#</code>"
     character are ignored. Each of the remaining lines describes one
     encrypted block device, fields on the line are delimited by white
     space. The first two fields are mandatory, the remaining two are
     optional.</p><p>Setting up encrypted block devices using this file supports
     three encryption modes: LUKS, TrueCrypt and plain. See
-    <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+    <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
     for more information about each mode. When no mode is specified in
     the options field and the block device contains a LUKS signature,
     it is opened as a LUKS device; otherwise, it is assumed to be in
@@ -47,26 +47,35 @@
     options. The following options are recognized:</p><div class="variablelist"><dl class="variablelist"><dt id="discard"><span class="term"><code class="option">discard</code></span><a class="headerlink" title="Permalink to this term" href="#discard">¶</a></dt><dd><p>Allow discard requests to be passed through
         the encrypted block device. This improves performance on SSD
         storage but has security implications.</p></dd><dt id="cipher="><span class="term"><code class="option">cipher=</code></span><a class="headerlink" title="Permalink to this term" href="#cipher=">¶</a></dt><dd><p>Specifies the cipher to use. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values and the default value of this option. A
         cipher with unpredictable IV values, such as
         "<code class="literal">aes-cbc-essiv:sha256</code>", is
         recommended.</p></dd><dt id="hash="><span class="term"><code class="option">hash=</code></span><a class="headerlink" title="Permalink to this term" href="#hash=">¶</a></dt><dd><p>Specifies the hash to use for password
         hashing. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values and the default value of this
         option.</p></dd><dt id="header="><span class="term"><code class="option">header=</code></span><a class="headerlink" title="Permalink to this term" href="#header=">¶</a></dt><dd><p>Use a detached (separated) metadata device or
         file where the LUKS header is stored. This option is only
         relevant for LUKS devices. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values and the default value of this
-        option.</p></dd><dt id="keyfile-offset="><span class="term"><code class="option">keyfile-offset=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-offset=">¶</a></dt><dd><p>Specifies the number of bytes to skip at the
+        option.</p></dd><dt id="offset="><span class="term"><code class="option">offset=</code></span><a class="headerlink" title="Permalink to this term" href="#offset=">¶</a></dt><dd><p>Start offset in the backend device, in 512-byte sectors.
+        This option is only relevant for plain devices.
+        </p></dd><dt id="skip="><span class="term"><code class="option">skip=</code></span><a class="headerlink" title="Permalink to this term" href="#skip=">¶</a></dt><dd><p>How many 512-byte sectors of the encrypted data to skip
+        at the beginning. This is different from the <code class="option">--offset</code>
+        option with respect to the sector numbers used in initialization vector
+        (IV) calculation. Using <code class="option">--offset</code> will shift the IV
+        calculation by the same negative amount.  Hence, if <code class="option">--offset n</code>,
+        sector n will  get a sector number of 0 for the IV calculation.
+        Using <code class="option">--skip</code> causes sector n to also be the first
+        sector of the mapped device, but with its number for IV generation is n.</p><p>This option is only relevant for plain devices.</p></dd><dt id="keyfile-offset="><span class="term"><code class="option">keyfile-offset=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-offset=">¶</a></dt><dd><p>Specifies the number of bytes to skip at the
         start of the key file. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values and the default value of this
         option.</p></dd><dt id="keyfile-size="><span class="term"><code class="option">keyfile-size=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-size=">¶</a></dt><dd><p>Specifies the maximum number of bytes to read
         from the key file. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values and the default value of this option. This
         option is ignored in plain encryption mode, as the key file
         size is then given by the key size.</p></dd><dt id="key-slot="><span class="term"><code class="option">key-slot=</code></span><a class="headerlink" title="Permalink to this term" href="#key-slot=">¶</a></dt><dd><p>Specifies the key slot to compare the
@@ -74,7 +83,7 @@
         given passphrase or key, but another would, the setup of the
         device will fail regardless. This option implies
         <code class="option">luks</code>. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values. The default is to try all key slots in
         sequential order.</p></dd><dt id="luks"><span class="term"><code class="option">luks</code></span><a class="headerlink" title="Permalink to this term" href="#luks">¶</a></dt><dd><p>Force LUKS mode. When this mode is used, the
         following options are ignored since they are provided by the
@@ -85,7 +94,7 @@
         show up and be unlocked at boot, and not fail the boot if it
         does not show up.</p></dd><dt id="plain"><span class="term"><code class="option">plain</code></span><a class="headerlink" title="Permalink to this term" href="#plain">¶</a></dt><dd><p>Force plain encryption mode.</p></dd><dt id="read-only"><span class="term"><code class="option">read-only</code>, </span><span class="term"><code class="option">readonly</code></span><a class="headerlink" title="Permalink to this term" href="#read-only">¶</a></dt><dd><p>Set up the encrypted block device in read-only
         mode.</p></dd><dt id="size="><span class="term"><code class="option">size=</code></span><a class="headerlink" title="Permalink to this term" href="#size=">¶</a></dt><dd><p>Specifies the key size in bits. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for possible values and the default value of this
         option.</p></dd><dt id="swap"><span class="term"><code class="option">swap</code></span><a class="headerlink" title="Permalink to this term" href="#swap">¶</a></dt><dd><p>The encrypted block device will be used as a
         swap device, and will be formatted accordingly after setting
@@ -116,7 +125,7 @@
         volume provided in the second field. Please note that there is
         no protection for the hidden volume if the outer volume is
         mounted instead. See
-        <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
         for more information on this limitation.</p></dd><dt id="tcrypt-keyfile="><span class="term"><code class="option">tcrypt-keyfile=</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt-keyfile=">¶</a></dt><dd><p>Specifies the absolute path to a key file to
         use for a TrueCrypt volume. This implies
         <code class="option">tcrypt</code> and can be used more than once to
@@ -146,16 +155,16 @@
         console, it has to be entered twice to prevent
         typos.</p></dd></dl></div><p>At early boot and when the system manager configuration is
     reloaded, this file is translated into native systemd units by
-    <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140688859486096"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140688859485456"></a><p class="title"><b>Example 1. /etc/crypttab example</b></p><div class="example-contents"><p>Set up four encrypted block devices. One using LUKS for
+    <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140690972256096"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140690972255456"></a><p class="title"><b>Example 1. /etc/crypttab example</b></p><div class="example-contents"><p>Set up four encrypted block devices. One using LUKS for
       normal storage, another one for usage as a swap device and two
       TrueCrypt volumes.</p><pre class="programlisting">luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
 swap       /dev/sda7       /dev/urandom       swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
-hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140688859483136"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140690972253136"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-cryptsetup@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup@.service</span>(8)</span></a>,
       <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>,
-      <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>,
+      <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>,
       <a href="http://man7.org/linux/man-pages/man8/mkswap.8.html"><span class="citerefentry"><span class="refentrytitle">mkswap</span>(8)</span></a>,
       <a href="http://man7.org/linux/man-pages/man8/mke2fs.8.html"><span class="citerefentry"><span class="refentrytitle">mke2fs</span>(8)</span></a>
     </p></div></div></body></html>

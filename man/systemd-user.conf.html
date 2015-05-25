@@ -19,38 +19,40 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-system.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-system.conf, system.conf.d, systemd-user.conf, user.conf.d — System and session service manager configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system.conf</code></p><p><code class="filename">/etc/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/etc/systemd/user.conf</code></p><p><code class="filename">/etc/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/user.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140311371378672"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When run as a system instance, systemd interprets the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-system.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-system.conf, system.conf.d, systemd-user.conf, user.conf.d — System and session service manager configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system.conf</code></p><p><code class="filename">/etc/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/etc/systemd/user.conf</code></p><p><code class="filename">/etc/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/user.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140196477177808"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When run as a system instance, systemd interprets the
     configuration file <code class="filename">system.conf</code> and the files
     in <code class="filename">system.conf.d</code> directories; when run as a
     user instance, systemd interprets the configuration file
     <code class="filename">user.conf</code> and the files in
     <code class="filename">user.conf.d</code> directories. These configuration
     files contain a few settings controlling basic manager
-    operations.</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
-    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
-    <code class="filename">/usr/lib/</code>, in order of precedence.
-    Each configuration file in these configuration directories shall be named in
-    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
-    Files in <code class="filename">/etc/</code> override files with the same name in
-    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
-    <code class="filename">/run/</code> override files with the same name in
-    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
-    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
-    reserved for the local administrator, who may use this logic to override the
-    configuration files installed by vendor packages. All configuration files
-    are sorted by their filename in lexicographic order, regardless of which of
-    the directories they reside in. If multiple files specify the same option,
-    the entry in the file with the lexicographically latest name will take
-    precedence. It is recommended to prefix all filenames with a two-digit number
-    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
-    the vendor, the recommended way is to place a symlink to
+    operations.</p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
+    configuration file is only needed when it is necessary to deviate
+    from those defaults. By default the configuration file in
+    <code class="filename">/etc/systemd/</code> contains commented out entries
+    showing the defaults as a guide to the administrator. This file
+    can be edited to create local overrides.
+    </p><p>When packages need to customize the configuration, they can
+    install configuration snippets in
+    <code class="filename">/usr/lib/systemd/*.conf.d/</code>. Files in
+    <code class="filename">/etc/</code> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. The main
+    configuration file is read before any of the configuration
+    directories, and has the lowest precedence; entries in a file in
+    any configuration directory override entries in the single
+    configuration file. Files in the
+    <code class="filename">*.conf.d/</code> configuration subdirectories
+    are sorted by their filename in lexicographic order, regardless of
+    which of the subdirectories they reside in. If multiple files
+    specify the same option, the entry in the file with the
+    lexicographically latest name takes precedence.  It is recommended
+    to prefix all filenames in those subdirectories with a two-digit
+    number and a dash, to simplify the ordering of the files.</p><p>To disable a configuration file supplied by the vendor, the
+    recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsection"><a name="conf"></a><h2>Configuration File</h2><p>Configuration is also read from a single configuration file in
-    <code class="filename">/etc/</code>. This file is read before any of the
-    configuration directories, and has the lowest precedence; entries in a file
-    in any configuration directory override entries in the single configuration
-    file.</p></div><div class="refsect1"><a name="idm140311371372688"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+    configuration file.</p></div><div class="refsect1"><a name="idm140196477173184"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
     "<code class="literal">[Manager]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="LogLevel="><span class="term"><code class="varname">LogLevel=</code>, </span><span class="term"><code class="varname">LogTarget=</code>, </span><span class="term"><code class="varname">LogColor=</code>, </span><span class="term"><code class="varname">LogLocation=</code>, </span><span class="term"><code class="varname">DumpCore=yes</code>, </span><span class="term"><code class="varname">CrashShell=no</code>, </span><span class="term"><code class="varname">ShowStatus=yes</code>, </span><span class="term"><code class="varname">CrashChVT=1</code>, </span><span class="term"><code class="varname">DefaultStandardOutput=journal</code>, </span><span class="term"><code class="varname">DefaultStandardError=inherit</code></span><a class="headerlink" title="Permalink to this term" href="#LogLevel=">¶</a></dt><dd><p>Configures various parameters of basic manager
         operation. These options may be overridden by the respective
         command line arguments. See
@@ -100,7 +102,7 @@
         <a href="http://man7.org/linux/man-pages/man7/capabilities.7.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
         for details. Takes a whitespace-separated list of capability
         names as read by
-        <a href="cap_from_name.html"><span class="citerefentry"><span class="refentrytitle">cap_from_name</span>(3)</span></a>.
+        <a href="https://www.mankier.com/3/cap_from_name"><span class="citerefentry"><span class="refentrytitle">cap_from_name</span>(3)</span></a>.
         Capabilities listed will be included in the bounding set, all
         others are removed. If the list of capabilities is prefixed
         with ~, all but the listed capabilities will be included, the
@@ -162,12 +164,19 @@
         <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>
         for details on the per-unit settings). For non-service units,
         <code class="varname">DefaultTimeoutStartSec=</code> sets the default
-        <code class="varname">TimeoutSec=</code> value. </p></dd><dt id="DefaultStartLimitInterval="><span class="term"><code class="varname">DefaultStartLimitInterval=</code>, </span><span class="term"><code class="varname">DefaultStartLimitBurst=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultStartLimitInterval=">¶</a></dt><dd><p>Configure the default unit start rate
+        <code class="varname">TimeoutSec=</code>
+        value. <code class="varname">DefaultTimeoutStartSec=</code> and
+        <code class="varname">DefaultTimeoutStopSec=</code> default to
+        90s. <code class="varname">DefaultRestartSec=</code> defaults to
+        100ms.</p></dd><dt id="DefaultStartLimitInterval="><span class="term"><code class="varname">DefaultStartLimitInterval=</code>, </span><span class="term"><code class="varname">DefaultStartLimitBurst=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultStartLimitInterval=">¶</a></dt><dd><p>Configure the default unit start rate
         limiting, as configured per-service by
         <code class="varname">StartLimitInterval=</code> and
         <code class="varname">StartLimitBurst=</code>. See
         <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>
-        for details on the per-service settings.</p></dd><dt id="DefaultEnvironment="><span class="term"><code class="varname">DefaultEnvironment=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultEnvironment=">¶</a></dt><dd><p>Sets manager environment variables passed to
+        for details on the per-service settings.
+        <code class="varname">DefaultStartLimitInterval=</code> defaults to
+        10s. <code class="varname">DefaultStartLimitBurst=</code> defaults to
+        5.</p></dd><dt id="DefaultEnvironment="><span class="term"><code class="varname">DefaultEnvironment=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultEnvironment=">¶</a></dt><dd><p>Sets manager environment variables passed to
         all executed processes. Takes a space-separated list of
         variable assignments. See
         <a href="http://man7.org/linux/man-pages/man7/environ.7.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>
@@ -192,7 +201,7 @@
         be overridden in individual units using the corresponding
         LimitXXX= directives. Note that these resource limits are only
         defaults for units, they are not applied to PID 1
-        itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm140311370277552"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm140196477099488"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>,
         <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,

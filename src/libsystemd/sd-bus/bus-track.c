@@ -20,7 +20,6 @@
 ***/
 
 #include "sd-bus.h"
-#include "set.h"
 #include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"
@@ -91,6 +90,9 @@ _public_ int sd_bus_track_new(
         assert_return(bus, -EINVAL);
         assert_return(track, -EINVAL);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         t = new0(sd_bus_track, 1);
         if (!t)
                 return -ENOMEM;
@@ -140,12 +142,11 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
         return NULL;
 }
 
-static int on_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         sd_bus_track *track = userdata;
         const char *name, *old, *new;
         int r;
 
-        assert(bus);
         assert(message);
         assert(track);
 

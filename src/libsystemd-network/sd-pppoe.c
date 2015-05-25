@@ -33,10 +33,10 @@
 #include "event-util.h"
 
 #include "util.h"
+#include "random-util.h"
 #include "socket-util.h"
 #include "async.h"
 #include "refcnt.h"
-#include "unaligned.h"
 #include "utf8.h"
 
 #define PPPOE_MAX_PACKET_SIZE 1484
@@ -340,7 +340,7 @@ static int pppoe_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
 static int pppoe_arm_timeout(sd_pppoe *ppp) {
         _cleanup_event_source_unref_ sd_event_source *timeout = NULL;
-        usec_t next_timeout;
+        usec_t next_timeout = 0;
         int r;
 
         assert(ppp);

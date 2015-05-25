@@ -32,9 +32,8 @@
 #include "path-util.h"
 #include "strv.h"
 #include "ask-password-api.h"
-#include "def.h"
-#include "libudev.h"
-#include "udev-util.h"
+#include "sd-device.h"
+#include "device-util.h"
 
 static const char *arg_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
@@ -51,12 +50,12 @@ static bool arg_discards = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
 static char **arg_tcrypt_keyfiles = NULL;
+static uint64_t arg_offset = 0;
+static uint64_t arg_skip = 0;
 static usec_t arg_timeout = 0;
 
 /* Options Debian's crypttab knows we don't:
 
-    offset=
-    skip=
     precheck=
     check=
     checkargs=
@@ -186,6 +185,20 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
+        } else if (startswith(option, "offset=")) {
+
+                if (safe_atou64(option+7, &arg_offset) < 0) {
+                        log_error("offset= parse failure, refusing.");
+                        return -EINVAL;
+                }
+
+        } else if (startswith(option, "skip=")) {
+
+                if (safe_atou64(option+5, &arg_skip) < 0) {
+                        log_error("skip= parse failure, refusing.");
+                        return -EINVAL;
+                }
+
         } else if (!streq(option, "none"))
                 log_error("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -210,6 +223,14 @@ static int parse_options(const char *options) {
                         return r;
         }
 
+        /* sanity-check options */
+        if (arg_type != NULL && !streq(arg_type, CRYPT_PLAIN)) {
+                if (arg_offset)
+                      log_warning("offset= ignored with type %s", arg_type);
+                if (arg_skip)
+                      log_warning("skip= ignored with type %s", arg_type);
+        }
+
         return 0;
 }
 
@@ -225,10 +246,10 @@ static char* disk_description(const char *path) {
                 "ID_MODEL_FROM_DATABASE\0"
                 "ID_MODEL\0";
 
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_device_unref_ sd_device *device = NULL;
         struct stat st;
         const char *i;
+        int r;
 
         assert(path);
 
@@ -238,19 +259,15 @@ static char* disk_description(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return NULL;
 
-        udev = udev_new();
-        if (!udev)
-                return NULL;
-
-        device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!device)
+        r = sd_device_new_from_devnum(&device, 'b', st.st_rdev);
+        if (r < 0)
                 return NULL;
 
         NULSTR_FOREACH(i, name_fields) {
                 const char *name;
 
-                name = udev_device_get_property_value(device, i);
-                if (!isempty(name))
+                r = sd_device_get_property_value(device, i, &name);
+                if (r >= 0 && !isempty(name))
                         return strdup(name);
         }
 
@@ -415,7 +432,10 @@ static int attach_luks_or_plain(struct crypt_device *cd,
         }
 
         if ((!arg_type && r < 0) || streq_ptr(arg_type, CRYPT_PLAIN)) {
-                struct crypt_params_plain params = {};
+                struct crypt_params_plain params = {
+                        .offset = arg_offset,
+                        .skip = arg_skip,
+                };
                 const char *cipher, *cipher_mode;
                 _cleanup_free_ char *truncated_cipher = NULL;
 

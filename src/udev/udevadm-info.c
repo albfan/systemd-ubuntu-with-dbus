@@ -15,19 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <ctype.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "udev.h"
 #include "udev-util.h"
@@ -208,17 +205,15 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
                 if ((stats.st_mode & mask) != 0)
                         continue;
                 if (S_ISDIR(stats.st_mode)) {
-                        DIR *dir2;
+                        _cleanup_closedir_ DIR *dir2;
 
                         dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2 != NULL) {
+                        if (dir2 != NULL)
                                 cleanup_dir(dir2, mask, depth-1);
-                                closedir(dir2);
-                        }
-                        unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
-                } else {
-                        unlinkat(dirfd(dir), dent->d_name, 0);
-                }
+
+                        (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
+                } else
+                        (void) unlinkat(dirfd(dir), dent->d_name, 0);
         }
 }
 

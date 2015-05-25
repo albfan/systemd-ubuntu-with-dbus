@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-DELTA" "1" "" "systemd 219" "systemd-delta"
+.TH "SYSTEMD\-DELTA" "1" "" "systemd 220" "systemd-delta"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,7 +35,7 @@ have the second highest priority, \&.\&.\&., files in
 /lib
 have lowest priority\&. Files in a directory with higher priority override files with the same name in directories of lower priority\&. In addition, certain configuration files can have
 "\&.d"
-directories which contain "drop\-in" files with configuration snippets which augment the main configuration file\&. "Drop\-in" files can be overriden in the same way by placing files with the same name in a directory of higher priority (except that in case of "drop\-in" files, both the "drop\-in" file name and the name of the containing directory, which corresponds to the name of the main configuration file, must match)\&. For a fuller explanation, see
+directories which contain "drop\-in" files with configuration snippets which augment the main configuration file\&. "Drop\-in" files can be overridden in the same way by placing files with the same name in a directory of higher priority (except that in case of "drop\-in" files, both the "drop\-in" file name and the name of the containing directory, which corresponds to the name of the main configuration file, must match)\&. For a fuller explanation, see
 \fBsystemd.unit\fR(5)\&.
 .PP
 The command line argument will be split into a prefix and a suffix\&. Either is optional\&. The prefix must be one of the directories containing configuration files (/etc,

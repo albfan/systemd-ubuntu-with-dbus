@@ -27,17 +27,12 @@ typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
 
-#include <linux/types.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <sys/capability.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sched.h>
 
 #include "list.h"
-#include "util.h"
-#include "set.h"
 #include "fdset.h"
 #include "missing.h"
 #include "namespace.h"
@@ -170,7 +165,7 @@ struct ExecContext {
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
-         * /bin/mount it is run in the same process group as us so
+         * /usr/bin/mount it is run in the same process group as us so
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
         bool same_pgrp;
@@ -214,14 +209,14 @@ struct ExecParameters {
         const char *cgroup_path;
         bool cgroup_delegate;
         const char *runtime_prefix;
-        const char *unit_id;
         usec_t watchdog_usec;
         int *idle_pipe;
         char *bus_endpoint_path;
         int bus_endpoint_fd;
 };
 
-int exec_spawn(ExecCommand *command,
+int exec_spawn(Unit *unit,
+               ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *exec_params,
                ExecRuntime *runtime,
@@ -247,7 +242,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
 
-int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l);
+int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l);
 
 bool exec_context_may_touch_console(ExecContext *c);
 bool exec_context_maintains_privileges(ExecContext *c);
@@ -260,8 +255,8 @@ int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id);
 ExecRuntime *exec_runtime_ref(ExecRuntime *r);
 ExecRuntime *exec_runtime_unref(ExecRuntime *r);
 
-int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds);
-int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, const char *value, FDSet *fds);
+int exec_runtime_serialize(Unit *unit, ExecRuntime *rt, FILE *f, FDSet *fds);
+int exec_runtime_deserialize_item(Unit *unit, ExecRuntime **rt, const char *key, const char *value, FDSet *fds);
 
 void exec_runtime_destroy(ExecRuntime *rt);
 

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.scope"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.scope — Scope unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code></p></div><div class="refsect1"><a name="idm140256126747776"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Scope units are not configured via unit configuration files,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.scope"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.scope — Scope unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code></p></div><div class="refsect1"><a name="idm140425073577984"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Scope units are not configured via unit configuration files,
     but are only created programmatically using the bus interfaces of
     systemd. They are named similar to filenames. A unit whose name
     ends in "<code class="literal">.scope</code>" refers to a scope unit. Scopes
@@ -38,7 +38,7 @@
     that scope units are removed prior to system
     shutdown. Only scope units involved with early boot or
     late system shutdown should disable this option.
-    </p></div><div class="refsect1"><a name="idm140256126740112"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm140425068668112"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-run.html"><span class="citerefentry"><span class="refentrytitle">systemd-run</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-ACTIVATE" "8" "" "systemd 219" "systemd-activate"
+.TH "SYSTEMD\-ACTIVATE" "8" "" "systemd 220" "systemd-activate"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ systemd-activate \- Test socket activation of daemons
 \fBsystemd\-activate\fR
 can be used to launch a socket activated daemon from the command line for testing purposes\&. It can also be used to launch single instances of the daemon per connection (inetd\-style)\&.
 .PP
-The daemon to launch and its options should be specifed after options intended for
+The daemon to launch and its options should be specified after options intended for
 \fBsystemd\-activate\fR\&.
 .PP
 If the
@@ -38,7 +38,7 @@ option is given, file descriptor of the connection will be used as the standard 
 \fI$LISTEN_FDS\fR
 to
 \fBsystemd\-activate\fR
-will be passed through to the dameon, in the original positions\&. Other sockets specified with
+will be passed through to the daemon, in the original positions\&. Other sockets specified with
 \fB\-\-listen\fR
 will use consecutive descriptors\&.
 .SH "OPTIONS"

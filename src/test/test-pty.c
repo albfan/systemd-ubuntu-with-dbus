@@ -20,13 +20,11 @@
 ***/
 
 #include <errno.h>
-#include <fcntl.h>
 #include <locale.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "def.h"
 #include "pty.h"
 #include "util.h"
 
@@ -97,7 +95,7 @@ static void run_parent(Pty *pty) {
 
 static void test_pty(void) {
         pid_t pid;
-        Pty *pty;
+        Pty *pty = NULL;
 
         rcvsiz = 0;
         zero(rcvbuf);

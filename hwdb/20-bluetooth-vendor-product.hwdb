@@ -1430,3 +1430,81 @@ bluetooth:v01D9*
 
 bluetooth:v01DA*
  ID_VENDOR_FROM_DATABASE=Logitech International SA
+
+bluetooth:v01DB*
+ ID_VENDOR_FROM_DATABASE=Innblue Consulting
+
+bluetooth:v01DC*
+ ID_VENDOR_FROM_DATABASE=iParking Ltd.
+
+bluetooth:v01DD*
+ ID_VENDOR_FROM_DATABASE=Koninklijke Philips Electronics N.V.
+
+bluetooth:v01DE*
+ ID_VENDOR_FROM_DATABASE=Minelab Electronics Pty Limited
+
+bluetooth:v01DF*
+ ID_VENDOR_FROM_DATABASE=Bison Group Ltd.
+
+bluetooth:v01E0*
+ ID_VENDOR_FROM_DATABASE=Widex A/S
+
+bluetooth:v01E1*
+ ID_VENDOR_FROM_DATABASE=Jolla Ltd
+
+bluetooth:v01E2*
+ ID_VENDOR_FROM_DATABASE=Lectronix, Inc.
+
+bluetooth:v01E3*
+ ID_VENDOR_FROM_DATABASE=Caterpillar Inc
+
+bluetooth:v01E4*
+ ID_VENDOR_FROM_DATABASE=Freedom Innovations
+
+bluetooth:v01E5*
+ ID_VENDOR_FROM_DATABASE=Dynamic Devices Ltd
+
+bluetooth:v01E6*
+ ID_VENDOR_FROM_DATABASE=Technology Solutions (UK) Ltd
+
+bluetooth:v01E7*
+ ID_VENDOR_FROM_DATABASE=IPS Group Inc.
+
+bluetooth:v01E8*
+ ID_VENDOR_FROM_DATABASE=STIR
+
+bluetooth:v01E9*
+ ID_VENDOR_FROM_DATABASE=Sano, Inc
+
+bluetooth:v01EA*
+ ID_VENDOR_FROM_DATABASE=Advanced Application Design, Inc.
+
+bluetooth:v01EB*
+ ID_VENDOR_FROM_DATABASE=AutoMap LLC
+
+bluetooth:v01EC*
+ ID_VENDOR_FROM_DATABASE=Spreadtrum Communications Shanghai Ltd
+
+bluetooth:v01ED*
+ ID_VENDOR_FROM_DATABASE=CuteCircuit LTD
+
+bluetooth:v01EE*
+ ID_VENDOR_FROM_DATABASE=Valeo Service
+
+bluetooth:v01EF*
+ ID_VENDOR_FROM_DATABASE=Fullpower Technologies, Inc.
+
+bluetooth:v01F0*
+ ID_VENDOR_FROM_DATABASE=KloudNation
+
+bluetooth:v01F1*
+ ID_VENDOR_FROM_DATABASE=Zebra Technologies Corporation
+
+bluetooth:v01F2*
+ ID_VENDOR_FROM_DATABASE=Itron, Inc.
+
+bluetooth:v01F3*
+ ID_VENDOR_FROM_DATABASE=The University of Tokyo
+
+bluetooth:v01F4*
+ ID_VENDOR_FROM_DATABASE=UTC Fire and Security

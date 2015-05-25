@@ -25,9 +25,9 @@
 #include "set.h"
 #include "conf-files.h"
 #include "bus-internal.h"
-#include "bus-message.h"
 #include "bus-xml-policy.h"
 #include "sd-login.h"
+#include "formats-util.h"
 
 static void policy_item_free(PolicyItem *i) {
         assert(i);

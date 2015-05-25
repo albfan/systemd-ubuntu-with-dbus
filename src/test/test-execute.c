@@ -23,8 +23,8 @@
 #include "manager.h"
 #include "util.h"
 #include "macro.h"
-#include "strv.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -73,7 +73,7 @@ static void test_exec_workingdirectory(Manager *m) {
 
         test(m, "exec-workingdirectory.service", 0, CLD_EXITED);
 
-        rm_rf_dangerous("/tmp/test-exec_workingdirectory", false, true, false);
+        (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_exec_personality(Manager *m) {
@@ -165,9 +165,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        assert_se(set_unit_path(TEST_DIR ":") >= 0);
+        assert_se(set_unit_path(TEST_DIR) >= 0);
 
-        r = manager_new(SYSTEMD_USER, true, &m);
+        r = manager_new(MANAGER_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return EXIT_TEST_SKIP;

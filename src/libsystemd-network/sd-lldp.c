@@ -24,16 +24,13 @@
 
 #include "siphash24.h"
 #include "hashmap.h"
-#include "event-util.h"
 
 #include "lldp-tlv.h"
 #include "lldp-port.h"
 #include "sd-lldp.h"
 #include "prioq.h"
-#include "strv.h"
 #include "lldp-internal.h"
 #include "lldp-util.h"
-#include "ether-addr-util.h"
 
 typedef enum LLDPAgentRXState {
         LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL = 4,
@@ -522,7 +519,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        (void)lldp_read_system_capability(p->packet, &data);
+                        (void) lldp_read_system_capability(p->packet, &data);
 
                         sprintf(buf, "'_CAP=%x'", data);
 

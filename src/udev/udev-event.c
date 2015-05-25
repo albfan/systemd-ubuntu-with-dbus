@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <string.h>
-#include <time.h>
 #include <net/if.h>
 #include <sys/prctl.h>
 #include <poll.h>
@@ -33,6 +32,7 @@
 
 #include "udev.h"
 #include "rtnl-util.h"
+#include "formats-util.h"
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
         struct udev *udev = udev_device_get_udev(dev);
@@ -794,9 +794,9 @@ void udev_event_execute_rules(struct udev_event *event,
                 return;
 
         if (streq(udev_device_get_action(dev), "remove")) {
-                udev_device_read_db(dev, NULL);
-                udev_device_delete_db(dev);
+                udev_device_read_db(dev);
                 udev_device_tag_index(dev, NULL, false);
+                udev_device_delete_db(dev);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_watch_end(event->udev, dev);
@@ -809,31 +809,16 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
         } else {
-                event->dev_db = udev_device_shallow_clone(dev);
+                event->dev_db = udev_device_clone_with_db(dev);
                 if (event->dev_db != NULL) {
-                        udev_device_read_db(event->dev_db, NULL);
-                        udev_device_set_info_loaded(event->dev_db);
-
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
                                 udev_watch_end(event->udev, event->dev_db);
                 }
 
                 if (major(udev_device_get_devnum(dev)) == 0 &&
-                    streq(udev_device_get_action(dev), "move")) {
-                        struct udev_list_entry *entry;
-
-                        for ((entry = udev_device_get_properties_list_entry(event->dev_db)); entry; entry = udev_list_entry_get_next(entry)) {
-                                const char *key, *value;
-                                struct udev_list_entry *property;
-
-                                key = udev_list_entry_get_name(entry);
-                                value = udev_list_entry_get_value(entry);
-
-                                property = udev_device_add_property(dev, key, value);
-                                udev_list_entry_set_num(property, true);
-                        }
-                }
+                    streq(udev_device_get_action(dev), "move"))
+                        udev_device_copy_properties(dev, event->dev_db);
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
@@ -850,20 +835,12 @@ void udev_event_execute_rules(struct udev_event *event,
                                 log_warning_errno(r, "could not rename interface '%d' from '%s' to '%s': %m", udev_device_get_ifindex(dev),
                                                   udev_device_get_sysname(dev), event->name);
                         else {
-                                const char *interface_old;
-
-                                /* remember old name */
-                                interface_old = udev_device_get_sysname(dev);
-
                                 r = udev_device_rename(dev, event->name);
                                 if (r < 0)
                                         log_warning_errno(r, "renamed interface '%d' from '%s' to '%s', but could not update udev_device: %m",
                                                           udev_device_get_ifindex(dev), udev_device_get_sysname(dev), event->name);
-                                else {
-                                        udev_device_add_property(dev, "INTERFACE_OLD", interface_old);
-                                        udev_device_add_property(dev, "INTERFACE", event->name);
+                                else
                                         log_debug("changed devpath to '%s'", udev_device_get_devpath(dev));
-                                }
                         }
                 }
 
@@ -898,18 +875,14 @@ void udev_event_execute_rules(struct udev_event *event,
                 }
 
                 /* preserve old, or get new initialization timestamp */
-                if (event->dev_db != NULL && udev_device_get_usec_initialized(event->dev_db) > 0)
-                        udev_device_set_usec_initialized(event->dev, udev_device_get_usec_initialized(event->dev_db));
-                else if (udev_device_get_usec_initialized(event->dev) == 0)
-                        udev_device_set_usec_initialized(event->dev, now(CLOCK_MONOTONIC));
+                udev_device_ensure_usec_initialized(event->dev, event->dev_db);
 
                 /* (re)write database file */
-                udev_device_update_db(dev);
                 udev_device_tag_index(dev, event->dev_db, true);
+                udev_device_update_db(dev);
                 udev_device_set_is_initialized(dev);
 
-                udev_device_unref(event->dev_db);
-                event->dev_db = NULL;
+                event->dev_db = udev_device_unref(event->dev_db);
         }
 }
 

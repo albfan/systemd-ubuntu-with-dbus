@@ -91,7 +91,8 @@
       to a given device; and a <literal>[Network]</literal> section
       specifying how the device should be configured. The first (in
       lexical order) of the network files that matches a given device
-      is applied.</para>
+      is applied, all later files are ignored, even if they match as
+      well.</para>
 
       <para>A network file is said to match a device if each of the
       entries in the <literal>[Match]</literal> section matches, or if
@@ -227,6 +228,10 @@
             <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
             <literal>yes</literal>, <literal>no</literal>,
             <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
+
+            <para>Please note that by default the domain name
+            specified through DHCP is not used for name resolution.
+            See option <option>UseDomains=</option> below.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -280,13 +285,24 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>BindCarrier=</varname></term>
+          <listitem>
+            <para>A port or a list of ports. When set, controls the
+            behaviour of the current interface. When all ports in the list
+            are in an operational down state, the current interface is brought
+            down. When at least one port has carrier, the current interface
+            is brought up.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Address=</varname></term>
           <listitem>
             <para>A static IPv4 or IPv6 address and its prefix length,
             separated by a <literal>/</literal> character. Specify
             this key more than once to configure several addresses.
             The format of the address must be as described in
-            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This is a short-hand for an [Address] section only
             containing an Address key (see below). This option may be
             specified more than once.
@@ -312,7 +328,7 @@
           <listitem>
             <para>The gateway address, which must be in the format
             described in
-            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This is a short-hand for a [Route] section only containing
             a Gateway key. This option may be specified more than
             once.</para>
@@ -323,7 +339,7 @@
           <listitem>
             <para>A DNS server address, which must be in the format
             described in
-            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
@@ -347,7 +363,22 @@
           the routing table. Takes either a boolean argument, or the
           values <literal>ipv4</literal> or <literal>ipv6</literal>,
           which only enables IP forwarding for the specified address
-          family.</para></listitem>
+          family. This controls the
+          <filename>net.ipv4.conf.&lt;interface&gt;.forwarding</filename>
+          and
+          <filename>net.ipv6.conf.&lt;interface&gt;.forwarding</filename>
+          sysctl options of the network interface (see <ulink
+          url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          for details about sysctl options). Defaults to
+          <literal>no</literal>.</para>
+
+          <para>Note: unless this option is turned on, no IP
+          forwarding is done on this interface, even if this is
+          globally turned on in the kernel, with the
+          <filename>net.ipv4.ip_forward</filename> and
+          <filename>net.ipv4.ip_forward</filename> sysctl
+          options.</para>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPMasquerade=</varname></term>
@@ -355,7 +386,8 @@
           interface. If enabled packets forwarded from the network
           interface will be appear as coming from the local host.
           Takes a boolean argument. Implies
-          <varname>IPForward=yes</varname>.</para></listitem>
+          <varname>IPForward=ipv4</varname>. Defaults to
+          <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Bridge=</varname></term>
@@ -429,7 +461,7 @@
           <listitem>
             <para>The broadcast address, which must be in the format
             described in
-            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This key only applies to IPv4 addresses. If it is not
             given, it is derived from the <literal>Address</literal>
             key.</para>
@@ -501,6 +533,17 @@
             <para>When true (the default), the DNS servers received
             from the DHCP server will be used and take precedence over
             any statically configured ones.</para>
+
+            <para>This corresponds to the <option>nameserver</option>
+            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>UseNTP=</varname></term>
+          <listitem>
+            <para>When true (the default), the NTP servers received
+            from the DHCP server will be used by systemd-timesyncd
+            and take precedence over any statically configured ones.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -531,7 +574,13 @@
           <listitem>
             <para>When true (not the default), the domain name
             received from the DHCP server will be used for DNS
-            resolution over this link.</para>
+            resolution over this link. When a name cannot be resolved
+            as specified, the domain name will be used a suffix and
+            name resolution of that will be attempted.</para>
+
+            <para>This corresponds to the <option>domain</option>
+            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            and should not be enabled on untrusted networks.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -550,6 +599,14 @@
             DHCP specification, but may be the best choice if, say,
             the root filesystem relies on this connection. Defaults to
             false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ClientIdentifier=</varname></term>
+          <listitem>
+            <para>DHCP client identifier to use. Either <literal>mac</literal>
+            to use the MAC address of the link or <literal>duid</literal>
+            (the default) to use a RFC4361-compliant Client ID.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -643,7 +700,7 @@ Gateway=192.168.0.1</programlisting>
 Name=en*
 
 [Network]
-DHCP=both</programlisting>
+DHCP=yes</programlisting>
     </example>
 
     <example>

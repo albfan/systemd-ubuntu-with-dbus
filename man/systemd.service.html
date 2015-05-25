@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm140251584833616"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm140225594099120"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     <code class="filename">.service</code> encodes information about a process
     controlled and supervised by systemd.</p><p>This man page lists the configuration options specific to
     this unit type. See
@@ -55,7 +55,7 @@
     compatibility is quite comprehensive but not 100%. For details
     about the incompatibilities, see the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities" target="_top">Incompatibilities
     with SysV</a> document.
-    </p></div><div class="refsect1"><a name="idm140251588714624"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a "<code class="literal">[Service]</code>"
+    </p></div><div class="refsect1"><a name="idm140225589185056"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a "<code class="literal">[Service]</code>"
     section, which carries information about the service and the
     process it supervises. A number of options that may be used in
     this section are shared with other unit types. These options are
@@ -203,7 +203,10 @@
         lines are allowed and the commands are executed one after the
         other, serially.</p><p>If any of those commands (not prefixed with
         "<code class="literal">-</code>") fail, the rest are not executed and the
-        unit is considered failed.</p></dd><dt id="ExecReload="><span class="term"><code class="varname">ExecReload=</code></span><a class="headerlink" title="Permalink to this term" href="#ExecReload=">¶</a></dt><dd><p>Commands to execute to trigger a configuration
+        unit is considered failed.</p><p>Note that <code class="varname">ExecStartPre=</code> may not be
+        used to start long-running processes. All processes forked
+        off by processes invoked via <code class="varname">ExecStartPre=</code> will
+        be killed before the next service process is run.</p></dd><dt id="ExecReload="><span class="term"><code class="varname">ExecReload=</code></span><a class="headerlink" title="Permalink to this term" href="#ExecReload=">¶</a></dt><dd><p>Commands to execute to trigger a configuration
         reload in the service. This argument takes multiple command
         lines, following the same scheme as described for
         <code class="varname">ExecStart=</code> above. Use of this setting is
@@ -323,7 +326,7 @@
         <code class="option">on-failure</code>, the service will be restarted
         when the process exits with a non-zero exit code, is
         terminated by a signal (including on core dump, but excluding
-        the aforementiond four signals), when an operation (such as
+        the aforementioned four signals), when an operation (such as
         service reload) times out, and when the configured watchdog
         timeout is triggered. If set to <code class="option">on-abnormal</code>,
         the service will be restarted when the process is terminated
@@ -337,7 +340,7 @@
         only if the watchdog timeout for the service expires. If set
         to <code class="option">always</code>, the service will be restarted
         regardless of whether it exited cleanly or not, got terminated
-        abnormally by a signal, or hit a timeout.</p><div class="table"><a name="idm140251583688528"></a><p class="title"><b>Table 1. Exit causes and the effect of the <code class="varname">Restart=</code> settings on them</b></p><div class="table-contents"><table summary="Exit causes and the effect of the Restart= settings on them" border="1"><colgroup><col class="path"><col class="expl"></colgroup><thead><tr><th>Restart settings/Exit causes</th><th><code class="option">no</code></th><th><code class="option">always</code></th><th><code class="option">on-success</code></th><th><code class="option">on-failure</code></th><th><code class="option">on-abnormal</code></th><th><code class="option">on-abort</code></th><th><code class="option">on-watchdog</code></th></tr></thead><tbody><tr><td>Clean exit code or signal</td><td> </td><td>X</td><td>X</td><td> </td><td> </td><td> </td><td> </td></tr><tr><td>Unclean exit code</td><td> </td><td>X</td><td> </td><td>X</td><td> </td><td> </td><td> </td></tr><tr><td>Unclean signal</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td>X</td><td> </td></tr><tr><td>Timeout</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td> </td></tr><tr><td>Watchdog</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td>X</td></tr></tbody></table></div></div><br class="table-break"><p>As exceptions to the setting above the service will not
+        abnormally by a signal, or hit a timeout.</p><div class="table"><a name="idm140225589068960"></a><p class="title"><b>Table 1. Exit causes and the effect of the <code class="varname">Restart=</code> settings on them</b></p><div class="table-contents"><table summary="Exit causes and the effect of the Restart= settings on them" border="1"><colgroup><col class="path"><col class="expl"></colgroup><thead><tr><th>Restart settings/Exit causes</th><th><code class="option">no</code></th><th><code class="option">always</code></th><th><code class="option">on-success</code></th><th><code class="option">on-failure</code></th><th><code class="option">on-abnormal</code></th><th><code class="option">on-abort</code></th><th><code class="option">on-watchdog</code></th></tr></thead><tbody><tr><td>Clean exit code or signal</td><td> </td><td>X</td><td>X</td><td> </td><td> </td><td> </td><td> </td></tr><tr><td>Unclean exit code</td><td> </td><td>X</td><td> </td><td>X</td><td> </td><td> </td><td> </td></tr><tr><td>Unclean signal</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td>X</td><td> </td></tr><tr><td>Timeout</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td> </td></tr><tr><td>Watchdog</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td>X</td></tr></tbody></table></div></div><br class="table-break"><p>As exceptions to the setting above the service will not
         be restarted if the exit code or signal is specified in
         <code class="varname">RestartPreventExitStatus=</code> (see below).
         Also, the services will always be restarted if the exit code
@@ -534,8 +537,8 @@
     <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
     and
     <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-    for more settings.</p></div><div class="refsect1"><a name="idm140251583593072"></a><h2 id="Command lines">Command lines<a class="headerlink" title="Permalink to this headline" href="#Command%20lines">¶</a></h2><p>This section describes command line parsing and
-    variable and specifier substitions for
+    for more settings.</p></div><div class="refsect1"><a name="idm140225588973888"></a><h2 id="Command lines">Command lines<a class="headerlink" title="Permalink to this headline" href="#Command%20lines">¶</a></h2><p>This section describes command line parsing and
+    variable and specifier substitutions for
     <code class="varname">ExecStart=</code>,
     <code class="varname">ExecStartPre=</code>,
     <code class="varname">ExecStartPost=</code>,
@@ -608,7 +611,7 @@ ExecStart=/bin/echo $ONE $TWO $THREE</pre><p>This results in <code class="filena
     with five arguments: "<code class="literal">/</code>",
     "<code class="literal">&gt;/dev/null</code>",
     "<code class="literal">&amp;</code>", "<code class="literal">;</code>", and
-    "<code class="literal">/bin/ls</code>".</p><div class="table"><a name="idm140251583543648"></a><p class="title"><b>Table 2. C escapes supported in command lines and environment variables</b></p><div class="table-contents"><table summary="C escapes supported in command lines and environment variables" border="1"><colgroup><col class="escape"><col class="meaning"></colgroup><thead><tr><th>Literal</th><th>Actual value</th></tr></thead><tbody><tr><td>"<code class="literal">\a</code>"</td><td>bell</td></tr><tr><td>"<code class="literal">\b</code>"</td><td>backspace</td></tr><tr><td>"<code class="literal">\f</code>"</td><td>form feed</td></tr><tr><td>"<code class="literal">\n</code>"</td><td>newline</td></tr><tr><td>"<code class="literal">\r</code>"</td><td>carriage return</td></tr><tr><td>"<code class="literal">\t</code>"</td><td>tab</td></tr><tr><td>"<code class="literal">\v</code>"</td><td>vertical tab</td></tr><tr><td>"<code class="literal">\\</code>"</td><td>backslash</td></tr><tr><td>"<code class="literal">\"</code>"</td><td>double quotation mark</td></tr><tr><td>"<code class="literal">\'</code>"</td><td>single quotation mark</td></tr><tr><td>"<code class="literal">\s</code>"</td><td>space</td></tr><tr><td>"<code class="literal">\x<em class="replaceable"><code>xx</code></em></code>"</td><td>character number <em class="replaceable"><code>xx</code></em> in hexadecimal encoding</td></tr><tr><td>"<code class="literal">\<em class="replaceable"><code>nnn</code></em></code>"</td><td>character number <em class="replaceable"><code>nnn</code></em> in octal encoding</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect1"><a name="idm140251583518096"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140251583517456"></a><p class="title"><b>Example 1. Simple service</b></p><div class="example-contents"><p>The following unit file creates a service that will
+    "<code class="literal">/bin/ls</code>".</p><div class="table"><a name="idm140225588932992"></a><p class="title"><b>Table 2. C escapes supported in command lines and environment variables</b></p><div class="table-contents"><table summary="C escapes supported in command lines and environment variables" border="1"><colgroup><col class="escape"><col class="meaning"></colgroup><thead><tr><th>Literal</th><th>Actual value</th></tr></thead><tbody><tr><td>"<code class="literal">\a</code>"</td><td>bell</td></tr><tr><td>"<code class="literal">\b</code>"</td><td>backspace</td></tr><tr><td>"<code class="literal">\f</code>"</td><td>form feed</td></tr><tr><td>"<code class="literal">\n</code>"</td><td>newline</td></tr><tr><td>"<code class="literal">\r</code>"</td><td>carriage return</td></tr><tr><td>"<code class="literal">\t</code>"</td><td>tab</td></tr><tr><td>"<code class="literal">\v</code>"</td><td>vertical tab</td></tr><tr><td>"<code class="literal">\\</code>"</td><td>backslash</td></tr><tr><td>"<code class="literal">\"</code>"</td><td>double quotation mark</td></tr><tr><td>"<code class="literal">\'</code>"</td><td>single quotation mark</td></tr><tr><td>"<code class="literal">\s</code>"</td><td>space</td></tr><tr><td>"<code class="literal">\x<em class="replaceable"><code>xx</code></em></code>"</td><td>character number <em class="replaceable"><code>xx</code></em> in hexadecimal encoding</td></tr><tr><td>"<code class="literal">\<em class="replaceable"><code>nnn</code></em></code>"</td><td>character number <em class="replaceable"><code>nnn</code></em> in octal encoding</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect1"><a name="idm140225588907440"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140225588906800"></a><p class="title"><b>Example 1. Simple service</b></p><div class="example-contents"><p>The following unit file creates a service that will
       execute <code class="filename">/usr/sbin/foo-daemon</code>. Since no
       <code class="varname">Type=</code> is specified, the default
       <code class="varname">Type=</code><code class="option">simple</code> will be assumed.
@@ -637,13 +640,13 @@ WantedBy=multi-user.target</pre><p>Note that systemd assumes here that the proce
       can background itself or
       <code class="varname">Type=</code><code class="option">dbus</code> if the unit
       acquires a DBus name once initialization is complete. See
-      below.</p></div></div><br class="example-break"><div class="example"><a name="idm140251583508032"></a><p class="title"><b>Example 2. Oneshot service</b></p><div class="example-contents"><p>Sometimes units should just execute an action without
+      below.</p></div></div><br class="example-break"><div class="example"><a name="idm140225588897376"></a><p class="title"><b>Example 2. Oneshot service</b></p><div class="example-contents"><p>Sometimes units should just execute an action without
       keeping active processes, such as a filesystem check or a
       cleanup action on boot. For this,
       <code class="varname">Type=</code><code class="option">oneshot</code> exists. Units
       of this type will wait until the process specified terminates
       and then fall back to being inactive. The following unit will
-      perform a clenaup action:</p><pre class="programlisting">[Unit]
+      perform a cleanup action:</p><pre class="programlisting">[Unit]
 Description=Cleanup old Foo data
 
 [Service]
@@ -661,7 +664,7 @@ WantedBy=multi-user.target</pre><p>Note that systemd will consider the unit to b
       only service units that may have more than one
       <code class="varname">ExecStart=</code> specified. They will be executed
       in order until either they are all successful or one of them
-      fails.</p></div></div><br class="example-break"><div class="example"><a name="idm140251583502800"></a><p class="title"><b>Example 3. Stoppable oneshot service</b></p><div class="example-contents"><p>Similarly to the oneshot services, there are sometimes
+      fails.</p></div></div><br class="example-break"><div class="example"><a name="idm140225588892144"></a><p class="title"><b>Example 3. Stoppable oneshot service</b></p><div class="example-contents"><p>Similarly to the oneshot services, there are sometimes
       units that need to execute a program to set up something and
       then execute another to shut it down, but no process remains
       active while they are considered 'started'. Network
@@ -694,7 +697,7 @@ ExecStop=/usr/local/sbin/simple-firewall-stop
 [Install]
 WantedBy=multi-user.target</pre><p>Since the unit is considered to be running after the start
       action has exited, invoking <span class="command"><strong>systemctl start</strong></span>
-      on that unit again will cause no action to be taken.</p></div></div><br class="example-break"><div class="example"><a name="idm140251583494944"></a><p class="title"><b>Example 4. Traditional forking services</b></p><div class="example-contents"><p>Many traditional daemons/services background (i.e. fork,
+      on that unit again will cause no action to be taken.</p></div></div><br class="example-break"><div class="example"><a name="idm140225588884288"></a><p class="title"><b>Example 4. Traditional forking services</b></p><div class="example-contents"><p>Many traditional daemons/services background (i.e. fork,
       daemonize) themselves when starting. Set
       <code class="varname">Type=</code><code class="option">forking</code> in the
       service's unit file to support this mode of operation. systemd
@@ -728,7 +731,7 @@ ExecStart=/usr/sbin/my-simple-daemon -d
 WantedBy=multi-user.target</pre><p>Please see
       <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
       for details on how you can influence the way systemd terminates
-      the service.</p></div></div><br class="example-break"><div class="example"><a name="idm140251583486032"></a><p class="title"><b>Example 5. DBus services</b></p><div class="example-contents"><p>For services that acquire a name on the DBus system bus,
+      the service.</p></div></div><br class="example-break"><div class="example"><a name="idm140225588875376"></a><p class="title"><b>Example 5. DBus services</b></p><div class="example-contents"><p>For services that acquire a name on the DBus system bus,
       use <code class="varname">Type=</code><code class="option">dbus</code> and set
       <code class="varname">BusName=</code> accordingly. The service should not
       fork (daemonize). systemd will consider the service to be
@@ -753,7 +756,7 @@ User=root
 SystemdService=simple-dbus-service.service</pre><p>Please see
       <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
       for details on how you can influence the way systemd terminates
-      the service.</p></div></div><br class="example-break"><div class="example"><a name="idm140251583478000"></a><p class="title"><b>Example 6. Services that notify systemd about their initialization</b></p><div class="example-contents"><p><code class="varname">Type=</code><code class="option">simple</code> services
+      the service.</p></div></div><br class="example-break"><div class="example"><a name="idm140225588867344"></a><p class="title"><b>Example 6. Services that notify systemd about their initialization</b></p><div class="example-contents"><p><code class="varname">Type=</code><code class="option">simple</code> services
       are really easy to write, but have the major disadvantage of
       systemd not being able to tell when initialization of the given
       service is complete. For this reason, systemd supports a simple
@@ -778,7 +781,7 @@ WantedBy=multi-user.target</pre><p>Note that the daemon has to support systemd's
       until a readiness notification has arrived.</p><p>Please see
       <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
       for details on how you can influence the way systemd terminates
-      the service.</p></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140251583471504"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      the service.</p></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140225588860848"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

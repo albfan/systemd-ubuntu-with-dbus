@@ -21,12 +21,11 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 
 #include "util.h"
-#include "fileio.h"
+#include "process-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;

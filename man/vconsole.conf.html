@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="vconsole.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>vconsole.conf — Configuration file for the virtual console</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/vconsole.conf</code></p></div><div class="refsect1"><a name="idm140384138872096"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/vconsole.conf</code> file configures
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="vconsole.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>vconsole.conf — Configuration file for the virtual console</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/vconsole.conf</code></p></div><div class="refsect1"><a name="idm140377812062352"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/vconsole.conf</code> file configures
     the virtual console, i.e. keyboard mapping and console font. It is
     applied at boot by
     <a href="systemd-vconsole-setup.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-vconsole-setup.service</span>(8)</span></a>.</p><p>The basic file format of the
@@ -36,18 +36,18 @@
     <code class="varname">vconsole.font.unimap=</code> may be used
     to override the console settings at boot.</p><p>Depending on the operating system other configuration files
     might be checked for configuration of the virtual console as well,
-    however only as fallback.</p></div><div class="refsect1"><a name="idm140384138864576"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="KEYMAP="><span class="term"><code class="varname">KEYMAP=</code>, </span><span class="term"><code class="varname">KEYMAP_TOGGLE=</code></span><a class="headerlink" title="Permalink to this term" href="#KEYMAP=">¶</a></dt><dd><p>Configures the key mapping table for the
+    however only as fallback.</p></div><div class="refsect1"><a name="idm140377807150272"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="KEYMAP="><span class="term"><code class="varname">KEYMAP=</code>, </span><span class="term"><code class="varname">KEYMAP_TOGGLE=</code></span><a class="headerlink" title="Permalink to this term" href="#KEYMAP=">¶</a></dt><dd><p>Configures the key mapping table for the
         keyboard. <code class="varname">KEYMAP=</code> defaults to
         "<code class="literal">us</code>" if not set. The
         <code class="varname">KEYMAP_TOGGLE=</code> can be used to configure a
         second toggle keymap and is by default
         unset.</p></dd><dt id="FONT="><span class="term"><code class="varname">FONT=</code>, </span><span class="term"><code class="varname">FONT_MAP=</code>, </span><span class="term"><code class="varname">FONT_UNIMAP=</code></span><a class="headerlink" title="Permalink to this term" href="#FONT=">¶</a></dt><dd><p>Configures the console font, the console map
-        and the unicode font map.</p></dd></dl></div></div><div class="refsect1"><a name="idm140384142756352"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140384142755680"></a><p class="title"><b>Example 1. German keyboard and console</b></p><div class="example-contents"><p><code class="filename">/etc/vconsole.conf</code>:</p><pre class="programlisting">KEYMAP=de-latin1
-FONT=eurlatgr</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140384142753088"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        and the unicode font map.</p></dd></dl></div></div><div class="refsect1"><a name="idm140377807142880"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140377807142240"></a><p class="title"><b>Example 1. German keyboard and console</b></p><div class="example-contents"><p><code class="filename">/etc/vconsole.conf</code>:</p><pre class="programlisting">KEYMAP=de-latin1
+FONT=eurlatgr</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140377807139840"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemd-vconsole-setup.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-vconsole-setup.service</span>(8)</span></a>,
-        <a href="loadkeys.html"><span class="citerefentry"><span class="refentrytitle">loadkeys</span>(1)</span></a>,
-        <a href="setfont.html"><span class="citerefentry"><span class="refentrytitle">setfont</span>(8)</span></a>,
-        <a href="locale.conf.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>,
+        <a href="https://www.mankier.com/1/loadkeys"><span class="citerefentry"><span class="refentrytitle">loadkeys</span>(1)</span></a>,
+        <a href="http://linux.die.net/man/8/setfont"><span class="citerefentry"><span class="refentrytitle">setfont</span>(8)</span></a>,
+        <a href="http://man7.org/linux/man-pages/man5/locale.conf.5.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>,
         <a href="systemd-localed.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-localed.service</span>(8)</span></a>
       </p></div></div></body></html>

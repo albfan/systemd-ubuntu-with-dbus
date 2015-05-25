@@ -20,15 +20,12 @@
 ***/
 
 #include <errno.h>
-#include <libudev.h>
 #include <stdlib.h>
-#include <string.h>
 #include "consoled.h"
 #include "grdev.h"
 #include "idev.h"
 #include "log.h"
 #include "sd-bus.h"
-#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-login.h"
 #include "sysview.h"
@@ -228,7 +225,7 @@ static int manager_sysview_session_control(Manager *m, sysview_event *event) {
                                 sysview_session_get_name(session));
                 session_free(s);
                 sysview_session_set_userdata(session, NULL);
-                return -error;
+                return error;
         }
 
         return 0;

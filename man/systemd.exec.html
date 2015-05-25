@@ -19,10 +19,10 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
     <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
     <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
-    <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm140278903646480"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets, mount
+    <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm139694387770976"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets, mount
     points, and swap devices share a subset of configuration options
     which define the execution environment of spawned
     processes.</p><p>This man page lists the configuration options shared by
@@ -37,7 +37,7 @@
     for more information on the specific unit configuration files. The
     execution specific configuration options are configured in the
     [Service], [Socket], [Mount], or [Swap] sections, depending on the
-    unit type.</p></div><div class="refsect1"><a name="idm140278903640256"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute directory path. Sets the
+    unit type.</p></div><div class="refsect1"><a name="idm139694382857216"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute directory path. Sets the
         working directory for executed processes. If not set, defaults
         to the root directory when systemd is running as a system
         instance and the respective user's home directory if run as
@@ -145,7 +145,7 @@
         shortly before the process is executed (more specifically,
         after all processes from a previous unit state terminated.
         This means you can generate these files in one unit state, and
-        read it with this option in the next). Settings from these
+        read it with this option in the next).</p><p>Settings from these
         files override settings made with
         <code class="varname">Environment=</code>. If the same variable is set
         twice from these files, the files will be read in the order
@@ -181,7 +181,7 @@
         service was activated from, which is primarily useful for
         compatibility with daemons designed for use with the
         traditional
-        <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>
+        <a href="https://www.freebsd.org/cgi/man.cgi?inetd(8)"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>
         daemon.</p><p>This setting defaults to
         <code class="option">null</code>.</p></dd><dt id="StandardOutput="><span class="term"><code class="varname">StandardOutput=</code></span><a class="headerlink" title="Permalink to this term" href="#StandardOutput=">¶</a></dt><dd><p>Controls where file descriptor 1 (STDOUT) of
         the executed processes is connected to. Takes one of
@@ -330,7 +330,7 @@
         <a href="http://man7.org/linux/man-pages/man7/capabilities.7.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
         for details. Takes a whitespace-separated list of capability
         names as read by
-        <a href="cap_from_name.html"><span class="citerefentry"><span class="refentrytitle">cap_from_name</span>(3)</span></a>,
+        <a href="https://www.mankier.com/3/cap_from_name"><span class="citerefentry"><span class="refentrytitle">cap_from_name</span>(3)</span></a>,
         e.g. <code class="constant">CAP_SYS_ADMIN</code>,
         <code class="constant">CAP_DAC_OVERRIDE</code>,
         <code class="constant">CAP_SYS_PTRACE</code>. Capabilities listed will
@@ -368,7 +368,7 @@
         set for the executed process. Take a capability string
         describing the effective, permitted and inherited capability
         sets as documented in
-        <a href="cap_from_text.html"><span class="citerefentry"><span class="refentrytitle">cap_from_text</span>(3)</span></a>.
+        <a href="https://www.mankier.com/3/cap_from_text"><span class="citerefentry"><span class="refentrytitle">cap_from_text</span>(3)</span></a>.
         Note that these capability sets are usually influenced (and
         filtered) by the capabilities attached to the executed file.
         Due to that <code class="varname">CapabilityBoundingSet=</code> is
@@ -529,7 +529,7 @@
         authorize the transition. This directive is ignored if SELinux
         is disabled. If prefixed by "<code class="literal">-</code>", all errors
         will be ignored. See
-        <a href="setexeccon.html"><span class="citerefentry"><span class="refentrytitle">setexeccon</span>(3)</span></a>
+        <a href="http://linux.die.net/man/3/setexeccon"><span class="citerefentry"><span class="refentrytitle">setexeccon</span>(3)</span></a>
         for details.</p></dd><dt id="AppArmorProfile="><span class="term"><code class="varname">AppArmorProfile=</code></span><a class="headerlink" title="Permalink to this term" href="#AppArmorProfile=">¶</a></dt><dd><p>Takes a profile name as argument. The process
         executed by the unit will switch to this profile when started.
         Profiles must already be loaded in the kernel, or the unit
@@ -668,7 +668,7 @@
         cleaned up automatically after use. For runtime directories
         that require more complex or different configuration or
         lifetime guarantees, please consider using
-        <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm140278902375200"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in a clean
+        <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm139694382566704"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in a clean
     environment in which select variables listed below are set. System
     processes started by systemd do not inherit variables from PID 1,
     but processes started by user systemd instances inherit all
@@ -677,7 +677,7 @@
         when launching executables. Systemd uses a fixed value of
         <code class="filename">/usr/local/sbin</code>:<code class="filename">/usr/local/bin</code>:<code class="filename">/usr/sbin</code>:<code class="filename">/usr/bin</code>:<code class="filename">/sbin</code>:<code class="filename">/bin</code>.
         </p></dd><dt id="$LANG"><span class="term"><code class="varname">$LANG</code></span><a class="headerlink" title="Permalink to this term" href="#%24LANG">¶</a></dt><dd><p>Locale. Can be set in
-        <a href="locale.conf.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>
+        <a href="http://man7.org/linux/man-pages/man5/locale.conf.5.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>
         or on the kernel command line (see
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
         and
@@ -686,7 +686,7 @@
         login shell. The variables are set for the units that have
         <code class="varname">User=</code> set, which includes user
         <span class="command"><strong>systemd</strong></span> instances. See
-        <a href="passwd.html"><span class="citerefentry"><span class="refentrytitle">passwd</span>(5)</span></a>.
+        <a href="http://linux.die.net/man/5/passwd"><span class="citerefentry"><span class="refentrytitle">passwd</span>(5)</span></a>.
         </p></dd><dt id="$XDG_RUNTIME_DIR"><span class="term"><code class="varname">$XDG_RUNTIME_DIR</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_RUNTIME_DIR">¶</a></dt><dd><p>The directory for volatile state. Set for the
         user <span class="command"><strong>systemd</strong></span> instance, and also in user
         sessions. See
@@ -717,7 +717,7 @@
     or the kernel option <code class="varname">systemd.setenv=</code> (see
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>).
     Additional variables may also be set through PAM,
-    cf. <a href="http://man7.org/linux/man-pages/man8/pam_env.8.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140278902336960"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    cf. <a href="http://man7.org/linux/man-pages/man8/pam_env.8.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm139694382527984"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,
