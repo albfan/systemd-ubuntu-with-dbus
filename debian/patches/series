@@ -1,4 +1,5 @@
 ## Cherry-picked from upstream
+udevd-event-fix-event-queue-in-daemenozied-mode.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
