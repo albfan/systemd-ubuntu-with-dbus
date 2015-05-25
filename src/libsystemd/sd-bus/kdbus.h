@@ -70,14 +70,14 @@ struct kdbus_notify_name_change {
  *   KDBUS_ITEM_CREDS
  */
 struct kdbus_creds {
-	__u32 uid;
-	__u32 euid;
-	__u32 suid;
-	__u32 fsuid;
-	__u32 gid;
-	__u32 egid;
-	__u32 sgid;
-	__u32 fsgid;
+	__u64 uid;
+	__u64 euid;
+	__u64 suid;
+	__u64 fsuid;
+	__u64 gid;
+	__u64 egid;
+	__u64 sgid;
+	__u64 fsgid;
 } __attribute__((__aligned__(8)));
 
 /**
@@ -457,24 +457,16 @@ struct kdbus_item {
 } __attribute__((__aligned__(8)));
 
 /**
- * struct kdbus_item_list - A list of items
- * @size:		The total size of the structure
- * @items:		Array of items
- */
-struct kdbus_item_list {
-	__u64 size;
-	struct kdbus_item items[0];
-} __attribute__((__aligned__(8)));
-
-/**
  * enum kdbus_msg_flags - type of message
  * @KDBUS_MSG_EXPECT_REPLY:	Expect a reply message, used for
  *				method calls. The userspace-supplied
  *				cookie identifies the message and the
  *				respective reply carries the cookie
  *				in cookie_reply
- * @KDBUS_MSG_NO_AUTO_START:	Do not start a service, if the addressed
- *				name is not currently active
+ * @KDBUS_MSG_NO_AUTO_START:	Do not start a service if the addressed
+ *				name is not currently active. This flag is
+ *				not looked at by the kernel but only
+ *				serves as hint for userspace implementations.
  * @KDBUS_MSG_SIGNAL:		Treat this message as signal
  */
 enum kdbus_msg_flags {
@@ -507,9 +499,12 @@ enum kdbus_payload_type {
  * @cookie:		Userspace-supplied cookie, for the connection
  *			to identify its messages
  * @timeout_ns:		The time to wait for a message reply from the peer.
- *			If there is no reply, a kernel-generated message
+ *			If there is no reply, and the send command is
+ *			executed asynchronously, a kernel-generated message
  *			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
- *			is sent to @src_id. The timeout is expected in
+ *			is sent to @src_id. For synchronously executed send
+ *			command, the value denotes the maximum time the call
+ *			blocks to wait for a reply. The timeout is expected in
  *			nanoseconds and as absolute CLOCK_MONOTONIC value.
  * @cookie_reply:	A reply to the requesting message with the same
  *			cookie. The requesting connection can match its
@@ -602,9 +597,15 @@ enum kdbus_recv_flags {
  * @KDBUS_RECV_RETURN_INCOMPLETE_FDS:	One or more file descriptors could not
  *					be installed. These descriptors in
  *					KDBUS_ITEM_FDS will carry the value -1.
+ * @KDBUS_RECV_RETURN_DROPPED_MSGS:	There have been dropped messages since
+ *					the last time a message was received.
+ *					The 'dropped_msgs' counter contains the
+ *					number of messages dropped pool
+ *					overflows or other missed broadcasts.
  */
 enum kdbus_recv_return_flags {
 	KDBUS_RECV_RETURN_INCOMPLETE_FDS	= 1ULL <<  0,
+	KDBUS_RECV_RETURN_DROPPED_MSGS		= 1ULL <<  1,
 };
 
 /**
@@ -614,10 +615,12 @@ enum kdbus_recv_return_flags {
  * @return_flags:	Command return flags, kernel → userspace
  * @priority:		Minimum priority of the messages to de-queue. Lowest
  *			values have the highest priority.
- * @dropped_msgs:	In case the KDBUS_CMD_RECV ioctl returns
- *			-EOVERFLOW, this field will contain the number of
- *			broadcast messages that have been lost since the
- *			last call.
+ * @dropped_msgs:	In case there were any dropped messages since the last
+ *			time a message was received, this will be set to the
+ *			number of lost messages and
+ *			KDBUS_RECV_RETURN_DROPPED_MSGS will be set in
+ *			'return_flags'. This can only happen if the ioctl
+ *			returns 0 or EAGAIN.
  * @msg:		Return storage for received message.
  * @items:		Additional items for this command.
  *
@@ -691,10 +694,10 @@ enum kdbus_hello_flags {
  * @id:			The ID of this connection (kernel → userspace)
  * @pool_size:		Size of the connection's buffer where the received
  *			messages are placed
- * @offset:		Pool offset where additional items of type
- *			kdbus_item_list are stored. They contain information
- *			about the bus and the newly created connection.
- * @items_size:		Copy of item_list.size stored in @offset.
+ * @offset:		Pool offset where items are returned to report
+ *			additional information about the bus and the newly
+ *			created connection.
+ * @items_size:		Size of buffer returned in the pool slice at @offset.
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *
@@ -772,11 +775,13 @@ struct kdbus_cmd_list {
 /**
  * struct kdbus_cmd_info - struct used for KDBUS_CMD_CONN_INFO ioctl
  * @size:		The total size of the struct
- * @flags:		KDBUS_ATTACH_* flags, userspace → kernel
+ * @flags:		Flags for this ioctl, userspace → kernel
  * @return_flags:	Command return flags, kernel → userspace
  * @id:			The 64-bit ID of the connection. If set to zero, passing
  *			@name is required. kdbus will look up the name to
  *			determine the ID in this case.
+ * @attach_flags:	Set of attach flags to specify the set of information
+ *			to receive, userspace → kernel
  * @offset:		Returned offset in the caller's pool buffer where the
  *			kdbus_info struct result is stored. The user must
  *			use KDBUS_CMD_FREE to free the allocated memory.
@@ -794,6 +799,7 @@ struct kdbus_cmd_info {
 	__u64 flags;
 	__u64 return_flags;
 	__u64 id;
+	__u64 attach_flags;
 	__u64 offset;
 	__u64 info_size;
 	struct kdbus_item items[0];

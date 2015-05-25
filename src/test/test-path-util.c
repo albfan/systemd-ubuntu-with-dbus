@@ -26,24 +26,41 @@
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
+#include "rm-rf.h"
 
+#define test_path_compare(a, b, result) {                 \
+                assert_se(path_compare(a, b) == result);  \
+                assert_se(path_compare(b, a) == -result); \
+                assert_se(path_equal(a, b) == !result);   \
+                assert_se(path_equal(b, a) == !result);   \
+        }
 
 static void test_path(void) {
-        assert_se(path_equal("/goo", "/goo"));
-        assert_se(path_equal("//goo", "/goo"));
-        assert_se(path_equal("//goo/////", "/goo"));
-        assert_se(path_equal("goo/////", "goo"));
+        _cleanup_close_ int fd = -1;
 
-        assert_se(path_equal("/goo/boo", "/goo//boo"));
-        assert_se(path_equal("//goo/boo", "/goo/boo//"));
+        test_path_compare("/goo", "/goo", 0);
+        test_path_compare("/goo", "/goo", 0);
+        test_path_compare("//goo", "/goo", 0);
+        test_path_compare("//goo/////", "/goo", 0);
+        test_path_compare("goo/////", "goo", 0);
 
-        assert_se(path_equal("/", "///"));
+        test_path_compare("/goo/boo", "/goo//boo", 0);
+        test_path_compare("//goo/boo", "/goo/boo//", 0);
 
-        assert_se(!path_equal("/x", "x/"));
-        assert_se(!path_equal("x/", "/"));
+        test_path_compare("/", "///", 0);
 
-        assert_se(!path_equal("/x/./y", "x/y"));
-        assert_se(!path_equal("x/.y", "x/y"));
+        test_path_compare("/x", "x/", 1);
+        test_path_compare("x/", "/", -1);
+
+        test_path_compare("/x/./y", "x/y", 1);
+        test_path_compare("x/.y", "x/y", -1);
+
+        test_path_compare("foo", "/foo", -1);
+        test_path_compare("/foo", "/foo/bar", -1);
+        test_path_compare("/foo/aaa", "/foo/b", -1);
+        test_path_compare("/foo/aaa", "/foo/b/a", -1);
+        test_path_compare("/foo/a", "/foo/aaa", -1);
+        test_path_compare("/foo/a/b", "/foo/aaa", -1);
 
         assert_se(path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
@@ -71,8 +88,21 @@ static void test_path(void) {
         test_parent("/aa///file...", "/aa///");
         test_parent("file.../", NULL);
 
-        assert_se(path_is_mount_point("/", true));
-        assert_se(path_is_mount_point("/", false));
+        assert_se(path_is_mount_point("/", true) > 0);
+        assert_se(path_is_mount_point("/", false) > 0);
+
+        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        assert_se(fd >= 0);
+        assert_se(fd_is_mount_point(fd) > 0);
+
+        assert_se(path_is_mount_point("/proc", true) > 0);
+        assert_se(path_is_mount_point("/proc", false) > 0);
+
+        assert_se(path_is_mount_point("/proc/1", true) == 0);
+        assert_se(path_is_mount_point("/proc/1", false) == 0);
+
+        assert_se(path_is_mount_point("/sys", true) > 0);
+        assert_se(path_is_mount_point("/sys", false) > 0);
 
         {
                 char p1[] = "aaa/bbb////ccc";
@@ -242,7 +272,7 @@ static void test_strv_resolve(void) {
         assert_se(streq(search_dirs[1], "/dir2"));
         assert_se(streq(search_dirs[2], "/dir2"));
 
-        assert_se(rm_rf_dangerous(tmp_dir, false, true, false) == 0);
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
 static void test_path_startswith(void) {
@@ -264,6 +294,34 @@ static void test_path_startswith(void) {
         assert_se(!path_startswith("/foo/bar/barfoo/", "/f/b/b/"));
 }
 
+static void test_prefix_root_one(const char *r, const char *p, const char *expected) {
+        _cleanup_free_ char *s = NULL;
+        const char *t;
+
+        assert_se(s = prefix_root(r, p));
+        assert_se(streq_ptr(s, expected));
+
+        t = prefix_roota(r, p);
+        assert_se(t);
+        assert_se(streq_ptr(t, expected));
+}
+
+static void test_prefix_root(void) {
+        test_prefix_root_one("/", "/foo", "/foo");
+        test_prefix_root_one(NULL, "/foo", "/foo");
+        test_prefix_root_one("", "/foo", "/foo");
+        test_prefix_root_one("///", "/foo", "/foo");
+        test_prefix_root_one("/", "////foo", "/foo");
+        test_prefix_root_one(NULL, "////foo", "/foo");
+
+        test_prefix_root_one("/foo", "/bar", "/foo/bar");
+        test_prefix_root_one("/foo", "bar", "/foo/bar");
+        test_prefix_root_one("foo", "bar", "foo/bar");
+        test_prefix_root_one("/foo/", "/bar", "/foo/bar");
+        test_prefix_root_one("/foo/", "//bar", "/foo/bar");
+        test_prefix_root_one("/foo///", "//bar", "/foo/bar");
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0], true);
@@ -274,6 +332,7 @@ int main(int argc, char **argv) {
         test_make_relative();
         test_strv_resolve();
         test_path_startswith();
+        test_prefix_root();
 
         return 0;
 }

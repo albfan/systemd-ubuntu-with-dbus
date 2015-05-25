@@ -31,6 +31,8 @@
 #include "journald-kmsg.h"
 #include "journald-console.h"
 #include "journald-wall.h"
+#include "formats-util.h"
+#include "process-util.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
@@ -396,7 +398,7 @@ int server_open_syslog_socket(Server *s) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
-                chmod(sa.un.sun_path, 0666);
+                (void) chmod(sa.un.sun_path, 0666);
         } else
                 fd_nonblock(s->syslog_fd, 1);
 

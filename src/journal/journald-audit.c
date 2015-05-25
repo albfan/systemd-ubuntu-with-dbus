@@ -21,6 +21,7 @@
 
 #include "missing.h"
 #include "journald-audit.h"
+#include "audit-type.h"
 
 typedef struct MapField {
         const char *audit_field;
@@ -336,7 +337,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         size_t n_iov_allocated = 0;
         unsigned n_iov = 0, k;
         uint64_t seconds, msec, id;
-        const char *p;
+        const char *p, *type_name;
         unsigned z;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
@@ -373,7 +374,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (isempty(p))
                 return;
 
-        n_iov_allocated = N_IOVEC_META_FIELDS + 5;
+        n_iov_allocated = N_IOVEC_META_FIELDS + 7;
         iov = new(struct iovec, n_iov_allocated);
         if (!iov) {
                 log_oom();
@@ -392,8 +393,13 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
         IOVEC_SET_STRING(iov[n_iov++], id_field);
 
-        m = alloca(strlen("MESSAGE=<audit-") + DECIMAL_STR_MAX(int) + strlen("> ") + strlen(p) + 1);
-        sprintf(m, "MESSAGE=<audit-%i> %s", type, p);
+        assert_cc(32 == LOG_AUTH);
+        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=32");
+        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_IDENTIFIER=audit");
+
+        type_name = audit_type_name_alloca(type);
+
+        m = strjoina("MESSAGE=", type_name, " ", p);
         IOVEC_SET_STRING(iov[n_iov++], m);
 
         z = n_iov;
@@ -528,9 +534,14 @@ int server_open_audit(Server *s) {
                         return 0;
                 }
 
-                r = bind(s->audit_fd, &sa.sa, sizeof(sa.nl));
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to join audit multicast group: %m");
+                if (bind(s->audit_fd, &sa.sa, sizeof(sa.nl)) < 0) {
+                        log_warning_errno(errno,
+                                          "Failed to join audit multicast group. "
+                                          "The kernel is probably too old or multicast reading is not supported. "
+                                          "Ignoring: %m");
+                        s->audit_fd = safe_close(s->audit_fd);
+                        return 0;
+                }
         } else
                 fd_nonblock(s->audit_fd, 1);
 

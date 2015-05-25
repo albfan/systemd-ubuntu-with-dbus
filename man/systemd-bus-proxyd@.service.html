@@ -19,16 +19,16 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-bus-proxyd@.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-bus-proxyd@.service, systemd-bus-proxyd.socket — Proxy classic D-Bus clients to kdbus</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-bus-proxyd@.service</code></p><p><code class="filename">systemd-bus-proxyd.socket</code></p></div><div class="refsect1"><a name="idm139859343287232"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-bus-proxyd.socket</code> will launch
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-bus-proxyd@.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-bus-proxyd@.service, systemd-bus-proxyd.socket — Proxy classic D-Bus clients to kdbus</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-bus-proxyd@.service</code></p><p><code class="filename">systemd-bus-proxyd.socket</code></p></div><div class="refsect1"><a name="idm140138980723904"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-bus-proxyd.socket</code> will launch
     <code class="filename">systemd-bus-proxyd@.service</code> for connections
     to the classic D-Bus socket in
     <code class="filename">/var/run/dbus/system_bus_socket</code>.</p><p><code class="filename">systemd-bus-proxyd@.service</code> is launched
     for an existing D-Bus connection and will use
     <span class="command"><strong>systemd-bus-proxyd</strong></span> to proxy messages from this
     connection to the system bus (either kdbus or classic D-Bus).
-    </p></div><div class="refsect1"><a name="idm139859339474944"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm140138975820896"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-bus-proxyd.html"><span class="citerefentry"><span class="refentrytitle">systemd-bus-proxyd</span>(8)</span></a>,
-      <a href="dbus-daemon.html"><span class="citerefentry"><span class="refentrytitle">dbus-daemon</span>(1)</span></a>,
+      <a href="http://dbus.freedesktop.org/doc/dbus-daemon.1.html"><span class="citerefentry"><span class="refentrytitle">dbus-daemon</span>(1)</span></a>,
       <a class="ulink" href="http://freedesktop.org/wiki/Software/dbus" target="_top">D-Bus</a>,
       <a class="ulink" href="https://code.google.com/p/d-bus/" target="_top">kdbus</a>
     </p></div></div></body></html>

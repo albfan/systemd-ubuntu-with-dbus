@@ -19,7 +19,6 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-#include <unistd.h>
 
 #include "boot-timestamps.h"
 #include "acpi-fpdt.h"
@@ -40,10 +39,8 @@ int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_time
 
         r = acpi_get_boot_usec(&x, &y);
         if (r < 0) {
-#ifdef ENABLE_EFI
                 r = efi_loader_get_boot_usec(&x, &y);
                 if (r < 0)
-#endif
                         return r;
         }
 

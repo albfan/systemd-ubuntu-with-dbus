@@ -19,32 +19,34 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="resolved.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>resolved.conf, resolved.conf.d — Network Name Resolution configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/resolved.conf</code></p><p><code class="filename">/etc/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/resolved.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140621226599024"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These configuration files control local DNS and LLMNR
-    name resolving.</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
-    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
-    <code class="filename">/usr/lib/</code>, in order of precedence.
-    Each configuration file in these configuration directories shall be named in
-    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
-    Files in <code class="filename">/etc/</code> override files with the same name in
-    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
-    <code class="filename">/run/</code> override files with the same name in
-    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
-    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
-    reserved for the local administrator, who may use this logic to override the
-    configuration files installed by vendor packages. All configuration files
-    are sorted by their filename in lexicographic order, regardless of which of
-    the directories they reside in. If multiple files specify the same option,
-    the entry in the file with the lexicographically latest name will take
-    precedence. It is recommended to prefix all filenames with a two-digit number
-    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
-    the vendor, the recommended way is to place a symlink to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="resolved.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>resolved.conf, resolved.conf.d — Network Name Resolution configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/resolved.conf</code></p><p><code class="filename">/etc/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/resolved.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140069773969728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These configuration files control local DNS and LLMNR
+    name resolving.</p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
+    configuration file is only needed when it is necessary to deviate
+    from those defaults. By default the configuration file in
+    <code class="filename">/etc/systemd/</code> contains commented out entries
+    showing the defaults as a guide to the administrator. This file
+    can be edited to create local overrides.
+    </p><p>When packages need to customize the configuration, they can
+    install configuration snippets in
+    <code class="filename">/usr/lib/systemd/*.conf.d/</code>. Files in
+    <code class="filename">/etc/</code> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. The main
+    configuration file is read before any of the configuration
+    directories, and has the lowest precedence; entries in a file in
+    any configuration directory override entries in the single
+    configuration file. Files in the
+    <code class="filename">*.conf.d/</code> configuration subdirectories
+    are sorted by their filename in lexicographic order, regardless of
+    which of the subdirectories they reside in. If multiple files
+    specify the same option, the entry in the file with the
+    lexicographically latest name takes precedence.  It is recommended
+    to prefix all filenames in those subdirectories with a two-digit
+    number and a dash, to simplify the ordering of the files.</p><p>To disable a configuration file supplied by the vendor, the
+    recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsection"><a name="conf"></a><h2>Configuration File</h2><p>Configuration is also read from a single configuration file in
-    <code class="filename">/etc/</code>. This file is read before any of the
-    configuration directories, and has the lowest precedence; entries in a file
-    in any configuration directory override entries in the single configuration
-    file.</p></div><div class="refsect1"><a name="idm140621226596192"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A space separated list of IPv4 and IPv6
+    configuration file.</p></div><div class="refsect1"><a name="idm140069769013456"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A space separated list of IPv4 and IPv6
         addresses to be used as system DNS servers. DNS requests are
         sent to one of the listed DNS servers in parallel to any
         per-interface DNS servers acquired from
@@ -71,7 +73,7 @@
         <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
         also maintains per-interface LLMNR settings. LLMNR will be
         enabled on an interface only if the per-interface and the
-        global setting is on.</p></dd></dl></div></div><div class="refsect1"><a name="idm140621226659056"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        global setting is on.</p></dd></dl></div></div><div class="refsect1"><a name="idm140069769000656"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-resolved.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-resolved.service</span>(8)</span></a>,
       <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>,

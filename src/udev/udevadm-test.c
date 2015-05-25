@@ -17,13 +17,10 @@
  */
 
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <errno.h>
-#include <ctype.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <getopt.h>
 #include <sys/signalfd.h>
@@ -120,18 +117,16 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 strscpy(filename, sizeof(filename), syspath);
         util_remove_trailing_chars(filename, '/');
 
-        dev = udev_device_new_from_syspath(udev, filename);
+        dev = udev_device_new_from_synthetic_event(udev, filename, action);
         if (dev == NULL) {
                 fprintf(stderr, "unable to open device '%s'\n", filename);
                 rc = 4;
                 goto out;
         }
 
-        /* skip reading of db, but read kernel parameters */
+        /* don't read info from the db */
         udev_device_set_info_loaded(dev);
-        udev_device_read_uevent_file(dev);
 
-        udev_device_set_action(dev, action);
         event = udev_event_new(dev);
 
         sigfillset(&mask);

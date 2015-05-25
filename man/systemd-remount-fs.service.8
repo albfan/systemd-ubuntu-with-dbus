@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-REMOUNT\-FS\&.SERVICE" "8" "" "systemd 219" "systemd-remount-fs.service"
+.TH "SYSTEMD\-REMOUNT\-FS\&.SERVICE" "8" "" "systemd 220" "systemd-remount-fs.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,7 +33,7 @@ is an early\-boot service that applies mount options listed in
 \fBfstab\fR(5)
 to the root file system, the
 /usr
-file system and the kernel API file systems\&. This is required so that the mount options of these file systems \-\- which are pre\-mounted by the kernel, the initial RAM disk, container environments or system manager code \-\- are updated to those listed in
+file system, and the kernel API file systems\&. This is required so that the mount options of these file systems \(em which are pre\-mounted by the kernel, the initial RAM disk, container environments or system manager code \(em are updated to those listed in
 /etc/fstab\&. This service ignores normal file systems and only changes the root file system (i\&.e\&.
 /),
 /usr

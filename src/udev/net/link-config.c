@@ -22,7 +22,6 @@
 #include <netinet/ether.h>
 #include <linux/netdevice.h>
 
-#include "sd-id128.h"
 
 #include "missing.h"
 #include "link-config.h"
@@ -36,11 +35,9 @@
 #include "path-util.h"
 #include "conf-parser.h"
 #include "conf-files.h"
-#include "fileio.h"
-#include "hashmap.h"
 #include "rtnl-util.h"
 #include "network-internal.h"
-#include "siphash24.h"
+#include "random-util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -70,9 +67,9 @@ static void link_config_free(link_config *link) {
         free(link->filename);
 
         free(link->match_mac);
-        free(link->match_path);
-        free(link->match_driver);
-        free(link->match_type);
+        strv_free(link->match_path);
+        strv_free(link->match_driver);
+        strv_free(link->match_type);
         free(link->match_name);
         free(link->match_host);
         free(link->match_virt);
@@ -177,6 +174,9 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         else
                 log_debug("Parsed configuration file %s", filename);
 
+        if (link->mtu > UINT_MAX || link->speed > UINT_MAX)
+                return -ERANGE;
+
         link->filename = strdup(filename);
 
         LIST_PREPEND(links, ctx->links, link);
@@ -259,7 +259,7 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
 
                                 attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
                                 if (attr_value)
-                                        (void)safe_atou8(attr_value, &name_assign_type);
+                                        (void) safe_atou8(attr_value, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM) {
                                         log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
@@ -379,10 +379,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (!old_name)
                 return -EINVAL;
 
-        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024,
-                              config->duplex);
+        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024, config->duplex);
         if (r < 0)
-                log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
+                log_warning_errno(r, "Could not set speed or duplex of %s to %zu Mbps (%s): %m",
                                   old_name, config->speed / 1024,
                                   duplex_to_string(config->duplex));
 
@@ -461,8 +460,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         mac = config->mac;
         }
 
-        r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac,
-                                     config->mtu);
+        r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
                 return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
 
@@ -473,7 +471,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
 int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret) {
         const char *name;
-        char *driver;
+        char *driver = NULL;
         int r;
 
         name = udev_device_get_sysname(device);

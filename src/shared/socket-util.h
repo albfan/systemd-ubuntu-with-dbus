@@ -25,7 +25,6 @@
 #include <netinet/in.h>
 #include <netinet/ether.h>
 #include <sys/un.h>
-#include <asm/types.h>
 #include <linux/netlink.h>
 #include <linux/if_packet.h>
 
@@ -67,6 +66,7 @@ typedef enum SocketAddressBindIPv6Only {
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
 int socket_address_parse(SocketAddress *a, const char *s);
+int socket_address_parse_and_warn(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);
 int socket_address_print(const SocketAddress *a, char **p);
 int socket_address_verify(const SocketAddress *a) _pure_;
@@ -98,7 +98,9 @@ const char* socket_address_get_path(const SocketAddress *a);
 
 bool socket_ipv6_is_supported(void);
 
-int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, char **ret);
+int sockaddr_port(const struct sockaddr *_sa) _pure_;
+
+int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
 int getpeername_pretty(int fd, char **ret);
 int getsockname_pretty(int fd, char **ret);
 

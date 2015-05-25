@@ -23,14 +23,13 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <syslog.h>
 #include <sys/signalfd.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
 
-#include "macro.h"
 #include "sd-id128.h"
+#include "macro.h"
 
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
@@ -156,12 +155,12 @@ void log_assert_failed_return(
                 const char *func);
 
 /* Logging with level */
-#define log_full_errno(level, error, ...)                                         \
-        ({                                                                        \
-                int _l = (level), _e = (error);                                   \
-                (log_get_max_level() >= LOG_PRI(_l))                              \
-                ? log_internal(_l, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                : -abs(_e); \
+#define log_full_errno(level, error, ...)                               \
+        ({                                                              \
+                int _level = (level), _e = (error);                     \
+                (log_get_max_level() >= LOG_PRI(_level))                \
+                        ? log_internal(_level, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
+                        : -abs(_e);                                     \
         })
 
 #define log_full(level, ...) log_full_errno(level, 0, __VA_ARGS__)
@@ -205,8 +204,26 @@ LogTarget log_target_from_string(const char *s) _pure_;
 /* Helpers to prepare various fields for structured logging */
 #define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
 #define LOG_MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
-#define LOG_ERRNO(error) "ERRNO=%i", abs(error)
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
 void log_set_upgrade_syslog_to_journal(bool b);
+
+int log_syntax_internal(
+                const char *unit,
+                int level,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) _printf_(9, 10);
+
+#define log_syntax(unit, level, config_file, config_line, error, ...)   \
+        ({                                                              \
+                int _level = (level), _e = (error);                     \
+                (log_get_max_level() >= LOG_PRI(_level))                \
+                        ? log_syntax_internal(unit, _level, config_file, config_line, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
+                        : -abs(_e);                                     \
+        })

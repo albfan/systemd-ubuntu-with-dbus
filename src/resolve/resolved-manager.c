@@ -19,22 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <arpa/inet.h>
 #include <resolv.h>
-#include <net/if.h>
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <netinet/in.h>
 
 #include "rtnl-util.h"
-#include "event-util.h"
-#include "network-util.h"
 #include "network-internal.h"
-#include "conf-parser.h"
 #include "socket-util.h"
 #include "af-list.h"
 #include "utf8.h"
 #include "fileio-label.h"
+#include "ordered-set.h"
+#include "random-util.h"
+#include "hostname-util.h"
 
 #include "resolved-dns-domain.h"
 #include "resolved-conf.h"
@@ -536,10 +534,10 @@ Manager *manager_free(Manager *m) {
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
-        dns_scope_free(m->unicast_scope);
-
         manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
         manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
+
+        dns_scope_free(m->unicast_scope);
 
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
@@ -707,8 +705,11 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         (*count) ++;
 }
 
-static void write_resolv_conf_search(const char *domain, FILE *f,
-                                     unsigned *count, unsigned *length) {
+static void write_resolv_conf_search(
+                const char *domain, FILE *f,
+                unsigned *count,
+                unsigned *length) {
+
         assert(domain);
         assert(f);
         assert(length);
@@ -729,7 +730,7 @@ static void write_resolv_conf_search(const char *domain, FILE *f,
         (*count) ++;
 }
 
-static int write_resolv_conf_contents(FILE *f, Set *dns, Set *domains) {
+static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
         Iterator i;
 
         fputs("# This file is managed by systemd-resolved(8). Do not edit.\n#\n"
@@ -738,22 +739,22 @@ static int write_resolv_conf_contents(FILE *f, Set *dns, Set *domains) {
               "# resolv.conf(5) in a different way, replace the symlink by a\n"
               "# static file or a different symlink.\n\n", f);
 
-        if (set_isempty(dns))
+        if (ordered_set_isempty(dns))
                 fputs("# No DNS servers known.\n", f);
         else {
                 DnsServer *s;
                 unsigned count = 0;
 
-                SET_FOREACH(s, dns, i)
+                ORDERED_SET_FOREACH(s, dns, i)
                         write_resolv_conf_server(s, f, &count);
         }
 
-        if (!set_isempty(domains)) {
+        if (!ordered_set_isempty(domains)) {
                 unsigned length = 0, count = 0;
                 char *domain;
 
                 fputs("search", f);
-                SET_FOREACH(domain, domains, i)
+                ORDERED_SET_FOREACH(domain, domains, i)
                         write_resolv_conf_search(domain, f, &count, &length);
                 fputs("\n", f);
         }
@@ -761,12 +762,11 @@ static int write_resolv_conf_contents(FILE *f, Set *dns, Set *domains) {
         return fflush_and_check(f);
 }
 
-
 int manager_write_resolv_conf(Manager *m) {
         static const char path[] = "/run/systemd/resolve/resolv.conf";
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_set_free_ Set *dns = NULL, *domains = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         DnsServer *s;
         Iterator i;
         Link *l;
@@ -778,17 +778,17 @@ int manager_write_resolv_conf(Manager *m) {
         manager_read_resolv_conf(m);
 
         /* Add the full list to a set, to filter out duplicates */
-        dns = set_new(&dns_server_hash_ops);
+        dns = ordered_set_new(&dns_server_hash_ops);
         if (!dns)
                 return -ENOMEM;
 
-        domains = set_new(&dns_name_hash_ops);
+        domains = ordered_set_new(&dns_name_hash_ops);
         if (!domains)
                 return -ENOMEM;
 
         /* First add the system-wide servers */
         LIST_FOREACH(servers, s, m->dns_servers) {
-                r = set_put(dns, s);
+                r = ordered_set_put(dns, s);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -800,7 +800,7 @@ int manager_write_resolv_conf(Manager *m) {
                 char **domain;
 
                 LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = set_put(dns, s);
+                        r = ordered_set_put(dns, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -811,7 +811,7 @@ int manager_write_resolv_conf(Manager *m) {
                         continue;
 
                 STRV_FOREACH(domain, l->unicast_scope->domains) {
-                        r = set_put(domains, *domain);
+                        r = ordered_set_put(domains, *domain);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -820,9 +820,9 @@ int manager_write_resolv_conf(Manager *m) {
         }
 
         /* If we found nothing, add the fallback servers */
-        if (set_isempty(dns)) {
+        if (ordered_set_isempty(dns)) {
                 LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = set_put(dns, s);
+                        r = ordered_set_put(dns, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -848,8 +848,8 @@ int manager_write_resolv_conf(Manager *m) {
         return 0;
 
 fail:
-        unlink(path);
-        unlink(temp_path);
+        (void) unlink(path);
+        (void) unlink(temp_path);
         return r;
 }
 

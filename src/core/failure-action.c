@@ -22,12 +22,12 @@
 
 #include <sys/reboot.h>
 #include <linux/reboot.h>
-#include <sys/syscall.h>
 
 #include "bus-util.h"
 #include "bus-error.h"
 #include "special.h"
 #include "failure-action.h"
+#include "terminal-util.h"
 
 static void log_and_status(Manager *m, const char *message) {
         log_warning("%s", message);
@@ -50,7 +50,7 @@ int failure_action(
         if (action == FAILURE_ACTION_NONE)
                 return -ECANCELED;
 
-        if (m->running_as == SYSTEMD_USER) {
+        if (m->running_as == MANAGER_USER) {
                 /* Downgrade all options to simply exiting if we run
                  * in user mode */
 

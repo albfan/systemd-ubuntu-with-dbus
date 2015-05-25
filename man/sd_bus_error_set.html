@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="sd_bus_error"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_bus_error, sd_bus_error_free, sd_bus_error_set, sd_bus_error_set_const, sd_bus_error_set_errno, sd_bus_error_set_errnof, sd_bus_error_get_errno, sd_bus_error_copy, sd_bus_error_is_set, sd_bus_error_has_name — sd-bus error handling</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-bus.h&gt;</pre><pre class="funcsynopsisinfo">typedef struct {
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sd_bus_error"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_bus_error, sd_bus_error_free, sd_bus_error_set, sd_bus_error_set_const, sd_bus_error_set_errno, sd_bus_error_set_errnof, sd_bus_error_get_errno, sd_bus_error_copy, sd_bus_error_is_set, sd_bus_error_has_name — sd-bus error handling</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-bus.h&gt;</pre><pre class="funcsynopsisinfo">typedef struct {
         const char *name;
         const char *message;
         ...
@@ -85,7 +85,7 @@
       <code class="constant">SD_BUS_ERROR_MATCH_RULE_NOT_FOUND</code>
     </p><p>
       <code class="constant">SD_BUS_ERROR_MATCH_RULE_INVALID</code>
-    </p></div><div class="refsect1"><a name="idm140307284751792"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <span class="structname">sd_bus_error</span> structure carries
+    </p></div><div class="refsect1"><a name="idm140545482708608"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <span class="structname">sd_bus_error</span> structure carries
     information for a <code class="filename">sd-bus</code> error. The
     functions described below can be used to set and query fields in
     this structure. The <em class="structfield"><code>name</code></em> field contains a
@@ -124,7 +124,7 @@
     not copied internally, and must remain valid for the lifetime of
     <em class="parameter"><code>e</code></em>.</p><p><code class="function">sd_bus_error_set_errno</code> will set
     <em class="structfield"><code>name</code></em> based on an errno-like value.
-    <a href="strerror.html"><span class="citerefentry"><span class="refentrytitle">strerror</span>(3)</span></a>
+    <a href="http://linux.die.net/man/3/strerror"><span class="citerefentry"><span class="refentrytitle">strerror</span>(3)</span></a>
     will be used to set <em class="structfield"><code>message</code></em>. Well-known
     D-Bus error names will be used for <em class="structfield"><code>name</code></em>
     if available, otherwise a name in the
@@ -154,7 +154,7 @@
     held by <em class="parameter"><code>e</code></em>. The parameter itself will not
     be deallocated, and must be
     <a href="http://man7.org/linux/man-pages/man3/free.3.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>d
-    by the caller if necessary.</p></div><div class="refsect1"><a name="idm140307284709152"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>Functions <code class="function">sd_bus_error_set</code>,
+    by the caller if necessary.</p></div><div class="refsect1"><a name="idm140545482665728"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>Functions <code class="function">sd_bus_error_set</code>,
     <code class="function">sd_bus_error_setf</code>,
     <code class="function">sd_bus_error_set_const</code>, when successful,
     return the negative errno value corresponding to the
@@ -175,17 +175,17 @@
     <code class="constant">true</code> when <em class="parameter"><code>e</code></em> is
     non-<code class="constant">NULL</code> and <em class="parameter"><code>e-&gt;name</code></em>
     is equal to <em class="parameter"><code>name</code></em>,
-    <code class="constant">false</code> otherwise.</p></div><div class="refsect1"><a name="idm140307284692432"></a><h2 id="Reference ownership">Reference ownership<a class="headerlink" title="Permalink to this headline" href="#Reference%20ownership">¶</a></h2><p><span class="structname">sd_bus_error</span> is not reference
+    <code class="constant">false</code> otherwise.</p></div><div class="refsect1"><a name="idm140545482649008"></a><h2 id="Reference ownership">Reference ownership<a class="headerlink" title="Permalink to this headline" href="#Reference%20ownership">¶</a></h2><p><span class="structname">sd_bus_error</span> is not reference
     counted. Users should destroy resources held by it by calling
-    <code class="function">sd_bus_error_free</code>.</p></div><div class="refsect1"><a name="idm140307284690288"></a><h2 id="Errors">Errors<a class="headerlink" title="Permalink to this headline" href="#Errors">¶</a></h2><p>Returned errors may indicate the following problems:</p><div class="variablelist"><dl class="variablelist"><dt id="-EINVAL"><span class="term"><code class="constant">-EINVAL</code></span><a class="headerlink" title="Permalink to this term" href="#-EINVAL">¶</a></dt><dd><p>Error was already set in
+    <code class="function">sd_bus_error_free</code>.</p></div><div class="refsect1"><a name="idm140545482646864"></a><h2 id="Errors">Errors<a class="headerlink" title="Permalink to this headline" href="#Errors">¶</a></h2><p>Returned errors may indicate the following problems:</p><div class="variablelist"><dl class="variablelist"><dt id="-EINVAL"><span class="term"><code class="constant">-EINVAL</code></span><a class="headerlink" title="Permalink to this term" href="#-EINVAL">¶</a></dt><dd><p>Error was already set in
         <span class="structname">sd_bus_error</span> structure when one the
-        error-setting functions was called.</p></dd><dt id="-ENOMEM"><span class="term"><code class="constant">-ENOMEM</code></span><a class="headerlink" title="Permalink to this term" href="#-ENOMEM">¶</a></dt><dd><p>Memory allocation failed.</p></dd></dl></div></div><div class="refsect1"><a name="idm140307284685552"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><code class="function">sd_bus_set_error()</code> and other functions
+        error-setting functions was called.</p></dd><dt id="-ENOMEM"><span class="term"><code class="constant">-ENOMEM</code></span><a class="headerlink" title="Permalink to this term" href="#-ENOMEM">¶</a></dt><dd><p>Memory allocation failed.</p></dd></dl></div></div><div class="refsect1"><a name="idm140545482642128"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><code class="function">sd_bus_set_error()</code> and other functions
     described here are available as a shared library, which can be
     compiled and linked to with the
     <code class="constant">libsystemd</code> <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-    file.</p></div><div class="refsect1"><a name="idm140307284682368"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    file.</p></div><div class="refsect1"><a name="idm140545482638944"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="sd-bus.html"><span class="citerefentry"><span class="refentrytitle">sd-bus</span>(3)</span></a>,
       <a href="http://man7.org/linux/man-pages/man3/errno.3.html"><span class="citerefentry"><span class="refentrytitle">errno</span>(3)</span></a>,
-      <a href="strerror.html"><span class="citerefentry"><span class="refentrytitle">strerror</span>(3)</span></a>
+      <a href="http://linux.die.net/man/3/strerror"><span class="citerefentry"><span class="refentrytitle">strerror</span>(3)</span></a>
     </p></div></div></body></html>

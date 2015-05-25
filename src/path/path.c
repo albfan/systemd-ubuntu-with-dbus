@@ -22,9 +22,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <errno.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "sd-path.h"
 #include "build.h"
@@ -117,7 +115,7 @@ static int print_home(const char *n) {
         }
 
         log_error("Path %s not known.", n);
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 }
 
 static void help(void) {

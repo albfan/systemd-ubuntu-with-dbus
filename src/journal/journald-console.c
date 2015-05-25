@@ -21,12 +21,14 @@
 
 #include <time.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/socket.h>
 
 #include "fileio.h"
 #include "journald-server.h"
 #include "journald-console.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
 
 static bool prefix_timestamp(void) {
 

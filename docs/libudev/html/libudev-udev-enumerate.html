@@ -2,13 +2,13 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>libudev Reference Manual: udev_enumerate</title>
+<title>udev_enumerate: libudev Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
 <link rel="home" href="index.html" title="libudev Reference Manual">
 <link rel="up" href="ch01.html" title="API Reference">
 <link rel="prev" href="libudev-udev-monitor.html" title="udev_monitor">
 <link rel="next" href="libudev-udev-queue.html" title="udev_queue">
-<meta name="generator" content="GTK-Doc V1.21 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.23 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -216,7 +216,6 @@ udev_enumerate_ref (<em class="parameter"><code><span class="type">struct udev_e
 <div class="refsect3">
 <a name="id-1.2.6.6.2.6"></a><h4>Returns</h4>
 <p> the passed enumeration context</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -244,7 +243,6 @@ all resources of the enumeration context will be released.</p>
 <div class="refsect3">
 <a name="id-1.2.6.6.3.6"></a><h4>Returns</h4>
 <p> <span class="type">NULL</span></p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -271,7 +269,6 @@ udev_enumerate_get_udev (<em class="parameter"><code><span class="type">struct u
 <div class="refsect3">
 <a name="id-1.2.6.6.4.6"></a><h4>Returns</h4>
 <p> a pointer to the context.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -298,7 +295,6 @@ udev_enumerate_new (<em class="parameter"><code><span class="type">struct udev</
 <div class="refsect3">
 <a name="id-1.2.6.6.5.6"></a><h4>Returns</h4>
 <p> an enumeration context.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -333,7 +329,6 @@ udev_enumerate_add_match_subsystem (<em class="parameter"><code><span class="typ
 <div class="refsect3">
 <a name="id-1.2.6.6.6.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -368,7 +363,6 @@ udev_enumerate_add_nomatch_subsystem (<em class="parameter"><code><span class="t
 <div class="refsect3">
 <a name="id-1.2.6.6.7.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -409,7 +403,6 @@ udev_enumerate_add_match_sysattr (<em class="parameter"><code><span class="type"
 <div class="refsect3">
 <a name="id-1.2.6.6.8.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -450,7 +443,6 @@ udev_enumerate_add_nomatch_sysattr (<em class="parameter"><code><span class="typ
 <div class="refsect3">
 <a name="id-1.2.6.6.9.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -491,7 +483,6 @@ udev_enumerate_add_match_property (<em class="parameter"><code><span class="type
 <div class="refsect3">
 <a name="id-1.2.6.6.10.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -526,7 +517,6 @@ udev_enumerate_add_match_tag (<em class="parameter"><code><span class="type">str
 <div class="refsect3">
 <a name="id-1.2.6.6.11.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -564,7 +554,6 @@ is cleaned up.</p>
 <div class="refsect3">
 <a name="id-1.2.6.6.12.7"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -600,7 +589,6 @@ and are not network interfaces.</p>
 <div class="refsect3">
 <a name="id-1.2.6.6.13.8"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -635,7 +623,6 @@ udev_enumerate_add_match_sysname (<em class="parameter"><code><span class="type"
 <div class="refsect3">
 <a name="id-1.2.6.6.14.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -670,7 +657,6 @@ udev_enumerate_add_syspath (<em class="parameter"><code><span class="type">struc
 <div class="refsect3">
 <a name="id-1.2.6.6.15.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -698,7 +684,6 @@ will return all currently available devices.</p>
 <div class="refsect3">
 <a name="id-1.2.6.6.16.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -725,7 +710,6 @@ udev_enumerate_scan_subsystems (<em class="parameter"><code><span class="type">s
 <div class="refsect3">
 <a name="id-1.2.6.6.17.6"></a><h4>Returns</h4>
 <p> 0 on success, otherwise a negative error value.</p>
-<p></p>
 </div>
 </div>
 <hr>
@@ -752,7 +736,6 @@ udev_enumerate_get_list_entry (<em class="parameter"><code><span class="type">st
 <div class="refsect3">
 <a name="id-1.2.6.6.18.6"></a><h4>Returns</h4>
 <p> a udev_list_entry.</p>
-<p></p>
 </div>
 </div>
 </div>
@@ -766,7 +749,6 @@ udev_enumerate_get_list_entry (<em class="parameter"><code><span class="type">st
 </div>
 </div>
 <div class="footer">
-<hr>
-          Generated by GTK-Doc V1.21</div>
+<hr>Generated by GTK-Doc V1.23</div>
 </body>
 </html>

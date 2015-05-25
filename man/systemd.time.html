@@ -19,11 +19,11 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.time"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.time — Time and date specifications</p></div><div class="refsect1"><a name="idm140168272968208"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>In systemd, timestamps, time spans, and calendar events are
-    displayed and may be specified in closely related syntaxes.</p></div><div class="refsect1"><a name="idm140168269186832"></a><h2 id="Displaying Time Spans">Displaying Time Spans<a class="headerlink" title="Permalink to this headline" href="#Displaying%20Time%20Spans">¶</a></h2><p>Time spans refer to time durations. On display, systemd will
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.time"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.time — Time and date specifications</p></div><div class="refsect1"><a name="idm140185987565920"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>In systemd, timestamps, time spans, and calendar events are
+    displayed and may be specified in closely related syntaxes.</p></div><div class="refsect1"><a name="idm140185987564592"></a><h2 id="Displaying Time Spans">Displaying Time Spans<a class="headerlink" title="Permalink to this headline" href="#Displaying%20Time%20Spans">¶</a></h2><p>Time spans refer to time durations. On display, systemd will
     present time spans as a space-separated series of time values each
     suffixed by a time unit.</p><pre class="programlisting">2h 30min</pre><p>All specified time values are meant to be added up. The
-    above hence refers to 150 minutes.</p></div><div class="refsect1"><a name="idm140168269184400"></a><h2 id="Parsing Time Spans">Parsing Time Spans<a class="headerlink" title="Permalink to this headline" href="#Parsing%20Time%20Spans">¶</a></h2><p>When parsing, systemd will accept the same time span syntax.
+    above hence refers to 150 minutes.</p></div><div class="refsect1"><a name="idm140185987562272"></a><h2 id="Parsing Time Spans">Parsing Time Spans<a class="headerlink" title="Permalink to this headline" href="#Parsing%20Time%20Spans">¶</a></h2><p>When parsing, systemd will accept the same time span syntax.
     Separating spaces may be omitted. The following time units are
     understood:</p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>usec, us</p></li><li class="listitem"><p>msec, ms</p></li><li class="listitem"><p>seconds, second, sec, s</p></li><li class="listitem"><p>minutes, minute, min, m</p></li><li class="listitem"><p>hours, hour, hr, h</p></li><li class="listitem"><p>days, day, d</p></li><li class="listitem"><p>weeks, week, w</p></li><li class="listitem"><p>months, month</p></li><li class="listitem"><p>years, year, y</p></li></ul></div><p>If no time unit is specified, generally seconds are assumed,
     but some exceptions exist and are marked as such. In a few cases
@@ -33,10 +33,10 @@
 48hr
 1y 12month
 55s500ms
-300ms20s 5day</pre></div><div class="refsect1"><a name="idm140168269174816"></a><h2 id="Displaying Timestamps">Displaying Timestamps<a class="headerlink" title="Permalink to this headline" href="#Displaying%20Timestamps">¶</a></h2><p>Timestamps refer to specific, unique points in time. On
+300ms20s 5day</pre></div><div class="refsect1"><a name="idm140185982653296"></a><h2 id="Displaying Timestamps">Displaying Timestamps<a class="headerlink" title="Permalink to this headline" href="#Displaying%20Timestamps">¶</a></h2><p>Timestamps refer to specific, unique points in time. On
     display, systemd will format these in the local timezone as
     follows:</p><pre class="programlisting">Fri 2012-11-23 23:02:15 CET</pre><p>The weekday is printed according to the locale choice of the
-    user.</p></div><div class="refsect1"><a name="idm140168269172400"></a><h2 id="Parsing Timestamps">Parsing Timestamps<a class="headerlink" title="Permalink to this headline" href="#Parsing%20Timestamps">¶</a></h2><p>When parsing systemd will accept a similar timestamp syntax,
+    user.</p></div><div class="refsect1"><a name="idm140185982650992"></a><h2 id="Parsing Timestamps">Parsing Timestamps<a class="headerlink" title="Permalink to this headline" href="#Parsing%20Timestamps">¶</a></h2><p>When parsing systemd will accept a similar timestamp syntax,
     but excluding any timezone specification (this limitation might be
     removed eventually). The weekday specification is optional, but
     when the weekday is specified it must either be in the abbreviated
@@ -88,7 +88,7 @@
     command) instead or in addition to an absolute timestamp as
     described above. A relative timestamp is formatted as
     follows:</p><p>2 months 5 days ago</p><p>Note that any relative timestamp will also parse correctly
-    where a timestamp is expected. (see above)</p></div><div class="refsect1"><a name="idm140168273053248"></a><h2 id="Calendar Events">Calendar Events<a class="headerlink" title="Permalink to this headline" href="#Calendar%20Events">¶</a></h2><p>Calendar events may be used to refer to one or more points
+    where a timestamp is expected. (see above)</p></div><div class="refsect1"><a name="idm140185982634544"></a><h2 id="Calendar Events">Calendar Events<a class="headerlink" title="Permalink to this headline" href="#Calendar%20Events">¶</a></h2><p>Calendar events may be used to refer to one or more points
     in time in a single expression. They form a superset of the
     absolute timestamps explained above:</p><pre class="programlisting">Thu,Fri 2012-*-1,5 11:12:13</pre><p>The above refers to 11:12:13 of the first or fifth day of
     any month of the year 2012, but only if that day is a Thursday or
@@ -152,7 +152,7 @@ Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
       annually → *-01-01 00:00:00
          *:2/3 → *-*-* *:02/3:00</pre><p>Calendar events are used by timer units, see
       <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>
-      for details.</p></div><div class="refsect1"><a name="idm140168268109568"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      for details.</p></div><div class="refsect1"><a name="idm140185982611488"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,
         <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>,

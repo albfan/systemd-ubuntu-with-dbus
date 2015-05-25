@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_NEGOTIATE_FDS" "3" "" "systemd 219" "sd_bus_negotiate_fds"
+.TH "SD_BUS_NEGOTIATE_FDS" "3" "" "systemd 220" "sd_bus_negotiate_fds"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -52,7 +52,7 @@ unit file to the same setting as negotiated by the program ultimately activated\
 controls whether implicit sender timestamps shall be attached automatically to all incoming messages\&. Takes a bus object and a boolean, which, when true, enables timestamping, and, when false, disables it\&. If this is disabled,
 \fBsd_bus_message_get_monotonic_usec\fR(3),
 \fBsd_bus_message_get_realtime_usec\fR(3),
-\fBsd_bus_message_get_seqno\fR(3)
+\fBsd_bus_message_get_seqnum\fR(3)
 fail with
 \fB\-ENODATA\fR
 on incoming messages\&. Note that not all transports support timestamping of messages\&. On local transports, the timestamping is applied by the kernel and cannot be manipulated by userspace\&. By default, message timestamping is not negotiated for all connections\&.

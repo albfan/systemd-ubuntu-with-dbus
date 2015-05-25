@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-sleep.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-sleep.conf, sleep.conf.d — Suspend and hibernation configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/sleep.conf</code></p><p><code class="filename">/etc/systemd/sleep.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/sleep.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/sleep.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140244932434256"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd</strong></span> supports three general
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-sleep.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-sleep.conf, sleep.conf.d — Suspend and hibernation configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/sleep.conf</code></p><p><code class="filename">/etc/systemd/sleep.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/sleep.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/sleep.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140080813273520"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd</strong></span> supports three general
     power-saving modes:</p><div class="variablelist"><dl class="variablelist"><dt id="suspend"><span class="term">suspend</span><a class="headerlink" title="Permalink to this term" href="#suspend">¶</a></dt><dd><p>a low-power state
         where execution of the OS is paused,
         and complete power loss might result
@@ -48,31 +48,33 @@
     <a href="systemd-sleep.html"><span class="citerefentry"><span class="refentrytitle">systemd-sleep</span>(8)</span></a>
     when
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
-    attempts to suspend or hibernate the machine.</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
-    <code class="filename">/etc/</code>, <code class="filename">/run/</code>, and
-    <code class="filename">/usr/lib/</code>, in order of precedence.
-    Each configuration file in these configuration directories shall be named in
-    the style of <code class="filename"><em class="replaceable"><code>filename</code></em>.conf</code>.
-    Files in <code class="filename">/etc/</code> override files with the same name in
-    <code class="filename">/run/</code> and <code class="filename">/usr/lib/</code>. Files in
-    <code class="filename">/run/</code> override files with the same name in
-    <code class="filename">/usr/lib/</code>.</p><p>Packages should install their configuration files in
-    <code class="filename">/usr/lib/</code>. Files in <code class="filename">/etc/</code> are
-    reserved for the local administrator, who may use this logic to override the
-    configuration files installed by vendor packages. All configuration files
-    are sorted by their filename in lexicographic order, regardless of which of
-    the directories they reside in. If multiple files specify the same option,
-    the entry in the file with the lexicographically latest name will take
-    precedence. It is recommended to prefix all filenames with a two-digit number
-    and a dash, to simplify the ordering of the files.</p><p>If the administrator wants to disable a configuration file supplied by
-    the vendor, the recommended way is to place a symlink to
+    attempts to suspend or hibernate the machine.</p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
+    configuration file is only needed when it is necessary to deviate
+    from those defaults. By default the configuration file in
+    <code class="filename">/etc/systemd/</code> contains commented out entries
+    showing the defaults as a guide to the administrator. This file
+    can be edited to create local overrides.
+    </p><p>When packages need to customize the configuration, they can
+    install configuration snippets in
+    <code class="filename">/usr/lib/systemd/*.conf.d/</code>. Files in
+    <code class="filename">/etc/</code> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. The main
+    configuration file is read before any of the configuration
+    directories, and has the lowest precedence; entries in a file in
+    any configuration directory override entries in the single
+    configuration file. Files in the
+    <code class="filename">*.conf.d/</code> configuration subdirectories
+    are sorted by their filename in lexicographic order, regardless of
+    which of the subdirectories they reside in. If multiple files
+    specify the same option, the entry in the file with the
+    lexicographically latest name takes precedence.  It is recommended
+    to prefix all filenames in those subdirectories with a two-digit
+    number and a dash, to simplify the ordering of the files.</p><p>To disable a configuration file supplied by the vendor, the
+    recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsection"><a name="conf"></a><h2>Configuration File</h2><p>Configuration is also read from a single configuration file in
-    <code class="filename">/etc/</code>. This file is read before any of the
-    configuration directories, and has the lowest precedence; entries in a file
-    in any configuration directory override entries in the single configuration
-    file.</p></div><div class="refsect1"><a name="idm140244932422096"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options can be configured in the
+    configuration file.</p></div><div class="refsect1"><a name="idm140080808363376"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options can be configured in the
     "<code class="literal">[Sleep]</code>" section of
     <code class="filename">/etc/systemd/sleep.conf</code> or a
     <code class="filename">sleep.conf.d</code> file:</p><div class="variablelist"><dl class="variablelist"><dt id="SuspendMode="><span class="term"><code class="varname">SuspendMode=</code>, </span><span class="term"><code class="varname">HibernateMode=</code>, </span><span class="term"><code class="varname">HybridSleepMode=</code></span><a class="headerlink" title="Permalink to this term" href="#SuspendMode=">¶</a></dt><dd><p>The string to be written to
@@ -95,11 +97,11 @@
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
         neither succeeds, the operation will be aborted.
-        </p></dd></dl></div></div><div class="refsect1"><a name="idm140244936308288"></a><h2 id="Example: freeze">Example: freeze<a class="headerlink" title="Permalink to this headline" href="#Example:%20freeze">¶</a></h2><p>Example: to exploit the <span class="quote">“<span class="quote">freeze</span>”</span> mode added
+        </p></dd></dl></div></div><div class="refsect1"><a name="idm140080808348496"></a><h2 id="Example: freeze">Example: freeze<a class="headerlink" title="Permalink to this headline" href="#Example:%20freeze">¶</a></h2><p>Example: to exploit the <span class="quote">“<span class="quote">freeze</span>”</span> mode added
     in Linux 3.9, one can use <span class="command"><strong>systemctl suspend</strong></span>
     with
     </p><pre class="programlisting">[Sleep]
-SuspendState=freeze</pre></div><div class="refsect1"><a name="idm140244936298144"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+SuspendState=freeze</pre></div><div class="refsect1"><a name="idm140080808345840"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-sleep.html"><span class="citerefentry"><span class="refentrytitle">systemd-sleep</span>(8)</span></a>,
       <a href="systemd-suspend.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-suspend.service</span>(8)</span></a>,
       <a href="systemd-hibernate.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-hibernate.service</span>(8)</span></a>,

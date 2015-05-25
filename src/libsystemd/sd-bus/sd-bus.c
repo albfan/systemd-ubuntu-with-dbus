@@ -20,19 +20,16 @@
 ***/
 
 #include <endian.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <poll.h>
-#include <byteswap.h>
 #include <sys/mman.h>
 #include <pthread.h>
 
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
-#include "set.h"
 #include "missing.h"
 #include "def.h"
 #include "cgroup-util.h"
@@ -45,8 +42,6 @@
 #include "bus-socket.h"
 #include "bus-kernel.h"
 #include "bus-control.h"
-#include "bus-introspect.h"
-#include "bus-signature.h"
 #include "bus-objects.h"
 #include "bus-util.h"
 #include "bus-container.h"
@@ -357,13 +352,30 @@ _public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
         return free_and_strdup(&bus->description, description);
 }
 
-static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+_public_ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        bus->allow_interactive_authorization = !!b;
+        return 0;
+}
+
+_public_ int sd_bus_get_allow_interactive_authorization(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        return bus->allow_interactive_authorization;
+}
+
+static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
+        sd_bus *bus;
         int r;
 
+        assert(reply);
+        bus = reply->bus;
         assert(bus);
         assert(bus->state == BUS_HELLO || bus->state == BUS_CLOSING);
-        assert(reply);
 
         r = sd_bus_message_get_errno(reply);
         if (r > 0)
@@ -1513,15 +1525,27 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
 }
 
 static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
+        bool remarshal = false;
+
         assert(b);
 
-        /* Do packet version and endianness already match? */
-        if ((b->message_version == 0 || b->message_version == (*m)->header->version) &&
-            (b->message_endian == 0 || b->message_endian == (*m)->header->endian))
-                return 0;
+        /* wrong packet version */
+        if (b->message_version != 0 && b->message_version != (*m)->header->version)
+                remarshal = true;
 
-        /* No? Then remarshal! */
-        return bus_message_remarshal(b, m);
+        /* wrong packet endianness */
+        if (b->message_endian != 0 && b->message_endian != (*m)->header->endian)
+                remarshal = true;
+
+        /* TODO: kdbus-messages received from the kernel contain data which is
+         * not allowed to be passed to KDBUS_CMD_SEND. Therefore, we have to
+         * force remarshaling of the message. Technically, we could just
+         * recreate the kdbus message, but that is non-trivial as other parts of
+         * the message refer to m->kdbus already. This should be fixed! */
+        if ((*m)->kdbus && (*m)->release_kdbus)
+                remarshal = true;
+
+        return remarshal ? bus_message_remarshal(b, m) : 0;
 }
 
 int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
@@ -1671,8 +1695,11 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
         _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(m, -EINVAL);
+
+        if (!bus)
+                bus = m->bus;
+
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
 
@@ -1684,7 +1711,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
         }
 
         /* If the cookie number isn't kept, then we know that no reply
@@ -1757,8 +1784,11 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie) {
 _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie) {
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(m, -EINVAL);
+
+        if (!bus)
+                bus = m->bus;
+
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -1814,11 +1844,14 @@ _public_ int sd_bus_call_async(
         _cleanup_bus_slot_unref_ sd_bus_slot *s = NULL;
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(m, -EINVAL);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(callback, -EINVAL);
+
+        if (!bus)
+                bus = m->bus;
+
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
 
@@ -1912,11 +1945,14 @@ _public_ int sd_bus_call(
         unsigned i;
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(m, -EINVAL);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(!bus_error_is_dirty(error), -EINVAL);
+
+        if (!bus)
+                bus = m->bus;
+
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
 
@@ -2171,7 +2207,7 @@ static int process_timeout(sd_bus *bus) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(bus, m, slot->userdata, &error_buffer);
+        r = c->callback(m, slot->userdata, &error_buffer);
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;
@@ -2274,7 +2310,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(bus, m, slot->userdata, &error_buffer);
+        r = c->callback(m, slot->userdata, &error_buffer);
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;
@@ -2321,7 +2357,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         bus->current_slot = sd_bus_slot_ref(slot);
                         bus->current_handler = l->callback;
                         bus->current_userdata = slot->userdata;
-                        r = l->callback(bus, m, slot->userdata, &error_buffer);
+                        r = l->callback(m, slot->userdata, &error_buffer);
                         bus->current_userdata = NULL;
                         bus->current_handler = NULL;
                         bus->current_slot = sd_bus_slot_unref(slot);
@@ -2602,7 +2638,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->callback;
                 bus->current_userdata = slot->userdata;
-                r = c->callback(bus, m, slot->userdata, &error_buffer);
+                r = c->callback(m, slot->userdata, &error_buffer);
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = NULL;
@@ -3376,7 +3412,7 @@ _public_ int sd_bus_try_close(sd_bus *bus) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!bus->is_kernel)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;

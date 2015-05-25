@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-DEBUG\-GENERATOR" "8" "" "systemd 219" "systemd-debug-generator"
+.TH "SYSTEMD\-DEBUG\-GENERATOR" "8" "" "systemd 220" "systemd-debug-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -50,16 +50,10 @@ is pulled into the boot transaction\&. It will spawn a debug shell on tty9 durin
 command\&.
 .PP
 systemd\-debug\-generator
-implements the
-\m[blue]\fBgenerator specification\fR\m[]\&\s-2\u[1]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
 \fBsystemctl\fR(1),
 \fBkernel-command-line\fR(7)
-.SH "NOTES"
-.IP " 1." 4
-generator specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
-.RE

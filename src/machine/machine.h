@@ -22,10 +22,10 @@
 ***/
 
 typedef struct Machine Machine;
+typedef struct MachineOperation MachineOperation;
 typedef enum KillWho KillWho;
 
 #include "list.h"
-#include "util.h"
 #include "machined.h"
 
 typedef enum MachineState {
@@ -48,6 +48,17 @@ enum KillWho {
         KILL_ALL,
         _KILL_WHO_MAX,
         _KILL_WHO_INVALID = -1
+};
+
+#define MACHINE_OPERATIONS_MAX 64
+
+struct MachineOperation {
+        Machine *machine;
+        pid_t pid;
+        sd_bus_message *message;
+        int errno_fd;
+        sd_event_source *event_source;
+        LIST_FIELDS(MachineOperation, operations);
 };
 
 struct Machine {
@@ -79,6 +90,9 @@ struct Machine {
         unsigned n_netif;
 
         LIST_FIELDS(Machine, gc_queue);
+
+        MachineOperation *operations;
+        unsigned n_operations;
 };
 
 Machine* machine_new(Manager *manager, const char *name);
@@ -91,7 +105,11 @@ int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
 
+void machine_release_unit(Machine *m);
+
 MachineState machine_get_state(Machine *u);
+
+MachineOperation *machine_operation_unref(MachineOperation *o);
 
 const char* machine_class_to_string(MachineClass t) _const_;
 MachineClass machine_class_from_string(const char *s) _pure_;

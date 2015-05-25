@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETDEV" "5" "" "systemd 219" "systemd.network"
+.TH "SYSTEMD\&.NETDEV" "5" "" "systemd 220" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -85,6 +85,7 @@ l l
 l l
 l l
 l l
+l l
 l l.
 T{
 \fIbond\fR
@@ -94,7 +95,7 @@ T}
 T{
 \fIbridge\fR
 T}:T{
-A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch\&.
+A bridge device is a software switch, each of its slave devices and the bridge itself are ports of the switch\&.
 T}
 T{
 \fIdummy\fR
@@ -172,6 +173,11 @@ T}:T{
 An IPv4 over IPSec tunnel\&.
 T}
 T{
+\fIvti6\fR
+T}:T{
+An IPv6 over IPSec tunnel\&.
+T}
+T{
 \fIvxlan\fR
 T}:T{
 A virtual extensible LAN (vxlan), for connecting Cloud computing deployments\&.
@@ -244,7 +250,7 @@ section for the valid keys\&.
 .PP
 \fIMTUBytes=\fR
 .RS 4
-The maximum transmission unit in bytes to set for the device\&. The usual suffixes K, M, G, are supported and are understood to the base of 1024\&. This key is not currently suported for
+The maximum transmission unit in bytes to set for the device\&. The usual suffixes K, M, G, are supported and are understood to the base of 1024\&. This key is not currently supported for
 "tun"
 or
 "tap"
@@ -254,7 +260,7 @@ devices\&.
 \fIMACAddress=\fR
 .RS 4
 The MAC address to use for the device\&. If none is given, one is generated based on the interface name and the
-\fBmachine-id\fR(5)\&. This key is not currently suported for
+\fBmachine-id\fR(5)\&. This key is not currently supported for
 "tun"
 or
 "tap"
@@ -356,6 +362,21 @@ A boolean\&. When true, enables netlink IP ADDR miss notifications\&.
 .RS 4
 A boolean\&. When true route short circuit is turned on\&.
 .RE
+.PP
+\fIUDPCheckSum=\fR
+.RS 4
+A boolean\&. When true transmitting UDP checksums when doing VXLAN/IPv4 is turned on\&.
+.RE
+.PP
+\fIUDP6ZeroChecksumTx=\fR
+.RS 4
+A boolean\&. When true sending zero checksums in VXLAN/IPv6 is turned on\&.
+.RE
+.PP
+\fIUDP6ZeroCheckSumRx=\fR
+.RS 4
+A boolean\&. When true receiving zero checksums in VXLAN/IPv6 is turned on\&.
+.RE
 .SH "[TUNNEL] SECTION OPTIONS"
 .PP
 The
@@ -367,7 +388,8 @@ section only applies for netdevs of kind
 "gretap",
 "ip6gre",
 "ip6gretap",
-"vti", and
+"vti",
+"vti6", and
 "ip6tnl"
 and accepts the following keys:
 .PP
@@ -449,7 +471,7 @@ Takes a boolean argument\&. Configures whether to use multiple file descriptors 
 .PP
 \fIPacketInfo=\fR
 .RS 4
-Takes a boolean argument\&. Configures whether packets should be prepened with four extra bytes (two flag bytes and two protocol bytes)\&. If disabled it indicates that the packets will be pure IP packets\&. Defaults to
+Takes a boolean argument\&. Configures whether packets should be prepended with four extra bytes (two flag bytes and two protocol bytes)\&. If disabled it indicates that the packets will be pure IP packets\&. Defaults to
 "no"\&.
 .RE
 .PP
@@ -527,6 +549,89 @@ Specifies the delay before a link is enabled after a link up status has been det
 .RS 4
 Specifies the delay before a link is disabled after a link down status has been detected\&. This value is rounded down to a multiple of MIIMonitorSec\&. The default value is 0\&.
 .RE
+.PP
+\fILearnPacketIntervalSec=\fR
+.RS 4
+Specifies the number of seconds between instances where the bonding driver sends learning packets to each slaves peer switch\&. The valid range is 1 \- 0x7fffffff; the default value is 1\&. This Option has effect only in balance\-tlb and balance\-alb modes\&.
+.RE
+.PP
+\fIAdSelect=\fR
+.RS 4
+Specifies the 802\&.3ad aggregation selection logic to use\&. Possible values are
+"stable",
+"bandwidth",
+"count"
+.RE
+.PP
+\fIFailOverMACPolicy=\fR
+.RS 4
+Specifies whether active\-backup mode should set all slaves to the same MAC address at enslavement or, when enabled, perform special handling of the bond\*(Aqs MAC address in accordance with the selected policy\&. The default policy is none\&. Possible values are
+"none",
+"active",
+"follow"
+.RE
+.PP
+\fIARPValidate=\fR
+.RS 4
+Specifies whether or not ARP probes and replies should be validated in any mode that supports ARP monitoring, or whether non\-ARP traffic should be filtered (disregarded) for link monitoring purposes\&. Possible values are
+"none",
+"active",
+"backup",
+"all"
+.RE
+.PP
+\fIARPIntervalSec=\fR
+.RS 4
+Specifies the ARP link monitoring frequency in milliseconds\&. A value of 0 disables ARP monitoring\&. The default value is 0\&.
+.RE
+.PP
+\fIARPIPTargets=\fR
+.RS 4
+Specifies the IP addresses to use as ARP monitoring peers when ARPIntervalSec is greater than 0\&. These are the targets of the ARP request sent to determine the health of the link to the targets\&. Specify these values in ipv4 dotted decimal format\&. At least one IP address must be given for ARP monitoring to function\&. The maximum number of targets that can be specified is 16\&. The default value is no IP addresses\&.
+.RE
+.PP
+\fIARPAllTargets=\fR
+.RS 4
+Specifies the quantity of ARPIPTargets that must be reachable in order for the ARP monitor to consider a slave as being up\&. This option affects only active\-backup mode for slaves with ARPValidate enabled\&. Possible values are
+"any",
+"all"
+.RE
+.PP
+\fIPrimaryReselectPolicy=\fR
+.RS 4
+Specifies the reselection policy for the primary slave\&. This affects how the primary slave is chosen to become the active slave when failure of the active slave or recovery of the primary slave occurs\&. This option is designed to prevent flip\-flopping between the primary slave and other slaves\&. Possible values are
+"always",
+"better",
+"failure"
+.RE
+.PP
+\fIResendIGMP=\fR
+.RS 4
+Specifies the number of IGMP membership reports to be issued after a failover event\&. One membership report is issued immediately after the failover, subsequent packets are sent in each 200ms interval\&. The valid range is (0 \- 255)\&. Defaults to 1\&. A value of 0 prevents the IGMP membership report from being issued in response to the failover event\&.
+.RE
+.PP
+\fIPacketsPerSlave=\fR
+.RS 4
+Specify the number of packets to transmit through a slave before moving to the next one\&. When set to 0 then a slave is chosen at random\&.The valid range is (0 \- 65535)\&. Defaults to 1\&. This option has effect only in balance\-rr mode\&.
+.RE
+.PP
+\fIGratuitousARP=\fR
+.RS 4
+Specify the number of peer notifications (gratuitous ARPs and unsolicited IPv6 Neighbor Advertisements) to be issued after a failover event\&. As soon as the link is up on the new slave a peer notification is sent on the bonding device and each VLAN sub\-device\&. This is repeated at each link monitor interval (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is greater than 1\&. The valid range is (0 \- 255)\&. Default value is 1\&. These options affect only the active\-backup mode\&.
+.RE
+.PP
+\fIAllSlavesActive=\fR
+.RS 4
+A boolean\&. Specifies that duplicate frames (received on inactive ports) should be dropped false or delivered true\&. Normally, bonding will drop duplicate frames (received on inactive ports), which is desirable for most users\&. But there are some times it is nice to allow duplicate frames to be delivered\&. The default value is false (drop duplicate frames received on inactive ports)\&.
+.RE
+.PP
+\fIMinLinks=\fR
+.RS 4
+Specifies the minimum number of links that must be active before asserting carrier\&. The default value is 0\&.
+.RE
+.PP
+For more detail information see
+\m[blue]\fBLinux Ethernet Bonding Driver HOWTO\fR\m[]\&\s-2\u[1]\d\s+2
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/systemd/network/bridge.netdev\fR

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.swap"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.swap — Swap unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm140492669368032"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.swap"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.swap — Swap unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm139731830908016"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     "<code class="literal">.swap</code>" encodes information about a swap device
     or file for memory paging controlled and supervised by
     systemd.</p><p>This man page lists the configuration options specific to
@@ -31,7 +31,7 @@
     configured in the [Swap] section.</p><p>Additional options are listed in
     <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
     which define the execution environment the
-    <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
+    <a href="http://man7.org/linux/man-pages/man8/swapon.8.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
     binary is executed in, and in
     <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
     which define the way the processes are terminated, and in
@@ -48,9 +48,9 @@
     they are activated from.</p><p>Swap units with <code class="varname">DefaultDependencies=</code>
     enabled implicitly acquire a conflicting dependency to
     <code class="filename">umount.target</code> so that they are deactivated at
-    shutdown.</p></div><div class="refsect1"><a name="idm140492669355712"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Swap units may either be configured via unit files, or via
+    shutdown.</p></div><div class="refsect1"><a name="idm139731825996304"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Swap units may either be configured via unit files, or via
     <code class="filename">/etc/fstab</code> (see
-    <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
+    <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
     for details). Swaps listed in <code class="filename">/etc/fstab</code> will
     be converted into native units dynamically at boot and when the
     configuration of the system manager is reloaded. See
@@ -68,7 +68,7 @@
         will be only wanted, not required by
         <code class="filename">swap.target</code>. This means that the boot
         will continue even if this swap device is not activated
-        successfully.</p></dd></dl></div></div><div class="refsect1"><a name="idm140492673239392"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Swap files must include a [Swap] section, which carries
+        successfully.</p></dd></dl></div></div><div class="refsect1"><a name="idm139731825982576"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Swap files must include a [Swap] section, which carries
     information about the swap device it supervises. A number of
     options that may be used in this section are shared with other
     unit types. These options are documented in
@@ -78,7 +78,7 @@
     The options specific to the [Swap] section of swap units are the
     following:</p><div class="variablelist"><dl class="variablelist"><dt id="What="><span class="term"><code class="varname">What=</code></span><a class="headerlink" title="Permalink to this term" href="#What=">¶</a></dt><dd><p>Takes an absolute path of a device node or
         file to use for paging. See
-        <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
+        <a href="http://man7.org/linux/man-pages/man8/swapon.8.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
         for details. If this refers to a device node, a dependency on
         the respective device unit is automatically created. (See
         <a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>
@@ -92,7 +92,7 @@
         device. This may be used for controlling discard options among
         other functionality, if the swap backing device supports the
         discard or trim operation. (See
-        <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
+        <a href="http://man7.org/linux/man-pages/man8/swapon.8.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
         for more information.) </p></dd><dt id="TimeoutSec="><span class="term"><code class="varname">TimeoutSec=</code></span><a class="headerlink" title="Permalink to this term" href="#TimeoutSec=">¶</a></dt><dd><p>Configures the time to wait for the swapon
         command to finish. If a command does not exit within the
         configured time, the swap will be considered failed and be
@@ -111,7 +111,7 @@
     <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
     and
     <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-    for more settings.</p></div><div class="refsect1"><a name="idm140492673212176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    for more settings.</p></div><div class="refsect1"><a name="idm139731825963104"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
@@ -120,7 +120,7 @@
         <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
         <a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>,
         <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
-        <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>,
+        <a href="http://man7.org/linux/man-pages/man8/swapon.8.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>,
         <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>,
         <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
       </p></div></div></body></html>

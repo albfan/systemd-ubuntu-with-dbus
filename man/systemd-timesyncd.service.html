@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-timesyncd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-timesyncd.service, systemd-timesyncd — Network Time Synchronization</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-timesyncd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-timesyncd</code></p></div><div class="refsect1"><a name="idm139793339620336"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-timesyncd</code> is a system service
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-timesyncd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-timesyncd.service, systemd-timesyncd — Network Time Synchronization</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-timesyncd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-timesyncd</code></p></div><div class="refsect1"><a name="idm139737820811008"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-timesyncd</code> is a system service
     that may be used to synchronize the local system clock with a
     remote Network Time Protocol server. It also saves the local time
     to disk every time the clock has been synchronized and uses this
@@ -31,8 +31,8 @@
     the per-link static settings in <code class="filename">.network</code>
     files, and the per-link dynamic settings received over DHCP. See
     <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>
-    for more details.</p></div><div class="refsect1"><a name="idm139793339615376"></a><h2 id="Files">Files<a class="headerlink" title="Permalink to this headline" href="#Files">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/var/lib/systemd/clock"><span class="term"><code class="filename">/var/lib/systemd/clock</code></span><a class="headerlink" title="Permalink to this term" href="#/var/lib/systemd/clock">¶</a></dt><dd><p>This file contains the timestamp of last successful
-          synchronization.</p></dd></dl></div></div><div class="refsect1"><a name="idm139793339612176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    for more details.</p></div><div class="refsect1"><a name="idm139737815853040"></a><h2 id="Files">Files<a class="headerlink" title="Permalink to this headline" href="#Files">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/var/lib/systemd/clock"><span class="term"><code class="filename">/var/lib/systemd/clock</code></span><a class="headerlink" title="Permalink to this term" href="#/var/lib/systemd/clock">¶</a></dt><dd><p>This file contains the timestamp of last successful
+          synchronization.</p></dd></dl></div></div><div class="refsect1"><a name="idm139737815849888"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="timesyncd.conf.html"><span class="citerefentry"><span class="refentrytitle">timesyncd.conf</span>(5)</span></a>,
       <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>,

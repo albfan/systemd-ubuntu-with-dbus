@@ -28,9 +28,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "sd-id128.h"
 #include "sd-messages.h"
-#include "strv.h"
 #include "util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -39,6 +37,8 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind-session.h"
+#include "formats-util.h"
+#include "terminal-util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 
@@ -463,7 +463,7 @@ int session_activate(Session *s) {
         assert(s->user);
 
         if (!s->seat)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (s->seat->active == s)
                 return 0;
@@ -471,7 +471,7 @@ int session_activate(Session *s) {
         /* on seats with VTs, we let VTs manage session-switching */
         if (seat_has_vts(s->seat)) {
                 if (!s->vtnr)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 return chvt(s->vtnr);
         }
@@ -703,18 +703,20 @@ static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *us
         return 0;
 }
 
-void session_release(Session *s) {
+int session_release(Session *s) {
         assert(s);
 
         if (!s->started || s->stopping)
-                return;
+                return 0;
 
-        if (!s->timer_event_source)
-                sd_event_add_time(s->manager->event,
-                                  &s->timer_event_source,
-                                  CLOCK_MONOTONIC,
-                                  now(CLOCK_MONOTONIC) + RELEASE_USEC, 0,
-                                  release_timeout_callback, s);
+        if (s->timer_event_source)
+                return 0;
+
+        return sd_event_add_time(s->manager->event,
+                                 &s->timer_event_source,
+                                 CLOCK_MONOTONIC,
+                                 now(CLOCK_MONOTONIC) + RELEASE_USEC, 0,
+                                 release_timeout_callback, s);
 }
 
 bool session_is_active(Session *s) {
@@ -1041,15 +1043,15 @@ void session_restore_vt(Session *s) {
         if (vt < 0)
                 return;
 
-        ioctl(vt, KDSETMODE, KD_TEXT);
+        (void) ioctl(vt, KDSETMODE, KD_TEXT);
 
         if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
                 kb = K_UNICODE;
 
-        ioctl(vt, KDSKBMODE, kb);
+        (void) ioctl(vt, KDSKBMODE, kb);
 
         mode.mode = VT_AUTO;
-        ioctl(vt, VT_SETMODE, &mode);
+        (void) ioctl(vt, VT_SETMODE, &mode);
 
         fchown(vt, 0, -1);
 

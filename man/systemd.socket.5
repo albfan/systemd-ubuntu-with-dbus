@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SOCKET" "5" "" "systemd 219" "systemd.socket"
+.TH "SYSTEMD\&.SOCKET" "5" "" "systemd 220" "systemd.socket"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -256,6 +256,12 @@ set\&. Setting
 is mostly useful to allow daemons designed for usage with
 \fBinetd\fR(8)
 to work unmodified with systemd socket activation\&.
+.sp
+For IPv4 and IPv6 connections the
+\fIREMOTE_ADDR\fR
+environment variable will contain the remote IP, and
+\fIREMOTE_PORT\fR
+will contain the remote port\&. This is the same as the format used by CGI\&. For SOCK_RAW the port is the IP protocol\&.
 .RE
 .PP
 \fIMaxConnections=\fR

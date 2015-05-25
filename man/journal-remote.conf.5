@@ -1,0 +1,86 @@
+'\" t
+.TH "JOURNAL\-REMOTE\&.CONF" "5" "" "systemd 220" "journal-remote.conf"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+journal-remote.conf, journal-remote.conf.d \- Journal remote service configuration files
+.SH "SYNOPSIS"
+.PP
+/etc/systemd/journal\-remote\&.conf
+.PP
+/etc/systemd/journald\&.conf\&.d/*\&.conf
+.PP
+/run/systemd/journald\&.conf\&.d/*\&.conf
+.PP
+/usr/lib/systemd/journald\&.conf\&.d/*\&.conf
+.SH "DESCRIPTION"
+.PP
+These files configure various parameters of the systemd\-remote\-journal application,
+\fBsystemd-journal-remote\fR(8)\&.
+.SH "CONFIGURATION DIRECTORIES AND PRECEDENCE"
+.PP
+Default configuration is defined during compilation, so a configuration file is only needed when it is necessary to deviate from those defaults\&. By default the configuration file in
+/etc/systemd/
+contains commented out entries showing the defaults as a guide to the administrator\&. This file can be edited to create local overrides\&.
+.PP
+When packages need to customize the configuration, they can install configuration snippets in
+/usr/lib/systemd/*\&.conf\&.d/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. The main configuration file is read before any of the configuration directories, and has the lowest precedence; entries in a file in any configuration directory override entries in the single configuration file\&. Files in the
+*\&.conf\&.d/
+configuration subdirectories are sorted by their filename in lexicographic order, regardless of which of the subdirectories they reside in\&. If multiple files specify the same option, the entry in the file with the lexicographically latest name takes precedence\&. It is recommended to prefix all filenames in those subdirectories with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+To disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in the configuration directory in
+/etc/, with the same filename as the vendor configuration file\&.
+.SH "OPTIONS"
+.PP
+All options are configured in the
+"[Remote]"
+section:
+.PP
+\fISplitMode=\fR
+.RS 4
+One of
+"host"
+or
+"none"\&.
+.RE
+.PP
+\fIServerKeyFile=\fR
+.RS 4
+SSL key in PEM format
+.RE
+.PP
+\fIServerCertificateFile=\fR
+.RS 4
+SSL CA certificate in PEM format\&.
+.RE
+.PP
+\fITrustedCertificateFile=\fR
+.RS 4
+SSL CA certificate\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd-journal-remote\fR(1),
+\fBsystemd\fR(1),
+\fBsystemd-journald.service\fR(8)

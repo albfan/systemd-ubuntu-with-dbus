@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="machine-info"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machine-info — Local machine information file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/machine-info</code></p></div><div class="refsect1"><a name="idm140152381440448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/machine-info</code> file contains
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="machine-info"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machine-info — Local machine information file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/machine-info</code></p></div><div class="refsect1"><a name="idm139991043700464"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/machine-info</code> file contains
     machine metadata.</p><p>The basic file format of <code class="filename">machine-info</code>
     is a newline-separated list of environment-like shell-compatible
     variable assignments. It is possible to source the configuration
@@ -31,7 +31,7 @@
     might be checked for machine information as well, however only as
     fallback.</p><p>You may use
     <a href="hostnamectl.html"><span class="citerefentry"><span class="refentrytitle">hostnamectl</span>(1)</span></a>
-    to change the settings of this file from the command line.</p></div><div class="refsect1"><a name="idm140152383583856"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following machine metadata parameters may be set using
+    to change the settings of this file from the command line.</p></div><div class="refsect1"><a name="idm139991047289280"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following machine metadata parameters may be set using
     <code class="filename">/etc/machine-info</code>:</p><div class="variablelist"><dl class="variablelist"><dt id="PRETTY_HOSTNAME="><span class="term"><code class="varname">PRETTY_HOSTNAME=</code></span><a class="headerlink" title="Permalink to this term" href="#PRETTY_HOSTNAME=">¶</a></dt><dd><p>A pretty human-readable UTF-8 machine
         identifier string. This should contain a name like
         "<code class="literal">Lennart's Laptop</code>" which is useful to present
@@ -76,10 +76,10 @@
         and known. Takes a human-friendly, free-form string. This may
         be as generic as "<code class="literal">Berlin, Germany</code>" or as
         specific as "<code class="literal">Left Rack, 2nd Shelf</code>".
-        </p></dd></dl></div></div><div class="refsect1"><a name="idm140152383676480"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">PRETTY_HOSTNAME="Lennart's Tablet"
+        </p></dd></dl></div></div><div class="refsect1"><a name="idm139991042650064"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">PRETTY_HOSTNAME="Lennart's Tablet"
 ICON_NAME=computer-tablet
 CHASSIS=tablet
-DEPLOYMENT=production</pre></div><div class="refsect1"><a name="idm140152383674912"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+DEPLOYMENT=production</pre></div><div class="refsect1"><a name="idm139991042648560"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>,
         <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(5)</span></a>,

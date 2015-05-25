@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="hwdb"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hwdb — Hardware Database</p></div><div class="refsect1"><a name="idm140730111822256"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The hardware database is a key-value store for associating modalias-like keys to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="hwdb"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hwdb — Hardware Database</p></div><div class="refsect1"><a name="idm140323802170704"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The hardware database is a key-value store for associating modalias-like keys to
     udev-properties-like values. It is used primarily by udev to add the relevant properties
-    to matching devices, but it can also be queried directly.</p></div><div class="refsect1"><a name="idm140730111820944"></a><h2 id="Hardware Database Files">Hardware Database Files<a class="headerlink" title="Permalink to this headline" href="#Hardware%20Database%20Files">¶</a></h2><p>The hwdb files are read from the files located in the
+    to matching devices, but it can also be queried directly.</p></div><div class="refsect1"><a name="idm140323802169392"></a><h2 id="Hardware Database Files">Hardware Database Files<a class="headerlink" title="Permalink to this headline" href="#Hardware%20Database%20Files">¶</a></h2><p>The hwdb files are read from the files located in the
       system hwdb directory <code class="filename">/usr/lib/udev/hwdb.d</code>,
       the volatile runtime directory <code class="filename">/run/udev/hwdb.d</code>
       and the local administration directory <code class="filename">/etc/udev/hwdb.d</code>.
@@ -38,7 +38,7 @@
       associated key-value pairs. Every record in the hwdb starts with one or
       more match string, specifying a shell glob to compare the database
       lookup string against. Multiple match lines are specified in additional
-      consecutive lines. Every match line is compared indivdually, they are
+      consecutive lines. Every match line is compared individually, they are
       combined by OR. Every match line must start at the first character of
       the line.</p><p>The match lines are followed by one or more key-value pair lines, which
       are recognized by a leading space character. The key name and value are separated
@@ -48,6 +48,6 @@
       and compiled to a binary database located at <code class="filename">/etc/udev/hwdb.bin</code>,
       or alternatively <code class="filename">/usr/lib/udev/hwdb.bin</code> if you want ship the compiled
       database in an immutable image.
-      During runtime only the binary database is used.</p></div><div class="refsect1"><a name="idm140730111807056"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      During runtime only the binary database is used.</p></div><div class="refsect1"><a name="idm140323797257232"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-hwdb.html"><span class="citerefentry"><span class="refentrytitle">systemd-hwdb</span>(8)</span></a>
     </p></div></div></body></html>

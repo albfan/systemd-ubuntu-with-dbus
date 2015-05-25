@@ -87,6 +87,7 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL,
         NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
         NL_UNION_LINK_INFO_DATA_VTI_TUNNEL,
+        NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL,
         NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL,
         _NL_UNION_LINK_INFO_DATA_MAX,
         _NL_UNION_LINK_INFO_DATA_INVALID = -1
@@ -94,3 +95,25 @@ typedef enum NLUnionLinkInfoData {
 
 const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
 NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
+
+/* Maximum ARP IP target defined in kernel */
+#define BOND_MAX_ARP_TARGETS    16
+
+typedef enum BondArpTargets {
+        BOND_ARP_TARGETS_0,
+        BOND_ARP_TARGETS_1,
+        BOND_ARP_TARGETS_2,
+        BOND_ARP_TARGETS_3,
+        BOND_ARP_TARGETS_4,
+        BOND_ARP_TARGETS_5,
+        BOND_ARP_TARGETS_6,
+        BOND_ARP_TARGETS_7,
+        BOND_ARP_TARGETS_8,
+        BOND_ARP_TARGETS_9,
+        BOND_ARP_TARGETS_10,
+        BOND_ARP_TARGETS_11,
+        BOND_ARP_TARGETS_12,
+        BOND_ARP_TARGETS_13,
+        BOND_ARP_TARGETS_14,
+        BOND_ARP_TARGETS_MAX = BOND_MAX_ARP_TARGETS,
+} BondArpTargets;

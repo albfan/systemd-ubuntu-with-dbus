@@ -22,7 +22,6 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
 #include <stdio.h>
 
 #include "sd-bus.h"
@@ -31,7 +30,6 @@
 #include "cgroup-util.h"
 #include "hashmap.h"
 #include "list.h"
-#include "set.h"
 #include "ratelimit.h"
 
 /* Enforce upper limit how many names we allow */
@@ -70,14 +68,11 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
-#include "unit.h"
 #include "job.h"
 #include "path-lookup.h"
 #include "execute.h"
 #include "unit-name.h"
-#include "exit-status.h"
 #include "show-status.h"
-#include "failure-action.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -204,11 +199,9 @@ struct Manager {
         sd_bus_track *subscribed;
         char **deserialized_subscribed;
 
-        sd_bus_message *queued_message; /* This is used during reloading:
-                                      * before the reload we queue the
-                                      * reply message here, and
-                                      * afterwards we send it */
-        sd_bus *queued_message_bus; /* The connection to send the queued message on */
+        /* This is used during reloading: before the reload we queue
+         * the reply message here, and afterwards we send it */
+        sd_bus_message *queued_message;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
@@ -233,7 +226,7 @@ struct Manager {
         int pin_cgroupfs_fd;
 
         /* Flags */
-        SystemdRunningAs running_as;
+        ManagerRunningAs running_as;
         ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
@@ -299,9 +292,12 @@ struct Manager {
 
         /* When the user hits C-A-D more than 7 times per 2s, reboot immediately... */
         RateLimit ctrl_alt_del_ratelimit;
+
+        const char *unit_log_field;
+        const char *unit_log_format_string;
 };
 
-int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);
+int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);
 Manager* manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);
@@ -366,6 +362,8 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 const char *manager_get_runtime_prefix(Manager *m);
 
 ManagerState manager_state(Manager *m);
+
+void manager_update_failed_units(Manager *m, Unit *u, bool failed);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;

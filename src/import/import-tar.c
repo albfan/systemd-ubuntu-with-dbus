@@ -19,75 +19,84 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/prctl.h>
-#include <curl/curl.h>
+#include <linux/fs.h>
 
 #include "sd-daemon.h"
-#include "utf8.h"
-#include "strv.h"
-#include "copy.h"
-#include "btrfs-util.h"
+#include "sd-event.h"
 #include "util.h"
-#include "macro.h"
+#include "path-util.h"
+#include "btrfs-util.h"
+#include "copy.h"
 #include "mkdir.h"
-#include "import-util.h"
-#include "curl-util.h"
-#include "import-job.h"
+#include "rm-rf.h"
+#include "ratelimit.h"
+#include "machine-pool.h"
+#include "qcow2-util.h"
+#include "import-compress.h"
 #include "import-common.h"
 #include "import-tar.h"
-
-typedef enum TarProgress {
-        TAR_DOWNLOADING,
-        TAR_VERIFYING,
-        TAR_FINALIZING,
-        TAR_COPYING,
-} TarProgress;
+#include "process-util.h"
 
 struct TarImport {
         sd_event *event;
-        CurlGlue *glue;
 
         char *image_root;
-
-        ImportJob *tar_job;
-        ImportJob *checksum_job;
-        ImportJob *signature_job;
 
         TarImportFinished on_finished;
         void *userdata;
 
         char *local;
         bool force_local;
-
-        pid_t tar_pid;
+        bool read_only;
+        bool grow_machine_directory;
 
         char *temp_path;
         char *final_path;
 
-        ImportVerify verify;
+        int input_fd;
+        int tar_fd;
+
+        ImportCompress compress;
+
+        uint64_t written_since_last_grow;
+
+        sd_event_source *input_event_source;
+
+        uint8_t buffer[16*1024];
+        size_t buffer_size;
+
+        uint64_t written_compressed;
+        uint64_t written_uncompressed;
+
+        struct stat st;
+
+        pid_t tar_pid;
+
+        unsigned last_percent;
+        RateLimit progress_rate_limit;
 };
 
 TarImport* tar_import_unref(TarImport *i) {
         if (!i)
                 return NULL;
 
+        sd_event_source_unref(i->input_event_source);
+
         if (i->tar_pid > 1) {
                 (void) kill_and_sigcont(i->tar_pid, SIGKILL);
                 (void) wait_for_terminate(i->tar_pid, NULL);
         }
 
-        import_job_unref(i->tar_job);
-        import_job_unref(i->checksum_job);
-        import_job_unref(i->signature_job);
-
-        curl_glue_unref(i->glue);
-        sd_event_unref(i->event);
-
         if (i->temp_path) {
-                (void) btrfs_subvol_remove(i->temp_path);
-                (void) rm_rf_dangerous(i->temp_path, false, true, false);
+                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 free(i->temp_path);
         }
+
+        import_compress_free(&i->compress);
+
+        sd_event_unref(i->event);
+
+        safe_close(i->tar_fd);
 
         free(i->final_path);
         free(i->image_root);
@@ -108,18 +117,23 @@ int tar_import_new(
         int r;
 
         assert(ret);
-        assert(event);
 
         i = new0(TarImport, 1);
         if (!i)
                 return -ENOMEM;
 
+        i->input_fd = i->tar_fd = -1;
         i->on_finished = on_finished;
         i->userdata = userdata;
+
+        RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
+        i->last_percent = (unsigned) -1;
 
         i->image_root = strdup(image_root ?: "/var/lib/machines");
         if (!i->image_root)
                 return -ENOMEM;
+
+        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -129,200 +143,91 @@ int tar_import_new(
                         return r;
         }
 
-        r = curl_glue_new(&i->glue, i->event);
-        if (r < 0)
-                return r;
-
-        i->glue->on_finished = import_job_curl_on_finished;
-        i->glue->userdata = i;
-
         *ret = i;
         i = NULL;
 
         return 0;
 }
 
-static void tar_import_report_progress(TarImport *i, TarProgress p) {
+static void tar_import_report_progress(TarImport *i) {
         unsigned percent;
-
         assert(i);
 
-        switch (p) {
-
-        case TAR_DOWNLOADING: {
-                unsigned remain = 85;
-
-                percent = 0;
-
-                if (i->checksum_job) {
-                        percent += i->checksum_job->progress_percent * 5 / 100;
-                        remain -= 5;
-                }
-
-                if (i->signature_job) {
-                        percent += i->signature_job->progress_percent * 5 / 100;
-                        remain -= 5;
-                }
-
-                if (i->tar_job)
-                        percent += i->tar_job->progress_percent * remain / 100;
-                break;
-        }
-
-        case TAR_VERIFYING:
-                percent = 85;
-                break;
-
-        case TAR_FINALIZING:
-                percent = 90;
-                break;
-
-        case TAR_COPYING:
-                percent = 95;
-                break;
-
-        default:
-                assert_not_reached("Unknown progress state");
-        }
-
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
-        log_debug("Combined progress %u%%", percent);
-}
-
-static int tar_import_make_local_copy(TarImport *i) {
-        int r;
-
-        assert(i);
-        assert(i->tar_job);
-
-        if (!i->local)
-                return 0;
-
-        if (!i->final_path) {
-                r = import_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", NULL, &i->final_path);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static bool tar_import_is_done(TarImport *i) {
-        assert(i);
-        assert(i->tar_job);
-
-        if (i->tar_job->state != IMPORT_JOB_DONE)
-                return false;
-        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
-                return false;
-        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
-                return false;
-
-        return true;
-}
-
-static void tar_import_job_on_finished(ImportJob *j) {
-        TarImport *i;
-        int r;
-
-        assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
-        if (j->error != 0) {
-                if (j == i->checksum_job)
-                        log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
-                else if (j == i->signature_job)
-                        log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
-                else
-                        log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
-
-                r = j->error;
-                goto finish;
-        }
-
-        /* This is invoked if either the download completed
-         * successfully, or the download was skipped because we
-         * already have the etag. */
-
-        if (!tar_import_is_done(i))
+        /* We have no size information, unless the source is a regular file */
+        if (!S_ISREG(i->st.st_mode))
                 return;
 
-        j->disk_fd = safe_close(i->tar_job->disk_fd);
+        if (i->written_compressed >= (uint64_t) i->st.st_size)
+                percent = 100;
+        else
+                percent = (unsigned) ((i->written_compressed * UINT64_C(100)) / (uint64_t) i->st.st_size);
+
+        if (percent == i->last_percent)
+                return;
+
+        if (!ratelimit_test(&i->progress_rate_limit))
+                return;
+
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        log_info("Imported %u%%.", percent);
+
+        i->last_percent = percent;
+}
+
+static int tar_import_finish(TarImport *i) {
+        int r;
+
+        assert(i);
+        assert(i->tar_fd >= 0);
+        assert(i->temp_path);
+        assert(i->final_path);
+
+        i->tar_fd = safe_close(i->tar_fd);
 
         if (i->tar_pid > 0) {
                 r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
                 i->tar_pid = 0;
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        if (!i->tar_job->etag_exists) {
-                /* This is a new download, verify it, and move it into place */
-
-                tar_import_report_progress(i, TAR_VERIFYING);
-
-                r = import_verify(i->tar_job, i->checksum_job, i->signature_job);
-                if (r < 0)
-                        goto finish;
-
-                tar_import_report_progress(i, TAR_FINALIZING);
-
+        if (i->read_only) {
                 r = import_make_read_only(i->temp_path);
                 if (r < 0)
-                        goto finish;
-
-                if (rename(i->temp_path, i->final_path) < 0) {
-                        r = log_error_errno(errno, "Failed to rename to final image name: %m");
-                        goto finish;
-                }
-
-                free(i->temp_path);
-                i->temp_path = NULL;
+                        return r;
         }
 
-        tar_import_report_progress(i, TAR_COPYING);
+        if (i->force_local)
+                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        r = tar_import_make_local_copy(i);
+        r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
         if (r < 0)
-                goto finish;
+                return log_error_errno(r, "Failed to move image into place: %m");
 
-        r = 0;
+        free(i->temp_path);
+        i->temp_path = NULL;
 
-finish:
-        if (i->on_finished)
-                i->on_finished(i, r, i->userdata);
-        else
-                sd_event_exit(i->event, r);
+        return 0;
 }
 
-static int tar_import_job_on_open_disk(ImportJob *j) {
-        _cleanup_close_pair_ int pipefd[2] = { -1 , -1 };
-        TarImport *i;
+static int tar_import_fork_tar(TarImport *i) {
         int r;
 
-        assert(j);
-        assert(j->userdata);
+        assert(i);
 
-        i = j->userdata;
-        assert(i->tar_job == j);
         assert(!i->final_path);
         assert(!i->temp_path);
-        assert(i->tar_pid <= 0);
+        assert(i->tar_fd < 0);
 
-        r = import_make_path(j->url, j->etag, i->image_root, ".tar-", NULL, &i->final_path);
-        if (r < 0)
+        i->final_path = strjoin(i->image_root, "/", i->local, NULL);
+        if (!i->final_path)
                 return log_oom();
 
         r = tempfn_random(i->final_path, &i->temp_path);
         if (r < 0)
                 return log_oom();
 
-        mkdir_parents_label(i->temp_path, 0700);
+        (void) mkdir_parents_label(i->temp_path, 0700);
 
         r = btrfs_subvol_make(i->temp_path);
         if (r == -ENOTTY) {
@@ -331,80 +236,146 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
 
-        j->disk_fd = import_fork_tar(i->temp_path, &i->tar_pid);
-        if (j->disk_fd < 0)
-                return j->disk_fd;
+        i->tar_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
+        if (i->tar_fd < 0)
+                return i->tar_fd;
 
         return 0;
 }
 
-static void tar_import_job_on_progress(ImportJob *j) {
-        TarImport *i;
+static int tar_import_write(const void *p, size_t sz, void *userdata) {
+        TarImport *i = userdata;
+        int r;
 
-        assert(j);
-        assert(j->userdata);
+        if (i->grow_machine_directory && i->written_since_last_grow >= GROW_INTERVAL_BYTES) {
+                i->written_since_last_grow = 0;
+                grow_machine_directory();
+        }
 
-        i = j->userdata;
+        r = loop_write(i->tar_fd, p, sz, false);
+        if (r < 0)
+                return r;
 
-        tar_import_report_progress(i, TAR_DOWNLOADING);
+        i->written_uncompressed += sz;
+        i->written_since_last_grow += sz;
+
+        return 0;
 }
 
-int tar_import_pull(TarImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
+static int tar_import_process(TarImport *i) {
+        ssize_t l;
         int r;
 
         assert(i);
+        assert(i->buffer_size < sizeof(i->buffer));
 
-        if (!http_url_is_valid(url))
+        l = read(i->input_fd, i->buffer + i->buffer_size, sizeof(i->buffer) - i->buffer_size);
+        if (l < 0) {
+                if (errno == EAGAIN)
+                        return 0;
+
+                r = log_error_errno(errno, "Failed to read input file: %m");
+                goto finish;
+        }
+        if (l == 0) {
+                if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+                        log_error("Premature end of file: %m");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                r = tar_import_finish(i);
+                goto finish;
+        }
+
+        i->buffer_size += l;
+
+        if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+                r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                if (r < 0) {
+                        log_error("Failed to detect file compression: %m");
+                        goto finish;
+                }
+                if (r == 0) /* Need more data */
+                        return 0;
+
+                r = tar_import_fork_tar(i);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = import_uncompress(&i->compress, i->buffer, i->buffer_size, tar_import_write, i);
+        if (r < 0) {
+                log_error_errno(r, "Failed to decode and write: %m");
+                goto finish;
+        }
+
+        i->written_compressed += i->buffer_size;
+        i->buffer_size = 0;
+
+        tar_import_report_progress(i);
+
+        return 0;
+
+finish:
+        if (i->on_finished)
+                i->on_finished(i, r, i->userdata);
+        else
+                sd_event_exit(i->event, r);
+
+        return 0;
+}
+
+static int tar_import_on_input(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        TarImport *i = userdata;
+
+        return tar_import_process(i);
+}
+
+static int tar_import_on_defer(sd_event_source *s, void *userdata) {
+        TarImport *i = userdata;
+
+        return tar_import_process(i);
+}
+
+int tar_import_start(TarImport *i, int fd, const char *local, bool force_local, bool read_only) {
+        int r;
+
+        assert(i);
+        assert(fd >= 0);
+        assert(local);
+
+        if (!machine_name_is_valid(local))
                 return -EINVAL;
 
-        if (local && !machine_name_is_valid(local))
-                return -EINVAL;
-
-        if (i->tar_job)
+        if (i->input_fd >= 0)
                 return -EBUSY;
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return r;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)
                 return r;
         i->force_local = force_local;
-        i->verify = verify;
+        i->read_only = read_only;
 
-        r = import_job_new(&i->tar_job, url, i->glue, i);
-        if (r < 0)
-                return r;
+        if (fstat(fd, &i->st) < 0)
+                return -errno;
 
-        i->tar_job->on_finished = tar_import_job_on_finished;
-        i->tar_job->on_open_disk = tar_import_job_on_open_disk;
-        i->tar_job->on_progress = tar_import_job_on_progress;
-        i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-
-        r = import_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
-        if (r < 0)
-                return r;
-
-        r = import_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_import_job_on_finished, i);
-        if (r < 0)
-                return r;
-
-        r = import_job_begin(i->tar_job);
-        if (r < 0)
-                return r;
-
-        if (i->checksum_job) {
-                i->checksum_job->on_progress = tar_import_job_on_progress;
-
-                r = import_job_begin(i->checksum_job);
+        r = sd_event_add_io(i->event, &i->input_event_source, fd, EPOLLIN, tar_import_on_input, i);
+        if (r == -EPERM) {
+                /* This fd does not support epoll, for example because it is a regular file. Busy read in that case */
+                r = sd_event_add_defer(i->event, &i->input_event_source, tar_import_on_defer, i);
                 if (r < 0)
                         return r;
+
+                r = sd_event_source_set_enabled(i->input_event_source, SD_EVENT_ON);
         }
+        if (r < 0)
+                return r;
 
-        if (i->signature_job) {
-                i->signature_job->on_progress = tar_import_job_on_progress;
-
-                r = import_job_begin(i->signature_job);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        i->input_fd = fd;
+        return r;
 }

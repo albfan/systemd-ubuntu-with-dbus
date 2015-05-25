@@ -19,20 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
 
 #include "macro.h"
 #include "audit.h"
 #include "util.h"
-#include "log.h"
+#include "process-util.h"
 #include "fileio.h"
-#include "virt.h"
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
         _cleanup_free_ char *s = NULL;
@@ -52,7 +46,7 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
         if (r < 0)
                 return r;
 
-        if (u == (uint32_t) -1 || u <= 0)
+        if (u == AUDIT_SESSION_INVALID || u <= 0)
                 return -ENXIO;
 
         *id = u;

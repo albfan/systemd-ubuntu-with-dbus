@@ -183,7 +183,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 }
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 if (!cname) {
                         r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of requested type", q->request_hostname);
                         goto finish;
@@ -219,6 +219,8 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
                         added++;
                 }
+
+                // what about the cache?
 
                 /* If we didn't find anything, then let's restart the
                  * query, this time with the cname */
@@ -273,7 +275,7 @@ static int check_ifindex_flags(int ifindex, uint64_t *flags, sd_bus_error *error
         return 0;
 }
 
-static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         Manager *m = userdata;
         const char *hostname;
@@ -282,7 +284,6 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         DnsQuery *q;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -338,7 +339,7 @@ static int bus_method_resolve_hostname(sd_bus *bus, sd_bus_message *message, voi
         q->request_hostname = hostname;
         q->complete = bus_method_resolve_hostname_complete;
 
-        r = dns_query_bus_track(q, bus, message);
+        r = dns_query_bus_track(q, message);
         if (r < 0)
                 return r;
 
@@ -398,7 +399,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 }
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 _cleanup_free_ char *ip = NULL;
 
                 in_addr_to_string(q->request_family, &q->request_address, &ip);
@@ -426,7 +427,7 @@ finish:
         dns_query_free(q);
 }
 
-static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_method_resolve_address(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_free_ char *reverse = NULL;
@@ -438,7 +439,6 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         size_t sz;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -491,7 +491,7 @@ static int bus_method_resolve_address(sd_bus *bus, sd_bus_message *message, void
         memcpy(&q->request_address, d, sz);
         q->complete = bus_method_resolve_address_complete;
 
-        r = dns_query_bus_track(q, bus, message);
+        r = dns_query_bus_track(q, message);
         if (r < 0)
                 return r;
 
@@ -598,7 +598,7 @@ finish:
         dns_query_free(q);
 }
 
-static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         Manager *m = userdata;
@@ -608,7 +608,6 @@ static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void 
         uint64_t flags;
         DnsQuery *q;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -644,7 +643,7 @@ static int bus_method_resolve_record(sd_bus *bus, sd_bus_message *message, void 
         q->request_hostname = name;
         q->complete = bus_method_resolve_record_complete;
 
-        r = dns_query_bus_track(q, bus, message);
+        r = dns_query_bus_track(q, message);
         if (r < 0)
                 return r;
 
@@ -681,12 +680,12 @@ static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
         return 0;
 }
 
-static int match_prepare_for_sleep(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = userdata;
         int b, r;
 
-        assert(bus);
-        assert(bus);
+        assert(message);
+        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {

@@ -26,19 +26,26 @@
 #include "strv.h"
 #include "bus-util.h"
 #include "bus-common-errors.h"
-#include "def.h"
 #include "socket-util.h"
 #include "mkdir.h"
-#include "import-util.h"
 #include "def.h"
+#include "missing.h"
+#include "machine-pool.h"
+#include "path-util.h"
+#include "import-util.h"
+#include "process-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;
 
 typedef enum TransferType {
-        TRANSFER_TAR,
-        TRANSFER_RAW,
-        TRANSFER_DKR,
+        TRANSFER_IMPORT_TAR,
+        TRANSFER_IMPORT_RAW,
+        TRANSFER_EXPORT_TAR,
+        TRANSFER_EXPORT_RAW,
+        TRANSFER_PULL_TAR,
+        TRANSFER_PULL_RAW,
+        TRANSFER_PULL_DKR,
         _TRANSFER_TYPE_MAX,
         _TRANSFER_TYPE_INVALID = -1,
 } TransferType;
@@ -55,8 +62,10 @@ struct Transfer {
         char *remote;
         char *local;
         bool force_local;
+        bool read_only;
 
         char *dkr_index_url;
+        char *format;
 
         pid_t pid;
 
@@ -70,6 +79,9 @@ struct Transfer {
 
         unsigned n_canceled;
         unsigned progress_percent;
+
+        int stdin_fd;
+        int stdout_fd;
 };
 
 struct Manager {
@@ -89,9 +101,13 @@ struct Manager {
 #define TRANSFERS_MAX 64
 
 static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
-        [TRANSFER_TAR] = "tar",
-        [TRANSFER_RAW] = "raw",
-        [TRANSFER_DKR] = "dkr",
+        [TRANSFER_IMPORT_TAR] = "import-tar",
+        [TRANSFER_IMPORT_RAW] = "import-raw",
+        [TRANSFER_EXPORT_TAR] = "export-tar",
+        [TRANSFER_EXPORT_RAW] = "export-raw",
+        [TRANSFER_PULL_TAR] = "pull-tar",
+        [TRANSFER_PULL_RAW] = "pull-raw",
+        [TRANSFER_PULL_DKR] = "pull-dkr",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
@@ -109,6 +125,7 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->remote);
         free(t->local);
         free(t->dkr_index_url);
+        free(t->format);
         free(t->object_path);
 
         if (t->pid > 0) {
@@ -117,6 +134,8 @@ static Transfer *transfer_unref(Transfer *t) {
         }
 
         safe_close(t->log_fd);
+        safe_close(t->stdin_fd);
+        safe_close(t->stdout_fd);
 
         free(t);
         return NULL;
@@ -145,6 +164,8 @@ static int transfer_new(Manager *m, Transfer **ret) {
 
         t->type = _TRANSFER_TYPE_INVALID;
         t->log_fd = -1;
+        t->stdin_fd = -1;
+        t->verify = _IMPORT_VERIFY_INVALID;
 
         id = m->current_transfer_id + 1;
 
@@ -225,7 +246,7 @@ static void transfer_send_logs(Transfer *t, bool flush) {
                 n = strndup(t->log_message, e - t->log_message);
 
                 /* Skip over NUL and newlines */
-                while (e < t->log_message + t->log_message_size && (*e == 0 || *e == '\n'))
+                while ((e < t->log_message + t->log_message_size) && (*e == 0 || *e == '\n'))
                         e++;
 
                 memmove(t->log_message, e, t->log_message + sizeof(t->log_message) - e);
@@ -350,19 +371,21 @@ static int transfer_start(Transfer *t) {
                 return -errno;
         if (t->pid == 0) {
                 const char *cmd[] = {
-                        "systemd-pull",
-                        transfer_type_to_string(t->type),
-                        "--verify",
+                        NULL, /* systemd-import, systemd-export or systemd-pull */
+                        NULL, /* tar, raw, dkr */
+                        NULL, /* --verify= */
                         NULL, /* verify argument */
                         NULL, /* maybe --force */
+                        NULL, /* maybe --read-only */
                         NULL, /* maybe --dkr-index-url */
-                        NULL, /* the actual URL */
+                        NULL, /* if so: the actual URL */
+                        NULL, /* maybe --format= */
+                        NULL, /* if so: the actual format */
                         NULL, /* remote */
                         NULL, /* local */
                         NULL
                 };
-                int null_fd;
-                unsigned k = 3;
+                unsigned k = 0;
 
                 /* Child */
 
@@ -372,32 +395,54 @@ static int transfer_start(Transfer *t) {
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                if (dup2(pipefd[1], STDOUT_FILENO) != STDOUT_FILENO) {
-                        log_error_errno(errno, "Failed to dup2() fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
                 if (dup2(pipefd[1], STDERR_FILENO) != STDERR_FILENO) {
                         log_error_errno(errno, "Failed to dup2() fd: %m");
                         _exit(EXIT_FAILURE);
                 }
 
+                if (t->stdout_fd >= 0) {
+                        if (dup2(t->stdout_fd, STDOUT_FILENO) != STDOUT_FILENO) {
+                                log_error_errno(errno, "Failed to dup2() fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (t->stdout_fd != STDOUT_FILENO)
+                                safe_close(t->stdout_fd);
+                } else {
+                        if (dup2(pipefd[1], STDOUT_FILENO) != STDOUT_FILENO) {
+                                log_error_errno(errno, "Failed to dup2() fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
                 if (pipefd[1] != STDOUT_FILENO && pipefd[1] != STDERR_FILENO)
                         pipefd[1] = safe_close(pipefd[1]);
 
-                null_fd = open("/dev/null", O_RDONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                if (t->stdin_fd >= 0) {
+                        if (dup2(t->stdin_fd, STDIN_FILENO) != STDIN_FILENO) {
+                                log_error_errno(errno, "Failed to dup2() fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
 
-                if (dup2(null_fd, STDIN_FILENO) != STDIN_FILENO) {
-                        log_error_errno(errno, "Failed to dup2() fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                        if (t->stdin_fd != STDIN_FILENO)
+                                safe_close(t->stdin_fd);
+                } else {
+                        int null_fd;
 
-                if (null_fd != STDIN_FILENO)
-                        safe_close(null_fd);
+                        null_fd = open("/dev/null", O_RDONLY|O_NOCTTY);
+                        if (null_fd < 0) {
+                                log_error_errno(errno, "Failed to open /dev/null: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (dup2(null_fd, STDIN_FILENO) != STDIN_FILENO) {
+                                log_error_errno(errno, "Failed to dup2() fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (null_fd != STDIN_FILENO)
+                                safe_close(null_fd);
+                }
 
                 fd_cloexec(STDIN_FILENO, false);
                 fd_cloexec(STDOUT_FILENO, false);
@@ -406,28 +451,61 @@ static int transfer_start(Transfer *t) {
                 setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1);
                 setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1);
 
-                cmd[k++] = import_verify_to_string(t->verify);
+                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_IMPORT_RAW))
+                        cmd[k++] = SYSTEMD_IMPORT_PATH;
+                else if (IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW))
+                        cmd[k++] = SYSTEMD_EXPORT_PATH;
+                else
+                        cmd[k++] = SYSTEMD_PULL_PATH;
+
+                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_EXPORT_TAR, TRANSFER_PULL_TAR))
+                        cmd[k++] = "tar";
+                else if (IN_SET(t->type, TRANSFER_IMPORT_RAW, TRANSFER_EXPORT_RAW, TRANSFER_PULL_RAW))
+                        cmd[k++] = "raw";
+                else
+                        cmd[k++] = "dkr";
+
+                if (t->verify != _IMPORT_VERIFY_INVALID) {
+                        cmd[k++] = "--verify";
+                        cmd[k++] = import_verify_to_string(t->verify);
+                }
+
                 if (t->force_local)
                         cmd[k++] = "--force";
+                if (t->read_only)
+                        cmd[k++] = "--read-only";
 
                 if (t->dkr_index_url) {
                         cmd[k++] = "--dkr-index-url";
                         cmd[k++] = t->dkr_index_url;
                 }
 
-                cmd[k++] = t->remote;
+                if (t->format) {
+                        cmd[k++] = "--format";
+                        cmd[k++] = t->format;
+                }
+
+                if (!IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW)) {
+                        if (t->remote)
+                                cmd[k++] = t->remote;
+                        else
+                                cmd[k++] = "-";
+                }
+
                 if (t->local)
                         cmd[k++] = t->local;
                 cmd[k] = NULL;
 
-                execv(SYSTEMD_PULL_PATH, (char * const *) cmd);
-                log_error_errno(errno, "Failed to execute import tool: %m");
+                execv(cmd[0], (char * const *) cmd);
+                log_error_errno(errno, "Failed to execute %s tool: %m", cmd[0]);
                 _exit(EXIT_FAILURE);
         }
 
         pipefd[1] = safe_close(pipefd[1]);
         t->log_fd = pipefd[0];
         pipefd[0] = -1;
+
+        t->stdin_fd = safe_close(t->stdin_fd);
 
         r = sd_event_add_child(t->manager->event, &t->pid_event_source, t->pid, WEXITED, transfer_on_pid, t);
         if (r < 0)
@@ -518,12 +596,10 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
                 return -errno;
         }
 
+        cmsg_close_all(&msghdr);
+
         for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                        close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
-                        log_warning("Somebody sent us unexpected fds, ignoring.");
-                        return 0;
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                if (cmsg->cmsg_level == SOL_SOCKET &&
                            cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
@@ -643,7 +719,135 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *dkr_ind
         return NULL;
 }
 
-static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        int fd, force, read_only, r;
+        const char *local, *object;
+        Manager *m = userdata;
+        TransferType type;
+        uint32_t id;
+
+        assert(msg);
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.import1.import",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+        if (r < 0)
+                return r;
+
+        if (!machine_name_is_valid(local))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+
+        r = setup_machine_directory((uint64_t) -1, error);
+        if (r < 0)
+                return r;
+
+        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ? TRANSFER_IMPORT_TAR : TRANSFER_IMPORT_RAW;
+
+        r = transfer_new(m, &t);
+        if (r < 0)
+                return r;
+
+        t->type = type;
+        t->force_local = force;
+        t->read_only = read_only;
+
+        t->local = strdup(local);
+        if (!t->local)
+                return -ENOMEM;
+
+        t->stdin_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (t->stdin_fd < 0)
+                return -errno;
+
+        r = transfer_start(t);
+        if (r < 0)
+                return r;
+
+        object = t->object_path;
+        id = t->id;
+        t = NULL;
+
+        return sd_bus_reply_method_return(msg, "uo", id, object);
+}
+
+static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        int fd, r;
+        const char *local, *object, *format;
+        Manager *m = userdata;
+        TransferType type;
+        uint32_t id;
+
+        assert(msg);
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.import1.export",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = sd_bus_message_read(msg, "shs", &local, &fd, &format);
+        if (r < 0)
+                return r;
+
+        if (!machine_name_is_valid(local))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+
+        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
+
+        r = transfer_new(m, &t);
+        if (r < 0)
+                return r;
+
+        t->type = type;
+
+        if (!isempty(format)) {
+                t->format = strdup(format);
+                if (!t->format)
+                        return -ENOMEM;
+        }
+
+        t->local = strdup(local);
+        if (!t->local)
+                return -ENOMEM;
+
+        t->stdout_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (t->stdout_fd < 0)
+                return -errno;
+
+        r = transfer_start(t);
+        if (r < 0)
+                return r;
+
+        object = t->object_path;
+        id = t->id;
+        t = NULL;
+
+        return sd_bus_reply_method_return(msg, "uo", id, object);
+}
+
+static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         const char *remote, *local, *verify, *object;
         Manager *m = userdata;
@@ -652,7 +856,6 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         int force, r;
         uint32_t id;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -661,6 +864,7 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -687,7 +891,11 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         if (v < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_TAR : TRANSFER_RAW;
+        r = setup_machine_directory((uint64_t) -1, error);
+        if (r < 0)
+                return r;
+
+        type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
 
         if (manager_find(m, type, NULL, remote))
                 return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
@@ -704,9 +912,11 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         if (!t->remote)
                 return -ENOMEM;
 
-        t->local = strdup(local);
-        if (!t->local)
-                return -ENOMEM;
+        if (local) {
+                t->local = strdup(local);
+                if (!t->local)
+                        return -ENOMEM;
+        }
 
         r = transfer_start(t);
         if (r < 0)
@@ -719,7 +929,7 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         return sd_bus_reply_method_return(msg, "uo", id, object);
 }
 
-static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_pull_dkr(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         const char *index_url, *remote, *tag, *local, *verify, *object;
         Manager *m = userdata;
@@ -727,7 +937,6 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         int force, r;
         uint32_t id;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -736,6 +945,7 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -777,14 +987,18 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         if (v != IMPORT_VERIFY_NO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "DKR does not support verification.");
 
-        if (manager_find(m, TRANSFER_DKR, index_url, remote))
+        r = setup_machine_directory((uint64_t) -1, error);
+        if (r < 0)
+                return r;
+
+        if (manager_find(m, TRANSFER_PULL_DKR, index_url, remote))
                 return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
 
         r = transfer_new(m, &t);
         if (r < 0)
                 return r;
 
-        t->type = TRANSFER_DKR;
+        t->type = TRANSFER_PULL_DKR;
         t->verify = v;
         t->force_local = force;
 
@@ -796,9 +1010,11 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         if (!t->remote)
                 return -ENOMEM;
 
-        t->local = strdup(local);
-        if (!t->local)
-                return -ENOMEM;
+        if (local) {
+                t->local = strdup(local);
+                if (!t->local)
+                        return -ENOMEM;
+        }
 
         r = transfer_start(t);
         if (r < 0)
@@ -811,14 +1027,13 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         return sd_bus_reply_method_return(msg, "uo", id, object);
 }
 
-static int method_list_transfers(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Transfer *t;
         Iterator i;
         int r;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -849,14 +1064,13 @@ static int method_list_transfers(sd_bus *bus, sd_bus_message *msg, void *userdat
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_cancel(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Transfer *t = userdata;
         int r;
 
-        assert(bus);
         assert(msg);
         assert(t);
 
@@ -865,6 +1079,7 @@ static int method_cancel(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bu
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &t->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -879,13 +1094,12 @@ static int method_cancel(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bu
         return sd_bus_reply_method_return(msg, NULL);
 }
 
-static int method_cancel_transfer(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Transfer *t;
         uint32_t id;
         int r;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -894,6 +1108,7 @@ static int method_cancel_transfer(sd_bus *bus, sd_bus_message *msg, void *userda
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -954,6 +1169,10 @@ static const sd_bus_vtable transfer_vtable[] = {
 
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_METHOD("ImportTar", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ImportRaw", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ExportTar", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ExportRaw", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullRaw", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullDkr", "sssssb", "uo", method_pull_dkr, SD_BUS_VTABLE_UNPRIVILEGED),

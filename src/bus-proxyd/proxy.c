@@ -23,35 +23,26 @@
 ***/
 
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/types.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <poll.h>
-#include <stddef.h>
-#include <getopt.h>
 
 #include "log.h"
 #include "util.h"
-#include "socket-util.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "build.h"
 #include "strv.h"
-#include "def.h"
-#include "capability.h"
 #include "bus-control.h"
-#include "smack-util.h"
 #include "set.h"
 #include "bus-xml-policy.h"
 #include "driver.h"
 #include "proxy.h"
 #include "synthesize.h"
+#include "formats-util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
         _cleanup_bus_close_unref_ sd_bus *b = NULL;
@@ -729,13 +720,21 @@ static int proxy_process_destination_to_local(Proxy *p) {
 
                 /* Return the error to the client, if we can */
                 synthetic_reply_method_errnof(m, r, "Failed to forward message we got from destination: %m");
-                log_error_errno(r,
-                         "Failed to forward message we got from destination: uid=" UID_FMT " gid=" GID_FMT" message=%s destination=%s path=%s interface=%s member=%s: %m",
-                         p->local_creds.uid, p->local_creds.gid, bus_message_type_to_string(m->header->type),
-                         strna(m->destination), strna(m->path), strna(m->interface), strna(m->member));
+                if (r == -ENOBUFS) {
+                        /* if local dbus1 peer does not dispatch its queue, warn only once */
+                        if (!p->queue_overflow)
+                                log_error("Dropped messages due to queue overflow of local peer (pid: "PID_FMT" uid: "UID_FMT")", p->local_creds.pid, p->local_creds.uid);
+                        p->queue_overflow = true;
+                } else
+                        log_error_errno(r,
+                                 "Failed to forward message we got from destination: uid=" UID_FMT " gid=" GID_FMT" message=%s destination=%s path=%s interface=%s member=%s: %m",
+                                 p->local_creds.uid, p->local_creds.gid, bus_message_type_to_string(m->header->type),
+                                 strna(m->destination), strna(m->path), strna(m->interface), strna(m->member));
+
                 return 1;
         }
 
+        p->queue_overflow = false;
         return 1;
 }
 

@@ -17,8 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include "strv.h"
 #include "util.h"
 #include "hashmap.h"
 
@@ -75,7 +73,7 @@ static void test_trivial_compare_func(void) {
 }
 
 static void test_string_compare_func(void) {
-        assert_se(!string_compare_func("fred", "wilma") == 0);
+        assert_se(string_compare_func("fred", "wilma") != 0);
         assert_se(string_compare_func("fred", "fred") == 0);
 }
 

@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="sd-login"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-login — APIs for
-    tracking logins</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre></div><div class="cmdsynopsis"><p><code class="command">pkg-config --cflags --libs libsystemd</code> </p></div></div><div class="refsect1"><a name="idm139931963663712"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-login.h</code> provides APIs to introspect
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sd-login"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-login — APIs for
+    tracking logins</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre></div><div class="cmdsynopsis"><p><code class="command">pkg-config --cflags --libs libsystemd</code> </p></div></div><div class="refsect1"><a name="idm140229787570016"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-login.h</code> provides APIs to introspect
     and monitor seat, login session and user status information on the
     local system. </p><p>See <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/multiseat" target="_top">Multi-Seat
     on Linux</a> for an introduction into multi-seat support on
@@ -55,10 +55,10 @@
     <a href="sd_get_seats.html"><span class="citerefentry"><span class="refentrytitle">sd_get_seats</span>(3)</span></a>,
     <a href="sd_login_monitor_new.html"><span class="citerefentry"><span class="refentrytitle">sd_login_monitor_new</span>(3)</span></a>
     for more information about the functions
-    implemented.</p></div><div class="refsect1"><a name="idm139931960688288"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><a name="pkgconfig-text"></a>These APIs are implemented as a shared
+    implemented.</p></div><div class="refsect1"><a name="idm140229779520224"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><a name="pkgconfig-text"></a>These APIs are implemented as a shared
   library, which can be compiled and linked to with the
   <code class="constant">libsystemd</code> <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-  file.</p></div><div class="refsect1"><a name="idm139931967549776"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+  file.</p></div><div class="refsect1"><a name="idm140229782654336"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="sd_pid_get_session.html"><span class="citerefentry"><span class="refentrytitle">sd_pid_get_session</span>(3)</span></a>,
       <a href="sd_uid_get_state.html"><span class="citerefentry"><span class="refentrytitle">sd_uid_get_state</span>(3)</span></a>,

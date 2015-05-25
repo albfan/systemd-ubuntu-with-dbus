@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-detect-virt"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-detect-virt — Detect execution in a virtualized environment</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-detect-virt [OPTIONS...]</code> </p></div></div><div class="refsect1"><a name="idm139691031994560"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-detect-virt</strong></span> detects execution in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-detect-virt"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-detect-virt — Detect execution in a virtualized environment</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-detect-virt [OPTIONS...]</code> </p></div></div><div class="refsect1"><a name="idm140053348582736"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-detect-virt</strong></span> detects execution in
     a virtualized environment. It identifies the virtualization
     technology and can distinguish full VM virtualization from
     container virtualization. <code class="filename">systemd-detect-virt</code>
@@ -29,7 +29,7 @@
     <code class="option">--container</code> and <code class="option">--vm</code> can be used
     to limit what types of virtualization are detected.</p><p>When executed without <code class="option">--quiet</code> will print a
     short identifier for the detected virtualization technology. The
-    following technologies are currently identified:</p><div class="table"><a name="idm139691031990000"></a><p class="title"><b>Table 1. Known virtualization technologies (both
+    following technologies are currently identified:</p><div class="table"><a name="idm140053352224016"></a><p class="title"><b>Table 1. Known virtualization technologies (both
       VM, i.e. full hardware virtualization,
       and container, i.e. shared kernel virtualization)</b></p><div class="table-contents"><table summary="Known virtualization technologies (both
       VM, i.e. full hardware virtualization,
@@ -37,12 +37,12 @@
     "innermost" is detected and identified. That means if both VM
     virtualization and container virtualization are used in
     conjunction, only the latter will be identified (unless
-    <code class="option">--vm</code> is passed).</p></div><div class="refsect1"><a name="idm139691035904992"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-c"><span class="term"><code class="option">-c</code>, </span><span class="term"><code class="option">--container</code></span><a class="headerlink" title="Permalink to this term" href="#-c">¶</a></dt><dd><p>Only detects container virtualization (i.e.
+    <code class="option">--vm</code> is passed).</p></div><div class="refsect1"><a name="idm140053347528368"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-c"><span class="term"><code class="option">-c</code>, </span><span class="term"><code class="option">--container</code></span><a class="headerlink" title="Permalink to this term" href="#-c">¶</a></dt><dd><p>Only detects container virtualization (i.e.
         shared kernel virtualization).</p></dd><dt id="-v"><span class="term"><code class="option">-v</code>, </span><span class="term"><code class="option">--vm</code></span><a class="headerlink" title="Permalink to this term" href="#-v">¶</a></dt><dd><p>Only detects VM virtualization (i.e. full
         hardware virtualization).</p></dd><dt id="-q"><span class="term"><code class="option">-q</code>, </span><span class="term"><code class="option">--quiet</code></span><a class="headerlink" title="Permalink to this term" href="#-q">¶</a></dt><dd><p>Suppress output of the virtualization
         technology identifier.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139691035895648"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>If a virtualization technology is detected, 0 is returned, a
-    non-zero code otherwise.</p></div><div class="refsect1"><a name="idm139691035894352"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140053347519600"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>If a virtualization technology is detected, 0 is returned, a
+    non-zero code otherwise.</p></div><div class="refsect1"><a name="idm140053347518336"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-nspawn.html"><span class="citerefentry"><span class="refentrytitle">systemd-nspawn</span>(1)</span></a>
     </p></div></div></body></html>

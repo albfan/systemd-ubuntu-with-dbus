@@ -34,7 +34,7 @@
 #include "journal-authenticate.h"
 #include "lookup3.h"
 #include "compress.h"
-#include "fsprg.h"
+#include "random-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
@@ -150,7 +150,7 @@ void journal_file_close(JournalFile *f) {
                  * reenable all the good bits COW usually provides
                  * (such as data checksumming). */
 
-                (void) chattr_fd(f->fd, false, FS_NOCOW_FL);
+                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL);
                 (void) btrfs_defrag_fd(f->fd);
         }
 
@@ -888,7 +888,7 @@ int journal_file_find_data_object_with_hash(
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
                         uint64_t l;
-                        size_t rsize;
+                        size_t rsize = 0;
 
                         l = le64toh(o->object.size);
                         if (l <= offsetof(Object, data.payload))
@@ -1053,7 +1053,7 @@ static int journal_file_append_data(
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         if (f->compress_xz &&
             size >= COMPRESSION_SIZE_THRESHOLD) {
-                size_t rsize;
+                size_t rsize = 0;
 
                 compression = compress_blob(data, size, o->data.payload, &rsize);
 
@@ -2014,8 +2014,7 @@ void journal_file_reset_location(JournalFile *f) {
         f->current_xor_hash = 0;
 }
 
-void journal_file_save_location(JournalFile *f, direction_t direction, Object *o, uint64_t offset) {
-        f->last_direction = direction;
+void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
         f->location_type = LOCATION_SEEK;
         f->current_offset = offset;
         f->current_seqnum = le64toh(o->entry.seqnum);
@@ -2523,6 +2522,41 @@ void journal_file_print_header(JournalFile *f) {
                 printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (off_t) st.st_blocks * 512ULL));
 }
 
+static int journal_file_warn_btrfs(JournalFile *f) {
+        unsigned attrs;
+        int r;
+
+        assert(f);
+
+        /* Before we write anything, check if the COW logic is turned
+         * off on btrfs. Given our write pattern that is quite
+         * unfriendly to COW file systems this should greatly improve
+         * performance on COW file systems, such as btrfs, at the
+         * expense of data integrity features (which shouldn't be too
+         * bad, given that we do our own checksumming). */
+
+        r = btrfs_is_filesystem(f->fd);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to determine if journal is on btrfs: %m");
+        if (!r)
+                return 0;
+
+        r = read_attr_fd(f->fd, &attrs);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read file attributes: %m");
+
+        if (attrs & FS_NOCOW_FL) {
+                log_debug("Detected btrfs file system with copy-on-write disabled, all is good.");
+                return 0;
+        }
+
+        log_notice("Creating journal file %s on a btrfs file system, and copy-on-write is enabled. "
+                   "This is likely to slow down journal access substantially, please consider turning "
+                   "off the copy-on-write file attribute on the journal directory, using chattr +C.", f->path);
+
+        return 1;
+}
+
 int journal_file_open(
                 const char *fname,
                 int flags,
@@ -2603,16 +2637,7 @@ int journal_file_open(
 
         if (f->last_stat.st_size == 0 && f->writable) {
 
-                /* Before we write anything, turn off COW logic. Given
-                 * our write pattern that is quite unfriendly to COW
-                 * file systems this should greatly improve
-                 * performance on COW file systems, such as btrfs, at
-                 * the expense of data integrity features (which
-                 * shouldn't be too bad, given that we do our own
-                 * checksumming). */
-                r = chattr_fd(f->fd, true, FS_NOCOW_FL);
-                if (r < 0)
-                        log_warning_errno(errno, "Failed to set file attributes: %m");
+                (void) journal_file_warn_btrfs(f);
 
                 /* Let's attach the creation time to the journal file,
                  * so that the vacuuming code knows the age of this
@@ -2653,10 +2678,8 @@ int journal_file_open(
         }
 
         r = mmap_cache_get(f->mmap, f->fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
-        if (r < 0) {
-                r = -errno;
+        if (r < 0)
                 goto fail;
-        }
 
         f->header = h;
 
@@ -2797,14 +2820,15 @@ int journal_file_open_reliably(
 
         r = journal_file_open(fname, flags, mode, compress, seal,
                               metrics, mmap_cache, template, ret);
-        if (r != -EBADMSG && /* corrupted */
-            r != -ENODATA && /* truncated */
-            r != -EHOSTDOWN && /* other machine */
-            r != -EPROTONOSUPPORT && /* incompatible feature */
-            r != -EBUSY && /* unclean shutdown */
-            r != -ESHUTDOWN && /* already archived */
-            r != -EIO && /* IO error, including SIGBUS on mmap */
-            r != -EIDRM /* File has been deleted */)
+        if (!IN_SET(r,
+                    -EBADMSG,           /* corrupted */
+                    -ENODATA,           /* truncated */
+                    -EHOSTDOWN,         /* other machine */
+                    -EPROTONOSUPPORT,   /* incompatible feature */
+                    -EBUSY,             /* unclean shutdown */
+                    -ESHUTDOWN,         /* already archived */
+                    -EIO,               /* IO error, including SIGBUS on mmap */
+                    -EIDRM              /* File has been deleted */))
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
@@ -2819,9 +2843,9 @@ int journal_file_open_reliably(
         /* The file is corrupted. Rotate it away and try it again (but only once) */
 
         l = strlen(fname);
-        if (asprintf(&p, "%.*s@%016llx-%016" PRIx64 ".journal~",
+        if (asprintf(&p, "%.*s@%016"PRIx64 "-%016"PRIx64 ".journal~",
                      (int) l - 8, fname,
-                     (unsigned long long) now(CLOCK_REALTIME),
+                     now(CLOCK_REALTIME),
                      random_u64()) < 0)
                 return -ENOMEM;
 
@@ -2889,7 +2913,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-                        size_t rsize;
+                        size_t rsize = 0;
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
                                             o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize, 0);

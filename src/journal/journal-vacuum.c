@@ -19,12 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
-#include <sys/xattr.h>
 
 #include "journal-def.h"
 #include "journal-file.h"
@@ -76,7 +73,7 @@ static void patch_realtime(
                 unsigned long long *realtime) {
 
         _cleanup_free_ const char *path = NULL;
-        usec_t x, crtime;
+        usec_t x, crtime = 0;
 
         /* The timestamp was determined by the file name, but let's
          * see if the file might actually be older than the file name

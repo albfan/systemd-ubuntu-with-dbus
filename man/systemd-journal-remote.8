@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-JOURNAL\-REMOTE" "8" "" "systemd 219" "systemd-journal-remote"
+.TH "SYSTEMD\-JOURNAL\-REMOTE" "8" "" "systemd 220" "systemd-journal-remote"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -87,7 +87,7 @@ must be either a negative integer, in which case it will be interpreted as the (
 \fI$LISTEN_FDS\fR/\fI$LISTEN_PID\fR\&. In the second case, an HTTP or HTTPS server will be spawned on this port, respectively for
 \fB\-\-listen\-http\fR
 and
-\fB\-\-listen\-https\fR\&. Currenntly, only POST requests to
+\fB\-\-listen\-https\fR\&. Currently, only POST requests to
 /upload
 with
 "Content\-Type: application/vnd\&.fdo\&.journal"
@@ -236,7 +236,7 @@ systemd\-journal\-remote \-\-url http://some\&.host:19531/
 \fBsystemd-journal-upload\fR(8),
 \fBjournalctl\fR(1),
 \fBsystemd-journald.service\fR(8),
-\fBsystemd-journal-gatewayd.service\fR(8)
+\fBsystemd-journal-gatewayd.service\fR(8)\fBjournal-remote.conf\fR(5)
 .SH "NOTES"
 .IP " 1." 4
 Journal Export Format

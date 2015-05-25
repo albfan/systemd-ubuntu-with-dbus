@@ -19,20 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <limits.h>
 #include <nss.h>
-#include <sys/types.h>
 #include <netdb.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 #include <net/if.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 
 #include "local-addresses.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "hostname-util.h"
 #include "util.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over

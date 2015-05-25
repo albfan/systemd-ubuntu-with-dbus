@@ -27,23 +27,21 @@
 #include "log.h"
 #include "util.h"
 #include "macro.h"
+#include "formats-util.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
 #include "bus-error.h"
 #include "bus-match.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 
-static int match_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Match triggered! interface=%s member=%s", strna(sd_bus_message_get_interface(m)), strna(sd_bus_message_get_member(m)));
         return 0;
 }
 
-static int object_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int object_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         int r;
-
-        assert_se(bus);
 
         if (sd_bus_message_is_method_error(m, NULL))
                 return 0;
@@ -264,11 +262,11 @@ fail:
 
 static void* client1(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        sd_bus *bus = NULL;
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
-        int pp[2] = { -1, -1 };
+        _cleanup_close_pair_ int pp[2] = { -1, -1 };
         char x;
 
         r = sd_bus_open_user(&bus);
@@ -347,18 +345,12 @@ finish:
                 else
                         sd_bus_send(bus, q, NULL);
 
-                sd_bus_flush(bus);
-                sd_bus_unref(bus);
         }
-
-        sd_bus_error_free(&error);
-
-        safe_close_pair(pp);
 
         return INT_TO_PTR(r);
 }
 
-static int quit_callback(sd_bus *b, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         bool *x = userdata;
 
         log_error("Quit callback: %s", strerror(sd_bus_message_get_errno(m)));
@@ -369,8 +361,8 @@ static int quit_callback(sd_bus *b, sd_bus_message *m, void *userdata, sd_bus_er
 
 static void* client2(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        sd_bus *bus = NULL;
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         bool quit = false;
         const char *mid;
         int r;
@@ -399,8 +391,7 @@ static void* client2(void*p) {
                 goto finish;
         }
 
-        sd_bus_message_unref(m);
-        m = NULL;
+        m = sd_bus_message_unref(m);
 
         r = sd_bus_message_new_signal(
                         bus,
@@ -419,8 +410,7 @@ static void* client2(void*p) {
                 goto finish;
         }
 
-        sd_bus_message_unref(m);
-        m = NULL;
+        m = sd_bus_message_unref(m);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -448,8 +438,7 @@ static void* client2(void*p) {
 
         log_info("Machine ID is %s.", mid);
 
-        sd_bus_message_unref(m);
-        m = NULL;
+        m = sd_bus_message_unref(m);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -463,8 +452,7 @@ static void* client2(void*p) {
                 goto finish;
         }
 
-        sd_bus_message_unref(reply);
-        reply = NULL;
+        reply = sd_bus_message_unref(reply);
 
         r = sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
         if (r < 0)
@@ -472,8 +460,7 @@ static void* client2(void*p) {
         else
                 log_info("Slow call succeed.");
 
-        sd_bus_message_unref(m);
-        m = NULL;
+        m = sd_bus_message_unref(m);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -526,12 +513,9 @@ finish:
                         goto finish;
                 }
 
-                sd_bus_send(bus, q, NULL);
-                sd_bus_flush(bus);
-                sd_bus_unref(bus);
+                (void) sd_bus_send(bus, q, NULL);
         }
 
-        sd_bus_error_free(&error);
         return INT_TO_PTR(r);
 }
 

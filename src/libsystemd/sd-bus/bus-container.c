@@ -23,7 +23,7 @@
 #include <fcntl.h>
 
 #include "util.h"
-#include "fileio.h"
+#include "process-util.h"
 #include "bus-internal.h"
 #include "bus-socket.h"
 #include "bus-container.h"

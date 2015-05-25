@@ -20,7 +20,6 @@
 ***/
 
 #include "bus-label.h"
-#include "bus-common-errors.h"
 #include "strv.h"
 #include "bus-util.h"
 #include "machine-image.h"
@@ -29,17 +28,29 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
 int bus_image_method_remove(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
         Image *image = userdata;
+        Manager *m = image->userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(image);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-images",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = image_remove(image);
         if (r < 0)
@@ -49,16 +60,15 @@ int bus_image_method_remove(
 }
 
 int bus_image_method_rename(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
         Image *image = userdata;
+        Manager *m = image->userdata;
         const char *new_name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(image);
 
@@ -69,6 +79,19 @@ int bus_image_method_rename(
         if (!image_name_is_valid(new_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-images",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = image_rename(image, new_name);
         if (r < 0)
                 return r;
@@ -77,16 +100,15 @@ int bus_image_method_rename(
 }
 
 int bus_image_method_clone(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
         Image *image = userdata;
+        Manager *m = image->userdata;
         const char *new_name;
         int r, read_only;
 
-        assert(bus);
         assert(message);
         assert(image);
 
@@ -97,6 +119,19 @@ int bus_image_method_clone(
         if (!image_name_is_valid(new_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-images",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = image_clone(image, new_name, read_only);
         if (r < 0)
                 return r;
@@ -105,22 +140,70 @@ int bus_image_method_clone(
 }
 
 int bus_image_method_mark_read_only(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
         Image *image = userdata;
+        Manager *m = image->userdata;
         int r, read_only;
 
-        assert(bus);
         assert(message);
 
         r = sd_bus_message_read(message, "b", &read_only);
         if (r < 0)
                 return r;
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-images",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = image_read_only(image, read_only);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_image_method_set_limit(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Image *image = userdata;
+        Manager *m = image->userdata;
+        uint64_t limit;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "t", &limit);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-images",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = image_set_limit(image, limit);
         if (r < 0)
                 return r;
 
@@ -139,10 +222,11 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("Limit", "t", NULL, offsetof(Image, limit), 0),
         SD_BUS_PROPERTY("UsageExclusive", "t", NULL, offsetof(Image, usage_exclusive), 0),
         SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
-        SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, 0),
-        SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, 0),
-        SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, 0),
-        SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, 0),
+        SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
@@ -206,6 +290,8 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
         r = image_find(e, &image);
         if (r <= 0)
                 return r;
+
+        image->userdata = m;
 
         r = hashmap_put(m->image_cache, image->name, image);
         if (r < 0) {

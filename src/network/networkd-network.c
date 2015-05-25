@@ -22,10 +22,10 @@
 #include <ctype.h>
 #include <net/if.h>
 
-#include "path-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "util.h"
+#include "hostname-util.h"
 #include "networkd.h"
 #include "networkd-netdev.h"
 #include "networkd-link.h"
@@ -104,6 +104,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_routes = true;
         network->dhcp_sendhost = true;
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
+        network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
 
         network->llmnr = LLMNR_SUPPORT_YES;
 
@@ -209,6 +210,7 @@ void network_free(Network *network) {
         strv_free(network->ntp);
         strv_free(network->dns);
         strv_free(network->domains);
+        strv_free(network->bind_carrier);
 
         netdev_unref(network->bridge);
 
@@ -271,9 +273,23 @@ int network_get(Manager *manager, struct udev_device *device,
                 const char *ifname, const struct ether_addr *address,
                 Network **ret) {
         Network *network;
+        struct udev_device *parent;
+        const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL;
 
         assert(manager);
         assert(ret);
+
+        if (device) {
+                path = udev_device_get_property_value(device, "ID_PATH");
+
+                parent = udev_device_get_parent(device);
+                if (parent)
+                        parent_driver = udev_device_get_driver(parent);
+
+                driver = udev_device_get_property_value(device, "ID_NET_DRIVER");
+
+                devtype = udev_device_get_devtype(device);
+        }
 
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
@@ -281,19 +297,15 @@ int network_get(Manager *manager, struct udev_device *device,
                                      network->match_name, network->match_host,
                                      network->match_virt, network->match_kernel,
                                      network->match_arch,
-                                     address,
-                                     udev_device_get_property_value(device, "ID_PATH"),
-                                     udev_device_get_driver(udev_device_get_parent(device)),
-                                     udev_device_get_property_value(device, "ID_NET_DRIVER"),
-                                     udev_device_get_devtype(device),
-                                     ifname)) {
-                        if (network->match_name) {
+                                     address, path, parent_driver, driver,
+                                     devtype, ifname)) {
+                        if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
 
                                 attr = udev_device_get_sysattr_value(device, "name_assign_type");
                                 if (attr)
-                                        (void)safe_atou8(attr, &name_assign_type);
+                                        (void) safe_atou8(attr, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM)
                                         log_warning("%-*s: found matching network '%s', based on potentially unpredictable ifname",
@@ -413,8 +425,8 @@ int config_parse_netdev(const char *unit,
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add VLAN '%s' to network: %s",
-                                   rvalue, strerror(-r));
+                                   "Can not add VLAN '%s' to network: %m",
+                                   rvalue);
                         return 0;
                 }
 
@@ -490,8 +502,7 @@ int config_parse_tunnel(const char *unit,
 
         r = netdev_get(network->manager, rvalue, &netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Tunnel is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -502,6 +513,7 @@ int config_parse_tunnel(const char *unit,
             netdev->kind != NETDEV_KIND_IP6GRE &&
             netdev->kind != NETDEV_KIND_IP6GRETAP &&
             netdev->kind != NETDEV_KIND_VTI &&
+            netdev->kind != NETDEV_KIND_VTI6 &&
             netdev->kind != NETDEV_KIND_IP6TNL
             ) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
@@ -511,9 +523,7 @@ int config_parse_tunnel(const char *unit,
 
         r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Can not add VLAN '%s' to network: %s",
-                           rvalue, strerror(-r));
+                log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add VLAN '%s' to network, ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -600,6 +610,14 @@ int config_parse_dhcp(
         return 0;
 }
 
+static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
+        [DHCP_CLIENT_ID_MAC] = "mac",
+        [DHCP_CLIENT_ID_DUID] = "duid"
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DCHPClientIdentifier);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DCHPClientIdentifier, "Failed to parse client identifier type");
+
 static const char* const llmnr_support_table[_LLMNR_SUPPORT_MAX] = {
         [LLMNR_SUPPORT_NO] = "no",
         [LLMNR_SUPPORT_YES] = "yes",
@@ -674,13 +692,13 @@ int config_parse_ipv6token(
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse IPv6 token, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 token, ignoring: %s", rvalue);
                 return 0;
         }
 
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 

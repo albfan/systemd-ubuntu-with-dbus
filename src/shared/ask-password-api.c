@@ -32,8 +32,11 @@
 #include <sys/signalfd.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "mkdir.h"
 #include "strv.h"
+#include "random-util.h"
+#include "terminal-util.h"
 
 #include "ask-password-api.h"
 
@@ -474,6 +477,8 @@ int ask_password_agent(
                         r = -errno;
                         goto finish;
                 }
+
+                cmsg_close_all(&msghdr);
 
                 if (n <= 0) {
                         log_error("Message too short");

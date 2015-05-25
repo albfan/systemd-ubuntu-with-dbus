@@ -126,18 +126,18 @@ class SysvGeneratorTest(unittest.TestCase):
 
         return script
 
-    def assert_enabled(self, unit, runlevels):
-        '''assert that a unit is enabled in precisely the given runlevels'''
+    def assert_enabled(self, unit, targets):
+        '''assert that a unit is enabled in precisely the given targets'''
 
-        all_runlevels = [2, 3, 4, 5]
+        all_targets = ['multi-user', 'graphical']
 
         # should be enabled
-        for runlevel in all_runlevels:
-            link = os.path.join(self.out_dir, 'runlevel%i.target.wants' % runlevel, unit)
-            if runlevel in runlevels:
-                target = os.readlink(link)
-                self.assertTrue(os.path.exists(target))
-                self.assertEqual(os.path.basename(target), unit)
+        for target in all_targets:
+            link = os.path.join(self.out_dir, '%s.target.wants' % target, unit)
+            if target in targets:
+                unit_file = os.readlink(link)
+                self.assertTrue(os.path.exists(unit_file))
+                self.assertEqual(os.path.basename(unit_file), unit)
             else:
                 self.assertFalse(os.path.exists(link),
                                  '%s unexpectedly exists' % link)
@@ -178,13 +178,16 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(s.get('Service', 'ExecStop'),
                          '%s stop' % init_script)
 
+        self.assertNotIn('Overwriting', err)
+
     def test_simple_enabled_all(self):
         '''simple service without dependencies, enabled in all runlevels'''
 
         self.add_sysv('foo', {}, enable=True)
         err, results = self.run_generator()
         self.assertEqual(list(results), ['foo.service'])
-        self.assert_enabled('foo.service', [2, 3, 4, 5])
+        self.assert_enabled('foo.service', ['multi-user', 'graphical'])
+        self.assertNotIn('Overwriting', err)
 
     def test_simple_enabled_some(self):
         '''simple service without dependencies, enabled in some runlevels'''
@@ -192,7 +195,7 @@ class SysvGeneratorTest(unittest.TestCase):
         self.add_sysv('foo', {'Default-Start': '2 4'}, enable=True)
         err, results = self.run_generator()
         self.assertEqual(list(results), ['foo.service'])
-        self.assert_enabled('foo.service', [2, 4])
+        self.assert_enabled('foo.service', ['multi-user'])
 
     def test_lsb_macro_dep_single(self):
         '''single LSB macro dependency: $network'''
@@ -270,6 +273,7 @@ class SysvGeneratorTest(unittest.TestCase):
         for f in ['bar.service', 'baz.service']:
             self.assertEqual(os.readlink(os.path.join(self.out_dir, f)),
                              'foo.service')
+        self.assertNotIn('Overwriting', err)
 
     def test_same_provides_in_multiple_scripts(self):
         '''multiple init.d scripts provide the same name'''
@@ -289,6 +293,9 @@ class SysvGeneratorTest(unittest.TestCase):
         self.add_sysv('bar', {'Provides': 'bar'}, enable=True)
         err, results = self.run_generator()
         self.assertEqual(sorted(results), ['bar.service', 'foo.service'])
+        # we do expect an overwrite here, bar.service should overwrite the
+        # alias link from foo.service
+        self.assertIn('Overwriting', err)
 
     def test_nonexecutable_script(self):
         '''ignores non-executable init.d script'''
@@ -315,7 +322,7 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(s.get('Service', 'ExecStop'),
                          '%s stop' % init_script)
 
-        self.assert_enabled('foo.service', [2, 3, 4, 5])
+        self.assert_enabled('foo.service', ['multi-user', 'graphical'])
 
     def test_sh_suffix_with_provides(self):
         '''init.d script with .sh suffix and Provides:'''
@@ -323,7 +330,7 @@ class SysvGeneratorTest(unittest.TestCase):
         self.add_sysv('foo.sh', {'Provides': 'foo bar'})
         err, results = self.run_generator()
         # ensure we don't try to create a symlink to itself
-        self.assertNotIn(err, 'itself')
+        self.assertNotIn('itself', err)
         self.assertEqual(list(results), ['foo.service'])
         self.assertEqual(results['foo.service'].get('Unit', 'Description'),
                          'LSB: test foo service')
@@ -345,7 +352,7 @@ class SysvGeneratorTest(unittest.TestCase):
         err, results = self.run_generator()
         self.assertEqual(list(results), ['foo.service'])
 
-        self.assert_enabled('foo.service', [2, 3, 4, 5])
+        self.assert_enabled('foo.service', ['multi-user', 'graphical'])
 
     def test_backup_file(self):
         '''init.d script with backup file'''
@@ -361,9 +368,9 @@ class SysvGeneratorTest(unittest.TestCase):
                          ['foo.bak.service', 'foo.old.service', 'foo.service'])
 
         # ensure we don't try to create a symlink to itself
-        self.assertNotIn(err, 'itself')
+        self.assertNotIn('itself', err)
 
-        self.assert_enabled('foo.service', [2, 3, 4, 5])
+        self.assert_enabled('foo.service', ['multi-user', 'graphical'])
         self.assert_enabled('foo.bak.service', [])
         self.assert_enabled('foo.old.service', [])
 

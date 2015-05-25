@@ -19,16 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <ctype.h>
 #include <net/if.h>
 #include <net/ethernet.h>
 
 #include "networkd.h"
-#include "networkd-netdev.h"
 #include "networkd-link.h"
-#include "network-internal.h"
-#include "path-util.h"
-#include "conf-files.h"
 #include "conf-parser.h"
 #include "util.h"
 
@@ -93,7 +88,7 @@ static int set_fdb_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_error(link, "Could not add FDB entry: %s", strerror(-r));
+                log_link_error_errno(link, r, "Could not add FDB entry: %m");
 
         return 1;
 }
@@ -138,10 +133,8 @@ int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
 
         /* send message to the kernel to update its internal static MAC table. */
         r = sd_rtnl_call_async(rtnl, req, set_fdb_handler, link, 0, NULL);
-        if (r < 0) {
-                log_link_error(link, "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         return 0;
 }
@@ -155,9 +148,9 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
                 LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries,
                             fdb_entry);
 
-                if(fdb_entry->section)
-                    hashmap_remove(fdb_entry->network->fdb_entries_by_section,
-                                   UINT_TO_PTR(fdb_entry->section));
+                if (fdb_entry->section)
+                        hashmap_remove(fdb_entry->network->fdb_entries_by_section,
+                                       UINT_TO_PTR(fdb_entry->section));
         }
 
         free(fdb_entry->mac_addr);
@@ -166,16 +159,18 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
 }
 
 /* parse the HW address from config files. */
-int config_parse_fdb_hwaddr(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_fdb_hwaddr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
         int r;
@@ -187,10 +182,8 @@ int config_parse_fdb_hwaddr(const char *unit,
         assert(data);
 
         r = fdb_entry_new_static(network, section_line, &fdb_entry);
-        if (r < 0) {
-                log_error("Failed to allocate a new FDB entry: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_oom();
 
         /* read in the MAC address for the FDB table. */
         r = sscanf(rvalue, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
@@ -201,9 +194,8 @@ int config_parse_fdb_hwaddr(const char *unit,
                    &fdb_entry->mac_addr->ether_addr_octet[4],
                    &fdb_entry->mac_addr->ether_addr_octet[5]);
 
-        if (ETHER_ADDR_LEN !=  r) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Not a valid MAC address, ignoring assignment: %s", rvalue);
+        if (ETHER_ADDR_LEN != r) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -213,16 +205,18 @@ int config_parse_fdb_hwaddr(const char *unit,
 }
 
 /* parse the VLAN Id from config files. */
-int config_parse_fdb_vlan_id(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_fdb_vlan_id(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
         int r;
@@ -234,18 +228,14 @@ int config_parse_fdb_vlan_id(const char *unit,
         assert(data);
 
         r = fdb_entry_new_static(network, section_line, &fdb_entry);
-        if (r < 0) {
-                log_error("Failed to allocate a new FDB entry: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_oom();
 
         r = config_parse_unsigned(unit, filename, line, section,
                                   section_line, lvalue, ltype,
                                   rvalue, &fdb_entry->vlan_id, userdata);
-        if (r < 0) {
-                log_error("Failed to parse the unsigned integer: %s", strerror(-r));
+        if (r < 0)
                 return r;
-        }
 
         fdb_entry = NULL;
 

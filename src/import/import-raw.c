@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2015 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,70 +19,76 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/xattr.h>
 #include <linux/fs.h>
-#include <curl/curl.h>
 
 #include "sd-daemon.h"
-#include "utf8.h"
-#include "strv.h"
-#include "copy.h"
-#include "btrfs-util.h"
+#include "sd-event.h"
 #include "util.h"
-#include "macro.h"
+#include "path-util.h"
+#include "btrfs-util.h"
+#include "copy.h"
 #include "mkdir.h"
-#include "import-util.h"
-#include "curl-util.h"
+#include "rm-rf.h"
+#include "ratelimit.h"
+#include "machine-pool.h"
 #include "qcow2-util.h"
-#include "import-job.h"
+#include "import-compress.h"
 #include "import-common.h"
 #include "import-raw.h"
 
-typedef enum RawProgress {
-        RAW_DOWNLOADING,
-        RAW_VERIFYING,
-        RAW_UNPACKING,
-        RAW_FINALIZING,
-        RAW_COPYING,
-} RawProgress;
-
 struct RawImport {
         sd_event *event;
-        CurlGlue *glue;
 
         char *image_root;
-
-        ImportJob *raw_job;
-        ImportJob *checksum_job;
-        ImportJob *signature_job;
 
         RawImportFinished on_finished;
         void *userdata;
 
         char *local;
         bool force_local;
+        bool read_only;
+        bool grow_machine_directory;
 
         char *temp_path;
         char *final_path;
 
-        ImportVerify verify;
+        int input_fd;
+        int output_fd;
+
+        ImportCompress compress;
+
+        uint64_t written_since_last_grow;
+
+        sd_event_source *input_event_source;
+
+        uint8_t buffer[16*1024];
+        size_t buffer_size;
+
+        uint64_t written_compressed;
+        uint64_t written_uncompressed;
+
+        struct stat st;
+
+        unsigned last_percent;
+        RateLimit progress_rate_limit;
 };
 
 RawImport* raw_import_unref(RawImport *i) {
         if (!i)
                 return NULL;
 
-        import_job_unref(i->raw_job);
-        import_job_unref(i->checksum_job);
-        import_job_unref(i->signature_job);
-
-        curl_glue_unref(i->glue);
         sd_event_unref(i->event);
 
         if (i->temp_path) {
                 (void) unlink(i->temp_path);
                 free(i->temp_path);
         }
+
+        import_compress_free(&i->compress);
+
+        sd_event_source_unref(i->input_event_source);
+
+        safe_close(i->output_fd);
 
         free(i->final_path);
         free(i->image_root);
@@ -108,12 +114,18 @@ int raw_import_new(
         if (!i)
                 return -ENOMEM;
 
+        i->input_fd = i->output_fd = -1;
         i->on_finished = on_finished;
         i->userdata = userdata;
+
+        RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
+        i->last_percent = (unsigned) -1;
 
         i->image_root = strdup(image_root ?: "/var/lib/machines");
         if (!i->image_root)
                 return -ENOMEM;
+
+        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -123,68 +135,35 @@ int raw_import_new(
                         return r;
         }
 
-        r = curl_glue_new(&i->glue, i->event);
-        if (r < 0)
-                return r;
-
-        i->glue->on_finished = import_job_curl_on_finished;
-        i->glue->userdata = i;
-
         *ret = i;
         i = NULL;
 
         return 0;
 }
 
-static void raw_import_report_progress(RawImport *i, RawProgress p) {
+static void raw_import_report_progress(RawImport *i) {
         unsigned percent;
-
         assert(i);
 
-        switch (p) {
+        /* We have no size information, unless the source is a regular file */
+        if (!S_ISREG(i->st.st_mode))
+                return;
 
-        case RAW_DOWNLOADING: {
-                unsigned remain = 80;
+        if (i->written_compressed >= (uint64_t) i->st.st_size)
+                percent = 100;
+        else
+                percent = (unsigned) ((i->written_compressed * UINT64_C(100)) / (uint64_t) i->st.st_size);
 
-                percent = 0;
+        if (percent == i->last_percent)
+                return;
 
-                if (i->checksum_job) {
-                        percent += i->checksum_job->progress_percent * 5 / 100;
-                        remain -= 5;
-                }
-
-                if (i->signature_job) {
-                        percent += i->signature_job->progress_percent * 5 / 100;
-                        remain -= 5;
-                }
-
-                if (i->raw_job)
-                        percent += i->raw_job->progress_percent * remain / 100;
-                break;
-        }
-
-        case RAW_VERIFYING:
-                percent = 80;
-                break;
-
-        case RAW_UNPACKING:
-                percent = 85;
-                break;
-
-        case RAW_FINALIZING:
-                percent = 90;
-                break;
-
-        case RAW_COPYING:
-                percent = 95;
-                break;
-
-        default:
-                assert_not_reached("Unknown progress state");
-        }
+        if (!ratelimit_test(&i->progress_rate_limit))
+                return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
-        log_debug("Combined progress %u%%", percent);
+        log_info("Imported %u%%.", percent);
+
+        i->last_percent = percent;
 }
 
 static int raw_import_maybe_convert_qcow2(RawImport *i) {
@@ -193,9 +172,8 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         int r;
 
         assert(i);
-        assert(i->raw_job);
 
-        r = qcow2_detect(i->raw_job->disk_fd);
+        r = qcow2_detect(i->output_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to detect whether this is a QCOW2 image: %m");
         if (r == 0)
@@ -206,308 +184,278 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
+        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
-        r = chattr_fd(converted_fd, true, FS_NOCOW_FL);
+        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 log_warning_errno(errno, "Failed to set file attributes on %s: %m", t);
 
         log_info("Unpacking QCOW2 file.");
 
-        r = qcow2_convert(i->raw_job->disk_fd, converted_fd);
+        r = qcow2_convert(i->output_fd, converted_fd);
         if (r < 0) {
                 unlink(t);
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 
-        unlink(i->temp_path);
+        (void) unlink(i->temp_path);
         free(i->temp_path);
-
         i->temp_path = t;
         t = NULL;
 
-        safe_close(i->raw_job->disk_fd);
-        i->raw_job->disk_fd = converted_fd;
+        safe_close(i->output_fd);
+        i->output_fd = converted_fd;
         converted_fd = -1;
 
         return 1;
 }
 
-static int raw_import_make_local_copy(RawImport *i) {
-        _cleanup_free_ char *tp = NULL;
-        _cleanup_close_ int dfd = -1;
-        const char *p;
+static int raw_import_finish(RawImport *i) {
         int r;
 
         assert(i);
-        assert(i->raw_job);
+        assert(i->output_fd >= 0);
+        assert(i->temp_path);
+        assert(i->final_path);
 
-        if (!i->local)
-                return 0;
-
-        if (i->raw_job->etag_exists) {
-                /* We have downloaded this one previously, reopen it */
-
-                assert(i->raw_job->disk_fd < 0);
-
-                if (!i->final_path) {
-                        r = import_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                i->raw_job->disk_fd = open(i->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (i->raw_job->disk_fd < 0)
-                        return log_error_errno(errno, "Failed to open vendor image: %m");
-        } else {
-                /* We freshly downloaded the image, use it */
-
-                assert(i->raw_job->disk_fd >= 0);
-
-                if (lseek(i->raw_job->disk_fd, SEEK_SET, 0) == (off_t) -1)
-                        return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
+        /* In case this was a sparse file, make sure the file system is right */
+        if (i->written_uncompressed > 0) {
+                if (ftruncate(i->output_fd, i->written_uncompressed) < 0)
+                        return log_error_errno(errno, "Failed to truncate file: %m");
         }
 
-        p = strjoina(i->image_root, "/", i->local, ".raw");
-
-        if (i->force_local) {
-                (void) btrfs_subvol_remove(p);
-                (void) rm_rf_dangerous(p, false, true, false);
-        }
-
-        r = tempfn_random(p, &tp);
+        r = raw_import_maybe_convert_qcow2(i);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        dfd = open(tp, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
-        if (dfd < 0)
-                return log_error_errno(errno, "Failed to create writable copy of image: %m");
+        if (S_ISREG(i->st.st_mode)) {
+                (void) copy_times(i->input_fd, i->output_fd);
+                (void) copy_xattr(i->input_fd, i->output_fd);
+        }
 
-        /* Turn off COW writing. This should greatly improve
-         * performance on COW file systems like btrfs, since it
-         * reduces fragmentation caused by not allowing in-place
-         * writes. */
-        r = chattr_fd(dfd, true, FS_NOCOW_FL);
+        if (i->read_only) {
+                r = import_make_read_only_fd(i->output_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (i->force_local)
+                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+
+        r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes on %s: %m", tp);
+                return log_error_errno(r, "Failed to move image into place: %m");
 
-        r = copy_bytes(i->raw_job->disk_fd, dfd, (off_t) -1, true);
-        if (r < 0) {
-                unlink(tp);
-                return log_error_errno(r, "Failed to make writable copy of image: %m");
-        }
+        free(i->temp_path);
+        i->temp_path = NULL;
 
-        (void) copy_times(i->raw_job->disk_fd, dfd);
-        (void) copy_xattr(i->raw_job->disk_fd, dfd);
-
-        dfd = safe_close(dfd);
-
-        r = rename(tp, p);
-        if (r < 0)  {
-                unlink(tp);
-                return log_error_errno(errno, "Failed to move writable image into place: %m");
-        }
-
-        log_info("Created new local image '%s'.", i->local);
         return 0;
 }
 
-static bool raw_import_is_done(RawImport *i) {
+static int raw_import_open_disk(RawImport *i) {
+        int r;
+
         assert(i);
-        assert(i->raw_job);
 
-        if (i->raw_job->state != IMPORT_JOB_DONE)
-                return false;
-        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
-                return false;
-        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
-                return false;
-
-        return true;
-}
-
-static void raw_import_job_on_finished(ImportJob *j) {
-        RawImport *i;
-        int r;
-
-        assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
-        if (j->error != 0) {
-                if (j == i->checksum_job)
-                        log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
-                else if (j == i->signature_job)
-                        log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
-                else
-                        log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
-
-                r = j->error;
-                goto finish;
-        }
-
-        /* This is invoked if either the download completed
-         * successfully, or the download was skipped because we
-         * already have the etag. In this case ->etag_exists is
-         * true.
-         *
-         * We only do something when we got all three files */
-
-        if (!raw_import_is_done(i))
-                return;
-
-        if (!i->raw_job->etag_exists) {
-                /* This is a new download, verify it, and move it into place */
-                assert(i->raw_job->disk_fd >= 0);
-
-                raw_import_report_progress(i, RAW_VERIFYING);
-
-                r = import_verify(i->raw_job, i->checksum_job, i->signature_job);
-                if (r < 0)
-                        goto finish;
-
-                raw_import_report_progress(i, RAW_UNPACKING);
-
-                r = raw_import_maybe_convert_qcow2(i);
-                if (r < 0)
-                        goto finish;
-
-                raw_import_report_progress(i, RAW_FINALIZING);
-
-                r = import_make_read_only_fd(i->raw_job->disk_fd);
-                if (r < 0)
-                        goto finish;
-
-                r = rename(i->temp_path, i->final_path);
-                if (r < 0) {
-                        r = log_error_errno(errno, "Failed to move RAW file into place: %m");
-                        goto finish;
-                }
-
-                free(i->temp_path);
-                i->temp_path = NULL;
-        }
-
-        raw_import_report_progress(i, RAW_COPYING);
-
-        r = raw_import_make_local_copy(i);
-        if (r < 0)
-                goto finish;
-
-        r = 0;
-
-finish:
-        if (i->on_finished)
-                i->on_finished(i, r, i->userdata);
-        else
-                sd_event_exit(i->event, r);
-}
-
-static int raw_import_job_on_open_disk(ImportJob *j) {
-        RawImport *i;
-        int r;
-
-        assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
-        assert(i->raw_job == j);
         assert(!i->final_path);
         assert(!i->temp_path);
+        assert(i->output_fd < 0);
 
-        r = import_make_path(j->url, j->etag, i->image_root, ".raw-", ".raw", &i->final_path);
-        if (r < 0)
+        i->final_path = strjoin(i->image_root, "/", i->local, ".raw", NULL);
+        if (!i->final_path)
                 return log_oom();
 
         r = tempfn_random(i->final_path, &i->temp_path);
-        if (r <0)
+        if (r < 0)
                 return log_oom();
 
-        mkdir_parents_label(i->temp_path, 0700);
+        (void) mkdir_parents_label(i->temp_path, 0700);
 
-        j->disk_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
-        if (j->disk_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", i->temp_path);
+        i->output_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        if (i->output_fd < 0)
+                return log_error_errno(errno, "Failed to open destination %s: %m", i->temp_path);
 
-        r = chattr_fd(j->disk_fd, true, FS_NOCOW_FL);
+        r = chattr_fd(i->output_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 log_warning_errno(errno, "Failed to set file attributes on %s: %m", i->temp_path);
 
         return 0;
 }
 
-static void raw_import_job_on_progress(ImportJob *j) {
-        RawImport *i;
-
-        assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
-
-        raw_import_report_progress(i, RAW_DOWNLOADING);
-}
-
-int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
+static int raw_import_try_reflink(RawImport *i) {
+        off_t p;
         int r;
 
         assert(i);
-        assert(verify < _IMPORT_VERIFY_MAX);
-        assert(verify >= 0);
+        assert(i->input_fd >= 0);
+        assert(i->output_fd >= 0);
 
-        if (!http_url_is_valid(url))
+        if (i->compress.type != IMPORT_COMPRESS_UNCOMPRESSED)
+                return 0;
+
+        if (!S_ISREG(i->st.st_mode))
+                return 0;
+
+        p = lseek(i->input_fd, 0, SEEK_CUR);
+        if (p == (off_t) -1)
+                return log_error_errno(errno, "Failed to read file offset of input file: %m");
+
+        /* Let's only try a btrfs reflink, if we are reading from the beginning of the file */
+        if ((uint64_t) p != (uint64_t) i->buffer_size)
+                return 0;
+
+        r = btrfs_reflink(i->input_fd, i->output_fd);
+        if (r >= 0)
+                return 1;
+
+        return 0;
+}
+
+static int raw_import_write(const void *p, size_t sz, void *userdata) {
+        RawImport *i = userdata;
+        ssize_t n;
+
+        if (i->grow_machine_directory && i->written_since_last_grow >= GROW_INTERVAL_BYTES) {
+                i->written_since_last_grow = 0;
+                grow_machine_directory();
+        }
+
+        n = sparse_write(i->output_fd, p, sz, 64);
+        if (n < 0)
+                return -errno;
+        if ((size_t) n < sz)
+                return -EIO;
+
+        i->written_uncompressed += sz;
+        i->written_since_last_grow += sz;
+
+        return 0;
+}
+
+static int raw_import_process(RawImport *i) {
+        ssize_t l;
+        int r;
+
+        assert(i);
+        assert(i->buffer_size < sizeof(i->buffer));
+
+        l = read(i->input_fd, i->buffer + i->buffer_size, sizeof(i->buffer) - i->buffer_size);
+        if (l < 0) {
+                if (errno == EAGAIN)
+                        return 0;
+
+                r = log_error_errno(errno, "Failed to read input file: %m");
+                goto finish;
+        }
+        if (l == 0) {
+                if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+                        log_error("Premature end of file: %m");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                r = raw_import_finish(i);
+                goto finish;
+        }
+
+        i->buffer_size += l;
+
+        if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+                r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                if (r < 0) {
+                        log_error("Failed to detect file compression: %m");
+                        goto finish;
+                }
+                if (r == 0) /* Need more data */
+                        return 0;
+
+                r = raw_import_open_disk(i);
+                if (r < 0)
+                        goto finish;
+
+                r = raw_import_try_reflink(i);
+                if (r < 0)
+                        goto finish;
+                if (r > 0) {
+                        r = raw_import_finish(i);
+                        goto finish;
+                }
+        }
+
+        r = import_uncompress(&i->compress, i->buffer, i->buffer_size, raw_import_write, i);
+        if (r < 0) {
+                log_error_errno(r, "Failed to decode and write: %m");
+                goto finish;
+        }
+
+        i->written_compressed += i->buffer_size;
+        i->buffer_size = 0;
+
+        raw_import_report_progress(i);
+
+        return 0;
+
+finish:
+        if (i->on_finished)
+                i->on_finished(i, r, i->userdata);
+        else
+                sd_event_exit(i->event, r);
+
+        return 0;
+}
+
+static int raw_import_on_input(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        RawImport *i = userdata;
+
+        return raw_import_process(i);
+}
+
+static int raw_import_on_defer(sd_event_source *s, void *userdata) {
+        RawImport *i = userdata;
+
+        return raw_import_process(i);
+}
+
+int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, bool read_only) {
+        int r;
+
+        assert(i);
+        assert(fd >= 0);
+        assert(local);
+
+        if (!machine_name_is_valid(local))
                 return -EINVAL;
 
-        if (local && !machine_name_is_valid(local))
-                return -EINVAL;
-
-        if (i->raw_job)
+        if (i->input_fd >= 0)
                 return -EBUSY;
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return r;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)
                 return r;
         i->force_local = force_local;
-        i->verify = verify;
+        i->read_only = read_only;
 
-        /* Queue job for the image itself */
-        r = import_job_new(&i->raw_job, url, i->glue, i);
-        if (r < 0)
-                return r;
+        if (fstat(fd, &i->st) < 0)
+                return -errno;
 
-        i->raw_job->on_finished = raw_import_job_on_finished;
-        i->raw_job->on_open_disk = raw_import_job_on_open_disk;
-        i->raw_job->on_progress = raw_import_job_on_progress;
-        i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-
-        r = import_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
-        if (r < 0)
-                return r;
-
-        r = import_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_import_job_on_finished, i);
-        if (r < 0)
-                return r;
-
-        r = import_job_begin(i->raw_job);
-        if (r < 0)
-                return r;
-
-        if (i->checksum_job) {
-                i->checksum_job->on_progress = raw_import_job_on_progress;
-
-                r = import_job_begin(i->checksum_job);
+        r = sd_event_add_io(i->event, &i->input_event_source, fd, EPOLLIN, raw_import_on_input, i);
+        if (r == -EPERM) {
+                /* This fd does not support epoll, for example because it is a regular file. Busy read in that case */
+                r = sd_event_add_defer(i->event, &i->input_event_source, raw_import_on_defer, i);
                 if (r < 0)
                         return r;
+
+                r = sd_event_source_set_enabled(i->input_event_source, SD_EVENT_ON);
         }
+        if (r < 0)
+                return r;
 
-        if (i->signature_job) {
-                i->signature_job->on_progress = raw_import_job_on_progress;
-
-                r = import_job_begin(i->signature_job);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        i->input_fd = fd;
+        return r;
 }

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-USER\-SESSIONS\&.SERVICE" "8" "" "systemd 219" "systemd-user-sessions.service"
+.TH "SYSTEMD\-USER\-SESSIONS\&.SERVICE" "8" "" "systemd 220" "systemd-user-sessions.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,9 +29,10 @@ systemd\-user\-sessions\&.service
 .SH "DESCRIPTION"
 .PP
 systemd\-user\-sessions\&.service
-is a service that controls user logins\&. After basic system initialization is complete it removes
+is a service that controls user logins through
+\fBpam_nologin\fR(8)\&. After basic system initialization is complete it removes
 /run/nologin, thus permitting logins\&. Before system shutdown it creates
-/run/nologin, thus prohibiting further logins\&. At the same time it also kills all user processes, so that system shutdown may proceed without any remaining user processes around\&.
+/run/nologin, thus prohibiting further logins\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

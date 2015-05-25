@@ -24,12 +24,12 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <mqueue.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "strv.h"
 #include "clean-ipc.h"
 

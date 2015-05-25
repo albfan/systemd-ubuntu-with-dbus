@@ -25,6 +25,8 @@
 #include "strv.h"
 #include "socket-util.h"
 #include "af-list.h"
+#include "random-util.h"
+#include "hostname-util.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-scope.h"
 
@@ -144,7 +146,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                 DnsServer *srv;
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 srv = dns_scope_get_dns_server(s);
                 if (!srv)
@@ -172,7 +174,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
         } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 if (!ratelimit_test(&s->ratelimit))
                         return -EBUSY;
@@ -387,7 +389,7 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                  * one. This is necessary on some devices, such as
                  * veth. */
                 if (b)
-                        (void)setsockopt(fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn));
+                        (void) setsockopt(fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn));
 
                 if (setsockopt(fd, IPPROTO_IP, b ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0)
                         return -errno;
@@ -403,7 +405,7 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                         return fd;
 
                 if (b)
-                        (void)setsockopt(fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+                        (void) setsockopt(fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
 
                 if (setsockopt(fd, IPPROTO_IPV6, b ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                         return -errno;

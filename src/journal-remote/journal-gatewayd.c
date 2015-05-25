@@ -42,6 +42,7 @@
 #include "build.h"
 #include "fileio.h"
 #include "sigbus.h"
+#include "hostname-util.h"
 
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
@@ -121,6 +122,26 @@ static int open_journal(RequestMeta *m) {
         return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
 }
 
+static int request_meta_ensure_tmp(RequestMeta *m) {
+        if (m->tmp)
+                rewind(m->tmp);
+        else {
+                int fd;
+
+                fd = open_tmpfile("/tmp", O_RDWR|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+
+                m->tmp = fdopen(fd, "rw");
+                if (!m->tmp) {
+                        safe_close(fd);
+                        return -errno;
+                }
+        }
+
+        return 0;
+}
+
 static ssize_t request_reader_entries(
                 void *cls,
                 uint64_t pos,
@@ -194,14 +215,10 @@ static ssize_t request_reader_entries(
 
                 m->n_skip = 0;
 
-                if (m->tmp)
-                        rewind(m->tmp);
-                else {
-                        m->tmp = tmpfile();
-                        if (!m->tmp) {
-                                log_error_errno(errno, "Failed to create temporary file: %m");
-                                return MHD_CONTENT_READER_END_WITH_ERROR;
-                        }
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
                 r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL);
@@ -555,14 +572,10 @@ static ssize_t request_reader_fields(
                 if (m->n_fields_set)
                         m->n_fields -= 1;
 
-                if (m->tmp)
-                        rewind(m->tmp);
-                else {
-                        m->tmp = tmpfile();
-                        if (!m->tmp) {
-                                log_error_errno(errno, "Failed to create temporary file: %m");
-                                return MHD_CONTENT_READER_END_WITH_ERROR;
-                        }
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
                 r = output_field(m->tmp, m->mode, d, l);
@@ -736,7 +749,7 @@ static int request_handler_machine(
         RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
-        uint64_t cutoff_from = 0, cutoff_to = 0, usage;
+        uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
         char *json;
         sd_id128_t mid, bid;
         _cleanup_free_ char *v = NULL;
@@ -769,7 +782,7 @@ static int request_handler_machine(
                 return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
 
         if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
-                parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
+                (void) parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
 
         get_virtualization(&v);
 
@@ -982,10 +995,9 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-#ifdef HAVE_GNUTLS
-        gnutls_global_set_log_function(log_func_gnutls);
-        log_reset_gnutls_level();
-#endif
+        r = setup_gnutls_logger(NULL);
+        if (r < 0)
+                return EXIT_FAILURE;
 
         n = sd_listen_fds(1);
         if (n < 0) {

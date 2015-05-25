@@ -23,17 +23,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
-#include <time.h>
 #include <poll.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "udev.h"
-#include "udev-util.h"
 #include "util.h"
 
 static void help(void) {
@@ -56,6 +49,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                 { "quiet",          no_argument,       NULL, 'q' }, /* removed */
                 {}
         };
+        usec_t deadline;
         const char *exists = NULL;
         unsigned int timeout = 120;
         struct pollfd pfd[1] = { {.fd = -1}, };
@@ -105,13 +99,15 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
+        deadline = now(CLOCK_MONOTONIC) + timeout * USEC_PER_SEC;
+
         /* guarantee that the udev daemon isn't pre-processing */
         if (getuid() == 0) {
                 struct udev_ctrl *uctrl;
 
                 uctrl = udev_ctrl_new(udev);
                 if (uctrl != NULL) {
-                        if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
+                        if (udev_ctrl_send_ping(uctrl, MAX(5U, timeout)) < 0) {
                                 log_debug("no connection to daemon");
                                 udev_ctrl_unref(uctrl);
                                 return EXIT_SUCCESS;
@@ -145,6 +141,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                         rc = EXIT_SUCCESS;
                         break;
                 }
+
+                if (now(CLOCK_MONOTONIC) >= deadline)
+                        break;
 
                 /* wake up when queue is empty */
                 if (poll(pfd, 1, MSEC_PER_SEC) > 0 && pfd[0].revents & POLLIN)

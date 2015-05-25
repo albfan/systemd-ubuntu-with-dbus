@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
@@ -29,7 +28,7 @@
 #include "log.h"
 #include "build.h"
 
-static const char *arg_root = "";
+static const char *arg_root = NULL;
 
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
@@ -99,7 +98,10 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                goto finish;
 
-        return machine_id_commit(arg_root) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        r = machine_id_commit(arg_root);
+
+finish:
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

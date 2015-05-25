@@ -22,9 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
-#include <assert.h>
 #include <stdlib.h>
-#include <netinet/ether.h>
 
 #include "conf-parser.h"
 #include "conf-files.h"
@@ -34,53 +32,7 @@
 #include "log.h"
 #include "utf8.h"
 #include "path-util.h"
-#include "set.h"
-#include "exit-status.h"
 #include "sd-messages.h"
-
-int log_syntax_internal(
-                const char *unit,
-                int level,
-                const char *file,
-                int line,
-                const char *func,
-                const char *config_file,
-                unsigned config_line,
-                int error,
-                const char *format, ...) {
-
-        _cleanup_free_ char *msg = NULL;
-        int r;
-        va_list ap;
-
-        va_start(ap, format);
-        r = vasprintf(&msg, format, ap);
-        va_end(ap);
-        if (r < 0)
-                return log_oom();
-
-        if (unit)
-                r = log_struct_internal(level,
-                                        error,
-                                        file, line, func,
-                                        getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
-                                        "CONFIG_FILE=%s", config_file,
-                                        "CONFIG_LINE=%u", config_line,
-                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
-                                        NULL);
-        else
-                r = log_struct_internal(level,
-                                        error,
-                                        file, line, func,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
-                                        "CONFIG_FILE=%s", config_file,
-                                        "CONFIG_LINE=%u", config_line,
-                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
-                                        NULL);
-
-        return r;
-}
 
 int config_item_table_lookup(
                 const void *table,
@@ -763,41 +715,30 @@ int config_parse_strv(const char *unit,
         return 0;
 }
 
-int config_parse_mode(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
+int config_parse_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
                       unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         mode_t *m = data;
-        long l;
-        char *x = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        errno = 0;
-        l = strtol(rvalue, &x, 8);
-        if (!x || x == rvalue || *x || errno) {
-                log_syntax(unit, LOG_ERR, filename, line, errno,
-                           "Failed to parse mode value, ignoring: %s", rvalue);
+        if (parse_mode(rvalue, m) < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse mode value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (l < 0000 || l > 07777) {
-                log_syntax(unit, LOG_ERR, filename, line, ERANGE,
-                           "Mode value out of range, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *m = (mode_t) l;
         return 0;
 }
 

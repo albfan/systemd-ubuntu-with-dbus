@@ -25,10 +25,6 @@ typedef struct Session Session;
 typedef enum KillWho KillWho;
 
 #include "list.h"
-#include "util.h"
-#include "logind.h"
-#include "logind-seat.h"
-#include "logind-session-device.h"
 #include "logind-user.h"
 #include "login-shared.h"
 
@@ -141,7 +137,7 @@ int session_create_fifo(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
-void session_release(Session *s);
+int session_release(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);
@@ -179,3 +175,8 @@ void session_leave_vt(Session *s);
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force);
 void session_drop_controller(Session *s);
+
+int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);

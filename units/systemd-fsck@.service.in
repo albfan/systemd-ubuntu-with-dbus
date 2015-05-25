@@ -17,5 +17,4 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-fsck %f
-StandardOutput=journal+console
 TimeoutSec=0

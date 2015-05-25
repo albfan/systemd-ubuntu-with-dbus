@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-debug-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-debug-generator — Generator for enabling a runtime debug shell and
-    masking specific units at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-debug-generator</code></p></div><div class="refsect1"><a name="idm140445918695936"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-debug-generator</code> is a generator
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-debug-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-debug-generator — Generator for enabling a runtime debug shell and
+    masking specific units at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-debug-generator</code></p></div><div class="refsect1"><a name="idm140181718959072"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-debug-generator</code> is a generator
     that reads the kernel command line and understands three
     options:</p><p>If the <code class="option">systemd.mask=</code> option is specified
     and followed by a unit name, this unit is masked for the runtime,
@@ -38,9 +38,8 @@
     system startup. Note that the shell may also be turned on
     persistently by enabling it with
     <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>'s
-    <span class="command"><strong>enable</strong></span> command.</p><p><code class="filename">systemd-debug-generator</code> implements the
-    <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Generators" target="_top">generator
-    specification</a>.</p></div><div class="refsect1"><a name="idm140445918936208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    <span class="command"><strong>enable</strong></span> command.</p><p><code class="filename">systemd-debug-generator</code> implements
+    <a href="systemd.generator.html"><span class="citerefentry"><span class="refentrytitle">systemd.generator</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140181713998384"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
       <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>

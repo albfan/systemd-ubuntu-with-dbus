@@ -21,10 +21,7 @@
 
 #include <sys/mount.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <stdlib.h>
-#include <string.h>
-#include <assert.h>
 #include <unistd.h>
 #include <ftw.h>
 
@@ -42,7 +39,6 @@
 #include "virt.h"
 #include "efivars.h"
 #include "smack-util.h"
-#include "def.h"
 #include "cgroup-util.h"
 
 typedef enum MountMode {
@@ -161,9 +157,8 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 label_fix(p->where, true, true);
 
         r = path_is_mount_point(p->where, true);
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return r;
-
         if (r > 0)
                 return 0;
 
@@ -378,7 +373,7 @@ int mount_setup(bool loaded_policy) {
         /* Create a few default symlinks, which are normally created
          * by udevd, but some scripts might need them before we start
          * udevd. */
-        dev_setup(NULL);
+        dev_setup(NULL, UID_INVALID, GID_INVALID);
 
         /* Mark the root directory as shared in regards to mount
          * propagation. The kernel defaults to "private", but we think

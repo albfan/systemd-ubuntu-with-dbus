@@ -22,6 +22,8 @@
 #include "utmp-wtmp.h"
 #include "journald-server.h"
 #include "journald-wall.h"
+#include "formats-util.h"
+#include "process-util.h"
 
 void server_forward_wall(
                 Server *s,
@@ -63,7 +65,7 @@ void server_forward_wall(
         } else
                 l = message;
 
-        r = utmp_wall(l, "systemd-journald", NULL);
+        r = utmp_wall(l, "systemd-journald", NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send wall message: %m");
 }

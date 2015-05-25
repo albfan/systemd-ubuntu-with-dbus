@@ -21,8 +21,6 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/statfs.h>
 #include <blkid/blkid.h>
 
@@ -51,14 +49,15 @@ static bool arg_root_rw = false;
 static int add_swap(const char *path) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(path);
 
         log_debug("Adding swap: %s", path);
 
-        name = unit_name_from_path(path, ".swap");
-        if (!name)
-                return log_oom();
+        r = unit_name_from_path(path, ".swap", &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit)
@@ -102,17 +101,17 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
         assert(what);
         assert(device);
 
-        d = unit_name_from_path(what, ".device");
-        if (!d)
-                return log_oom();
+        r = unit_name_from_path(what, ".device", &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         e = unit_name_escape(id);
         if (!e)
                 return log_oom();
 
-        n = unit_name_build("systemd-cryptsetup", e, ".service");
-        if (!n)
-                return log_oom();
+        r = unit_name_build("systemd-cryptsetup", e, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         p = strjoin(arg_dest, "/", n, NULL);
         if (!p)
@@ -226,9 +225,9 @@ static int add_mount(
                 fstype = NULL;
         }
 
-        unit = unit_name_from_path(where, ".mount");
-        if (!unit)
-                return log_oom();
+        r = unit_name_from_path(where, ".mount", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         p = strjoin(arg_dest, "/", unit, NULL);
         if (!p)
@@ -290,7 +289,7 @@ static int probe_and_add_mount(
                 const char *post) {
 
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        const char *fstype;
+        const char *fstype = NULL;
         int r;
 
         assert(id);
@@ -323,14 +322,11 @@ static int probe_and_add_mount(
         r = blkid_do_safeprobe(b);
         if (r == -2 || r == 1) /* no result or uncertain */
                 return 0;
-        else if (r != 0) {
-                if (errno == 0)
-                        errno = EIO;
-                log_error_errno(errno, "Failed to probe %s: %m", what);
-                return -errno;
-        }
+        else if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe %s: %m", what);
 
-        blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+        /* add_mount is OK with fstype being NULL. */
+        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
         return add_mount(
                         id,
@@ -351,7 +347,7 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_free_ char *home = NULL, *srv = NULL;
         struct udev_list_entry *first, *item;
         struct udev_device *parent = NULL;
-        const char *node, *pttype, *devtype;
+        const char *name, *node, *pttype, *devtype;
         int home_nr = -1, srv_nr = -1;
         bool home_rw = true, srv_rw = true;
         blkid_partlist pl;
@@ -366,33 +362,42 @@ static int enumerate_partitions(dev_t devnum) {
         if (!d)
                 return log_oom();
 
+        name = udev_device_get_devnode(d);
+        if (!name)
+                name = udev_device_get_syspath(d);
+        if (!name) {
+                log_debug("Device %u:%u does not have a name, ignoring.",
+                          major(devnum), minor(devnum));
+                return 0;
+        }
+
         parent = udev_device_get_parent(d);
         if (!parent) {
-                log_debug("Not a partitioned device, ignoring.");
+                log_debug("%s: not a partitioned device, ignoring.", name);
                 return 0;
         }
 
         /* Does it have a devtype? */
         devtype = udev_device_get_devtype(parent);
         if (!devtype) {
-                log_debug("Parent doesn't have a device type, ignoring.");
+                log_debug("%s: parent doesn't have a device type, ignoring.", name);
                 return 0;
         }
 
         /* Is this a disk or a partition? We only care for disks... */
         if (!streq(devtype, "disk")) {
-                log_debug("Parent isn't a raw disk, ignoring.");
+                log_debug("%s: parent isn't a raw disk, ignoring.", name);
                 return 0;
         }
 
         /* Does it have a device node? */
         node = udev_device_get_devnode(parent);
         if (!node) {
-                log_debug("Parent device does not have device node, ignoring.");
+                log_debug("%s: parent device does not have device node, ignoring.", name);
                 return 0;
         }
 
-        log_debug("Root device %s.", node);
+        log_debug("%s: root device %s.", name, node);
 
         pn = udev_device_get_devnum(parent);
         if (major(pn) == 0)
@@ -404,8 +409,7 @@ static int enumerate_partitions(dev_t devnum) {
                 if (errno == 0)
                         return log_oom();
 
-                log_error_errno(errno, "Failed allocate prober: %m");
-                return -errno;
+                return log_error_errno(errno, "%s: failed to allocate prober: %m", node);
         }
 
         blkid_probe_enable_partitions(b, 1);
@@ -415,25 +419,18 @@ static int enumerate_partitions(dev_t devnum) {
         r = blkid_do_safeprobe(b);
         if (r == -2 || r == 1) /* no result or uncertain */
                 return 0;
-        else if (r != 0) {
-                if (errno == 0)
-                        errno = EIO;
-                log_error_errno(errno, "Failed to probe %s: %m", node);
-                return -errno;
-        }
+        else if (r != 0)
+                return log_error_errno(errno ?: EIO, "%s: failed to probe: %m", node);
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
-        if (r != 0) {
-                if (errno == 0)
-                        errno = EIO;
-                log_error_errno(errno, "Failed to determine partition table type of %s: %m", node);
-                return -errno;
-        }
+        if (r != 0)
+                return log_error_errno(errno ?: EIO,
+                                       "%s: failed to determine partition table type: %m", node);
 
         /* We only do this all for GPT... */
         if (!streq_ptr(pttype, "gpt")) {
-                log_debug("Not a GPT partition table, ignoring.");
+                log_debug("%s: not a GPT partition table, ignoring.", node);
                 return 0;
         }
 
@@ -443,8 +440,7 @@ static int enumerate_partitions(dev_t devnum) {
                 if (errno == 0)
                         return log_oom();
 
-                log_error_errno(errno, "Failed to list partitions of %s: %m", node);
-                return -errno;
+                return log_error_errno(errno, "%s: failed to list partitions: %m", node);
         }
 
         e = udev_enumerate_new(udev);
@@ -461,7 +457,7 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate partitions on %s: %m", node);
+                return log_error_errno(r, "%s: failed to enumerate partitions: %m", node);
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
@@ -516,7 +512,7 @@ static int enumerate_partitions(dev_t devnum) {
                 if (sd_id128_equal(type_id, GPT_SWAP)) {
 
                         if (flags & GPT_FLAG_READ_ONLY) {
-                                log_debug("%s marked as read-only swap partition, which is bogus, ignoring.", subnode);
+                                log_debug("%s marked as read-only swap partition, which is bogus. Ignoring.", subnode);
                                 continue;
                         }
 
@@ -548,7 +544,7 @@ static int enumerate_partitions(dev_t devnum) {
                         srv_rw = !(flags & GPT_FLAG_READ_ONLY),
 
                         free(srv);
-                        srv = strdup(node);
+                        srv = strdup(subnode);
                         if (!srv)
                                 return log_oom();
                 }
@@ -602,7 +598,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
                 r = parse_boolean(value);
                 if (r < 0)
-                        log_warning("Failed to parse gpt-auto switch %s. Ignoring.", value);
+                        log_warning("Failed to parse gpt-auto switch \"%s\". Ignoring.", value);
                 else
                         arg_enabled = r;
 
@@ -663,8 +659,13 @@ static int add_mounts(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of root file system: %m");
         else if (r == 0) {
-                log_debug("Root file system not on a (single) block device.");
-                return 0;
+                r = get_block_device("/usr", &devno);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
+                else if (r == 0) {
+                        log_debug("Neither root nor /usr file system are on a (single) block device.");
+                        return 0;
+                }
         }
 
         return enumerate_partitions(devno);

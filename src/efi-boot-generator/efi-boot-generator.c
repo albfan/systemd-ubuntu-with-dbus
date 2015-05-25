@@ -26,7 +26,6 @@
 #include "path-util.h"
 #include "util.h"
 #include "mkdir.h"
-#include "unit-name.h"
 #include "virt.h"
 #include "generator.h"
 #include "special.h"
@@ -69,8 +68,14 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (path_is_mount_point("/boot", true) <= 0 &&
-            dir_is_empty("/boot") <= 0) {
+        r = path_is_mount_point("/boot", true);
+        if (r > 0) {
+                log_debug("/boot is already a mount point, exiting.");
+                return EXIT_SUCCESS;
+        }
+        if (r == -ENOENT)
+                log_debug("/boot does not exist, continuing.");
+        else if (dir_is_empty("/boot") <= 0) {
                 log_debug("/boot already populated, exiting.");
                 return EXIT_SUCCESS;
         }
@@ -118,9 +123,9 @@ int main(int argc, char *argv[]) {
                 "Options=umask=0077,noauto\n",
                 what);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to write mount unit file: %m");
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write mount unit file: %m");
                 return EXIT_FAILURE;
         }
 
@@ -136,11 +141,12 @@ int main(int argc, char *argv[]) {
               "[Unit]\n"
               "Description=EFI System Partition Automount\n\n"
               "[Automount]\n"
-              "Where=/boot\n", f);
+              "Where=/boot\n"
+              "TimeoutIdleSec=120\n", f);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to write automount unit file: %m");
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write automount unit file: %m");
                 return EXIT_FAILURE;
         }
 

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm140227022440160"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm139681112171616"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     "<code class="literal">.socket</code>" encodes information about an IPC or
     network socket or a file system FIFO controlled and supervised by
     systemd, for socket-based activation.</p><p>This man page lists the configuration options specific to
@@ -79,10 +79,10 @@
     (see
     <a href="sd_listen_fds.html"><span class="citerefentry"><span class="refentrytitle">sd_listen_fds</span>(3)</span></a>
     for details) or via the traditional
-    <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>-style
+    <a href="https://www.freebsd.org/cgi/man.cgi?inetd(8)"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>-style
     socket passing (i.e. sockets passed in via standard input and
     output, using <code class="varname">StandardInput=socket</code> in the
-    service file).</p></div><div class="refsect1"><a name="idm140227026313728"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section, which carries
+    service file).</p></div><div class="refsect1"><a name="idm139681107248864"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section, which carries
     information about the socket or FIFO it supervises. A number of
     options that may be used in this section are shared with other
     unit types. These options are documented in
@@ -161,7 +161,7 @@
         can be inherited between processes.</p></dd><dt id="BindIPv6Only="><span class="term"><code class="varname">BindIPv6Only=</code></span><a class="headerlink" title="Permalink to this term" href="#BindIPv6Only=">¶</a></dt><dd><p>Takes a one of <code class="option">default</code>,
         <code class="option">both</code> or <code class="option">ipv6-only</code>. Controls
         the IPV6_V6ONLY socket option (see
-        <a href="ipv6.html"><span class="citerefentry"><span class="refentrytitle">ipv6</span>(7)</span></a>
+        <a href="http://linux.die.net/man/7/ipv6"><span class="citerefentry"><span class="refentrytitle">ipv6</span>(7)</span></a>
         for details). If <code class="option">both</code>, IPv6 sockets bound
         will be accessible via both IPv4 and IPv6. If
         <code class="option">ipv6-only</code>, they will be accessible via IPv6
@@ -179,7 +179,7 @@
         this socket to. If set, traffic will only be accepted from the
         specified network interfaces. This controls the
         SO_BINDTODEVICE socket option (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         for details). If this option is used, an automatic dependency
         from this socket unit on the network interface device unit
         (<a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>
@@ -218,9 +218,12 @@
         <code class="varname">Accept=true</code> set. Setting
         <code class="varname">Accept=true</code> is mostly useful to allow
         daemons designed for usage with
-        <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>
+        <a href="https://www.freebsd.org/cgi/man.cgi?inetd(8)"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>
         to work unmodified with systemd socket
-        activation.</p></dd><dt id="MaxConnections="><span class="term"><code class="varname">MaxConnections=</code></span><a class="headerlink" title="Permalink to this term" href="#MaxConnections=">¶</a></dt><dd><p>The maximum number of connections to
+        activation.</p><p>For IPv4 and IPv6 connections the <code class="varname">REMOTE_ADDR</code>
+        environment variable will contain the remote IP, and <code class="varname">REMOTE_PORT</code>
+        will contain the remote port. This is the same as the format used by CGI.
+        For SOCK_RAW the port is the IP protocol.</p></dd><dt id="MaxConnections="><span class="term"><code class="varname">MaxConnections=</code></span><a class="headerlink" title="Permalink to this term" href="#MaxConnections=">¶</a></dt><dd><p>The maximum number of connections to
         simultaneously run services instances for, when
         <code class="option">Accept=true</code> is set. If more concurrent
         connections are coming in, they will be refused until at least
@@ -233,45 +236,45 @@
         <code class="filename">/proc/sys/net/ipv4/tcp_keepalive_time</code>)
         for all TCP streams accepted on this socket. This controls the
         SO_KEEPALIVE socket option (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
         Keepalive HOWTO</a> for details.) Defaults to
         <code class="option">false</code>.</p></dd><dt id="KeepAliveTimeSec="><span class="term"><code class="varname">KeepAliveTimeSec=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAliveTimeSec=">¶</a></dt><dd><p>Takes time (in seconds) as argument . The connection needs to remain
         idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
         socket option (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
         Keepalive HOWTO</a> for details.)
         Defaults value is 7200 seconds (2 hours).</p></dd><dt id="KeepAliveIntervalSec="><span class="term"><code class="varname">KeepAliveIntervalSec=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAliveIntervalSec=">¶</a></dt><dd><p>Takes time (in seconds) as argument between
         individual keepalive probes, if the socket option SO_KEEPALIVE
         has been set on this socket seconds as argument. This controls
         the TCP_KEEPINTVL socket option (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
         Keepalive HOWTO</a> for details.) Defaults value is 75
         seconds.</p></dd><dt id="KeepAliveProbes="><span class="term"><code class="varname">KeepAliveProbes=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAliveProbes=">¶</a></dt><dd><p>Takes integer as argument. It's the number of
         unacknowledged probes to send before considering the
         connection dead and notifying the application layer. This
         controls the TCP_KEEPCNT socket option (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
         Keepalive HOWTO</a> for details.) Defaults value is
         9.</p></dd><dt id="NoDelay="><span class="term"><code class="varname">NoDelay=</code></span><a class="headerlink" title="Permalink to this term" href="#NoDelay=">¶</a></dt><dd><p>Takes a boolean argument. TCP Nagle's
         algorithm works by combining a number of small outgoing
         messages, and sending them all at once. This controls the
         TCP_NODELAY socket option (see
-        <a href="tcp.html"><span class="citerefentry"><span class="refentrytitle">tcp</span>(7)</span></a>
+        <a href="http://linux.die.net/man/7/tcp"><span class="citerefentry"><span class="refentrytitle">tcp</span>(7)</span></a>
         Defaults to <code class="option">false</code>.</p></dd><dt id="Priority="><span class="term"><code class="varname">Priority=</code></span><a class="headerlink" title="Permalink to this term" href="#Priority=">¶</a></dt><dd><p>Takes an integer argument controlling the
         priority for all traffic sent from this socket. This controls
         the SO_PRIORITY socket option (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         for details.).</p></dd><dt id="DeferAcceptSec="><span class="term"><code class="varname">DeferAcceptSec=</code></span><a class="headerlink" title="Permalink to this term" href="#DeferAcceptSec=">¶</a></dt><dd><p>Takes time (in seconds) as argument. If set,
         the listening process will be awakened only when data arrives
         on the socket, and not immediately when connection is
         established. When this option is set, the
         <code class="constant">TCP_DEFER_ACCEPT</code> socket option will be
         used (see
-        <a href="tcp.html"><span class="citerefentry"><span class="refentrytitle">tcp</span>(7)</span></a>),
+        <a href="http://linux.die.net/man/7/tcp"><span class="citerefentry"><span class="refentrytitle">tcp</span>(7)</span></a>),
         and the kernel will ignore initial ACK packets without any
         data. The argument specifies the approximate amount of time
         the kernel should wait for incoming data before falling back
@@ -287,12 +290,12 @@
         third packet in the "three-way handshake").</p><p>Disabled by default.</p></dd><dt id="ReceiveBuffer="><span class="term"><code class="varname">ReceiveBuffer=</code>, </span><span class="term"><code class="varname">SendBuffer=</code></span><a class="headerlink" title="Permalink to this term" href="#ReceiveBuffer=">¶</a></dt><dd><p>Takes an integer argument controlling the
         receive or send buffer sizes of this socket, respectively.
         This controls the SO_RCVBUF and SO_SNDBUF socket options (see
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         for details.). The usual suffixes K, M, G are supported and
         are understood to the base of 1024.</p></dd><dt id="IPTOS="><span class="term"><code class="varname">IPTOS=</code></span><a class="headerlink" title="Permalink to this term" href="#IPTOS=">¶</a></dt><dd><p>Takes an integer argument controlling the IP
         Type-Of-Service field for packets generated from this socket.
         This controls the IP_TOS socket option (see
-        <a href="ip.html"><span class="citerefentry"><span class="refentrytitle">ip</span>(7)</span></a>
+        <a href="http://linux.die.net/man/7/ip"><span class="citerefentry"><span class="refentrytitle">ip</span>(7)</span></a>
         for details.). Either a numeric string or one of
         <code class="option">low-delay</code>, <code class="option">throughput</code>,
         <code class="option">reliability</code> or <code class="option">low-cost</code> may
@@ -300,20 +303,20 @@
         Time-To-Live/IPv6 Hop-Count field for packets generated from
         this socket. This sets the IP_TTL/IPV6_UNICAST_HOPS socket
         options (see
-        <a href="ip.html"><span class="citerefentry"><span class="refentrytitle">ip</span>(7)</span></a>
+        <a href="http://linux.die.net/man/7/ip"><span class="citerefentry"><span class="refentrytitle">ip</span>(7)</span></a>
         and
-        <a href="ipv6.html"><span class="citerefentry"><span class="refentrytitle">ipv6</span>(7)</span></a>
+        <a href="http://linux.die.net/man/7/ipv6"><span class="citerefentry"><span class="refentrytitle">ipv6</span>(7)</span></a>
         for details.)</p></dd><dt id="Mark="><span class="term"><code class="varname">Mark=</code></span><a class="headerlink" title="Permalink to this term" href="#Mark=">¶</a></dt><dd><p>Takes an integer value. Controls the firewall
         mark of packets generated by this socket. This can be used in
         the firewall logic to filter packets from this socket. This
         sets the SO_MARK socket option. See
-        <a href="iptables.html"><span class="citerefentry"><span class="refentrytitle">iptables</span>(8)</span></a>
+        <a href="http://linux.die.net/man/8/iptables"><span class="citerefentry"><span class="refentrytitle">iptables</span>(8)</span></a>
         for details.</p></dd><dt id="ReusePort="><span class="term"><code class="varname">ReusePort=</code></span><a class="headerlink" title="Permalink to this term" href="#ReusePort=">¶</a></dt><dd><p>Takes a boolean value. If true, allows
         multiple
         <a href="http://man7.org/linux/man-pages/man2/bind.2.html"><span class="citerefentry"><span class="refentrytitle">bind</span>(2)</span></a>s
         to this TCP or UDP port. This controls the SO_REUSEPORT socket
         option. See
-        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+        <a href="http://man7.org/linux/man-pages/man7/socket.7.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
         for details.</p></dd><dt id="SmackLabel="><span class="term"><code class="varname">SmackLabel=</code>, </span><span class="term"><code class="varname">SmackLabelIPIn=</code>, </span><span class="term"><code class="varname">SmackLabelIPOut=</code></span><a class="headerlink" title="Permalink to this term" href="#SmackLabel=">¶</a></dt><dd><p>Takes a string value. Controls the extended
         attributes "<code class="literal">security.SMACK64</code>",
         "<code class="literal">security.SMACK64IPIN</code>" and
@@ -343,7 +346,7 @@
         control the mq_maxmsg field or the mq_msgsize field,
         respectively, when creating the message queue. Note that
         either none or both of these variables need to be set. See
-        <a href="mq_setattr.html"><span class="citerefentry"><span class="refentrytitle">mq_setattr</span>(3)</span></a>
+        <a href="http://linux.die.net/man/3/mq_setattr"><span class="citerefentry"><span class="refentrytitle">mq_setattr</span>(3)</span></a>
         for details.</p></dd><dt id="FreeBind="><span class="term"><code class="varname">FreeBind=</code></span><a class="headerlink" title="Permalink to this term" href="#FreeBind=">¶</a></dt><dd><p>Takes a boolean value. Controls whether the
         socket can be bound to non-local IP addresses. This is useful
         to configure sockets listening on specific IP addresses before
@@ -423,7 +426,7 @@
     <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
     and
     <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-    for more settings.</p></div><div class="refsect1"><a name="idm140227021246720"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    for more settings.</p></div><div class="refsect1"><a name="idm139681107088816"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

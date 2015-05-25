@@ -20,7 +20,6 @@
 ***/
 
 #include <stdlib.h>
-#include <sys/wait.h>
 
 #include "exit-status.h"
 #include "set.h"
@@ -167,7 +166,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
                         return "NOPERMISSION";
 
                 case EXIT_NOTINSTALLED:
-                        return "NOTINSSTALLED";
+                        return "NOTINSTALLED";
 
                 case EXIT_NOTCONFIGURED:
                         return "NOTCONFIGURED";
@@ -225,4 +224,18 @@ bool exit_status_set_is_empty(ExitStatusSet *x) {
                 return true;
 
         return set_isempty(x->status) && set_isempty(x->signal);
+}
+
+bool exit_status_set_test(ExitStatusSet *x, int code, int status) {
+
+        if (exit_status_set_is_empty(x))
+                return false;
+
+        if (code == CLD_EXITED && set_contains(x->status, INT_TO_PTR(status)))
+                return true;
+
+        if (IN_SET(code, CLD_KILLED, CLD_DUMPED) && set_contains(x->signal, INT_TO_PTR(status)))
+                return true;
+
+        return false;
 }

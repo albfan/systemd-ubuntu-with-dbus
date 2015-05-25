@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="tmpfiles.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>tmpfiles.d — Configuration for creation, deletion and cleaning of
-    volatile and temporary files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/tmpfiles.d/*.conf</code></p><p><code class="filename">/run/tmpfiles.d/*.conf</code></p><p><code class="filename">/usr/lib/tmpfiles.d/*.conf</code></p></div><div class="refsect1"><a name="idm140441588163216"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> uses the configuration
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="tmpfiles.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>tmpfiles.d — Configuration for creation, deletion and cleaning of
+    volatile and temporary files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/tmpfiles.d/*.conf</code></p><p><code class="filename">/run/tmpfiles.d/*.conf</code></p><p><code class="filename">/usr/lib/tmpfiles.d/*.conf</code></p></div><div class="refsect1"><a name="idm140569019507856"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> uses the configuration
     files from the above directories to describe the creation,
     cleaning and removal of volatile and temporary files and
     directories which usually reside in directories such as
@@ -34,7 +34,7 @@
     sockets and similar in. For these, consider declaring them in
     their unit files using <code class="varname">RuntimeDirectory=</code> (see
     <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
-    for details), if this is feasible.</p></div><div class="refsect1"><a name="idm140441588080720"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each configuration file shall be named in the style of
+    for details), if this is feasible.</p></div><div class="refsect1"><a name="idm140569014599952"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each configuration file shall be named in the style of
     <code class="filename"><em class="replaceable"><code>package</code></em>.conf</code> or
     <code class="filename"><em class="replaceable"><code>package</code></em>-<em class="replaceable"><code>part</code></em>.conf</code>.
     The second variant should be used when it is desirable to make it
@@ -54,24 +54,28 @@
     the lexicographically earliest name will be applied.  All other
     conflicting entries will be logged as errors. When two lines are
     prefix and suffix of each other, then the prefix is always
-    processed first, the suffix later. Otherwise, the
-    files/directories are processed in the order they are
-    listed.</p><p>If the administrator wants to disable a configuration file
+    processed first, the suffix later. Lines that take globs are
+    applied after those accepting no globs. If multiple operations
+    shall be applied on the same file (such as ACL, xattr, file
+    attribute adjustments) these are always done in the same fixed
+    order. Otherwise, the files/directories are processed in the order
+    they are listed.</p><p>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
     to <code class="filename">/dev/null</code> in
     <code class="filename">/etc/tmpfiles.d/</code> bearing the same filename.
     </p><p>The configuration format is one line per path containing
     type, path, mode, ownership, age, and argument fields:</p><pre class="programlisting">#Type Path        Mode UID  GID  Age Argument
     d    /run/user   0755 root root 10d -
-    L    /tmp/foobar -    -    -    -   /dev/null</pre><div class="refsect2"><a name="idm140441588215392"></a><h3 id="Type">Type<a class="headerlink" title="Permalink to this headline" href="#Type">¶</a></h3><p>The type consists of a single letter and optionally an
+    L    /tmp/foobar -    -    -    -   /dev/null</pre><p>Fields may be enclosed within quotes and contain C-style escapes.</p><div class="refsect2"><a name="idm140569014587488"></a><h3 id="Type">Type<a class="headerlink" title="Permalink to this headline" href="#Type">¶</a></h3><p>The type consists of a single letter and optionally an
       exclamation mark.</p><p>The following line types are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="f"><span class="term"><code class="varname">f</code></span><a class="headerlink" title="Permalink to this term" href="#f">¶</a></dt><dd><p>Create a file if it does not exist yet. If
           the argument parameter is given, it will be written to the
-          file.</p></dd><dt id="F"><span class="term"><code class="varname">F</code></span><a class="headerlink" title="Permalink to this term" href="#F">¶</a></dt><dd><p>Create or truncate a file. If the argument
-          parameter is given, it will be written to the file.</p></dd><dt id="w"><span class="term"><code class="varname">w</code></span><a class="headerlink" title="Permalink to this term" href="#w">¶</a></dt><dd><p>Write the argument parameter to a file, if
+          file. Does not follow symlinks.</p></dd><dt id="F"><span class="term"><code class="varname">F</code></span><a class="headerlink" title="Permalink to this term" href="#F">¶</a></dt><dd><p>Create or truncate a file. If the argument
+          parameter is given, it will be written to the file. Does not follow symlinks.</p></dd><dt id="w"><span class="term"><code class="varname">w</code></span><a class="headerlink" title="Permalink to this term" href="#w">¶</a></dt><dd><p>Write the argument parameter to a file, if
           the file exists.  Lines of this type accept shell-style
           globs in place of normal path names. The argument parameter
           will be written without a trailing newline. C-style
-          backslash escapes are interpreted.</p></dd><dt id="d"><span class="term"><code class="varname">d</code></span><a class="headerlink" title="Permalink to this term" href="#d">¶</a></dt><dd><p>Create a directory if it does not exist yet.
+          backslash escapes are interpreted. Follows
+          symlinks.</p></dd><dt id="d"><span class="term"><code class="varname">d</code></span><a class="headerlink" title="Permalink to this term" href="#d">¶</a></dt><dd><p>Create a directory if it does not exist yet.
           </p></dd><dt id="D"><span class="term"><code class="varname">D</code></span><a class="headerlink" title="Permalink to this term" href="#D">¶</a></dt><dd><p>Create or empty a directory.</p></dd><dt id="v"><span class="term"><code class="varname">v</code></span><a class="headerlink" title="Permalink to this term" href="#v">¶</a></dt><dd><p>Create a subvolume if the path does not
           exist yet and the file system supports this
           (btrfs). Otherwise create a normal directory, in the same
@@ -105,7 +109,7 @@
           copy operation is skipped. If the argument is omitted, files
           from the source directory
           <code class="filename">/usr/share/factory/</code> with the same name
-          are copied.</p></dd><dt id="x"><span class="term"><code class="varname">x</code></span><a class="headerlink" title="Permalink to this term" href="#x">¶</a></dt><dd><p>Ignore a path during cleaning. Use this type
+          are copied. Does not follow symlinks.</p></dd><dt id="x"><span class="term"><code class="varname">x</code></span><a class="headerlink" title="Permalink to this term" href="#x">¶</a></dt><dd><p>Ignore a path during cleaning. Use this type
           to exclude paths from clean-up as controlled with the Age
           parameter. Note that lines of this type do not influence the
           effect of <code class="varname">r</code> or <code class="varname">R</code>
@@ -122,23 +126,41 @@
           This may not be used to remove non-empty directories, use
           <code class="varname">R</code> for that.  Lines of this type accept
           shell-style globs in place of normal path
-          names.</p></dd><dt id="R"><span class="term"><code class="varname">R</code></span><a class="headerlink" title="Permalink to this term" href="#R">¶</a></dt><dd><p>Recursively remove a path and all its
+          names. Does not follow symlinks.</p></dd><dt id="R"><span class="term"><code class="varname">R</code></span><a class="headerlink" title="Permalink to this term" href="#R">¶</a></dt><dd><p>Recursively remove a path and all its
           subdirectories (if it is a directory). Lines of this type
           accept shell-style globs in place of normal path
-          names.</p></dd><dt id="z"><span class="term"><code class="varname">z</code></span><a class="headerlink" title="Permalink to this term" href="#z">¶</a></dt><dd><p>Adjust the access mode, group and user, and
+          names. Does not follow symlinks.</p></dd><dt id="z"><span class="term"><code class="varname">z</code></span><a class="headerlink" title="Permalink to this term" href="#z">¶</a></dt><dd><p>Adjust the access mode, group and user, and
           restore the SELinux security context of a file or directory,
           if it exists. Lines of this type accept shell-style globs in
-          place of normal path names.</p></dd><dt id="Z"><span class="term"><code class="varname">Z</code></span><a class="headerlink" title="Permalink to this term" href="#Z">¶</a></dt><dd><p>Recursively set the access mode, group and
+          place of normal path names. Does not follow symlinks.</p></dd><dt id="Z"><span class="term"><code class="varname">Z</code></span><a class="headerlink" title="Permalink to this term" href="#Z">¶</a></dt><dd><p>Recursively set the access mode, group and
           user, and restore the SELinux security context of a file or
           directory if it exists, as well as of its subdirectories and
           the files contained therein (if applicable). Lines of this
-          type accept shell-style globs in place of normal path names.
-          </p></dd><dt id="t"><span class="term"><code class="varname">t</code></span><a class="headerlink" title="Permalink to this term" href="#t">¶</a></dt><dd><p>Set extended attributes. Lines of this type
+          type accept shell-style globs in place of normal path
+          names. Does not follow symlinks.  </p></dd><dt id="t"><span class="term"><code class="varname">t</code></span><a class="headerlink" title="Permalink to this term" href="#t">¶</a></dt><dd><p>Set extended attributes. Lines of this type
           accept shell-style globs in place of normal path names.
-          This can be useful for setting SMACK labels.
-          </p></dd><dt id="T"><span class="term"><code class="varname">T</code></span><a class="headerlink" title="Permalink to this term" href="#T">¶</a></dt><dd><p>Recursively set extended attributes. Lines
+          This can be useful for setting SMACK labels. Does not follow
+          symlinks.</p></dd><dt id="T"><span class="term"><code class="varname">T</code></span><a class="headerlink" title="Permalink to this term" href="#T">¶</a></dt><dd><p>Recursively set extended attributes. Lines
           of this type accept shell-style globs in place of normal
-          path names.  This can be useful for setting SMACK labels.
+          path names.  This can be useful for setting SMACK
+          labels. Does not follow symlinks.  </p></dd><dt id="h"><span class="term"><code class="varname">h</code></span><a class="headerlink" title="Permalink to this term" href="#h">¶</a></dt><dd><p>Set file/directory attributes. Lines of this type
+          accept shell-style globs in place of normal path names.</p><p>The format of the argument field is
+          <code class="varname">[+-=][aAcCdDeijsStTu] </code>. The prefix
+          <code class="varname">+</code> (the default one) causes the
+          attribute(s) to be added; <code class="varname">-</code> causes the
+          attribute(s) to be removed; <code class="varname">=</code> causes the
+          attributes to set exactly as the following letters. The
+          letters "<code class="literal">aAcCdDeijsStTu</code>" select the new
+          attributes for the files, see
+          <a href="chattr.html"><span class="citerefentry"><span class="refentrytitle">chattr</span>(1)</span></a> for further information.
+          </p><p>Passing only <code class="varname">=</code> as argument resets
+          all the file attributes listed above. It has to be pointed
+          out that the <code class="varname">=</code> prefix, limits itself to
+          the attributes corresponding to the letters listed here. All
+          other attributes will be left untouched. Does not follow
+          symlinks.</p></dd><dt id="H"><span class="term"><code class="varname">H</code></span><a class="headerlink" title="Permalink to this term" href="#H">¶</a></dt><dd><p>Recursively set file/directory attributes. Lines
+          of this type accept shell-style globs in place of normal
+          path names. Does not follow symlinks.
           </p></dd><dt id="a"><span class="term"><code class="varname">a</code>, </span><span class="term"><code class="varname">a+</code></span><a class="headerlink" title="Permalink to this term" href="#a">¶</a></dt><dd><p>Set POSIX ACLs (access control lists). If
           suffixed with <code class="varname">+</code>, specified entries will
           be added to the existing set.
@@ -149,8 +171,9 @@
           specified explicitly or already present. Lines of this type
           accept shell-style globs in place of normal path names. This
           can be useful for allowing additional access to certain
-          files.</p></dd><dt id="A"><span class="term"><code class="varname">A</code>, </span><span class="term"><code class="varname">A+</code></span><a class="headerlink" title="Permalink to this term" href="#A">¶</a></dt><dd><p>Same as <code class="varname">a</code> and
-          <code class="varname">a+</code>, but recursive.</p></dd></dl></div><p>If the exclamation mark is used, this line is only safe of
+          files. Does not follow symlinks.</p></dd><dt id="A"><span class="term"><code class="varname">A</code>, </span><span class="term"><code class="varname">A+</code></span><a class="headerlink" title="Permalink to this term" href="#A">¶</a></dt><dd><p>Same as <code class="varname">a</code> and
+          <code class="varname">a+</code>, but recursive. Does not follow
+          symlinks.</p></dd></dl></div><p>If the exclamation mark is used, this line is only safe of
       execute during boot, and can break a running system. Lines
       without the exclamation mark are presumed to be safe to execute
       at any time, e.g. on package upgrades.
@@ -164,9 +187,9 @@
       r! /tmp/.X[0-9]*-lock</pre><p>
       The second line in contrast to the first one would break a
       running system, and will only be executed with
-      <code class="option">--boot</code>.</p></div><div class="refsect2"><a name="idm140441583188528"></a><h3 id="Path">Path<a class="headerlink" title="Permalink to this headline" href="#Path">¶</a></h3><p>The file system path specification supports simple
+      <code class="option">--boot</code>.</p></div><div class="refsect2"><a name="idm140569014527632"></a><h3 id="Path">Path<a class="headerlink" title="Permalink to this headline" href="#Path">¶</a></h3><p>The file system path specification supports simple
       specifier expansion. The following expansions are
-      understood:</p><div class="table"><a name="idm140441583187360"></a><p class="title"><b>Table 1. Specifiers available</b></p><div class="table-contents"><table summary="Specifiers available" border="1"><colgroup><col align="left" class="spec"><col align="left" class="mean"><col align="left" class="detail"></colgroup><thead><tr><th align="left">Specifier</th><th align="left">Meaning</th><th align="left">Details</th></tr></thead><tbody><tr><td align="left">"<code class="literal">%m</code>"</td><td align="left">Machine ID</td><td align="left">The machine ID of the running system, formatted as string. See <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%b</code>"</td><td align="left">Boot ID</td><td align="left">The boot ID of the running system, formatted as string. See <a href="http://man7.org/linux/man-pages/man4/random.4.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%H</code>"</td><td align="left">Host name</td><td align="left">The hostname of the running system.</td></tr><tr><td align="left">"<code class="literal">%v</code>"</td><td align="left">Kernel release</td><td align="left">Identical to <span class="command"><strong>uname -r</strong></span> output.</td></tr><tr><td align="left">"<code class="literal">%%</code>"</td><td align="left">Escaped %</td><td align="left">Single percent sign.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect2"><a name="idm140441583169552"></a><h3 id="Mode">Mode<a class="headerlink" title="Permalink to this headline" href="#Mode">¶</a></h3><p>The file access mode to use when creating this file or
+      understood:</p><div class="table"><a name="idm140569014526464"></a><p class="title"><b>Table 1. Specifiers available</b></p><div class="table-contents"><table summary="Specifiers available" border="1"><colgroup><col align="left" class="spec"><col align="left" class="mean"><col align="left" class="detail"></colgroup><thead><tr><th align="left">Specifier</th><th align="left">Meaning</th><th align="left">Details</th></tr></thead><tbody><tr><td align="left">"<code class="literal">%m</code>"</td><td align="left">Machine ID</td><td align="left">The machine ID of the running system, formatted as string. See <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%b</code>"</td><td align="left">Boot ID</td><td align="left">The boot ID of the running system, formatted as string. See <a href="http://man7.org/linux/man-pages/man4/random.4.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%H</code>"</td><td align="left">Host name</td><td align="left">The hostname of the running system.</td></tr><tr><td align="left">"<code class="literal">%v</code>"</td><td align="left">Kernel release</td><td align="left">Identical to <span class="command"><strong>uname -r</strong></span> output.</td></tr><tr><td align="left">"<code class="literal">%%</code>"</td><td align="left">Escaped %</td><td align="left">Single percent sign.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect2"><a name="idm140569014508496"></a><h3 id="Mode">Mode<a class="headerlink" title="Permalink to this headline" href="#Mode">¶</a></h3><p>The file access mode to use when creating this file or
       directory. If omitted or when set to "<code class="literal">-</code>", the
       default is used: 0755 for directories, 0644 for all other file
       objects.  For <code class="varname">z</code>, <code class="varname">Z</code> lines,
@@ -184,7 +207,7 @@
       removed from the new access mode too. In addition, the
       sticky/SUID/SGID bit is removed unless applied to a
       directory. This functionality is particularly useful in
-      conjunction with <code class="varname">Z</code>.</p></div><div class="refsect2"><a name="idm140441583161728"></a><h3 id="UID, GID">UID, GID<a class="headerlink" title="Permalink to this headline" href="#UID,%20GID">¶</a></h3><p>The user and group to use for this file or directory. This
+      conjunction with <code class="varname">Z</code>.</p></div><div class="refsect2"><a name="idm140569014500672"></a><h3 id="UID, GID">UID, GID<a class="headerlink" title="Permalink to this headline" href="#UID,%20GID">¶</a></h3><p>The user and group to use for this file or directory. This
       may either be a numeric user/group ID or a user or group
       name. If omitted or when set to "<code class="literal">-</code>", the
       default 0 (root) is used. For <code class="varname">z</code>,
@@ -193,13 +216,24 @@
       modified. These parameters are ignored for <code class="varname">x</code>,
       <code class="varname">r</code>, <code class="varname">R</code>,
       <code class="varname">L</code>, <code class="varname">t</code>, and
-      <code class="varname">a</code> lines.</p></div><div class="refsect2"><a name="idm140441583155984"></a><h3 id="Age">Age<a class="headerlink" title="Permalink to this headline" href="#Age">¶</a></h3><p>The date field, when set, is used to decide what files to
+      <code class="varname">a</code> lines.</p></div><div class="refsect2"><a name="idm140569014494928"></a><h3 id="Age">Age<a class="headerlink" title="Permalink to this headline" href="#Age">¶</a></h3><p>The date field, when set, is used to decide what files to
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
       format is a series of integers each followed by one of the
-      following postfixes for the respective time units:</p><div class="variablelist"><dl class="variablelist"><dt id="s"><span class="term"><code class="varname">s</code>, </span><span class="term"><code class="varname">min</code>, </span><span class="term"><code class="varname">h</code>, </span><span class="term"><code class="varname">d</code>, </span><span class="term"><code class="varname">w</code>, </span><span class="term"><code class="varname">ms</code>, </span><span class="term"><code class="varname">m</code>, </span><span class="term"><code class="varname">us</code></span><a class="headerlink" title="Permalink to this term" href="#s">¶</a></dt><dd></dd></dl></div><p>If multiple integers and units are specified, the time
-      values are summed up. If an integer is given without a unit,
-      <code class="varname">s</code> is assumed.
+      following postfixes for the respective time units:
+      <code class="constant">s</code>,
+      <code class="constant">m</code> or <code class="constant">min</code>,
+      <code class="constant">h</code>,
+      <code class="constant">d</code>,
+      <code class="constant">w</code>,
+      <code class="constant">ms</code>,
+      <code class="constant">us</code>,
+      respectively meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds. Full names of the time units can
+      be used too.
+      </p><p>If multiple integers and units are specified, the time
+      values are summed. If an integer is given without a unit,
+      <code class="constant">s</code> is assumed.
       </p><p>When the age is set to zero, the files are cleaned
       unconditionally.</p><p>The age field only applies to lines
       starting with <code class="varname">d</code>,
@@ -209,7 +243,7 @@
       done.</p><p>If the age field starts with a tilde character
       "<code class="literal">~</code>", the clean-up is only applied to files and
       directories one level inside the directory specified, but not
-      the files and directories immediately inside it.</p></div><div class="refsect2"><a name="idm140441583144944"></a><h3 id="Argument">Argument<a class="headerlink" title="Permalink to this headline" href="#Argument">¶</a></h3><p>For <code class="varname">L</code> lines determines the destination
+      the files and directories immediately inside it.</p></div><div class="refsect2"><a name="idm140569014485376"></a><h3 id="Argument">Argument<a class="headerlink" title="Permalink to this headline" href="#Argument">¶</a></h3><p>For <code class="varname">L</code> lines determines the destination
       path of the symlink. For <code class="varname">c</code>,
       <code class="varname">b</code> determines the major/minor of the device
       node, with major and minor formatted as integers, separated by
@@ -218,13 +252,16 @@
       <code class="varname">w</code> may be used to specify a short string that
       is written to the file, suffixed by a newline. For
       <code class="varname">C</code>, specifies the source file or
-      directory. For <code class="varname">t</code> determines extended
-      attributes to be set. For <code class="varname">a</code> determines
-      ACL attributes to be set. Ignored for all other lines.</p></div></div><div class="refsect1"><a name="idm140441583138528"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140441583137888"></a><p class="title"><b>Example 1. /etc/tmpfiles.d/screen.conf example</b></p><div class="example-contents"><p><span class="command"><strong>screen</strong></span> needs two directories created at
+      directory. For <code class="varname">t</code>, <code class="varname">T</code>
+      determines extended attributes to be set. For
+      <code class="varname">a</code>, <code class="varname">A</code> determines ACL
+      attributes to be set. For <code class="varname">h</code>,
+      <code class="varname">H</code> determines the file attributes to
+      set. Ignored for all other lines.</p></div></div><div class="refsect1"><a name="idm140569014477344"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140569014476704"></a><p class="title"><b>Example 1. /etc/tmpfiles.d/screen.conf example</b></p><div class="example-contents"><p><span class="command"><strong>screen</strong></span> needs two directories created at
       boot with specific modes and ownership.</p><pre class="programlisting">d /run/screens  1777 root root 10d
-      d /run/uscreens 0755 root root 10d12h
-      t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</pre></div></div><br class="example-break"><div class="example"><a name="idm140441583135344"></a><p class="title"><b>Example 2. /etc/tmpfiles.d/abrt.conf example</b></p><div class="example-contents"><p><span class="command"><strong>abrt</strong></span> needs a directory created at boot with specific mode and ownership and its content should be preserved.</p><pre class="programlisting">d /var/tmp/abrt 0755 abrt abrt
-      x /var/tmp/abrt/*</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140441583132816"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+d /run/uscreens 0755 root root 10d12h
+t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</pre></div></div><br class="example-break"><div class="example"><a name="idm140569014474176"></a><p class="title"><b>Example 2. /etc/tmpfiles.d/abrt.conf example</b></p><div class="example-contents"><p><span class="command"><strong>abrt</strong></span> needs a directory created at boot with specific mode and ownership and its content should be preserved.</p><pre class="programlisting">d /var/tmp/abrt 0755 abrt abrt
+x /var/tmp/abrt/*</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140569014471648"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-tmpfiles.html"><span class="citerefentry"><span class="refentrytitle">systemd-tmpfiles</span>(8)</span></a>,
       <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,
@@ -233,5 +270,6 @@
       <a href="http://man7.org/linux/man-pages/man1/getfattr.1.html"><span class="citerefentry"><span class="refentrytitle">getfattr</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/setfattr.1.html"><span class="citerefentry"><span class="refentrytitle">setfattr</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/setfacl.1.html"><span class="citerefentry"><span class="refentrytitle">setfacl</span>(1)</span></a>,
-      <a href="http://man7.org/linux/man-pages/man1/getfacl.1.html"><span class="citerefentry"><span class="refentrytitle">getfacl</span>(1)</span></a>
+      <a href="http://man7.org/linux/man-pages/man1/getfacl.1.html"><span class="citerefentry"><span class="refentrytitle">getfacl</span>(1)</span></a>,
+      <a href="http://man7.org/linux/man-pages/man1/chattr.1.html"><span class="citerefentry"><span class="refentrytitle">chattr</span>(1)</span></a>
     </p></div></div></body></html>

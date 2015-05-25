@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.generator — Systemd unit generators</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">/path/to/generator</code>   <em class="replaceable"><code>normal-dir</code></em>   <em class="replaceable"><code>early-dir</code></em>   <em class="replaceable"><code>late-dir</code></em> </p></div><p>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.generator — Systemd unit generators</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">/path/to/generator</code>   <em class="replaceable"><code>normal-dir</code></em>   <em class="replaceable"><code>early-dir</code></em>   <em class="replaceable"><code>late-dir</code></em> </p></div><p>
       </p><div class="literallayout"><p><code class="filename">/run/systemd/system-generators/*</code><br>
 <code class="filename">/etc/systemd/system-generators/*</code><br>
 <code class="filename">/usr/local/lib/systemd/system-generators/*</code><br>
@@ -29,7 +29,7 @@
 <code class="filename">/etc/systemd/user-generators/*</code><br>
 <code class="filename">/usr/local/lib/systemd/user-generators/*</code><br>
 <code class="filename">/usr/lib/systemd/user-generators/*</code></p></div><p>
-    </p></div><div class="refsect1"><a name="idm140270263216512"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Generators are small binaries that live in
+    </p></div><div class="refsect1"><a name="idm139621018473376"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Generators are small binaries that live in
     <code class="filename">/usr/lib/systemd/user-generators/</code> and other directories
     listed above.
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
@@ -58,7 +58,7 @@
     <span class="command"><strong>systemd</strong></span> to reload units from disk. See
     <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>
     for more information.
-    </p></div><div class="refsect1"><a name="idm140270267147776"></a><h2 id="Writing generators">Writing generators<a class="headerlink" title="Permalink to this headline" href="#Writing%20generators">¶</a></h2><p>Generators are invoked with three arguments: paths to
+    </p></div><div class="refsect1"><a name="idm139621018462272"></a><h2 id="Writing generators">Writing generators<a class="headerlink" title="Permalink to this headline" href="#Writing%20generators">¶</a></h2><p>Generators are invoked with three arguments: paths to
     runtime directories where generators can place their generated
     unit files or symlinks.</p><div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem"><p><em class="parameter"><code>normal-dir</code></em></p><p>argv[1] may be used to override unit files in
         <code class="filename">/usr</code>, but not those in
@@ -70,10 +70,10 @@
         <code class="filename">/etc</code>. This means that unit files placed
         in this directory take precedence over all configuration,
         both vendor and user/administrator.</p></li><li class="listitem"><p><em class="parameter"><code>late-dir</code></em></p><p>argv[3] may be used to extend the unit file tree without
-        overridding any other unit files. Any native configuration
+        overriding any other unit files. Any native configuration
         files supplied by the vendor or user/administrator take
         precedence over the generated ones placed in this directory.
-        </p></li></ol></div><div class="refsect2"><a name="idm140270267099792"></a><h3 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h3><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>
+        </p></li></ol></div><div class="refsect2"><a name="idm139621018452528"></a><h3 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h3><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>
             All generators are executed in parallel. That means all
             executables are started at the very same time and need to
             be able to cope with this parallelism.
@@ -143,7 +143,7 @@
             generators for legacy configuration file formats, please
             think twice! It's often a better idea to just deprecate
             old stuff instead of keeping it artificially alive.
-          </p></li></ul></div></div></div><div class="refsect1"><a name="idm140270267080928"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140270267080256"></a><p class="title"><b>Example 1. systemd-fstab-generator</b></p><div class="example-contents"><p><a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>
+          </p></li></ul></div></div></div><div class="refsect1"><a name="idm139621018418304"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm139621018417664"></a><p class="title"><b>Example 1. systemd-fstab-generator</b></p><div class="example-contents"><p><a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>
       converts <code class="filename">/etc/fstab</code> into native mount
       units. It uses argv[1] as location to place the generated unit
       files in order to allow the user to override
@@ -157,23 +157,23 @@
       added to <code class="filename">fstab</code>, <span class="command"><strong>systemctl start
       <em class="replaceable"><code>/path/to/mountpoint</code></em></strong></span> or
       <span class="command"><strong>systemctl start local-fs.target</strong></span> may be used.
-      </p></div></div><br class="example-break"><div class="example"><a name="idm140270262127408"></a><p class="title"><b>Example 2. systemd-system-update-generator</b></p><div class="example-contents"><p><a href="systemd-system-update-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-system-update-generator</span>(8)</span></a>
+      </p></div></div><br class="example-break"><div class="example"><a name="idm139621018408832"></a><p class="title"><b>Example 2. systemd-system-update-generator</b></p><div class="example-contents"><p><a href="systemd-system-update-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-system-update-generator</span>(8)</span></a>
       temporarily redirects <code class="filename">default.target</code> to
       <code class="filename">system-update.target</code> if a system update is
       scheduled. Since this needs to override the default user
       configuration for <code class="filename">default.target</code> it uses
       argv[2]. For details about this logic, see
       <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/SystemUpdates" target="_top">Implementing
-      Offline System Updates</a>.</p></div></div><br class="example-break"><div class="example"><a name="idm140270262122992"></a><p class="title"><b>Example 3. Debuging a generator</b></p><div class="example-contents"><pre class="programlisting">dir=$(mktemp -d)
+      Offline System Updates</a>.</p></div></div><br class="example-break"><div class="example"><a name="idm139621018404416"></a><p class="title"><b>Example 3. Debuging a generator</b></p><div class="example-contents"><pre class="programlisting">dir=$(mktemp -d)
 SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/system-generators/systemd-fstab-generator \
         "$dir" "$dir" "$dir"
-find $dir</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140270262121312"></a><h2 id="See also">See also<a class="headerlink" title="Permalink to this headline" href="#See%20also">¶</a></h2><p>
+find $dir</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139621018402736"></a><h2 id="See also">See also<a class="headerlink" title="Permalink to this headline" href="#See%20also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>,
       <a href="systemd-debug-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-debug-generator</span>(8)</span></a>,
       <a href="systemd-efi-boot-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-efi-boot-generator</span>(8)</span></a>,
       <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>,
-      <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>,
+      <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>,
       <a href="systemd-getty-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-getty-generator</span>(8)</span></a>,
       <a href="systemd-gpt-auto-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-gpt-auto-generator</span>(8)</span></a>,
       <a href="systemd-hibernate-resume-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-hibernate-resume-generator</span>(8)</span></a>,

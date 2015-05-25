@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.MOUNT" "5" "" "systemd 219" "systemd.mount"
+.TH "SYSTEMD\&.MOUNT" "5" "" "systemd 220" "systemd.mount"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -65,7 +65,7 @@ Mount points created at runtime (independently of unit files or
 description in
 \fBproc\fR(5)\&.
 .PP
-Some file systems have special semantics as API file systems for kernel\-to\-userspace and userspace\-to\-userpace interfaces\&. Some of them may not be changed via mount units, and cannot be disabled\&. For a longer discussion see
+Some file systems have special semantics as API file systems for kernel\-to\-userspace and userspace\-to\-userspace interfaces\&. Some of them may not be changed via mount units, and cannot be disabled\&. For a longer discussion see
 \m[blue]\fBAPI File Systems\fR\m[]\&\s-2\u[1]\d\s+2\&.
 .SH "FSTAB"
 .PP
@@ -94,9 +94,44 @@ local\-fs\&.target
 or
 remote\-fs\&.target, depending whether the file system is local or remote\&.
 .PP
+\fBx\-systemd\&.requires=\fR
+.RS 4
+Configures a
+\fIRequires=\fR
+and an
+\fIAfter=\fR
+dependency between the created mount unit and another systemd unit, such as a device or mount unit\&. The argument should be a unit name, or an absolute path to a device node or mount point\&. This option may be specified more than once\&. This option is particularly useful for mount point declarations that need an additional device to be around (such as an external journal device for journal file systems) or an additional mount to be in place (such as an overlay file system that merges multiple mount points)\&. See
+\fIAfter=\fR
+and
+\fIRequires=\fR
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fBx\-systemd\&.requires\-mounts\-for=\fR
+.RS 4
+Configures a
+\fIRequiresMountsFor=\fR
+dependency between the created mount unit and other mount units\&. The argument must be an absolute path\&. This option may be specified more than once\&. See
+\fIRequiresMountsFor=\fR
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
 \fBx\-systemd\&.automount\fR
 .RS 4
 An automount unit will be created for the file system\&. See
+\fBsystemd.automount\fR(5)
+for details\&.
+.RE
+.PP
+\fBx\-systemd\&.idle\-timeout=\fR
+.RS 4
+Configures the idleness timeout of the automount unit\&. See
+\fITimeoutIdleSec=\fR
+in
 \fBsystemd.automount\fR(5)
 for details\&.
 .RE

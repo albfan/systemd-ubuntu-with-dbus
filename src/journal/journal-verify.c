@@ -32,7 +32,7 @@
 #include "journal-verify.h"
 #include "lookup3.h"
 #include "compress.h"
-#include "fsprg.h"
+#include "terminal-util.h"
 
 static void draw_progress(uint64_t p, usec_t *last_usec) {
         unsigned n, i, j, k;
@@ -818,7 +818,7 @@ int journal_file_verify(
                         return r;
                 }
 #else
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 #endif
         } else if (f->seal)
                 return -ENOKEY;
@@ -846,7 +846,7 @@ int journal_file_verify(
 
         if (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SUPPORTED) {
                 log_error("Cannot verify file with unknown extensions.");
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 goto fail;
         }
 

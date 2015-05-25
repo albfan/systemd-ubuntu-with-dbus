@@ -21,26 +21,19 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <locale.h>
 #include <string.h>
-#include <sys/timex.h>
-#include <sys/utsname.h>
 
 #include "sd-bus.h"
-
+#include "sd-id128.h"
+#include "hostname-util.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
-#include "clock-util.h"
-#include "strv.h"
-#include "sd-id128.h"
-#include "virt.h"
 #include "architecture.h"
-#include "fileio.h"
 
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;

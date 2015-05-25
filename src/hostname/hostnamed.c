@@ -30,10 +30,10 @@
 #include "virt.h"
 #include "env-util.h"
 #include "fileio-label.h"
-#include "label.h"
 #include "bus-util.h"
 #include "event-util.h"
 #include "selinux-util.h"
+#include "hostname-util.h"
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
 
@@ -96,7 +96,7 @@ static int context_read_data(Context *c) {
         if (!c->data[PROP_HOSTNAME])
                 return -ENOMEM;
 
-        r = read_one_line_file("/etc/hostname", &c->data[PROP_STATIC_HOSTNAME]);
+        r = read_hostname_config("/etc/hostname", &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -404,12 +404,15 @@ static int property_get_chassis(
         return sd_bus_message_append(reply, "s", name);
 }
 
-static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
         int interactive;
         char *h;
         int r;
+
+        assert(m);
+        assert(c);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
@@ -427,7 +430,14 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (streq_ptr(name, c->data[PROP_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.hostname1.set-hostname", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.set-hostname",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -448,16 +458,19 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
 
         log_info("Changed host name to '%s'", strna(c->data[PROP_HOSTNAME]));
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
         int interactive;
         int r;
+
+        assert(m);
+        assert(c);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
@@ -469,7 +482,14 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.hostname1.set-static-hostname", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.set-static-hostname",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -506,18 +526,17 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
         log_info("Changed static host name to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
+static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
         int interactive;
         const char *name;
         int r;
 
         assert(c);
-        assert(bus);
         assert(m);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
@@ -534,10 +553,14 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
          * same time as the static one, use the same policy action for
          * both... */
 
-        r = bus_verify_polkit_async(m, CAP_SYS_ADMIN,
-                                    prop == PROP_PRETTY_HOSTNAME ?
-                                    "org.freedesktop.hostname1.set-static-hostname" :
-                                    "org.freedesktop.hostname1.set-machine-info", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -583,33 +606,36 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                  prop == PROP_LOCATION ? "location" :
                  prop == PROP_CHASSIS ? "chassis" : "icon name", strna(c->data[prop]));
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
-                                       prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
-                                       prop == PROP_DEPLOYMENT ? "Deployment" :
-                                       prop == PROP_LOCATION ? "Location" :
-                                       prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
+        (void) sd_bus_emit_properties_changed(
+                        sd_bus_message_get_bus(m),
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
+                        prop == PROP_DEPLOYMENT ? "Deployment" :
+                        prop == PROP_LOCATION ? "Location" :
+                        prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_pretty_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
+static int method_set_pretty_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
 }
 
-static int method_set_icon_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_ICON_NAME, method_set_icon_name, error);
+static int method_set_icon_name(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_ICON_NAME, method_set_icon_name, error);
 }
 
-static int method_set_chassis(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_CHASSIS, method_set_chassis, error);
+static int method_set_chassis(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_CHASSIS, method_set_chassis, error);
 }
 
-static int method_set_deployment(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_DEPLOYMENT, method_set_deployment, error);
+static int method_set_deployment(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_DEPLOYMENT, method_set_deployment, error);
 }
 
-static int method_set_location(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_LOCATION, method_set_location, error);
+static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
 }
 
 static const sd_bus_vtable hostname_vtable[] = {

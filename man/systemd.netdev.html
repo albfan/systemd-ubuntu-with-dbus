@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.netdev"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.netdev — Virtual Network Device configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>netdev</code></em>.netdev</code></p></div><div class="refsect1"><a name="idm140504091212832"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Network setup is performed by
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.netdev"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.netdev — Virtual Network Device configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>netdev</code></em>.netdev</code></p></div><div class="refsect1"><a name="idm139691878167376"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Network setup is performed by
     <a href="systemd-networkd.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd</span>(8)</span></a>.
     </p><p>Virtual Network Device files must have the extension
     <code class="filename">.netdev</code>; other extensions are ignored.
@@ -44,8 +44,8 @@
     needed; a symlink in <code class="filename">/etc</code> with the same name
     as a configuration file in <code class="filename">/usr/lib</code>, pointing
     to <code class="filename">/dev/null</code>, disables the configuration file
-    entirely.</p></div><div class="refsect1"><a name="idm140504091078832"></a><h2 id="Supported netdev kinds">Supported netdev kinds<a class="headerlink" title="Permalink to this headline" href="#Supported%20netdev%20kinds">¶</a></h2><p>The following kinds of virtual network devices may be
-    configured in <code class="filename">.netdev</code> files:</p><div class="table"><a name="idm140504091077056"></a><p class="title"><b>Table 1. Supported kinds of virtual network devices</b></p><div class="table-contents"><table summary="Supported kinds of virtual network devices" border="1"><colgroup><col class="kind"><col class="explanation"></colgroup><thead><tr><th>Kind</th><th>Description</th></tr></thead><tbody><tr><td><code class="varname">bond</code></td><td>A bond device is an aggregation of all its slave devices. See <a class="ulink" href="https://www.kernel.org/doc/Documentation/networking/bonding.txt" target="_top">Linux Ethernet Bonding Driver HOWTO</a> for details.Local configuration</td></tr><tr><td><code class="varname">bridge</code></td><td>A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch.</td></tr><tr><td><code class="varname">dummy</code></td><td>A dummy device drops all packets sent to it.</td></tr><tr><td><code class="varname">gre</code></td><td>A Level 3 GRE tunnel over IPv4. See <a class="ulink" href="https://tools.ietf.org/html/rfc2784" target="_top">RFC 2784</a> for details.</td></tr><tr><td><code class="varname">gretap</code></td><td>A Level 2 GRE tunnel over IPv4.</td></tr><tr><td><code class="varname">ip6gre</code></td><td>A Level 3 GRE tunnel over IPv6.</td></tr><tr><td><code class="varname">ip6tnl</code></td><td>An IPv4 or IPv6 tunnel over IPv6</td></tr><tr><td><code class="varname">ip6gretap</code></td><td>An Level 2 GRE tunnel over IPv6.</td></tr><tr><td><code class="varname">ipip</code></td><td>An IPv4 over IPv4 tunnel.</td></tr><tr><td><code class="varname">ipvlan</code></td><td>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</td></tr><tr><td><code class="varname">macvlan</code></td><td>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</td></tr><tr><td><code class="varname">sit</code></td><td>An IPv6 over IPv4 tunnel.</td></tr><tr><td><code class="varname">tap</code></td><td>A persistent Level 2 tunnel between a network device and a device node.</td></tr><tr><td><code class="varname">tun</code></td><td>A persistent Level 3 tunnel between a network device and a device node.</td></tr><tr><td><code class="varname">veth</code></td><td>An ethernet tunnel between a pair of network devices.</td></tr><tr><td><code class="varname">vlan</code></td><td>A VLAN is a stacked device which receives packets from its underlying device based on VLAN tagging. See <a class="ulink" href="http://www.ieee802.org/1/pages/802.1Q.html" target="_top">IEEE 802.1Q</a> for details.</td></tr><tr><td><code class="varname">vti</code></td><td>An IPv4 over IPSec tunnel.</td></tr><tr><td><code class="varname">vxlan</code></td><td>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect1"><a name="idm140504091242704"></a><h2 id="[Match] Section Options">[Match] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMatch%5D%20Section%20Options">¶</a></h2><p>A virtual network device is only created if the
+    entirely.</p></div><div class="refsect1"><a name="idm139691877372384"></a><h2 id="Supported netdev kinds">Supported netdev kinds<a class="headerlink" title="Permalink to this headline" href="#Supported%20netdev%20kinds">¶</a></h2><p>The following kinds of virtual network devices may be
+    configured in <code class="filename">.netdev</code> files:</p><div class="table"><a name="idm139691877370736"></a><p class="title"><b>Table 1. Supported kinds of virtual network devices</b></p><div class="table-contents"><table summary="Supported kinds of virtual network devices" border="1"><colgroup><col class="kind"><col class="explanation"></colgroup><thead><tr><th>Kind</th><th>Description</th></tr></thead><tbody><tr><td><code class="varname">bond</code></td><td>A bond device is an aggregation of all its slave devices. See <a class="ulink" href="https://www.kernel.org/doc/Documentation/networking/bonding.txt" target="_top">Linux Ethernet Bonding Driver HOWTO</a> for details.Local configuration</td></tr><tr><td><code class="varname">bridge</code></td><td>A bridge device is a software switch, each of its slave devices and the bridge itself are ports of the switch.</td></tr><tr><td><code class="varname">dummy</code></td><td>A dummy device drops all packets sent to it.</td></tr><tr><td><code class="varname">gre</code></td><td>A Level 3 GRE tunnel over IPv4. See <a class="ulink" href="https://tools.ietf.org/html/rfc2784" target="_top">RFC 2784</a> for details.</td></tr><tr><td><code class="varname">gretap</code></td><td>A Level 2 GRE tunnel over IPv4.</td></tr><tr><td><code class="varname">ip6gre</code></td><td>A Level 3 GRE tunnel over IPv6.</td></tr><tr><td><code class="varname">ip6tnl</code></td><td>An IPv4 or IPv6 tunnel over IPv6</td></tr><tr><td><code class="varname">ip6gretap</code></td><td>An Level 2 GRE tunnel over IPv6.</td></tr><tr><td><code class="varname">ipip</code></td><td>An IPv4 over IPv4 tunnel.</td></tr><tr><td><code class="varname">ipvlan</code></td><td>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</td></tr><tr><td><code class="varname">macvlan</code></td><td>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</td></tr><tr><td><code class="varname">sit</code></td><td>An IPv6 over IPv4 tunnel.</td></tr><tr><td><code class="varname">tap</code></td><td>A persistent Level 2 tunnel between a network device and a device node.</td></tr><tr><td><code class="varname">tun</code></td><td>A persistent Level 3 tunnel between a network device and a device node.</td></tr><tr><td><code class="varname">veth</code></td><td>An ethernet tunnel between a pair of network devices.</td></tr><tr><td><code class="varname">vlan</code></td><td>A VLAN is a stacked device which receives packets from its underlying device based on VLAN tagging. See <a class="ulink" href="http://www.ieee802.org/1/pages/802.1Q.html" target="_top">IEEE 802.1Q</a> for details.</td></tr><tr><td><code class="varname">vti</code></td><td>An IPv4 over IPSec tunnel.</td></tr><tr><td><code class="varname">vti6</code></td><td>An IPv6 over IPSec tunnel.</td></tr><tr><td><code class="varname">vxlan</code></td><td>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect1"><a name="idm139691877344720"></a><h2 id="[Match] Section Options">[Match] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMatch%5D%20Section%20Options">¶</a></h2><p>A virtual network device is only created if the
     "<code class="literal">[Match]</code>" section matches the current
     environment, or if the section is empty. The following keys are
     accepted:</p><div class="variablelist"><dl class="variablelist"><dt id="Host="><span class="term"><code class="varname">Host=</code></span><a class="headerlink" title="Permalink to this term" href="#Host=">¶</a></dt><dd><p>Matches against the hostname or machine ID of the
@@ -67,36 +67,36 @@
           architecture. See "<code class="literal">ConditionArchitecture=</code>" in
           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
           for details.
-          </p></dd></dl></div></div><div class="refsect1"><a name="idm140504086309424"></a><h2 id="[NetDev] Section Options">[NetDev] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BNetDev%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[NetDev]</code>" section accepts the
+          </p></dd></dl></div></div><div class="refsect1"><a name="idm139691877329552"></a><h2 id="[NetDev] Section Options">[NetDev] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BNetDev%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[NetDev]</code>" section accepts the
       following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Description="><span class="term"><code class="varname">Description=</code></span><a class="headerlink" title="Permalink to this term" href="#Description=">¶</a></dt><dd><p>A free-form description of the netdev.</p></dd><dt id="Name="><span class="term"><code class="varname">Name=</code></span><a class="headerlink" title="Permalink to this term" href="#Name=">¶</a></dt><dd><p>The interface name used when creating the netdev.
             This option is compulsory.</p></dd><dt id="Kind="><span class="term"><code class="varname">Kind=</code></span><a class="headerlink" title="Permalink to this term" href="#Kind=">¶</a></dt><dd><p>The netdev kind. This option is compulsory. See the
             "<code class="literal">Supported netdev kinds</code>" section for the
             valid keys.</p></dd><dt id="MTUBytes="><span class="term"><code class="varname">MTUBytes=</code></span><a class="headerlink" title="Permalink to this term" href="#MTUBytes=">¶</a></dt><dd><p>The maximum transmission unit in bytes to set for
             the device. The usual suffixes K, M, G, are supported and
             are understood to the base of 1024. This key is not
-            currently suported for "<code class="literal">tun</code>" or
+            currently supported for "<code class="literal">tun</code>" or
             "<code class="literal">tap</code>" devices.
             </p></dd><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The MAC address to use for the device. If none is
             given, one is generated based on the interface name and
             the
             <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a>.
-            This key is not currently suported for
+            This key is not currently supported for
             "<code class="literal">tun</code>" or "<code class="literal">tap</code>" devices.
-            </p></dd></dl></div></div><div class="refsect1"><a name="idm140504086294304"></a><h2 id="[VLAN] Section Options">[VLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BVLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[VLAN]</code>" section only applies for
+            </p></dd></dl></div></div><div class="refsect1"><a name="idm139691877314432"></a><h2 id="[VLAN] Section Options">[VLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BVLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[VLAN]</code>" section only applies for
       netdevs of kind "<code class="literal">vlan</code>", and accepts the
       following key:</p><div class="variablelist"><dl class="variablelist"><dt id="Id="><span class="term"><code class="varname">Id=</code></span><a class="headerlink" title="Permalink to this term" href="#Id=">¶</a></dt><dd><p>The VLAN ID to use. An integer in the range 0–4094.
-            This option is compulsory.</p></dd></dl></div></div><div class="refsect1"><a name="idm140504086289408"></a><h2 id="[MACVLAN] Section Options">[MACVLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMACVLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[MACVLAN]</code>" section only applies for
+            This option is compulsory.</p></dd></dl></div></div><div class="refsect1"><a name="idm139691877309536"></a><h2 id="[MACVLAN] Section Options">[MACVLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMACVLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[MACVLAN]</code>" section only applies for
     netdevs of kind "<code class="literal">macvlan</code>", and accepts the
     following key:</p><div class="variablelist"><dl class="variablelist"><dt id="Mode="><span class="term"><code class="varname">Mode=</code></span><a class="headerlink" title="Permalink to this term" href="#Mode=">¶</a></dt><dd><p>The MACVLAN mode to use. The supported options are
           "<code class="literal">private</code>",
           "<code class="literal">vepa</code>",
           "<code class="literal">bridge</code>", and
           "<code class="literal">passthru</code>".
-          </p></dd></dl></div></div><div class="refsect1"><a name="idm140504086282224"></a><h2 id="[IPVLAN] Section Options">[IPVLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BIPVLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[IPVLAN]</code>" section only applies for
+          </p></dd></dl></div></div><div class="refsect1"><a name="idm139691877302272"></a><h2 id="[IPVLAN] Section Options">[IPVLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BIPVLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[IPVLAN]</code>" section only applies for
     netdevs of kind "<code class="literal">ipvlan</code>", and accepts the
     following key:</p><div class="variablelist"><dl class="variablelist"><dt id="Mode="><span class="term"><code class="varname">Mode=</code></span><a class="headerlink" title="Permalink to this term" href="#Mode=">¶</a></dt><dd><p>The IPVLAN mode to use. The supported options are
             "<code class="literal">L2</code>" and "<code class="literal">L3</code>".
-            </p></dd></dl></div></div><div class="refsect1"><a name="idm140504086276288"></a><h2 id="[VXLAN] Section Options">[VXLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BVXLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[VXLAN]</code>" section only applies for
+            </p></dd></dl></div></div><div class="refsect1"><a name="idm139691877296256"></a><h2 id="[VXLAN] Section Options">[VXLAN] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BVXLAN%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[VXLAN]</code>" section only applies for
     netdevs of kind "<code class="literal">vxlan</code>", and accepts the
     following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Id="><span class="term"><code class="varname">Id=</code></span><a class="headerlink" title="Permalink to this term" href="#Id=">¶</a></dt><dd><p>The VXLAN ID to use.</p></dd><dt id="Group="><span class="term"><code class="varname">Group=</code></span><a class="headerlink" title="Permalink to this term" href="#Group=">¶</a></dt><dd><p>An assigned multicast group IP address.</p></dd><dt id="TOS="><span class="term"><code class="varname">TOS=</code></span><a class="headerlink" title="Permalink to this term" href="#TOS=">¶</a></dt><dd><p>The Type Of Service byte value for a vxlan interface.</p></dd><dt id="TTL="><span class="term"><code class="varname">TTL=</code></span><a class="headerlink" title="Permalink to this term" href="#TTL=">¶</a></dt><dd><p>A fixed Time To Live N on Virtual eXtensible Local
           Area Network packets. N is a number in the range 1-255. 0
@@ -106,7 +106,7 @@
           the kernel in seconds.</p></dd><dt id="ARPProxy="><span class="term"><code class="varname">ARPProxy=</code></span><a class="headerlink" title="Permalink to this term" href="#ARPProxy=">¶</a></dt><dd><p>A boolean. When true, enables ARP proxy.</p></dd><dt id="L2MissNotification="><span class="term"><code class="varname">L2MissNotification=</code></span><a class="headerlink" title="Permalink to this term" href="#L2MissNotification=">¶</a></dt><dd><p>A boolean. When true, enables netlink LLADDR miss
           notifications.</p></dd><dt id="L3MissNotification="><span class="term"><code class="varname">L3MissNotification=</code></span><a class="headerlink" title="Permalink to this term" href="#L3MissNotification=">¶</a></dt><dd><p>A boolean. When true, enables netlink IP ADDR miss
           notifications.</p></dd><dt id="RouteShortCircuit="><span class="term"><code class="varname">RouteShortCircuit=</code></span><a class="headerlink" title="Permalink to this term" href="#RouteShortCircuit=">¶</a></dt><dd><p>A boolean. When true route short circuit is turned
-          on.</p></dd></dl></div></div><div class="refsect1"><a name="idm140504086255920"></a><h2 id="[Tunnel] Section Options">[Tunnel] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BTunnel%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Tunnel]</code>" section only applies for
+          on.</p></dd><dt id="UDPCheckSum="><span class="term"><code class="varname">UDPCheckSum=</code></span><a class="headerlink" title="Permalink to this term" href="#UDPCheckSum=">¶</a></dt><dd><p>A boolean. When true transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</p></dd><dt id="UDP6ZeroChecksumTx="><span class="term"><code class="varname">UDP6ZeroChecksumTx=</code></span><a class="headerlink" title="Permalink to this term" href="#UDP6ZeroChecksumTx=">¶</a></dt><dd><p>A boolean. When true sending zero checksums in VXLAN/IPv6 is turned on.</p></dd><dt id="UDP6ZeroCheckSumRx="><span class="term"><code class="varname">UDP6ZeroCheckSumRx=</code></span><a class="headerlink" title="Permalink to this term" href="#UDP6ZeroCheckSumRx=">¶</a></dt><dd><p>A boolean. When true receiving zero checksums in VXLAN/IPv6 is turned on.</p></dd></dl></div></div><div class="refsect1"><a name="idm139691877270624"></a><h2 id="[Tunnel] Section Options">[Tunnel] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BTunnel%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Tunnel]</code>" section only applies for
     netdevs of kind
     "<code class="literal">ipip</code>",
     "<code class="literal">sit</code>",
@@ -114,7 +114,8 @@
     "<code class="literal">gretap</code>",
     "<code class="literal">ip6gre</code>",
     "<code class="literal">ip6gretap</code>",
-    "<code class="literal">vti</code>", and
+    "<code class="literal">vti</code>",
+    "<code class="literal">vti6</code>", and
     "<code class="literal">ip6tnl</code>" and accepts
     the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Local="><span class="term"><code class="varname">Local=</code></span><a class="headerlink" title="Permalink to this term" href="#Local=">¶</a></dt><dd><p>A static local address for tunneled packets. It must
           be an address on another interface of this host.</p></dd><dt id="Remote="><span class="term"><code class="varname">Remote=</code></span><a class="headerlink" title="Permalink to this term" href="#Remote=">¶</a></dt><dd><p>The remote endpoint of the tunnel.</p></dd><dt id="TOS="><span class="term"><code class="varname">TOS=</code></span><a class="headerlink" title="Permalink to this term" href="#TOS=">¶</a></dt><dd><p>The Type Of Service byte value for a tunnel interface.
@@ -131,12 +132,12 @@
           "<code class="literal">ip6ip6</code>" for IPv6 over IPv6,
           "<code class="literal">ipip6</code>" for IPv4 over IPv6 or
           "<code class="literal">any</code>" for either.
-          </p></dd></dl></div></div><div class="refsect1"><a name="idm140504086234704"></a><h2 id="[Peer] Section Options">[Peer] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BPeer%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Peer]</code>" section only applies for
+          </p></dd></dl></div></div><div class="refsect1"><a name="idm139691877248784"></a><h2 id="[Peer] Section Options">[Peer] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BPeer%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Peer]</code>" section only applies for
       netdevs of kind "<code class="literal">veth</code>" and accepts the
       following key:</p><div class="variablelist"><dl class="variablelist"><dt id="Name="><span class="term"><code class="varname">Name=</code></span><a class="headerlink" title="Permalink to this term" href="#Name=">¶</a></dt><dd><p>The interface name used when creating the netdev.
             This option is compulsory.</p></dd><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The peer MACAddress, if not set it is generated in
             the same way as the MAC address of the main
-            interface.</p></dd></dl></div></div><div class="refsect1"><a name="idm140504086228096"></a><h2 id="[Tun] Section Options">[Tun] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BTun%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Tun]</code>" section only applies for
+            interface.</p></dd></dl></div></div><div class="refsect1"><a name="idm139691877242176"></a><h2 id="[Tun] Section Options">[Tun] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BTun%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Tun]</code>" section only applies for
     netdevs of kind "<code class="literal">tun</code>", and accepts the following
     keys:</p><div class="variablelist"><dl class="variablelist"><dt id="OneQueue="><span class="term"><code class="varname">OneQueue=</code></span><a class="headerlink" title="Permalink to this term" href="#OneQueue=">¶</a></dt><dd><p>Takes a boolean argument. Configures whether
         all packets are queued at the device (enabled), or a fixed
@@ -146,14 +147,14 @@
         to use multiple file descriptors (queues) to parallelize
         packets sending and receiving. Defaults to
         "<code class="literal">no</code>".</p></dd><dt id="PacketInfo="><span class="term"><code class="varname">PacketInfo=</code></span><a class="headerlink" title="Permalink to this term" href="#PacketInfo=">¶</a></dt><dd><p>Takes a boolean argument. Configures whether
-        packets should be prepened with four extra bytes (two flag
+        packets should be prepended with four extra bytes (two flag
         bytes and two protocol bytes). If disabled it indicates that
         the packets will be pure IP packets. Defaults to
         "<code class="literal">no</code>".</p></dd><dt id="User="><span class="term"><code class="varname">User=</code></span><a class="headerlink" title="Permalink to this term" href="#User=">¶</a></dt><dd><p>User to grant access to the
         <code class="filename">/dev/net/tun</code> device.</p></dd><dt id="Group="><span class="term"><code class="varname">Group=</code></span><a class="headerlink" title="Permalink to this term" href="#Group=">¶</a></dt><dd><p>Group to grant access to the
-        <code class="filename">/dev/net/tun</code> device.</p></dd></dl></div></div><div class="refsect1"><a name="idm140504086212992"></a><h2 id="[Tap] Section Options">[Tap] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BTap%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Tap]</code>" section only applies for
+        <code class="filename">/dev/net/tun</code> device.</p></dd></dl></div></div><div class="refsect1"><a name="idm139691877227072"></a><h2 id="[Tap] Section Options">[Tap] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BTap%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Tap]</code>" section only applies for
     netdevs of kind "<code class="literal">tap</code>", and accepts the same keys
-    as the "<code class="literal">[Tun]</code>" section.</p></div><div class="refsect1"><a name="idm140504086209968"></a><h2 id="[Bond] Section Options">[Bond] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BBond%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Bond]</code>" section accepts the following
+    as the "<code class="literal">[Tun]</code>" section.</p></div><div class="refsect1"><a name="idm139691877224048"></a><h2 id="[Bond] Section Options">[Bond] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BBond%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Bond]</code>" section accepts the following
     key:</p><div class="variablelist"><dl class="variablelist"><dt id="Mode="><span class="term"><code class="varname">Mode=</code></span><a class="headerlink" title="Permalink to this term" href="#Mode=">¶</a></dt><dd><p>Specifies one of the bonding policies. The default is
           "<code class="literal">balance-rr</code>" (round robin). Possible values are
           "<code class="literal">balance-rr</code>",
@@ -187,9 +188,82 @@
           0.</p></dd><dt id="DownDelaySec="><span class="term"><code class="varname">DownDelaySec=</code></span><a class="headerlink" title="Permalink to this term" href="#DownDelaySec=">¶</a></dt><dd><p>Specifies the delay before a link is disabled after a
           link down status has been detected. This value is rounded
           down to a multiple of MIIMonitorSec. The default value is
-          0.</p></dd></dl></div></div><div class="refsect1"><a name="idm140504086185664"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140504086185024"></a><p class="title"><b>Example 1. /etc/systemd/network/bridge.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+          0.</p></dd><dt id="LearnPacketIntervalSec="><span class="term"><code class="varname">LearnPacketIntervalSec=</code></span><a class="headerlink" title="Permalink to this term" href="#LearnPacketIntervalSec=">¶</a></dt><dd><p>Specifies the number of seconds between instances where the bonding
+          driver sends learning packets to each slaves peer switch.
+          The valid range is 1 - 0x7fffffff; the default value is 1. This Option
+          has effect only in balance-tlb and balance-alb modes.</p></dd><dt id="AdSelect="><span class="term"><code class="varname">AdSelect=</code></span><a class="headerlink" title="Permalink to this term" href="#AdSelect=">¶</a></dt><dd><p>Specifies the 802.3ad aggregation selection logic to use. Possible values are
+          "<code class="literal">stable</code>",
+          "<code class="literal">bandwidth</code>",
+          "<code class="literal">count</code>"
+          </p></dd><dt id="FailOverMACPolicy="><span class="term"><code class="varname">FailOverMACPolicy=</code></span><a class="headerlink" title="Permalink to this term" href="#FailOverMACPolicy=">¶</a></dt><dd><p>Specifies whether active-backup mode should set all slaves to
+          the same MAC address at enslavement or, when enabled, perform special handling of the
+          bond's MAC address in accordance with the selected policy. The default policy is none.
+          Possible values are
+          "<code class="literal">none</code>",
+          "<code class="literal">active</code>",
+          "<code class="literal">follow</code>"
+          </p></dd><dt id="ARPValidate="><span class="term"><code class="varname">ARPValidate=</code></span><a class="headerlink" title="Permalink to this term" href="#ARPValidate=">¶</a></dt><dd><p>Specifies whether or not ARP probes and replies should be
+          validated in any mode that supports ARP monitoring, or whether
+          non-ARP traffic should be filtered (disregarded) for link
+          monitoring purposes. Possible values are
+          "<code class="literal">none</code>",
+          "<code class="literal">active</code>",
+          "<code class="literal">backup</code>",
+          "<code class="literal">all</code>"
+          </p></dd><dt id="ARPIntervalSec="><span class="term"><code class="varname">ARPIntervalSec=</code></span><a class="headerlink" title="Permalink to this term" href="#ARPIntervalSec=">¶</a></dt><dd><p>Specifies the ARP link monitoring frequency in milliseconds.
+          A value of 0 disables ARP monitoring. The default value is 0.
+          </p></dd><dt id="ARPIPTargets="><span class="term"><code class="varname">ARPIPTargets=</code></span><a class="headerlink" title="Permalink to this term" href="#ARPIPTargets=">¶</a></dt><dd><p>Specifies the IP addresses to use as ARP monitoring peers when
+          ARPIntervalSec is greater than 0. These are the targets of the ARP request
+          sent to determine the health of the link to the targets.
+          Specify these values in ipv4 dotted decimal format. At least one IP
+          address must be given for ARP monitoring to function. The
+          maximum number of targets that can be specified is 16. The
+          default value is no IP addresses.
+          </p></dd><dt id="ARPAllTargets="><span class="term"><code class="varname">ARPAllTargets=</code></span><a class="headerlink" title="Permalink to this term" href="#ARPAllTargets=">¶</a></dt><dd><p>Specifies the quantity of ARPIPTargets that must be reachable
+          in order for the ARP monitor to consider a slave as being up.
+          This option affects only active-backup mode for slaves with
+          ARPValidate enabled. Possible values are
+          "<code class="literal">any</code>",
+          "<code class="literal">all</code>"
+          </p></dd><dt id="PrimaryReselectPolicy="><span class="term"><code class="varname">PrimaryReselectPolicy=</code></span><a class="headerlink" title="Permalink to this term" href="#PrimaryReselectPolicy=">¶</a></dt><dd><p>Specifies the reselection policy for the primary slave.  This
+          affects how the primary slave is chosen to become the active slave
+          when failure of the active slave or recovery of the primary slave
+          occurs. This option is designed to prevent flip-flopping between
+          the primary slave and other slaves.  Possible values are
+          "<code class="literal">always</code>",
+          "<code class="literal">better</code>",
+          "<code class="literal">failure</code>"
+          </p></dd><dt id="ResendIGMP="><span class="term"><code class="varname">ResendIGMP=</code></span><a class="headerlink" title="Permalink to this term" href="#ResendIGMP=">¶</a></dt><dd><p>Specifies the number of IGMP membership reports to be issued after
+          a failover event. One membership report is issued immediately after
+          the failover, subsequent packets are sent in each 200ms interval.
+          The valid range is (0 - 255). Defaults to 1. A value of 0
+          prevents the IGMP membership report from being issued in response
+          to the failover event.
+          </p></dd><dt id="PacketsPerSlave="><span class="term"><code class="varname">PacketsPerSlave=</code></span><a class="headerlink" title="Permalink to this term" href="#PacketsPerSlave=">¶</a></dt><dd><p> Specify the number of packets to transmit through a slave before
+            moving to the next one. When set to 0 then a slave is chosen at
+            random.The valid range is (0 - 65535). Defaults to 1. This option
+            has effect only in balance-rr mode.
+          </p></dd><dt id="GratuitousARP="><span class="term"><code class="varname">GratuitousARP=</code></span><a class="headerlink" title="Permalink to this term" href="#GratuitousARP=">¶</a></dt><dd><p>Specify the number of peer notifications (gratuitous ARPs and
+            unsolicited IPv6 Neighbor Advertisements) to be issued after a
+            failover event.  As soon as the link is up on the new slave
+            a peer notification is sent on the  bonding device and each
+            VLAN sub-device.  This is repeated at each link monitor interval
+            (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
+            greater than 1. The valid range is (0 - 255). Default value is 1.
+            These options affect only the active-backup mode.
+          </p></dd><dt id="AllSlavesActive="><span class="term"><code class="varname">AllSlavesActive=</code></span><a class="headerlink" title="Permalink to this term" href="#AllSlavesActive=">¶</a></dt><dd><p> A boolean. Specifies that duplicate frames (received on inactive ports)
+          should be dropped false or delivered true. Normally, bonding will drop
+          duplicate frames (received on inactive ports), which is desirable for
+          most users. But there are some times it is nice to allow duplicate
+          frames to be delivered. The default value is false (drop duplicate frames
+          received on inactive ports).
+          </p></dd><dt id="MinLinks="><span class="term"><code class="varname">MinLinks=</code></span><a class="headerlink" title="Permalink to this term" href="#MinLinks=">¶</a></dt><dd><p>Specifies the minimum number of links that must be active before
+          asserting carrier. The default value is 0.
+          </p></dd></dl></div><p>For more detail information see
+    <a class="ulink" href="https://www.kernel.org/doc/Documentation/networking/bonding.txt" target="_top">
+    Linux Ethernet Bonding Driver HOWTO</a></p></div><div class="refsect1"><a name="idm139691877163536"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm139691877162896"></a><p class="title"><b>Example 1. /etc/systemd/network/bridge.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=bridge0
-Kind=bridge</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086183632"></a><p class="title"><b>Example 2. /etc/systemd/network/vlan1.netdev</b></p><div class="example-contents"><pre class="programlisting">[Match]
+Kind=bridge</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877161504"></a><p class="title"><b>Example 2. /etc/systemd/network/vlan1.netdev</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Virtualization=no
 
 [NetDev]
@@ -197,7 +271,7 @@ Name=vlan1
 Kind=vlan
 
 [VLAN]
-Id=1</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086182160"></a><p class="title"><b>Example 3. /etc/systemd/network/ipip.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+Id=1</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877160032"></a><p class="title"><b>Example 3. /etc/systemd/network/ipip.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=ipip-tun
 Kind=ipip
 MTUBytes=1480
@@ -205,42 +279,42 @@ MTUBytes=1480
 [Tunnel]
 Local=192.168.223.238
 Remote=192.169.224.239
-TTL=64</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086180640"></a><p class="title"><b>Example 4. /etc/systemd/network/tap.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+TTL=64</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877158512"></a><p class="title"><b>Example 4. /etc/systemd/network/tap.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=tap-test
 Kind=tap
 
 [Tap]
 MultiQueue=true
-PacketInfo=true</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086179168"></a><p class="title"><b>Example 5. /etc/systemd/network/sit.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+PacketInfo=true</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877157040"></a><p class="title"><b>Example 5. /etc/systemd/network/sit.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=sit-tun
 Kind=sit
 MTUBytes=1480
 
 [Tunnel]
 Local=10.65.223.238
-Remote=10.65.223.239</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086177664"></a><p class="title"><b>Example 6. /etc/systemd/network/gre.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+Remote=10.65.223.239</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877155536"></a><p class="title"><b>Example 6. /etc/systemd/network/gre.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=gre-tun
 Kind=gre
 MTUBytes=1480
 
 [Tunnel]
 Local=10.65.223.238
-Remote=10.65.223.239</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086176160"></a><p class="title"><b>Example 7. /etc/systemd/network/vti.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+Remote=10.65.223.239</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877154032"></a><p class="title"><b>Example 7. /etc/systemd/network/vti.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=vti-tun
 Kind=vti
 MTUBytes=1480
 
 [Tunnel]
 Local=10.65.223.238
-Remote=10.65.223.239</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086174656"></a><p class="title"><b>Example 8. /etc/systemd/network/veth.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+Remote=10.65.223.239</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877152528"></a><p class="title"><b>Example 8. /etc/systemd/network/veth.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=veth-test
 Kind=veth
 
 [Peer]
-Name=veth-peer</pre></div></div><br class="example-break"><div class="example"><a name="idm140504086173184"></a><p class="title"><b>Example 9. /etc/systemd/network/dummy.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
+Name=veth-peer</pre></div></div><br class="example-break"><div class="example"><a name="idm139691877151056"></a><p class="title"><b>Example 9. /etc/systemd/network/dummy.netdev</b></p><div class="example-contents"><pre class="programlisting">[NetDev]
 Name=dummy-test
 Kind=dummy
-MACAddress=12:34:56:78:9a:bc</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140504086171584"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+MACAddress=12:34:56:78:9a:bc</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139691877149456"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-networkd.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd</span>(8)</span></a>,
       <a href="systemd.link.html"><span class="citerefentry"><span class="refentrytitle">systemd.link</span>(5)</span></a>,

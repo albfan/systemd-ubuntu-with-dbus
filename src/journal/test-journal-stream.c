@@ -22,13 +22,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "systemd/sd-journal.h"
-
-#include "journal-file.h"
-#include "journal-internal.h"
+#include "sd-journal.h"
 #include "util.h"
 #include "log.h"
 #include "macro.h"
+#include "rm-rf.h"
+#include "journal-file.h"
+#include "journal-internal.h"
 
 #define N_ENTRIES 200
 
@@ -42,7 +42,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
                 const void *d;
                 char *k, *c;
                 size_t l;
-                unsigned u;
+                unsigned u = 0;
 
                 assert_se(sd_journal_get_cursor(j, &k) >= 0);
                 printf("cursor: %s\n", k);
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
         SD_JOURNAL_FOREACH_UNIQUE(j, data, l)
                 printf("%.*s\n", (int) l, (const char*) data);
 
-        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
         return 0;
 }

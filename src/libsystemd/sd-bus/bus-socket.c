@@ -20,18 +20,16 @@
 ***/
 
 #include <endian.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
-#include <byteswap.h>
 
 #include "util.h"
 #include "macro.h"
 #include "missing.h"
-#include "strv.h"
 #include "utf8.h"
 #include "sd-daemon.h"
+#include "formats-util.h"
 
 #include "sd-bus.h"
 #include "bus-socket.h"
@@ -179,7 +177,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* We expect two response lines: "OK" and possibly
          * "AGREE_UNIX_FD" */
 
-        e = memmem(b->rbuffer, b->rbuffer_size, "\r\n", 2);
+        e = memmem_safe(b->rbuffer, b->rbuffer_size, "\r\n", 2);
         if (!e)
                 return 0;
 
@@ -494,7 +492,7 @@ static int bus_socket_auth_verify(sd_bus *b) {
 
 static int bus_socket_read_auth(sd_bus *b) {
         struct msghdr mh;
-        struct iovec iov;
+        struct iovec iov = {};
         size_t n;
         ssize_t k;
         int r;
@@ -529,7 +527,6 @@ static int bus_socket_read_auth(sd_bus *b) {
 
         b->rbuffer = p;
 
-        zero(iov);
         iov.iov_base = (uint8_t*) b->rbuffer + b->rbuffer_size;
         iov.iov_len = n - b->rbuffer_size;
 
@@ -609,10 +606,10 @@ void bus_socket_setup(sd_bus *b) {
         /* Enable SO_PASSCRED + SO_PASSEC. We try this on any
          * socket, just in case. */
         enable = !b->bus_client;
-        (void)setsockopt(b->input_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
+        (void) setsockopt(b->input_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
 
         enable = !b->bus_client && (b->attach_flags & KDBUS_ATTACH_SECLABEL);
-        (void)setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
+        (void) setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
 
         /* Increase the buffers to 8 MB */
         fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
@@ -810,22 +807,20 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         if (bus->prefer_writev)
                 k = writev(bus->output_fd, iov, m->n_iovec);
         else {
-                struct msghdr mh;
-                zero(mh);
+                struct msghdr mh = {
+                        .msg_iov = iov,
+                        .msg_iovlen = m->n_iovec,
+                };
 
                 if (m->n_fds > 0) {
                         struct cmsghdr *control;
-                        control = alloca(CMSG_SPACE(sizeof(int) * m->n_fds));
 
-                        mh.msg_control = control;
+                        mh.msg_control = control = alloca(CMSG_SPACE(sizeof(int) * m->n_fds));
+                        mh.msg_controllen = control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
                         control->cmsg_level = SOL_SOCKET;
                         control->cmsg_type = SCM_RIGHTS;
-                        mh.msg_controllen = control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
                         memcpy(CMSG_DATA(control), m->fds, sizeof(int) * m->n_fds);
                 }
-
-                mh.msg_iov = iov;
-                mh.msg_iovlen = m->n_iovec;
 
                 k = sendmsg(bus->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
                 if (k < 0 && errno == ENOTSOCK) {
@@ -917,8 +912,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         r = bus_message_from_malloc(bus,
                                     bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
-                                    !bus->bus_client && bus->ucred_valid ? &bus->ucred : NULL,
-                                    !bus->bus_client && bus->label[0] ? bus->label : NULL,
+                                    NULL,
+                                    NULL,
                                     &t);
         if (r < 0) {
                 free(b);
@@ -938,7 +933,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
 
 int bus_socket_read_message(sd_bus *bus) {
         struct msghdr mh;
-        struct iovec iov;
+        struct iovec iov = {};
         ssize_t k;
         size_t need;
         int r;
@@ -968,7 +963,6 @@ int bus_socket_read_message(sd_bus *bus) {
 
         bus->rbuffer = b;
 
-        zero(iov);
         iov.iov_base = (uint8_t*) bus->rbuffer + bus->rbuffer_size;
         iov.iov_len = need - bus->rbuffer_size;
 

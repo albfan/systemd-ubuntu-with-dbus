@@ -19,14 +19,13 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-cryptsetup-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-cryptsetup-generator — Unit generator for <code class="filename">/etc/crypttab</code></p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-cryptsetup-generator</code></p></div><div class="refsect1"><a name="idm140379210259168"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-cryptsetup-generator</code> is a
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-cryptsetup-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-cryptsetup-generator — Unit generator for <code class="filename">/etc/crypttab</code></p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-cryptsetup-generator</code></p></div><div class="refsect1"><a name="idm140579257341904"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-cryptsetup-generator</code> is a
     generator that translates <code class="filename">/etc/crypttab</code> into
     native systemd units early at boot and when configuration of the
     system manager is reloaded. This will create
     <a href="systemd-cryptsetup@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup@.service</span>(8)</span></a>
-    units as necessary.</p><p><code class="filename">systemd-cryptsetup-generator</code>
-    implements the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Generators" target="_top">generator
-    specification</a>.</p></div><div class="refsect1"><a name="idm140379210254000"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-cryptsetup-generator</code>
+    units as necessary.</p><p><code class="filename">systemd-cryptsetup-generator</code> implements
+    <a href="systemd.generator.html"><span class="citerefentry"><span class="refentrytitle">systemd.generator</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140579252432416"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-cryptsetup-generator</code>
     understands the following kernel command line parameters:</p><div class="variablelist"><dl class="variablelist"><dt id="luks="><span class="term"><code class="varname">luks=</code>, </span><span class="term"><code class="varname">rd.luks=</code></span><a class="headerlink" title="Permalink to this term" href="#luks=">¶</a></dt><dd><p>Takes a boolean argument. Defaults to
         "<code class="literal">yes</code>". If "<code class="literal">no</code>", disables the
         generator entirely. <code class="varname">rd.luks=</code> is honored
@@ -80,10 +79,10 @@
         (initrd) while
         <code class="varname">luks.key=</code> is
         honored by both the main system and
-        the initrd.</p></dd></dl></div></div><div class="refsect1"><a name="idm140379214166384"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        the initrd.</p></dd></dl></div></div><div class="refsect1"><a name="idm140579252400272"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="crypttab.html"><span class="citerefentry"><span class="refentrytitle">crypttab</span>(5)</span></a>,
       <a href="systemd-cryptsetup@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup@.service</span>(8)</span></a>,
-      <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>,
+      <a href="http://linux.die.net/man/8/cryptsetup"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>,
       <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>
     </p></div></div></body></html>

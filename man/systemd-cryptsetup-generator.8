@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-CRYPTSETUP\-GENERATOR" "8" "" "systemd 219" "systemd-cryptsetup-generator"
+.TH "SYSTEMD\-CRYPTSETUP\-GENERATOR" "8" "" "systemd 220" "systemd-cryptsetup-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,8 +34,8 @@ into native systemd units early at boot and when configuration of the system man
 units as necessary\&.
 .PP
 systemd\-cryptsetup\-generator
-implements the
-\m[blue]\fBgenerator specification\fR\m[]\&\s-2\u[1]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .SH "KERNEL COMMAND LINE"
 .PP
 systemd\-cryptsetup\-generator
@@ -139,9 +139,3 @@ is honored by both the main system and the initrd\&.
 \fBsystemd-cryptsetup@.service\fR(8),
 \fBcryptsetup\fR(8),
 \fBsystemd-fstab-generator\fR(8)
-.SH "NOTES"
-.IP " 1." 4
-generator specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
-.RE

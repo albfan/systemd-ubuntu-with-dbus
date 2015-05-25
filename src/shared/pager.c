@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,7 +27,9 @@
 
 #include "pager.h"
 #include "util.h"
+#include "process-util.h"
 #include "macro.h"
+#include "terminal-util.h"
 
 static pid_t pager_pid = 0;
 

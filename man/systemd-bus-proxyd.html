@@ -19,12 +19,12 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-bus-proxyd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-bus-proxyd — Connect STDIO or a socket to a given bus address</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">/usr/lib/systemd/systemd-bus-proxyd</code>  [OPTIONS...] [<em class="replaceable"><code>PLACEHOLDER</code></em>]</p></div></div><div class="refsect1"><a name="idm140400108591968"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-bus-proxyd</strong></span> will proxy D-Bus
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-bus-proxyd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-bus-proxyd — Connect STDIO or a socket to a given bus address</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">/usr/lib/systemd/systemd-bus-proxyd</code>  [OPTIONS...] [<em class="replaceable"><code>PLACEHOLDER</code></em>]</p></div></div><div class="refsect1"><a name="idm140441369876528"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-bus-proxyd</strong></span> will proxy D-Bus
     messages to and from a bus. The will be either the system bus or
     the bus specified with <code class="option">--address</code> when that option
     is given. Messages will be proxied to/from standard input and
     output, or the socket received through socket activation.</p><p>This program can be used to connect a program using classic
-    D-Bus to kdbus.</p></div><div class="refsect1"><a name="idm140400104754000"></a><h2 id="Options and Arguments">Options and Arguments<a class="headerlink" title="Permalink to this headline" href="#Options%20and%20Arguments">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--address=ADDRESS:ADDRESS..."><span class="term"><code class="option">--address=<em class="replaceable"><code>ADDRESS</code></em>[<span class="optional">:<em class="replaceable"><code>ADDRESS...</code></em></span>]</code></span><a class="headerlink" title="Permalink to this term" href="#--address=ADDRESS:ADDRESS...">¶</a></dt><dd><p>Connect to the bus specified by
+    D-Bus to kdbus.</p></div><div class="refsect1"><a name="idm140441364975504"></a><h2 id="Options and Arguments">Options and Arguments<a class="headerlink" title="Permalink to this headline" href="#Options%20and%20Arguments">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--address=ADDRESS:ADDRESS..."><span class="term"><code class="option">--address=<em class="replaceable"><code>ADDRESS</code></em>[<span class="optional">:<em class="replaceable"><code>ADDRESS...</code></em></span>]</code></span><a class="headerlink" title="Permalink to this term" href="#--address=ADDRESS:ADDRESS...">¶</a></dt><dd><p>Connect to the bus specified by
           <em class="replaceable"><code>ADDRESS</code></em>. Multiple colon-separated
           addresses can be specified, in which case
           <span class="command"><strong>systemd-bus-proxyd</strong></span> will attempt to
@@ -32,8 +32,8 @@
     </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div><p><em class="replaceable"><code>PLACEHOLDER</code></em>, if given, must be a string
     of "<code class="literal">x</code>" and will be used to display information about
     the process that <span class="command"><strong>systemd-bus-proxyd</strong></span> is forwarding
-    messages for.</p></div><div class="refsect1"><a name="idm140400104744832"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
-      <a href="dbus-daemon.html"><span class="citerefentry"><span class="refentrytitle">dbus-daemon</span>(1)</span></a>,
+    messages for.</p></div><div class="refsect1"><a name="idm140441364967056"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="http://dbus.freedesktop.org/doc/dbus-daemon.1.html"><span class="citerefentry"><span class="refentrytitle">dbus-daemon</span>(1)</span></a>,
       <a class="ulink" href="http://freedesktop.org/wiki/Software/dbus" target="_top">D-Bus</a>,
       <a class="ulink" href="https://code.google.com/p/d-bus/" target="_top">kdbus</a>
     </p></div></div></body></html>

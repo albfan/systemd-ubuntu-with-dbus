@@ -270,4 +270,34 @@
                 <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.hibernate</annotate>
         </action>
 
+        <action id="org.freedesktop.login1.manage">
+                <_description>Manage active sessions, users and seats</_description>
+                <_message>Authentication is required for managing active sessions, users and seats.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.lock-sessions">
+                <_description>Lock or unlock active sessions</_description>
+                <_message>Authentication is required to lock or unlock active sessions.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.set-reboot-to-firmware-setup">
+                <_description>Allow indication to the firmware to boot to setup interface</_description>
+                <_message>Authentication is required to indicate to the firmware to boot to setup interface.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

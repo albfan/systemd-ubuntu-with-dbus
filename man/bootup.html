@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="bootup"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootup — System bootup process</p></div><div class="refsect1"><a name="idm140621163247792"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A number of different components are involved in the system
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="bootup"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootup — System bootup process</p></div><div class="refsect1"><a name="idm140640993133776"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A number of different components are involved in the system
     boot. Immediately after power-up, the system BIOS will do minimal
     hardware initialization, and hand control over to a boot loader
     stored on a persistent storage device. This boot loader will then
@@ -40,7 +40,7 @@
     unmounts/detaches the root file system and the storage it resides
     on. As a last step, the system is powered down.</p><p>Additional information about the system boot process may be
     found in
-    <a href="http://man7.org/linux/man-pages/man7/boot.7.html"><span class="citerefentry"><span class="refentrytitle">boot</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140621163241104"></a><h2 id="System Manager Bootup">System Manager Bootup<a class="headerlink" title="Permalink to this headline" href="#System%20Manager%20Bootup">¶</a></h2><p>At boot, the system manager on the OS image is responsible
+    <a href="http://man7.org/linux/man-pages/man7/boot.7.html"><span class="citerefentry"><span class="refentrytitle">boot</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140640996958240"></a><h2 id="System Manager Bootup">System Manager Bootup<a class="headerlink" title="Permalink to this headline" href="#System%20Manager%20Bootup">¶</a></h2><p>At boot, the system manager on the OS image is responsible
     for initializing the required file systems, services and drivers
     that are necessary for operation of the system. On
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
@@ -87,7 +87,7 @@
          v                  v                  |                    v              <span class="emphasis"><em>rescue.target</em></span>
    timers.target      paths.target             |             sockets.target
          |                  |                  |                    |
-         v                  |_________________ | ___________________/
+         v                  \_________________ | ___________________/
                                               \|/
                                                v
                                          basic.target
@@ -114,7 +114,7 @@
     </p><p><code class="filename">timers.target</code> is pulled-in by
     <code class="filename">basic.target</code> asynchronously. This allows
     timers units to depend on services which become only available
-    later in boot.</p></div><div class="refsect1"><a name="idm140621167127680"></a><h2 id="Bootup in the Initial RAM Disk (initrd)">Bootup in the Initial RAM Disk (initrd)<a class="headerlink" title="Permalink to this headline" href="#Bootup%20in%20the%20Initial%20RAM%20Disk%20(initrd)">¶</a></h2><p>The initial RAM disk implementation (initrd) can be set up
+    later in boot.</p></div><div class="refsect1"><a name="idm140640992322144"></a><h2 id="Bootup in the Initial RAM Disk (initrd)">Bootup in the Initial RAM Disk (initrd)<a class="headerlink" title="Permalink to this headline" href="#Bootup%20in%20the%20Initial%20RAM%20Disk%20(initrd)">¶</a></h2><p>The initial RAM disk implementation (initrd) can be set up
     using systemd as well. In this case, boot up inside the initrd
     follows the following structure.</p><p>The default target in the initrd is
     <code class="filename">initrd.target</code>. The bootup process begins
@@ -186,7 +186,7 @@
                                    initrd-switch-root.service
                                                |
                                                v
-                                     Transition to Host OS</pre></div><div class="refsect1"><a name="idm140621167101792"></a><h2 id="System Manager Shutdown">System Manager Shutdown<a class="headerlink" title="Permalink to this headline" href="#System%20Manager%20Shutdown">¶</a></h2><p>System shutdown with systemd also consists of various target
+                                     Transition to Host OS</pre></div><div class="refsect1"><a name="idm140640992304400"></a><h2 id="System Manager Shutdown">System Manager Shutdown<a class="headerlink" title="Permalink to this headline" href="#System%20Manager%20Shutdown">¶</a></h2><p>System shutdown with systemd also consists of various target
     units with some minimal ordering structure applied:</p><pre class="programlisting">                                  (conflicts with  (conflicts with
                                     all system     all file system
                                      services)     mounts, swaps,
@@ -213,7 +213,7 @@ systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   syste
            |                         |                        |                      |
            v                         v                        v                      v
     <span class="emphasis"><em>reboot.target</em></span>             <span class="emphasis"><em>poweroff.target</em></span>            <span class="emphasis"><em>halt.target</em></span>           <span class="emphasis"><em>kexec.target</em></span></pre><p>Commonly used system shutdown targets are
-    <span class="emphasis"><em>emphasized</em></span>.</p></div><div class="refsect1"><a name="idm140621167095680"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    <span class="emphasis"><em>emphasized</em></span>.</p></div><div class="refsect1"><a name="idm140640992298608"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man7/boot.7.html"><span class="citerefentry"><span class="refentrytitle">boot</span>(7)</span></a>,
       <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>,

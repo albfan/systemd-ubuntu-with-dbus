@@ -16,5 +16,4 @@ ConditionPathIsReadWrite=!/
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-fsck
-StandardOutput=journal+console
 TimeoutSec=0

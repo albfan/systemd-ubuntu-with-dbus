@@ -23,13 +23,15 @@
 #include <linux/capability.h>
 
 #include "util.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
 #include "capability.h"
 #include "cgroup-util.h"
 #include "fileio.h"
 #include "audit.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "time-util.h"
 #include "strv.h"
 #include "bus-creds.h"
 #include "bus-label.h"
@@ -51,7 +53,10 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->unit);
         free(c->user_unit);
         free(c->slice);
+        free(c->user_slice);
         free(c->unescaped_description);
+        free(c->supplementary_gids);
+        free(c->tty);
 
         free(c->well_known_names); /* note that this is an strv, but
                                     * we only free the array, not the
@@ -101,7 +106,9 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->unique_name);
                         free(c->cgroup_root);
                         free(c->description);
+
                         free(c->supplementary_gids);
+                        c->supplementary_gids = NULL;
 
                         strv_free(c->well_known_names);
                         c->well_known_names = NULL;
@@ -127,6 +134,12 @@ _public_ uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c) {
         return c->mask;
 }
 
+_public_ uint64_t sd_bus_creds_get_augmented_mask(const sd_bus_creds *c) {
+        assert_return(c, 0);
+
+        return c->augmented;
+}
+
 sd_bus_creds* bus_creds_new(void) {
         sd_bus_creds *c;
 
@@ -144,7 +157,7 @@ _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t m
         int r;
 
         assert_return(pid >= 0, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
+        assert_return(mask <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
 
         if (pid == 0)
@@ -227,7 +240,6 @@ _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
         return 0;
 }
 
-
 _public_ int sd_bus_creds_get_egid(sd_bus_creds *c, gid_t *egid) {
         assert_return(c, -EINVAL);
         assert_return(egid, -EINVAL);
@@ -281,6 +293,23 @@ _public_ int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid) {
 
         assert(c->pid > 0);
         *pid = c->pid;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_ppid(sd_bus_creds *c, pid_t *ppid) {
+        assert_return(c, -EINVAL);
+        assert_return(ppid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_PPID))
+                return -ENODATA;
+
+        /* PID 1 has no parent process. Let's distuingish the case of
+         * not knowing and not having a parent process by the returned
+         * error code. */
+        if (c->ppid == 0)
+                return -ENXIO;
+
+        *ppid = c->ppid;
         return 0;
 }
 
@@ -338,7 +367,9 @@ _public_ int sd_bus_creds_get_exe(sd_bus_creds *c, const char **ret) {
         if (!(c->mask & SD_BUS_CREDS_EXE))
                 return -ENODATA;
 
-        assert(c->exe);
+        if (!c->exe)
+                return -ENXIO;
+
         *ret = c->exe;
         return 0;
 }
@@ -436,6 +467,33 @@ _public_ int sd_bus_creds_get_slice(sd_bus_creds *c, const char **ret) {
         return 0;
 }
 
+_public_ int sd_bus_creds_get_user_slice(sd_bus_creds *c, const char **ret) {
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_USER_SLICE))
+                return -ENODATA;
+
+        assert(c->cgroup);
+
+        if (!c->user_slice) {
+                const char *shifted;
+
+                r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+                if (r < 0)
+                        return r;
+
+                r = cg_path_get_user_slice(shifted, (char**) &c->user_slice);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = c->user_slice;
+        return 0;
+}
+
 _public_ int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret) {
         int r;
 
@@ -488,8 +546,8 @@ _public_ int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline) {
         if (!(c->mask & SD_BUS_CREDS_CMDLINE))
                 return -ENODATA;
 
-        assert_return(c->cmdline, -ESRCH);
-        assert(c->cmdline);
+        if (!c->cmdline)
+                return -ENXIO;
 
         if (!c->cmdline_array) {
                 c->cmdline_array = strv_parse_nulstr(c->cmdline, c->cmdline_size);
@@ -508,6 +566,9 @@ _public_ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessio
         if (!(c->mask & SD_BUS_CREDS_AUDIT_SESSION_ID))
                 return -ENODATA;
 
+        if (c->audit_session_id == AUDIT_SESSION_INVALID)
+                return -ENXIO;
+
         *sessionid = c->audit_session_id;
         return 0;
 }
@@ -519,7 +580,24 @@ _public_ int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *uid) {
         if (!(c->mask & SD_BUS_CREDS_AUDIT_LOGIN_UID))
                 return -ENODATA;
 
+        if (c->audit_login_uid == UID_INVALID)
+                return -ENXIO;
+
         *uid = c->audit_login_uid;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_tty(sd_bus_creds *c, const char **ret) {
+        assert_return(c, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_TTY))
+                return -ENODATA;
+
+        if (!c->tty)
+                return -ENXIO;
+
+        *ret = c->tty;
         return 0;
 }
 
@@ -593,9 +671,10 @@ static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
         assert(capability >= 0);
         assert(c->capability);
 
-        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
-        if ((unsigned)capability > cap_last_cap())
+        if ((unsigned) capability > cap_last_cap())
                 return 0;
+
+        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
 
         return !!(c->capability[offset * sz + CAP_TO_INDEX(capability)] & CAP_TO_MASK(capability));
 }
@@ -693,32 +772,33 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (!(mask & SD_BUS_CREDS_AUGMENT))
                 return 0;
 
-        missing = mask & ~c->mask;
-        if (missing == 0)
-                return 0;
-
         /* Try to retrieve PID from creds if it wasn't passed to us */
         if (pid <= 0 && (c->mask & SD_BUS_CREDS_PID))
                 pid = c->pid;
-
-        if (tid <= 0 && (c->mask & SD_BUS_CREDS_TID))
-                tid = c->pid;
 
         /* Without pid we cannot do much... */
         if (pid <= 0)
                 return 0;
 
-        if (pid > 0) {
-                c->pid = pid;
-                c->mask |= SD_BUS_CREDS_PID;
-        }
+        /* Try to retrieve TID from creds if it wasn't passed to us */
+        if (tid <= 0 && (c->mask & SD_BUS_CREDS_TID))
+                tid = c->tid;
+
+        /* Calculate what we shall and can add */
+        missing = mask & ~(c->mask|SD_BUS_CREDS_PID|SD_BUS_CREDS_TID|SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_DESCRIPTION|SD_BUS_CREDS_AUGMENT);
+        if (missing == 0)
+                return 0;
+
+        c->pid = pid;
+        c->mask |= SD_BUS_CREDS_PID;
 
         if (tid > 0) {
                 c->tid = tid;
                 c->mask |= SD_BUS_CREDS_TID;
         }
 
-        if (missing & (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID |
+        if (missing & (SD_BUS_CREDS_PPID |
+                       SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID |
                        SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID | SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID |
                        SD_BUS_CREDS_SUPPLEMENTARY_GIDS |
                        SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_INHERITABLE_CAPS |
@@ -741,6 +821,25 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         FOREACH_LINE(line, f, return -errno) {
                                 truncate_nl(line);
 
+                                if (missing & SD_BUS_CREDS_PPID) {
+                                        p = startswith(line, "PPid:");
+                                        if (p) {
+                                                p += strspn(p, WHITESPACE);
+
+                                                /* Explicitly check for PPID 0 (which is the case for PID 1) */
+                                                if (!streq(p, "0")) {
+                                                        r = parse_pid(p, &c->ppid);
+                                                        if (r < 0)
+                                                                return r;
+
+                                                } else
+                                                        c->ppid = 0;
+
+                                                c->mask |= SD_BUS_CREDS_PPID;
+                                                continue;
+                                        }
+                                }
+
                                 if (missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID)) {
                                         p = startswith(line, "Uid:");
                                         if (p) {
@@ -750,10 +849,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                                 if (sscanf(p, "%lu %lu %lu %lu", &uid, &euid, &suid, &fsuid) != 4)
                                                         return -EIO;
 
-                                                c->uid = (uid_t) uid;
-                                                c->euid = (uid_t) euid;
-                                                c->suid = (uid_t) suid;
-                                                c->fsuid = (uid_t) fsuid;
+                                                if (missing & SD_BUS_CREDS_UID)
+                                                        c->uid = (uid_t) uid;
+                                                if (missing & SD_BUS_CREDS_EUID)
+                                                        c->euid = (uid_t) euid;
+                                                if (missing & SD_BUS_CREDS_SUID)
+                                                        c->suid = (uid_t) suid;
+                                                if (missing & SD_BUS_CREDS_FSUID)
+                                                        c->fsuid = (uid_t) fsuid;
+
                                                 c->mask |= missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID);
                                                 continue;
                                         }
@@ -768,10 +872,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                                 if (sscanf(p, "%lu %lu %lu %lu", &gid, &egid, &sgid, &fsgid) != 4)
                                                         return -EIO;
 
-                                                c->gid = (gid_t) gid;
-                                                c->egid = (gid_t) egid;
-                                                c->sgid = (gid_t) sgid;
-                                                c->fsgid = (gid_t) fsgid;
+                                                if (missing & SD_BUS_CREDS_GID)
+                                                        c->gid = (gid_t) gid;
+                                                if (missing & SD_BUS_CREDS_EGID)
+                                                        c->egid = (gid_t) egid;
+                                                if (missing & SD_BUS_CREDS_SGID)
+                                                        c->sgid = (gid_t) sgid;
+                                                if (missing & SD_BUS_CREDS_FSGID)
+                                                        c->fsgid = (gid_t) fsgid;
+
                                                 c->mask |= missing & (SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID);
                                                 continue;
                                         }
@@ -879,7 +988,17 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_EXE) {
                 r = get_process_exe(pid, &c->exe);
-                if (r < 0) {
+                if (r == -ESRCH) {
+                        /* Unfortunately we cannot really distuingish
+                         * the case here where the process does not
+                         * exist, and /proc/$PID/exe being unreadable
+                         * because $PID is a kernel thread. Hence,
+                         * assume it is a kernel thread, and rely on
+                         * that this case is caught with a later
+                         * call. */
+                        c->exe = NULL;
+                        c->mask |= SD_BUS_CREDS_EXE;
+                } else if (r < 0) {
                         if (r != -EPERM && r != -EACCES)
                                 return r;
                 } else
@@ -891,17 +1010,18 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
                 p = procfs_file_alloca(pid, "cmdline");
                 r = read_full_file(p, &c->cmdline, &c->cmdline_size);
+                if (r == -ENOENT)
+                        return -ESRCH;
                 if (r < 0) {
-                        if (r == -ENOENT)
-                                return -ESRCH;
                         if (r != -EPERM && r != -EACCES)
                                 return r;
                 } else {
                         if (c->cmdline_size == 0) {
                                 free(c->cmdline);
                                 c->cmdline = NULL;
-                        } else
-                                c->mask |= SD_BUS_CREDS_CMDLINE;
+                        }
+
+                        c->mask |= SD_BUS_CREDS_CMDLINE;
                 }
         }
 
@@ -912,34 +1032,43 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         return -ENOMEM;
 
                 r = read_one_line_file(p, &c->tid_comm);
+                if (r == -ENOENT)
+                        return -ESRCH;
                 if (r < 0) {
-                        if (r == -ENOENT)
-                                return -ESRCH;
                         if (r != -EPERM && r != -EACCES)
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_TID_COMM;
         }
 
-        if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
+        if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
-                r = cg_pid_get_path(NULL, pid, &c->cgroup);
-                if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
-                                return r;
-                } else {
+                if (!c->cgroup) {
+                        r = cg_pid_get_path(NULL, pid, &c->cgroup);
+                        if (r < 0) {
+                                if (r != -EPERM && r != -EACCES)
+                                        return r;
+                        }
+                }
+
+                if (!c->cgroup_root) {
                         r = cg_get_root_path(&c->cgroup_root);
                         if (r < 0)
                                 return r;
-
-                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
                 }
+
+                if (c->cgroup)
+                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                 r = audit_session_from_pid(pid, &c->audit_session_id);
-                if (r < 0) {
-                        if (r != -ENOTSUP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
+                if (r == -ENXIO) {
+                        /* ENXIO means: no audit session id assigned */
+                        c->audit_session_id = AUDIT_SESSION_INVALID;
+                        c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
+                } else if (r < 0) {
+                        if (r != -EOPNOTSUPP && r != -ENOENT && r != -EPERM && r != -EACCES)
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
@@ -947,12 +1076,42 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 r = audit_loginuid_from_pid(pid, &c->audit_login_uid);
-                if (r < 0) {
-                        if (r != -ENOTSUP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
+                if (r == -ENXIO) {
+                        /* ENXIO means: no audit login uid assigned */
+                        c->audit_login_uid = UID_INVALID;
+                        c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
+                } else if (r < 0) {
+                        if (r != -EOPNOTSUPP && r != -ENOENT && r != -EPERM && r != -EACCES)
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
         }
+
+        if (missing & SD_BUS_CREDS_TTY) {
+                r = get_ctty(pid, NULL, &c->tty);
+                if (r == -ENXIO) {
+                        /* ENXIO means: process has no controlling TTY */
+                        c->tty = NULL;
+                        c->mask |= SD_BUS_CREDS_TTY;
+                } else if (r < 0) {
+                        if (r != -EPERM && r != -EACCES && r != -ENOENT)
+                                return r;
+                } else
+                        c->mask |= SD_BUS_CREDS_TTY;
+        }
+
+        /* In case only the exe path was to be read we cannot
+         * distuingish the case where the exe path was unreadable
+         * because the process was a kernel thread, or when the
+         * process didn't exist at all. Hence, let's do a final check,
+         * to be sure. */
+        if (!pid_is_alive(pid))
+                return -ESRCH;
+
+        if (tid > 0 && tid != pid && !pid_is_unwaited(tid))
+                return -ESRCH;
+
+        c->augmented = missing & c->mask;
 
         return 0;
 }
@@ -977,6 +1136,21 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 return -ENOMEM;
 
         /* Copy the original data over */
+
+        if (c->mask & mask & SD_BUS_CREDS_PID) {
+                n->pid = c->pid;
+                n->mask |= SD_BUS_CREDS_PID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_TID) {
+                n->tid = c->tid;
+                n->mask |= SD_BUS_CREDS_TID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_PPID) {
+                n->ppid = c->ppid;
+                n->mask |= SD_BUS_CREDS_PPID;
+        }
 
         if (c->mask & mask & SD_BUS_CREDS_UID) {
                 n->uid = c->uid;
@@ -1019,24 +1193,22 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                n->supplementary_gids = newdup(gid_t, c->supplementary_gids, c->n_supplementary_gids);
-                if (!n->supplementary_gids)
-                        return -ENOMEM;
-                n->n_supplementary_gids = c->n_supplementary_gids;
+                if (c->supplementary_gids) {
+                        n->supplementary_gids = newdup(gid_t, c->supplementary_gids, c->n_supplementary_gids);
+                        if (!n->supplementary_gids)
+                                return -ENOMEM;
+                        n->n_supplementary_gids = c->n_supplementary_gids;
+                } else {
+                        n->supplementary_gids = NULL;
+                        n->n_supplementary_gids = 0;
+                }
+
                 n->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
         }
 
-        if (c->mask & mask & SD_BUS_CREDS_PID) {
-                n->pid = c->pid;
-                n->mask |= SD_BUS_CREDS_PID;
-        }
-
-        if (c->mask & mask & SD_BUS_CREDS_TID) {
-                n->tid = c->tid;
-                n->mask |= SD_BUS_CREDS_TID;
-        }
-
         if (c->mask & mask & SD_BUS_CREDS_COMM) {
+                assert(c->comm);
+
                 n->comm = strdup(c->comm);
                 if (!n->comm)
                         return -ENOMEM;
@@ -1045,6 +1217,8 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & SD_BUS_CREDS_TID_COMM) {
+                assert(c->tid_comm);
+
                 n->tid_comm = strdup(c->tid_comm);
                 if (!n->tid_comm)
                         return -ENOMEM;
@@ -1053,23 +1227,34 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & SD_BUS_CREDS_EXE) {
-                n->exe = strdup(c->exe);
-                if (!n->exe)
-                        return -ENOMEM;
+                if (c->exe) {
+                        n->exe = strdup(c->exe);
+                        if (!n->exe)
+                                return -ENOMEM;
+                } else
+                        n->exe = NULL;
 
                 n->mask |= SD_BUS_CREDS_EXE;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_CMDLINE) {
-                n->cmdline = memdup(c->cmdline, c->cmdline_size);
-                if (!n->cmdline)
-                        return -ENOMEM;
+                if (c->cmdline) {
+                        n->cmdline = memdup(c->cmdline, c->cmdline_size);
+                        if (!n->cmdline)
+                                return -ENOMEM;
 
-                n->cmdline_size = c->cmdline_size;
+                        n->cmdline_size = c->cmdline_size;
+                } else {
+                        n->cmdline = NULL;
+                        n->cmdline_size = 0;
+                }
+
                 n->mask |= SD_BUS_CREDS_CMDLINE;
         }
 
-        if (c->mask & mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_OWNER_UID)) {
+        if (c->mask & mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_OWNER_UID)) {
+                assert(c->cgroup);
+
                 n->cgroup = strdup(c->cgroup);
                 if (!n->cgroup)
                         return -ENOMEM;
@@ -1078,10 +1263,12 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 if (!n->cgroup_root)
                         return -ENOMEM;
 
-                n->mask |= mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_OWNER_UID);
+                n->mask |= mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (c->mask & mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)) {
+                assert(c->capability);
+
                 n->capability = memdup(c->capability, DIV_ROUND_UP(cap_last_cap(), 32U) * 4 * 4);
                 if (!n->capability)
                         return -ENOMEM;
@@ -1090,6 +1277,8 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                assert(c->label);
+
                 n->label = strdup(c->label);
                 if (!n->label)
                         return -ENOMEM;
@@ -1105,7 +1294,19 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 n->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
         }
 
+        if (c->mask & mask & SD_BUS_CREDS_TTY) {
+                if (c->tty) {
+                        n->tty = strdup(c->tty);
+                        if (!n->tty)
+                                return -ENOMEM;
+                } else
+                        n->tty = NULL;
+                n->mask |= SD_BUS_CREDS_TTY;
+        }
+
         if (c->mask & mask & SD_BUS_CREDS_UNIQUE_NAME) {
+                assert(c->unique_name);
+
                 n->unique_name = strdup(c->unique_name);
                 if (!n->unique_name)
                         return -ENOMEM;
@@ -1113,24 +1314,31 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
-                n->well_known_names = strv_copy(c->well_known_names);
-                if (!n->well_known_names)
-                        return -ENOMEM;
+                if (strv_isempty(c->well_known_names))
+                        n->well_known_names = NULL;
+                else {
+                        n->well_known_names = strv_copy(c->well_known_names);
+                        if (!n->well_known_names)
+                                return -ENOMEM;
+                }
+                n->well_known_names_driver = c->well_known_names_driver;
+                n->well_known_names_local = c->well_known_names_local;
                 n->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_DESCRIPTION) {
+                assert(c->description);
                 n->description = strdup(c->description);
                 if (!n->description)
                         return -ENOMEM;
                 n->mask |= SD_BUS_CREDS_DESCRIPTION;
         }
 
+        n->augmented = c->augmented & n->mask;
+
         /* Get more data */
 
-        r = bus_creds_add_more(n, mask,
-                               c->mask & SD_BUS_CREDS_PID ? c->pid : 0,
-                               c->mask & SD_BUS_CREDS_TID ? c->tid : 0);
+        r = bus_creds_add_more(n, mask, 0, 0);
         if (r < 0)
                 return r;
 

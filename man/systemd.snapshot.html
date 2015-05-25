@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd.snapshot"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.snapshot — Snapshot unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>snapshot</code></em>.snapshot</code></p></div><div class="refsect1"><a name="idm140206793033760"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Snapshot units are not configured via unit configuration
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.snapshot"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.snapshot — Snapshot unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>snapshot</code></em>.snapshot</code></p></div><div class="refsect1"><a name="idm140655644690016"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Snapshot units are not configured via unit configuration
     files. Nonetheless they are named similar to filenames. A unit
     whose name ends in "<code class="literal">.snapshot</code>" refers to a
     dynamic snapshot of the systemd runtime state.</p><p>Snapshots are not configured on disk but created dynamically
@@ -31,7 +31,7 @@
     the user may choose to return to the saved state via
     <span class="command"><strong>systemctl isolate</strong></span>. They are useful to roll back
     to a defined state after temporarily starting/stopping services or
-    similar.</p></div><div class="refsect1"><a name="idm140206793028784"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    similar.</p></div><div class="refsect1"><a name="idm140655639785408"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

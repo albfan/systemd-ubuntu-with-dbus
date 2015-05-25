@@ -24,7 +24,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "systemd/sd-daemon.h"
 
@@ -33,6 +32,7 @@
 #include "log.h"
 #include "build.h"
 #include "env-util.h"
+#include "formats-util.h"
 
 static bool arg_ready = false;
 static pid_t arg_pid = 0;
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (r == 0)
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

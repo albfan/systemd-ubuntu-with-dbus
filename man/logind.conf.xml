@@ -58,11 +58,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These files configure various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para>These files configure various parameters of the systemd
+    login manager,
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
-  <xi:include href="standard-conf.xml" xpointer="confd" />
-  <xi:include href="standard-conf.xml" xpointer="conf" />
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
 
   <refsect1>
     <title>Options</title>
@@ -124,7 +126,7 @@
 
         <para>Note that setting <varname>KillUserProcesses=1</varname>
         will break tools like
-        <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry project='die-net'><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -246,6 +248,21 @@
         <literal>yes</literal>. This means that the lid switch does
         not respect suspend blockers by default, but the power and
         sleep keys do. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HoldoffTimeoutSec=</varname></term>
+
+        <listitem><para>Specifies the timeout after system startup or
+        system resume in which systemd will hold off on reacting to
+        LID events. This is required for the system to properly
+        detect any hotplugged devices so systemd can ignore LID events
+        if external monitors, or docks, are connected. If set to 0,
+        systemd will always react immediately, possibly before the
+        kernel fully probed all hotplugged devices. This is safe, as
+        long as you do not care for systemd to account for devices
+        that have been plugged or unplugged while the system was off.
+        Defaults to 30s.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 219" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 220" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -92,6 +92,12 @@ systemd.index \- List all manpages from the systemd project
 
 .SH "J"
 .PP
+\fBjournal-remote.conf\fR(5)
+\-\- Journal remote service configuration files
+.br
+\fBjournal-remote.conf.d\fR(5)
+\-\- Journal remote service configuration files
+.br
 \fBjournalctl\fR(1)
 \-\- Query the systemd journal
 .br
@@ -230,10 +236,22 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_bus_creds_get_comm\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
-\fBsd_bus_creds_get_connection_name\fR(3)
+\fBsd_bus_creds_get_description\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_egid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_euid\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_exe\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_fsgid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_fsuid\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_gid\fR(3)
@@ -248,19 +266,34 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_bus_creds_get_pid\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
+\fBsd_bus_creds_get_ppid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
 \fBsd_bus_creds_get_selinux_context\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_session\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
+\fBsd_bus_creds_get_sgid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
 \fBsd_bus_creds_get_slice\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_suid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_supplementary_gids\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_tid\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_tid_comm\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_tty\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_uid\fR(3)
@@ -299,11 +332,14 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_bus_creds_unref\fR(3)
 \-\- Retrieve credentials object for the specified PID
 .br
+\fBsd_bus_default\fR(3)
+\-\- Acquire a connection to a system or user bus
+.br
 \fBsd_bus_default_system\fR(3)
-\-\- Open a connection to the system or user bus
+\-\- Acquire a connection to a system or user bus
 .br
 \fBsd_bus_default_user\fR(3)
-\-\- Open a connection to the system or user bus
+\-\- Acquire a connection to a system or user bus
 .br
 \fBsd_bus_error\fR(3)
 \-\- sd\-bus error handling
@@ -392,17 +428,20 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_bus_new\fR(3)
 \-\- Create a new bus object and create or destroy references to it
 .br
-\fBsd_bus_open_system\fR(3)
-\-\- Open a connection to the system or user bus
+\fBsd_bus_open\fR(3)
+\-\- Acquire a connection to a system or user bus
 .br
-\fBsd_bus_open_system_container\fR(3)
-\-\- Open a connection to the system or user bus
+\fBsd_bus_open_system\fR(3)
+\-\- Acquire a connection to a system or user bus
+.br
+\fBsd_bus_open_system_machine\fR(3)
+\-\- Acquire a connection to a system or user bus
 .br
 \fBsd_bus_open_system_remote\fR(3)
-\-\- Open a connection to the system or user bus
+\-\- Acquire a connection to a system or user bus
 .br
 \fBsd_bus_open_user\fR(3)
-\-\- Open a connection to the system or user bus
+\-\- Acquire a connection to a system or user bus
 .br
 \fBsd_bus_path_decode\fR(3)
 \-\- Convert an external identifier into an object path and back
@@ -455,17 +494,29 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_event_default\fR(3)
 \-\- Acquire and release an event loop object
 .br
+\fBsd_event_dispatch\fR(3)
+\-\- Run parts of libsystemd event loop
+.br
 \fBsd_event_get_fd\fR(3)
 \-\- Obtain a file descriptor to poll for event loop events
 .br
 \fBsd_event_get_name\fR(3)
 \-\- Set human\-readable names for event sources
 .br
+\fBsd_event_loop\fR(3)
+\-\- Run libsystemd event loop
+.br
 \fBsd_event_new\fR(3)
 \-\- Acquire and release an event loop object
 .br
+\fBsd_event_prepare\fR(3)
+\-\- Run parts of libsystemd event loop
+.br
 \fBsd_event_ref\fR(3)
 \-\- Acquire and release an event loop object
+.br
+\fBsd_event_run\fR(3)
+\-\- Run libsystemd event loop
 .br
 \fBsd_event_set_name\fR(3)
 \-\- Set human\-readable names for event sources
@@ -493,6 +544,9 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsd_event_unref\fR(3)
 \-\- Acquire and release an event loop object
+.br
+\fBsd_event_wait\fR(3)
+\-\- Run parts of libsystemd event loop
 .br
 \fBsd_get_machine_names\fR(3)
 \-\- Determine available seats, sessions, logged in users and virtual machines/containers
@@ -1193,15 +1247,6 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-shutdown\fR(8)
 \-\- System shutdown logic
 .br
-\fBsystemd-shutdownd\fR(8)
-\-\- Scheduled shutdown service
-.br
-\fBsystemd-shutdownd.service\fR(8)
-\-\- Scheduled shutdown service
-.br
-\fBsystemd-shutdownd.socket\fR(8)
-\-\- Scheduled shutdown service
-.br
 \fBsystemd-sleep\fR(8)
 \-\- System sleep state logic
 .br
@@ -1429,4 +1474,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 450 entries, referring to 199 individual manual pages\&.
+This index contains 465 entries, referring to 201 individual manual pages\&.

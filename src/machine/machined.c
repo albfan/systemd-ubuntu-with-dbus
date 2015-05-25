@@ -20,22 +20,17 @@
 ***/
 
 #include <errno.h>
-#include <pwd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/epoll.h>
 
 #include "sd-daemon.h"
-#include "strv.h"
-#include "conf-parser.h"
 #include "cgroup-util.h"
-#include "mkdir.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "label.h"
 #include "machine-image.h"
 #include "machined.h"
+#include "formats-util.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -199,7 +194,8 @@ static int manager_connect_bus(Manager *m) {
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.DBus.Properties',"
-                             "member='PropertiesChanged'",
+                             "member='PropertiesChanged',"
+                             "arg0='org.freedesktop.systemd1.Unit'",
                              match_properties_changed,
                              m);
         if (r < 0)
@@ -324,6 +320,8 @@ int main(int argc, char *argv[]) {
          * machined is available, so please always make sure this
          * check stays in. */
         mkdir_label("/run/systemd/machines", 0755);
+
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGCHLD, -1) >= 0);
 
         m = manager_new();
         if (!m) {

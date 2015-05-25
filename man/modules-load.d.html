@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="modules-load.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>modules-load.d — Configure kernel modules to load at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/modules-load.d/*.conf</code></p><p><code class="filename">/run/modules-load.d/*.conf</code></p><p><code class="filename">/usr/lib/modules-load.d/*.conf</code></p></div><div class="refsect1"><a name="idm140077402062352"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><a href="systemd-modules-load.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-modules-load.service</span>(8)</span></a>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="modules-load.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>modules-load.d — Configure kernel modules to load at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/modules-load.d/*.conf</code></p><p><code class="filename">/run/modules-load.d/*.conf</code></p><p><code class="filename">/usr/lib/modules-load.d/*.conf</code></p></div><div class="refsect1"><a name="idm140401042229584"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><a href="systemd-modules-load.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-modules-load.service</span>(8)</span></a>
     reads files from the above directories which contain kernel
     modules to load during boot in a static list. Each configuration
     file is named in the style of
@@ -28,7 +28,7 @@
     module loading by PCI IDs, USB IDs, DMI IDs or similar triggers
     encoded in the kernel modules themselves instead of static
     configuration like this. In fact, most modern kernel modules are
-    prepared for automatic loading already.</p></div><div class="refsect1"><a name="idm140077402058768"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files should simply contain a list of
+    prepared for automatic loading already.</p></div><div class="refsect1"><a name="idm140401037321248"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files should simply contain a list of
     kernel module names to load, separated by newlines. Empty lines
     and lines whose first non-whitespace character is # or ; are
     ignored.</p></div><div class="refsection"><a name="confd"></a><h2>Configuration Directories and Precedence</h2><p>Configuration files are read from directories in
@@ -51,10 +51,10 @@
     the vendor, the recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm140077402056512"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140077402055840"></a><p class="title"><b>Example 1. /etc/modules-load.d/virtio-net.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Load virtio-net.ko at boot
-virtio-net</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140077402054192"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    configuration file.</p></div><div class="refsect1"><a name="idm140401037319136"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140401037318496"></a><p class="title"><b>Example 1. /etc/modules-load.d/virtio-net.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Load virtio-net.ko at boot
+virtio-net</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140401037316976"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-modules-load.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-modules-load.service</span>(8)</span></a>,
       <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,
-      <a href="modprobe.html"><span class="citerefentry"><span class="refentrytitle">modprobe</span>(8)</span></a>
+      <a href="http://man7.org/linux/man-pages/man8/modprobe.8.html"><span class="citerefentry"><span class="refentrytitle">modprobe</span>(8)</span></a>
     </p></div></div></body></html>

@@ -25,8 +25,6 @@
 #include "log.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
-#include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "bus-dump.h"
@@ -119,7 +117,7 @@ int main(int argc, char *argv[]) {
         assert_se(r == -EBUSY);
 
         r = sd_bus_process_priority(b, -10, &m);
-        assert_se(r == -ENOMSG);
+        assert_se(r == 0);
 
         r = sd_bus_process(b, &m);
         assert_se(r > 0);

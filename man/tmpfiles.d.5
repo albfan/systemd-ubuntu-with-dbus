@@ -1,5 +1,5 @@
 '\" t
-.TH "TMPFILES\&.D" "5" "" "systemd 219" "tmpfiles.d"
+.TH "TMPFILES\&.D" "5" "" "systemd 220" "tmpfiles.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -72,7 +72,7 @@ override files with the same name in
 /usr/lib/tmpfiles\&.d\&. Packages should install their configuration files in
 /usr/lib/tmpfiles\&.d\&. Files in
 /etc/tmpfiles\&.d
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied\&. All other conflicting entries will be logged as errors\&. When two lines are prefix and suffix of each other, then the prefix is always processed first, the suffix later\&. Otherwise, the files/directories are processed in the order they are listed\&.
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied\&. All other conflicting entries will be logged as errors\&. When two lines are prefix and suffix of each other, then the prefix is always processed first, the suffix later\&. Lines that take globs are applied after those accepting no globs\&. If multiple operations shall be applied on the same file (such as ACL, xattr, file attribute adjustments) these are always done in the same fixed order\&. Otherwise, the files/directories are processed in the order they are listed\&.
 .PP
 If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
@@ -93,6 +93,8 @@ The configuration format is one line per path containing type, path, mode, owner
 .if n \{\
 .RE
 .\}
+.PP
+Fields may be enclosed within quotes and contain C\-style escapes\&.
 .SS "Type"
 .PP
 The type consists of a single letter and optionally an exclamation mark\&.
@@ -101,17 +103,17 @@ The following line types are understood:
 .PP
 \fIf\fR
 .RS 4
-Create a file if it does not exist yet\&. If the argument parameter is given, it will be written to the file\&.
+Create a file if it does not exist yet\&. If the argument parameter is given, it will be written to the file\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIF\fR
 .RS 4
-Create or truncate a file\&. If the argument parameter is given, it will be written to the file\&.
+Create or truncate a file\&. If the argument parameter is given, it will be written to the file\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIw\fR
 .RS 4
-Write the argument parameter to a file, if the file exists\&. Lines of this type accept shell\-style globs in place of normal path names\&. The argument parameter will be written without a trailing newline\&. C\-style backslash escapes are interpreted\&.
+Write the argument parameter to a file, if the file exists\&. Lines of this type accept shell\-style globs in place of normal path names\&. The argument parameter will be written without a trailing newline\&. C\-style backslash escapes are interpreted\&. Follows symlinks\&.
 .RE
 .PP
 \fId\fR
@@ -164,7 +166,7 @@ and a file already exists where the device node is to be created, it will be rem
 .RS 4
 Recursively copy a file or directory, if the destination files or directories do not exist yet\&. Note that this command will not descend into subdirectories if the destination directory already exists\&. Instead, the entire copy operation is skipped\&. If the argument is omitted, files from the source directory
 /usr/share/factory/
-with the same name are copied\&.
+with the same name are copied\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIx\fR
@@ -190,32 +192,61 @@ lines\&. Lines of this type accept shell\-style globs in place of normal path na
 .RS 4
 Remove a file or directory if it exists\&. This may not be used to remove non\-empty directories, use
 \fIR\fR
-for that\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+for that\&. Lines of this type accept shell\-style globs in place of normal path names\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIR\fR
 .RS 4
-Recursively remove a path and all its subdirectories (if it is a directory)\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Recursively remove a path and all its subdirectories (if it is a directory)\&. Lines of this type accept shell\-style globs in place of normal path names\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIz\fR
 .RS 4
-Adjust the access mode, group and user, and restore the SELinux security context of a file or directory, if it exists\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Adjust the access mode, group and user, and restore the SELinux security context of a file or directory, if it exists\&. Lines of this type accept shell\-style globs in place of normal path names\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIZ\fR
 .RS 4
-Recursively set the access mode, group and user, and restore the SELinux security context of a file or directory if it exists, as well as of its subdirectories and the files contained therein (if applicable)\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Recursively set the access mode, group and user, and restore the SELinux security context of a file or directory if it exists, as well as of its subdirectories and the files contained therein (if applicable)\&. Lines of this type accept shell\-style globs in place of normal path names\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIt\fR
 .RS 4
-Set extended attributes\&. Lines of this type accept shell\-style globs in place of normal path names\&. This can be useful for setting SMACK labels\&.
+Set extended attributes\&. Lines of this type accept shell\-style globs in place of normal path names\&. This can be useful for setting SMACK labels\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIT\fR
 .RS 4
-Recursively set extended attributes\&. Lines of this type accept shell\-style globs in place of normal path names\&. This can be useful for setting SMACK labels\&.
+Recursively set extended attributes\&. Lines of this type accept shell\-style globs in place of normal path names\&. This can be useful for setting SMACK labels\&. Does not follow symlinks\&.
+.RE
+.PP
+\fIh\fR
+.RS 4
+Set file/directory attributes\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.sp
+The format of the argument field is
+\fI[+\-=][aAcCdDeijsStTu] \fR\&. The prefix
+\fI+\fR
+(the default one) causes the attribute(s) to be added;
+\fI\-\fR
+causes the attribute(s) to be removed;
+\fI=\fR
+causes the attributes to set exactly as the following letters\&. The letters
+"aAcCdDeijsStTu"
+select the new attributes for the files, see
+\fBchattr\fR(1)
+for further information\&.
+.sp
+Passing only
+\fI=\fR
+as argument resets all the file attributes listed above\&. It has to be pointed out that the
+\fI=\fR
+prefix, limits itself to the attributes corresponding to the letters listed here\&. All other attributes will be left untouched\&. Does not follow symlinks\&.
+.RE
+.PP
+\fIH\fR
+.RS 4
+Recursively set file/directory attributes\&. Lines of this type accept shell\-style globs in place of normal path names\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIa\fR, \fIa+\fR
@@ -223,7 +254,7 @@ Recursively set extended attributes\&. Lines of this type accept shell\-style gl
 Set POSIX ACLs (access control lists)\&. If suffixed with
 \fI+\fR, specified entries will be added to the existing set\&.
 \fBsystemd\-tmpfiles\fR
-will automatically add the required base entries for user and group based on the access mode of the file, unless base entries already exist or are explictly specified\&. The mask will be added if not specified explicitly or already present\&. Lines of this type accept shell\-style globs in place of normal path names\&. This can be useful for allowing additional access to certain files\&.
+will automatically add the required base entries for user and group based on the access mode of the file, unless base entries already exist or are explictly specified\&. The mask will be added if not specified explicitly or already present\&. Lines of this type accept shell\-style globs in place of normal path names\&. This can be useful for allowing additional access to certain files\&. Does not follow symlinks\&.
 .RE
 .PP
 \fIA\fR, \fIA+\fR
@@ -231,7 +262,7 @@ will automatically add the required base entries for user and group based on the
 Same as
 \fIa\fR
 and
-\fIa+\fR, but recursive\&.
+\fIa+\fR, but recursive\&. Does not follow symlinks\&.
 .RE
 .PP
 If the exclamation mark is used, this line is only safe of execute during boot, and can break a running system\&. Lines without the exclamation mark are presumed to be safe to execute at any time, e\&.g\&. on package upgrades\&.
@@ -357,13 +388,18 @@ lines\&.
 .SS "Age"
 .PP
 The date field, when set, is used to decide what files to delete when cleaning\&. If a file or directory is older than the current time minus the age field, it is deleted\&. The field format is a series of integers each followed by one of the following postfixes for the respective time units:
+\fBs\fR,
+\fBm\fR
+or
+\fBmin\fR,
+\fBh\fR,
+\fBd\fR,
+\fBw\fR,
+\fBms\fR,
+\fBus\fR, respectively meaning seconds, minutes, hours, days, weeks, milliseconds, and microseconds\&. Full names of the time units can be used too\&.
 .PP
-\fIs\fR, \fImin\fR, \fIh\fR, \fId\fR, \fIw\fR, \fIms\fR, \fIm\fR, \fIus\fR
-.RS 4
-.RE
-.PP
-If multiple integers and units are specified, the time values are summed up\&. If an integer is given without a unit,
-\fIs\fR
+If multiple integers and units are specified, the time values are summed\&. If an integer is given without a unit,
+\fBs\fR
 is assumed\&.
 .PP
 When the age is set to zero, the files are cleaned unconditionally\&.
@@ -391,10 +427,15 @@ determines the major/minor of the device node, with major and minor formatted as
 \fIw\fR
 may be used to specify a short string that is written to the file, suffixed by a newline\&. For
 \fIC\fR, specifies the source file or directory\&. For
-\fIt\fR
+\fIt\fR,
+\fIT\fR
 determines extended attributes to be set\&. For
-\fIa\fR
-determines ACL attributes to be set\&. Ignored for all other lines\&.
+\fIa\fR,
+\fIA\fR
+determines ACL attributes to be set\&. For
+\fIh\fR,
+\fIH\fR
+determines the file attributes to set\&. Ignored for all other lines\&.
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/tmpfiles.d/screen.conf example\fR
@@ -407,8 +448,8 @@ needs two directories created at boot with specific modes and ownership\&.
 .\}
 .nf
 d /run/screens  1777 root root 10d
-      d /run/uscreens 0755 root root 10d12h
-      t /run/screen \- \- \- \- user\&.name="John Smith" security\&.SMACK64=screen
+d /run/uscreens 0755 root root 10d12h
+t /run/screen \- \- \- \- user\&.name="John Smith" security\&.SMACK64=screen
 .fi
 .if n \{\
 .RE
@@ -424,7 +465,7 @@ needs a directory created at boot with specific mode and ownership and its conte
 .\}
 .nf
 d /var/tmp/abrt 0755 abrt abrt
-      x /var/tmp/abrt/*
+x /var/tmp/abrt/*
 .fi
 .if n \{\
 .RE
@@ -439,4 +480,5 @@ d /var/tmp/abrt 0755 abrt abrt
 \fBgetfattr\fR(1),
 \fBsetfattr\fR(1),
 \fBsetfacl\fR(1),
-\fBgetfacl\fR(1)
+\fBgetfacl\fR(1),
+\fBchattr\fR(1)

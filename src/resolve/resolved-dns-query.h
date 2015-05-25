@@ -21,21 +21,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 
 #include "sd-bus.h"
-#include "util.h"
 #include "set.h"
 
 typedef struct DnsQuery DnsQuery;
 
-#include "resolved-dns-scope.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-stream.h"
-#include "resolved-dns-transaction.h"
-#include "resolved-manager.h"
 
 struct DnsQuery {
         Manager *manager;
@@ -81,6 +75,6 @@ void dns_query_ready(DnsQuery *q);
 
 int dns_query_cname_redirect(DnsQuery *q, const char *name);
 
-int dns_query_bus_track(DnsQuery *q, sd_bus *bus, sd_bus_message *m);
+int dns_query_bus_track(DnsQuery *q, sd_bus_message *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);

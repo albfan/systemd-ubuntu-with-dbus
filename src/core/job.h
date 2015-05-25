@@ -22,8 +22,6 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
-#include <errno.h>
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
@@ -108,9 +106,7 @@ enum JobResult {
 };
 
 #include "sd-event.h"
-#include "manager.h"
 #include "unit.h"
-#include "hashmap.h"
 #include "list.h"
 
 struct JobDependency {
@@ -210,7 +206,7 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) _pure_;
 
 /* Collapses a state-dependent job type into a simpler type by observing
  * the state of the unit which it is going to be applied to. */
-void job_type_collapse(JobType *t, Unit *u);
+JobType job_type_collapse(JobType t, Unit *u);
 
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u);
 

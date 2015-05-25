@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 219" "systemd.network"
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 220" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -54,7 +54,7 @@ The network file contains a
 "[Match]"
 section, which determines if a given network file may be applied to a given device; and a
 "[Network]"
-section specifying how the device should be configured\&. The first (in lexical order) of the network files that matches a given device is applied\&.
+section specifying how the device should be configured\&. The first (in lexical order) of the network files that matches a given device is applied, all later files are ignored, even if they match as well\&.
 .PP
 A network file is said to match a device if each of the entries in the
 "[Match]"
@@ -160,6 +160,10 @@ Enables DHCPv4 and/or DHCPv6 support\&. Accepts
 "no",
 "ipv4", or
 "ipv6"\&.
+.sp
+Please note that by default the domain name specified through DHCP is not used for name resolution\&. See option
+\fBUseDomains=\fR
+below\&.
 .RE
 .PP
 \fIDHCPServer=\fR
@@ -200,6 +204,11 @@ only resolution is enabled, but not announcement\&. Defaults to true\&.
 A boolean\&. When true, enables LLDP link receive support\&.
 .RE
 .PP
+\fIBindCarrier=\fR
+.RS 4
+A port or a list of ports\&. When set, controls the behaviour of the current interface\&. When all ports in the list are in an operational down state, the current interface is brought down\&. When at least one port has carrier, the current interface is brought up\&.
+.RE
+.PP
 \fIAddress=\fR
 .RS 4
 A static IPv4 or IPv6 address and its prefix length, separated by a
@@ -237,13 +246,27 @@ An NTP server address\&. This option may be specified more than once\&.
 Configures IP forwarding for the network interface\&. If enabled incoming packets on the network interface will be forwarded to other interfaces according to the routing table\&. Takes either a boolean argument, or the values
 "ipv4"
 or
-"ipv6", which only enables IP forwarding for the specified address family\&.
+"ipv6", which only enables IP forwarding for the specified address family\&. This controls the
+net\&.ipv4\&.conf\&.<interface>\&.forwarding
+and
+net\&.ipv6\&.conf\&.<interface>\&.forwarding
+sysctl options of the network interface (see
+\m[blue]\fBip\-sysctl\&.txt\fR\m[]\&\s-2\u[1]\d\s+2
+for details about sysctl options)\&. Defaults to
+"no"\&.
+.sp
+Note: unless this option is turned on, no IP forwarding is done on this interface, even if this is globally turned on in the kernel, with the
+net\&.ipv4\&.ip_forward
+and
+net\&.ipv4\&.ip_forward
+sysctl options\&.
 .RE
 .PP
 \fIIPMasquerade=\fR
 .RS 4
 Configures IP masquerading for the network interface\&. If enabled packets forwarded from the network interface will be appear as coming from the local host\&. Takes a boolean argument\&. Implies
-\fIIPForward=yes\fR\&.
+\fIIPForward=ipv4\fR\&. Defaults to
+"no"\&.
 .RE
 .PP
 \fIBridge=\fR
@@ -357,6 +380,16 @@ section accepts the following keys:
 \fIUseDNS=\fR
 .RS 4
 When true (the default), the DNS servers received from the DHCP server will be used and take precedence over any statically configured ones\&.
+.sp
+This corresponds to the
+\fBnameserver\fR
+option in
+\fBresolv.conf\fR(5)\&.
+.RE
+.PP
+\fIUseNTP=\fR
+.RS 4
+When true (the default), the NTP servers received from the DHCP server will be used by systemd\-timesyncd and take precedence over any statically configured ones\&.
 .RE
 .PP
 \fIUseMTU=\fR
@@ -376,7 +409,13 @@ When true (the default), the hostname received from the DHCP server will be used
 .PP
 \fIUseDomains=\fR
 .RS 4
-When true (not the default), the domain name received from the DHCP server will be used for DNS resolution over this link\&.
+When true (not the default), the domain name received from the DHCP server will be used for DNS resolution over this link\&. When a name cannot be resolved as specified, the domain name will be used a suffix and name resolution of that will be attempted\&.
+.sp
+This corresponds to the
+\fBdomain\fR
+option in
+\fBresolv.conf\fR(5)
+and should not be enabled on untrusted networks\&.
 .RE
 .PP
 \fIUseRoutes=\fR
@@ -387,6 +426,15 @@ When true (the default), the static routes will be requested from the DHCP serve
 \fICriticalConnection=\fR
 .RS 4
 When true, the connection will never be torn down even if the DHCP lease expires\&. This is contrary to the DHCP specification, but may be the best choice if, say, the root filesystem relies on this connection\&. Defaults to false\&.
+.RE
+.PP
+\fIClientIdentifier=\fR
+.RS 4
+DHCP client identifier to use\&. Either
+"mac"
+to use the MAC address of the link or
+"duid"
+(the default) to use a RFC4361\-compliant Client ID\&.
 .RE
 .PP
 \fIVendorClassIdentifier=\fR
@@ -461,7 +509,7 @@ Gateway=192\&.168\&.0\&.1
 Name=en*
 
 [Network]
-DHCP=both
+DHCP=yes
 .fi
 .if n \{\
 .RE
@@ -570,3 +618,9 @@ Tunnel=vti\-tun
 \fBsystemd-networkd\fR(8),
 \fBsystemd.link\fR(5),
 \fBsystemd.netdev\fR(5)
+.SH "NOTES"
+.IP " 1." 4
+ip-sysctl.txt
+.RS 4
+\%https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+.RE

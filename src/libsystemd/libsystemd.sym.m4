@@ -63,7 +63,7 @@ global:
         sd_journal_open_files;
         sd_journal_open_container;
 
-        /* sd-dameon */
+        /* sd-daemon */
         sd_booted;
         sd_is_fifo;
         sd_is_mq;
@@ -163,6 +163,12 @@ global:
         sd_pid_notify_with_fds;
 } LIBSYSTEMD_217;
 
+LIBSYSTEMD_220 {
+global:
+        sd_pid_get_user_slice;
+        sd_peer_get_user_slice;
+} LIBSYSTEMD_219;
+
 m4_ifdef(`ENABLE_KDBUS',
 LIBSYSTEMD_FUTURE {
 global:
@@ -185,6 +191,8 @@ global:
         sd_bus_set_trusted;
         sd_bus_set_monitor;
         sd_bus_set_description;
+        sd_bus_set_allow_interactive_authorization;
+        sd_bus_get_allow_interactive_authorization;
         sd_bus_negotiate_fds;
         sd_bus_negotiate_timestamp;
         sd_bus_negotiate_creds;
@@ -320,18 +328,28 @@ global:
         sd_bus_creds_ref;
         sd_bus_creds_unref;
         sd_bus_creds_get_mask;
-        sd_bus_creds_get_uid;
-        sd_bus_creds_get_gid;
+        sd_bus_creds_get_augmented_mask;
         sd_bus_creds_get_pid;
+        sd_bus_creds_get_ppid;
         sd_bus_creds_get_tid;
+        sd_bus_creds_get_uid;
+        sd_bus_creds_get_euid;
+        sd_bus_creds_get_suid;
+        sd_bus_creds_get_fsuid;
+        sd_bus_creds_get_gid;
+        sd_bus_creds_get_egid;
+        sd_bus_creds_get_sgid;
+        sd_bus_creds_get_fsgid;
+        sd_bus_creds_get_supplementary_gids;
         sd_bus_creds_get_comm;
         sd_bus_creds_get_tid_comm;
         sd_bus_creds_get_exe;
         sd_bus_creds_get_cmdline;
         sd_bus_creds_get_cgroup;
         sd_bus_creds_get_unit;
-        sd_bus_creds_get_user_unit;
         sd_bus_creds_get_slice;
+        sd_bus_creds_get_user_unit;
+        sd_bus_creds_get_user_slice;
         sd_bus_creds_get_session;
         sd_bus_creds_get_owner_uid;
         sd_bus_creds_has_effective_cap;
@@ -341,6 +359,7 @@ global:
         sd_bus_creds_get_selinux_context;
         sd_bus_creds_get_audit_session_id;
         sd_bus_creds_get_audit_login_uid;
+        sd_bus_creds_get_tty;
         sd_bus_creds_get_unique_name;
         sd_bus_creds_get_well_known_names;
         sd_bus_creds_get_description;
@@ -454,5 +473,5 @@ global:
         /* sd-path */
         sd_path_home;
         sd_path_search;
-} LIBSYSTEMD_217;
+} LIBSYSTEMD_220;
 )

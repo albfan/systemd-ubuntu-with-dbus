@@ -23,22 +23,21 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/statvfs.h>
 #include <fnmatch.h>
 
 #include "sd-id128.h"
 #include "util.h"
 #include "virt.h"
 #include "path-util.h"
-#include "fileio.h"
 #include "architecture.h"
 #include "smack-util.h"
 #include "apparmor-util.h"
 #include "ima-util.h"
 #include "selinux-util.h"
 #include "audit.h"
-#include "condition.h"
 #include "cap-list.h"
+#include "hostname-util.h"
+#include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -46,7 +45,7 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 
         assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
-        assert(!parameter == (type == CONDITION_NULL));
+        assert((!parameter) == (type == CONDITION_NULL));
 
         c = new0(Condition, 1);
         if (!c)
@@ -102,7 +101,7 @@ static int condition_test_kernel_command_line(Condition *c) {
                 _cleanup_free_ char *word = NULL;
                 bool found;
 
-                r = unquote_first_word(&p, &word, true);
+                r = unquote_first_word(&p, &word, UNQUOTE_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)

@@ -22,8 +22,6 @@
 ***/
 
 #include <sys/socket.h>
-#include <sys/un.h>
-#include <netinet/in.h>
 #include <pthread.h>
 
 #include "hashmap.h"
@@ -211,6 +209,7 @@ struct sd_bus {
         bool manual_peer_interface:1;
         bool is_system:1;
         bool is_user:1;
+        bool allow_interactive_authorization:1;
 
         int use_memfd;
 

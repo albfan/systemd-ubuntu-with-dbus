@@ -21,10 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include "sd-bus.h"
 #include "bus-xml-policy.h"
-#include "util.h"
 
 typedef struct Proxy Proxy;
 
@@ -40,6 +38,7 @@ struct Proxy {
         SharedPolicy *policy;
 
         bool got_hello : 1;
+        bool queue_overflow : 1;
 };
 
 int proxy_new(Proxy **out, int in_fd, int out_fd, const char *dest);

@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
 #include <shadow.h>
@@ -36,10 +35,10 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "utf8.h"
-#include "label.h"
 #include "fileio-label.h"
 #include "uid-range.h"
 #include "selinux-util.h"
+#include "formats-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -81,15 +80,13 @@ static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
-#define fix_root(x) (arg_root ? strjoina(arg_root, x) : x)
-
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *passwd_path;
         struct passwd *pw;
         int r;
 
-        passwd_path = fix_root("/etc/passwd");
+        passwd_path = prefix_roota(arg_root, "/etc/passwd");
         f = fopen(passwd_path, "re");
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
@@ -141,7 +138,7 @@ static int load_group_database(void) {
         struct group *gr;
         int r;
 
-        group_path = fix_root("/etc/group");
+        group_path = prefix_roota(arg_root, "/etc/group");
         f = fopen(group_path, "re");
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
@@ -370,7 +367,7 @@ static int write_files(void) {
                 _cleanup_fclose_ FILE *original = NULL;
 
                 /* First we update the actual group list file */
-                group_path = fix_root("/etc/group");
+                group_path = prefix_roota(arg_root, "/etc/group");
                 r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
                 if (r < 0)
                         goto finish;
@@ -449,7 +446,7 @@ static int write_files(void) {
                 }
 
                 /* OK, now also update the shadow file for the group list */
-                gshadow_path = fix_root("/etc/gshadow");
+                gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
                 r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
                 if (r < 0)
                         goto finish;
@@ -515,7 +512,7 @@ static int write_files(void) {
                 long lstchg;
 
                 /* First we update the user database itself */
-                passwd_path = fix_root("/etc/passwd");
+                passwd_path = prefix_roota(arg_root, "/etc/passwd");
                 r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
                 if (r < 0)
                         goto finish;
@@ -600,10 +597,12 @@ static int write_files(void) {
                 }
 
                 /* The we update the shadow database */
-                shadow_path = fix_root("/etc/shadow");
+                shadow_path = prefix_roota(arg_root, "/etc/shadow");
                 r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
                 if (r < 0)
                         goto finish;
+
+                lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
 
                 original = fopen(shadow_path, "re");
                 if (original) {
@@ -618,8 +617,13 @@ static int write_files(void) {
 
                                 i = hashmap_get(users, sp->sp_namp);
                                 if (i && i->todo_user) {
-                                        r = -EEXIST;
-                                        goto finish;
+                                        /* we will update the existing entry */
+                                        sp->sp_lstchg = lstchg;
+
+                                        /* only the /etc/shadow stage is left, so we can
+                                         * safely remove the item from the todo set */
+                                        i->todo_user = false;
+                                        hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
                                 }
 
                                 errno = 0;
@@ -642,7 +646,6 @@ static int write_files(void) {
                         goto finish;
                 }
 
-                lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
                 HASHMAP_FOREACH(i, todo_uids, iterator) {
                         struct spwd n = {
                                 .sp_namp = i->name,
@@ -797,7 +800,7 @@ static int uid_is_ok(uid_t uid, const char *name) {
 static int root_stat(const char *p, struct stat *st) {
         const char *fix;
 
-        fix = fix_root(p);
+        fix = prefix_roota(arg_root, p);
         if (stat(fix, st) < 0)
                 return -errno;
 
@@ -879,7 +882,6 @@ static int add_user(Item *i) {
 
         if (!arg_root) {
                 struct passwd *p;
-                struct spwd *sp;
 
                 /* Also check NSS */
                 errno = 0;
@@ -895,16 +897,6 @@ static int add_user(Item *i) {
                 }
                 if (!IN_SET(errno, 0, ENOENT))
                         return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
-
-                /* And shadow too, just to be sure */
-                errno = 0;
-                sp = getspnam(i->name);
-                if (sp) {
-                        log_error("User %s already exists in shadow database, but not in user database.", i->name);
-                        return -EBADMSG;
-                }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return log_error_errno(errno, "Failed to check if user %s already exists in shadow database: %m", i->name);
         }
 
         /* Try to use the suggested numeric uid */
@@ -1391,7 +1383,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = unquote_many_words(&p, &action, &name, &id, &description, &home, NULL);
+        r = unquote_many_words(&p, 0, &action, &name, &id, &description, &home, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return r;

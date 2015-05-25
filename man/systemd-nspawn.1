@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 219" "systemd-nspawn"
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 220" "systemd-nspawn"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ or
 .PP
 Note that even though these security precautions are taken
 \fBsystemd\-nspawn\fR
-is not suitable for secure container setups\&. Many of the security features may be circumvented and are hence primarily useful to avoid accidental changes to the host system from the container\&. The intended use of this program is debugging and testing as well as building of packages, distributions and software involved with boot and systems management\&.
+is not suitable for fully secure container setups\&. Many of the security features may be circumvented and are hence primarily useful to avoid accidental changes to the host system from the container\&.
 .PP
 In contrast to
 \fBchroot\fR(1)\ \&\fBsystemd\-nspawn\fR
@@ -91,7 +91,7 @@ is specified, the arguments are used as arguments for the init binary\&. Otherwi
 \fICOMMAND\fR
 specifies the program to launch in the container, and the remaining arguments are used as arguments for this program\&. If
 \fB\-b\fR
-is not used and no arguments are specifed, a shell is launched in the container\&.
+is not used and no arguments are specified, a shell is launched in the container\&.
 .PP
 The following options are understood:
 .PP
@@ -134,6 +134,8 @@ subvolume may be created\&. May not be specified together with
 \fB\-\-image=\fR
 or
 \fB\-\-ephemeral\fR\&.
+.sp
+Note that this switch leaves host name, machine ID and all other settings that could identify the instance unmodified\&.
 .RE
 .PP
 \fB\-x\fR, \fB\-\-ephemeral\fR
@@ -146,6 +148,8 @@ snapshot of its root directory (as configured with
 \fB\-\-image=\fR
 or
 \fB\-\-template=\fR\&.
+.sp
+Note that this switch leaves host name, machine ID and all other settings that could identify the instance unmodified\&.
 .RE
 .PP
 \fB\-i\fR, \fB\-\-image=\fR
@@ -223,7 +227,28 @@ from this if this file is not set yet\&.
 \fB\-\-slice=\fR
 .RS 4
 Make the container part of the specified slice, instead of the default
-machine\&.slice\&.
+machine\&.slice\&. This is only applies if the machine is run in its own scope unit, i\&.e\&. if
+\fB\-\-keep\-unit\fR
+is not used\&.
+.RE
+.PP
+\fB\-\-property=\fR
+.RS 4
+Set a unit property on the scope unit to register for the machine\&. This only applies if the machine is run in its own scope unit, i\&.e\&. if
+\fB\-\-keep\-unit\fR
+is not used\&. Takes unit property assignments in the same format as
+\fBsystemctl set\-property\fR\&. This is useful to set memory limits and similar for machines\&.
+.RE
+.PP
+\fB\-\-private\-users=\fR
+.RS 4
+Enables user namespacing\&. If enabled the container will run with its own private set of Unix user and group ids (UIDs and GIDs)\&. Takes none, one or two colon\-separated parameters: the first parameter specifies the first host UID to assign to the container, the second parameter specifies the number of host UIDs to assign to the container\&. If the second parameter is omitted, 65536 UIDs are assigned\&. If the first parameter is also ommitted (and hence no parameter passed at all), the first UID assigned to the container is read from the owner of the root directory of the container\*(Aqs directory tree\&. By default no user namespacing is applied\&.
+.sp
+Note that user namespacing currently requires OS trees that are prepared for the UID shift that is being applied: UIDs and GIDs used for file ownership or in file ACL entries must be shifted to the container UID base that is used during container runtime\&.
+.sp
+It is recommended to assign as least 65536 UIDs to each container, so that the usable UID range in the container covers 16bit\&. For best security do not assign overlapping UID ranges to multiple containers\&. It is hence a good idea to use the upper 16bit of the host 32bit UIDs as container identifier, while the lower 16bit encode the container UID used\&.
+.sp
+When user namespaces are used the GID range assigned to each container is always chosen identical to the UID range\&.
 .RE
 .PP
 \fB\-\-private\-network\fR
@@ -334,6 +359,16 @@ is passed, all capabilities are retained\&.
 Specify one or more additional capabilities to drop for the container\&. This allows running the container with fewer capabilities than the default (see above)\&.
 .RE
 .PP
+\fB\-\-kill\-signal=\fR
+.RS 4
+Specify the process signal to send to the container\*(Aqs PID 1 when nspawn itself receives SIGTERM, in order to trigger an orderly shutdown of the container\&. Defaults to SIGRTMIN+3 if
+\fB\-\-boot\fR
+is used (on systemd\-compatible init systems SIGRTMIN+3 triggers an orderly shutdown)\&. Takes a signal name like
+"SIGHUP",
+"SIGTERM"
+or similar as argument\&.
+.RE
+.PP
 \fB\-\-link\-journal=\fR
 .RS 4
 Control whether the container\*(Aqs journal shall be made visible to the host system\&. If enabled, allows viewing the container\*(Aqs journal files from the host (but not vice versa)\&. Takes one of
@@ -377,7 +412,7 @@ Mount the root file system read\-only for the container\&.
 .PP
 \fB\-\-bind=\fR, \fB\-\-bind\-ro=\fR
 .RS 4
-Bind mount a file or directory from the host into the container\&. Either takes a path argument \-\- in which case the specified path will be mounted from the host to the same path in the container \-\-, or a colon\-separated pair of paths \-\- in which case the first specified path is the source in the host, and the second path is the destination in the container\&. The
+Bind mount a file or directory from the host into the container\&. Either takes a path argument \-\- in which case the specified path will be mounted from the host to the same path in the container \-\-, or a colon\-separated pair of paths \-\- in which case the first specified path is the source in the host, and the second path is the destination in the container\&. This option may be specified multiple times for creating multiple independent bind mount points\&. The
 \fB\-\-bind\-ro=\fR
 option creates read\-only bind mounts\&.
 .RE
@@ -388,6 +423,26 @@ Mount a tmpfs file system into the container\&. Takes a single absolute path arg
 /var
 as tmpfs, to allow state\-less systems, in particular when combined with
 \fB\-\-read\-only\fR\&.
+.RE
+.PP
+\fB\-\-overlay=\fR, \fB\-\-overlay\-ro=\fR
+.RS 4
+Combine multiple directory trees into one overlay file system and mount it into the container\&. Takes a list of colon\-separated paths to the directory trees to combine and the destination mount point\&.
+.sp
+If three or more paths are specified, then the last specified path is the destination mount point in the container, all paths specified before refer to directory trees on the host and are combined in the specified order into one overlay file system\&. The left\-most path is hence the lowest directory tree, the second\-to\-last path the highest directory tree in the stacking order\&. If
+\fB\-\-overlay\-ro=\fR
+is used instead of
+\fB\-\-overlay=\fR
+a read\-only overlay file system is created\&. If a writable overlay file system is created all changes made to it are written to the highest directory tree in the stacking order, i\&.e\&. the second\-to\-last specified\&.
+.sp
+If only two paths are specified, then the second specified path is used both as the top\-level directory tree in the stacking order as seen from the host, as well as the mount point for the overlay file system in the container\&. At least two paths have to be specified\&.
+.sp
+For details about overlay file systems, see
+\m[blue]\fBoverlayfs\&.txt\fR\m[]\&\s-2\u[3]\d\s+2\&. Note that the semantics of overlay file systems are substantially different from normal file systems, in particular regarding reported device and inode information\&. Device and inode information may change for a file while it is being written to, and processes might see out\-of\-date versions of files at times\&. Note that this switch automatically derives the
+"workdir="
+mount option for the overlay file system from the top\-level directory tree, making it a sibling of it\&. It is hence essential that the top\-level directory tree is not a mount point itself (since the working directory must be on the same file system as the top\-most directory tree)\&. Also note that the
+"lowerdir="
+mount option receives the paths to stack in the opposite order of this switch\&.
 .RE
 .PP
 \fB\-\-setenv=\fR
@@ -551,7 +606,7 @@ and then spawns a shell in a namespace container in it\&.
 .RE
 .\}
 .PP
-This installs a mimimal Arch Linux distribution into the directory
+This installs a minimal Arch Linux distribution into the directory
 ~/arch\-tree/
 and then boots an OS in a namespace container in it\&.
 .PP
@@ -607,4 +662,9 @@ Container Interface
 Discoverable Partitions Specification
 .RS 4
 \%http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
+.RE
+.IP " 3." 4
+overlayfs.txt
+.RS 4
+\%https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt
 .RE

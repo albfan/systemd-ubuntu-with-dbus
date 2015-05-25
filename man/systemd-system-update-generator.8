@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-SYSTEM\-UPDATE\-GENERATOR" "8" "" "systemd 219" "systemd-system-update-generator"
+.TH "SYSTEMD\-SYSTEM\-UPDATE\-GENERATOR" "8" "" "systemd 220" "systemd-system-update-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,8 +35,8 @@ exists\&. This is required to implement the logic explained in the
 \m[blue]\fBSystem Updates Specification\fR\m[]\&\s-2\u[1]\d\s+2\&.
 .PP
 systemd\-system\-update\-generator
-implements the
-\m[blue]\fBgenerator specification\fR\m[]\&\s-2\u[2]\d\s+2\&.
+implements
+\fBsystemd.generator\fR(7)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
@@ -46,9 +46,4 @@ implements the
 System Updates Specification
 .RS 4
 \%http://freedesktop.org/wiki/Software/systemd/SystemUpdates
-.RE
-.IP " 2." 4
-generator specification
-.RS 4
-\%http://www.freedesktop.org/wiki/Software/systemd/Generators
 .RE

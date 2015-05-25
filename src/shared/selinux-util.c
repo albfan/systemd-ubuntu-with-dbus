@@ -20,7 +20,6 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <malloc.h>
 #include <sys/un.h>
 
@@ -117,6 +116,7 @@ void mac_selinux_finish(void) {
                 return;
 
         selabel_close(label_hnd);
+        label_hnd = NULL;
 #endif
 }
 
@@ -146,7 +146,7 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                         r = lsetfilecon(path, fcon);
 
                         /* If the FS doesn't support labels, then exit without warning */
-                        if (r < 0 && errno == ENOTSUP)
+                        if (r < 0 && errno == EOPNOTSUPP)
                                 return 0;
                 }
         }

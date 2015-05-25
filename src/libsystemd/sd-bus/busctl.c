@@ -26,18 +26,17 @@
 #include "log.h"
 #include "build.h"
 #include "pager.h"
-#include "xml.h"
 #include "path-util.h"
 #include "set.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-dump.h"
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "busctl-introspect.h"
+#include "terminal-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;

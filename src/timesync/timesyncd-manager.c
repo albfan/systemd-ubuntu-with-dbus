@@ -21,21 +21,15 @@
 
 #include <stdlib.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
 #include <time.h>
 #include <math.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
 #include <sys/socket.h>
 #include <resolv.h>
-#include <sys/prctl.h>
 #include <sys/types.h>
-#include <grp.h>
 
 #include "missing.h"
 #include "util.h"
@@ -45,13 +39,8 @@
 #include "list.h"
 #include "ratelimit.h"
 #include "strv.h"
-#include "conf-parser.h"
 #include "sd-daemon.h"
-#include "event-util.h"
 #include "network-util.h"
-#include "clock-util.h"
-#include "capability.h"
-#include "mkdir.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "time-util.h"
@@ -680,6 +669,16 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
                   spike ? " (ignored)" : "");
 
+        if (!m->good) {
+                _cleanup_free_ char *pretty = NULL;
+
+                m->good = true;
+
+                server_address_pretty(m->current_server_address, &pretty);
+                log_info("Synchronized to time server %s (%s).", strna(pretty), m->current_server_name->string);
+                sd_notifyf(false, "STATUS=Synchronized to time server %s (%s).", strna(pretty), m->current_server_name->string);
+        }
+
         r = manager_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
                 return log_error_errno(r, "Failed to rearm timer: %m");
@@ -735,13 +734,14 @@ static int manager_begin(Manager *m) {
         assert_return(m->current_server_name, -EHOSTUNREACH);
         assert_return(m->current_server_address, -EHOSTUNREACH);
 
+        m->good = false;
         m->missed_replies = NTP_MAX_MISSED_REPLIES;
         if (m->poll_interval_usec == 0)
                 m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         server_address_pretty(m->current_server_address, &pretty);
-        log_debug("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
-        sd_notifyf(false, "STATUS=Using Time Server %s (%s).", strna(pretty), m->current_server_name->string);
+        log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
+        sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
 
         r = manager_clock_watch_setup(m);
         if (r < 0)

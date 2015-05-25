@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <fcntl.h>
 
 #include "log.h"
@@ -28,8 +27,7 @@
 #include "btrfs-util.h"
 
 int main(int argc, char *argv[]) {
-        int r;
-        int fd;
+        int r, fd;
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)
@@ -51,9 +49,9 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_error_errno(r, "Failed to get quota info: %m");
                 else {
-                        log_info("referred: %s", strna(format_bytes(bs, sizeof(bs), quota.referred)));
+                        log_info("referenced: %s", strna(format_bytes(bs, sizeof(bs), quota.referenced)));
                         log_info("exclusive: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive)));
-                        log_info("referred_max: %s", strna(format_bytes(bs, sizeof(bs), quota.referred_max)));
+                        log_info("referenced_max: %s", strna(format_bytes(bs, sizeof(bs), quota.referenced_max)));
                         log_info("exclusive_max: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive_max)));
                 }
 
@@ -74,33 +72,78 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to write file: %m");
 
-        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest2", false, false);
+        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest2", 0);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
-        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest3", true, false);
+        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest3", BTRFS_SNAPSHOT_READ_ONLY);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
-        r = btrfs_subvol_remove("/xxxtest");
+        r = btrfs_subvol_remove("/xxxtest", false);
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
-        r = btrfs_subvol_remove("/xxxtest2");
+        r = btrfs_subvol_remove("/xxxtest2", false);
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
-        r = btrfs_subvol_remove("/xxxtest3");
+        r = btrfs_subvol_remove("/xxxtest3", false);
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
-        r = btrfs_subvol_snapshot("/etc", "/etc2", true, true);
+        r = btrfs_subvol_snapshot("/etc", "/etc2", BTRFS_SNAPSHOT_READ_ONLY|BTRFS_SNAPSHOT_FALLBACK_COPY);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
-        r = btrfs_subvol_remove("/etc2");
+        r = btrfs_subvol_remove("/etc2", false);
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
+
+        r = btrfs_subvol_make("/xxxrectest");
+        if (r < 0)
+                log_error_errno(r, "Failed to make subvolume: %m");
+
+        r = btrfs_subvol_make("/xxxrectest/xxxrectest2");
+        if (r < 0)
+                log_error_errno(r, "Failed to make subvolume: %m");
+
+        r = btrfs_subvol_make("/xxxrectest/xxxrectest3");
+        if (r < 0)
+                log_error_errno(r, "Failed to make subvolume: %m");
+
+        r = btrfs_subvol_make("/xxxrectest/xxxrectest3/sub");
+        if (r < 0)
+                log_error_errno(r, "Failed to make subvolume: %m");
+
+        if (mkdir("/xxxrectest/dir", 0755) < 0)
+                log_error_errno(errno, "Failed to make directory: %m");
+
+        r = btrfs_subvol_make("/xxxrectest/dir/xxxrectest4");
+        if (r < 0)
+                log_error_errno(r, "Failed to make subvolume: %m");
+
+        if (mkdir("/xxxrectest/dir/xxxrectest4/dir", 0755) < 0)
+                log_error_errno(errno, "Failed to make directory: %m");
+
+        r = btrfs_subvol_make("/xxxrectest/dir/xxxrectest4/dir/xxxrectest5");
+        if (r < 0)
+                log_error_errno(r, "Failed to make subvolume: %m");
+
+        if (mkdir("/xxxrectest/mnt", 0755) < 0)
+                log_error_errno(errno, "Failed to make directory: %m");
+
+        r = btrfs_subvol_snapshot("/xxxrectest", "/xxxrectest2", BTRFS_SNAPSHOT_RECURSIVE);
+        if (r < 0)
+                log_error_errno(r, "Failed to snapshot subvolume: %m");
+
+        r = btrfs_subvol_remove("/xxxrectest", true);
+        if (r < 0)
+                log_error_errno(r, "Failed to recursively remove subvolume: %m");
+
+        r = btrfs_subvol_remove("/xxxrectest2", true);
+        if (r < 0)
+                log_error_errno(r, "Failed to recursively remove subvolume: %m");
 
         return 0;
 }

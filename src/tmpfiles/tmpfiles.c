@@ -26,8 +26,6 @@
 #include <string.h>
 #include <limits.h>
 #include <dirent.h>
-#include <grp.h>
-#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -37,9 +35,8 @@
 #include <glob.h>
 #include <fnmatch.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/param.h>
 #include <sys/xattr.h>
+#include <linux/fs.h>
 
 #include "log.h"
 #include "util.h"
@@ -55,9 +52,11 @@
 #include "specifier.h"
 #include "build.h"
 #include "copy.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "btrfs-util.h"
 #include "acl-util.h"
+#include "formats-util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -78,18 +77,20 @@ typedef enum ItemType {
         COPY_FILES = 'C',
 
         /* These ones take globs */
+        WRITE_FILE = 'w',
         SET_XATTR = 't',
         RECURSIVE_SET_XATTR = 'T',
         SET_ACL = 'a',
         RECURSIVE_SET_ACL = 'A',
-        WRITE_FILE = 'w',
+        SET_ATTRIBUTE = 'h',
+        RECURSIVE_SET_ATTRIBUTE = 'H',
         IGNORE_PATH = 'x',
         IGNORE_DIRECTORY_PATH = 'X',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R',
-        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
         RELABEL_PATH = 'z',
         RECURSIVE_RELABEL_PATH = 'Z',
+        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
 } ItemType;
 
 typedef struct Item {
@@ -108,12 +109,15 @@ typedef struct Item {
         usec_t age;
 
         dev_t major_minor;
+        unsigned attribute_value;
+        unsigned attribute_mask;
 
         bool uid_set:1;
         bool gid_set:1;
         bool mode_set:1;
         bool age_set:1;
         bool mask_perms:1;
+        bool attribute_set:1;
 
         bool keep_first_level:1;
 
@@ -141,8 +145,16 @@ static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
 
 #define MAX_DEPTH 256
 
-static Hashmap *items = NULL, *globs = NULL;
+static OrderedHashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
+
+static const Specifier specifier_table[] = {
+        { 'm', specifier_machine_id, NULL },
+        { 'b', specifier_boot_id, NULL },
+        { 'H', specifier_host_name, NULL },
+        { 'v', specifier_kernel_release, NULL },
+        {}
+};
 
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
@@ -157,7 +169,9 @@ static bool needs_glob(ItemType t) {
                       SET_XATTR,
                       RECURSIVE_SET_XATTR,
                       SET_ACL,
-                      RECURSIVE_SET_ACL);
+                      RECURSIVE_SET_ACL,
+                      SET_ATTRIBUTE,
+                      RECURSIVE_SET_ATTRIBUTE);
 }
 
 static bool takes_ownership(ItemType t) {
@@ -172,7 +186,6 @@ static bool takes_ownership(ItemType t) {
                       CREATE_CHAR_DEVICE,
                       CREATE_BLOCK_DEVICE,
                       COPY_FILES,
-
                       WRITE_FILE,
                       IGNORE_PATH,
                       IGNORE_DIRECTORY_PATH,
@@ -180,11 +193,11 @@ static bool takes_ownership(ItemType t) {
                       RECURSIVE_REMOVE_PATH);
 }
 
-static struct Item* find_glob(Hashmap *h, const char *match) {
+static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         ItemArray *j;
         Iterator i;
 
-        HASHMAP_FOREACH(j, h, i) {
+        ORDERED_HASHMAP_FOREACH(j, h, i) {
                 unsigned n;
 
                 for (n = 0; n < j->count; n++) {
@@ -312,16 +325,16 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
         DIR *dir;
 
         dir = xopendirat(dirfd, path, O_NOFOLLOW|O_NOATIME);
-        if (!dir) {
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m",
-                                dirfd == AT_FDCWD ? "" : "sub", path);
-                if (errno == EPERM) {
-                        dir = xopendirat(dirfd, path, O_NOFOLLOW);
-                        if (!dir)
-                                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m",
-                                                dirfd == AT_FDCWD ? "" : "sub", path);
-                }
-        }
+        if (dir)
+                return dir;
+
+        log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+        if (errno != EPERM)
+                return NULL;
+
+        dir = xopendirat(dirfd, path, O_NOFOLLOW);
+        if (!dir)
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
 
         return dir;
 }
@@ -395,7 +408,7 @@ static int dir_cleanup(
                 }
 
                 /* Is there an item configured for this path? */
-                if (hashmap_get(items, sub_path)) {
+                if (ordered_hashmap_get(items, sub_path)) {
                         log_debug("Ignoring \"%s\": a separate entry exists.", sub_path);
                         continue;
                 }
@@ -570,56 +583,73 @@ finish:
 }
 
 static int path_set_perms(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
         struct stat st;
-        bool st_valid;
 
         assert(i);
         assert(path);
 
-        st_valid = stat(path, &st) == 0;
+        /* We open the file with O_PATH here, to make the operation
+         * somewhat atomic. Also there's unfortunately no fchmodat()
+         * with AT_SYMLINK_NOFOLLOW, hence we emulate it here via
+         * O_PATH. */
 
-        /* not using i->path directly because it may be a glob */
-        if (i->mode_set) {
-                mode_t m = i->mode;
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_PATH|O_NOATIME);
+        if (fd < 0)
+                return log_error_errno(errno, "Adjusting owner and mode for %s failed: %m", path);
 
-                if (i->mask_perms && st_valid) {
-                        if (!(st.st_mode & 0111))
-                                m &= ~0111;
-                        if (!(st.st_mode & 0222))
+        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (S_ISLNK(st.st_mode))
+                log_debug("Skipping mode an owner fix for symlink %s.", path);
+        else {
+                char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                xsprintf(fn, "/proc/self/fd/%i", fd);
+
+                /* not using i->path directly because it may be a glob */
+                if (i->mode_set) {
+                        mode_t m = i->mode;
+
+                        if (i->mask_perms) {
+                                if (!(st.st_mode & 0111))
+                                        m &= ~0111;
+                                if (!(st.st_mode & 0222))
                                 m &= ~0222;
-                        if (!(st.st_mode & 0444))
-                                m &= ~0444;
-                        if (!S_ISDIR(st.st_mode))
-                                m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                                if (!(st.st_mode & 0444))
+                                        m &= ~0444;
+                                if (!S_ISDIR(st.st_mode))
+                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                        }
+
+                        if (m == (st.st_mode & 07777))
+                                log_debug("\"%s\" has right mode %o", path, st.st_mode);
+                        else {
+                                log_debug("chmod \"%s\" to mode %o", path, m);
+                                if (chmod(fn, m) < 0)
+                                        return log_error_errno(errno, "chmod(%s) failed: %m", path);
+                        }
                 }
 
-                if (st_valid && m == (st.st_mode & 07777))
-                        log_debug("\"%s\" has right mode %o", path, st.st_mode);
-                else {
-                        log_debug("chmod \"%s\" to mode %o", path, m);
-                        if (chmod(path, m) < 0)
-                                return log_error_errno(errno, "chmod(%s) failed: %m", path);
-                }
-        }
-
-        if ((!st_valid || i->uid != st.st_uid || i->gid != st.st_gid) &&
-            (i->uid_set || i->gid_set)) {
-                log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
-                          path,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID);
-                if (chown(path,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID) < 0)
-
+                if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
+                    (i->uid_set || i->gid_set)) {
+                        log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
+                                  path,
+                                  i->uid_set ? i->uid : UID_INVALID,
+                                  i->gid_set ? i->gid : GID_INVALID);
+                        if (chown(fn,
+                                  i->uid_set ? i->uid : UID_INVALID,
+                                  i->gid_set ? i->gid : GID_INVALID) < 0)
                         return log_error_errno(errno, "chown(%s) failed: %m", path);
+                }
         }
+
+        fd = safe_close(fd);
 
         return label_fix(path, false, false);
 }
 
-static int get_xattrs_from_arg(Item *i) {
-        char *xattr;
+static int parse_xattrs_from_arg(Item *i) {
         const char *p;
         int r;
 
@@ -628,35 +658,37 @@ static int get_xattrs_from_arg(Item *i) {
 
         p = i->argument;
 
-        while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
-                _cleanup_free_ char *tmp = NULL, *name = NULL,
-                        *value = NULL, *value2 = NULL, *_xattr = xattr;
+        for (;;) {
+                _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL, *xattr_replaced = NULL;
 
-                r = split_pair(xattr, "=", &name, &value);
+                r = unquote_first_word(&p, &xattr, UNQUOTE_CUNESCAPE);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
+                if (r <= 0)
+                        break;
+
+                r = specifier_printf(xattr, specifier_table, NULL, &xattr_replaced);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace specifiers in extended attribute '%s': %m", xattr);
+
+                r = split_pair(xattr_replaced, "=", &name, &value);
                 if (r < 0) {
-                        log_warning("Illegal xattr found: \"%s\" - ignoring.", xattr);
+                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
                         continue;
                 }
 
-                if (strempty(name) || strempty(value)) {
-                        log_warning("Malformed xattr found: \"%s\" - ignoring.", xattr);
+                if (isempty(name) || isempty(value)) {
+                        log_warning("Malformed extended attribute found, ignoring: %s", xattr);
                         continue;
                 }
 
-                tmp = unquote(value, "\"");
-                if (!tmp)
+                if (strv_push_pair(&i->xattrs, name, value) < 0)
                         return log_oom();
 
-                value2 = cunescape(tmp);
-                if (!value2)
-                        return log_oom();
-
-                if (strv_push_pair(&i->xattrs, name, value2) < 0)
-                        return log_oom();
-                name = value2 = NULL;
+                name = value = NULL;
         }
 
-        return r;
+        return 0;
 }
 
 static int path_set_xattrs(Item *i, const char *path) {
@@ -669,17 +701,16 @@ static int path_set_xattrs(Item *i, const char *path) {
                 int n;
 
                 n = strlen(*value);
-                log_debug("\"%s\": setting xattr \"%s=%s\"", path, *name, *value);
+                log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
                 if (lsetxattr(path, *name, *value, n, 0) < 0) {
-                        log_error("Setting extended attribute %s=%s on %s failed: %m",
-                                  *name, *value, path);
+                        log_error("Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
                         return -errno;
                 }
         }
         return 0;
 }
 
-static int get_acls_from_arg(Item *item) {
+static int parse_acls_from_arg(Item *item) {
 #ifdef HAVE_ACL
         int r;
 
@@ -687,10 +718,10 @@ static int get_acls_from_arg(Item *item) {
 
         /* If force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
+
         r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
         if (r < 0)
-                log_warning_errno(errno, "Failed to parse ACL \"%s\": %m. Ignoring",
-                                  item->argument);
+                log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
         log_warning_errno(ENOSYS, "ACLs are not supported. Ignoring");
 #endif
@@ -699,10 +730,13 @@ static int get_acls_from_arg(Item *item) {
 }
 
 #ifdef HAVE_ACL
-static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modify) {
+static int path_set_acl(const char *path, const char *pretty, acl_type_t type, acl_t acl, bool modify) {
+        _cleanup_(acl_free_charpp) char *t = NULL;
         _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
-        _cleanup_(acl_free_charpp) char *t = NULL;
+
+        /* Returns 0 for success, positive error if already warned,
+         * negative error otherwise. */
 
         if (modify) {
                 r = acls_for_file(path, type, acl, &dup);
@@ -725,39 +759,204 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
                 return r;
 
         t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
-        log_debug("\"%s\": setting %s ACL \"%s\"", path,
+        log_debug("Setting %s ACL %s on %s.",
                   type == ACL_TYPE_ACCESS ? "access" : "default",
-                  strna(t));
+                  strna(t), pretty);
 
         r = acl_set_file(path, type, dup);
         if (r < 0)
-                return log_error_errno(-errno,
-                                       "Setting %s ACL \"%s\" on %s failed: %m",
-                                       type == ACL_TYPE_ACCESS ? "access" : "default",
-                                       strna(t), path);
+                /* Return positive to indicate we already warned */
+                return -log_error_errno(errno,
+                                        "Setting %s ACL \"%s\" on %s failed: %m",
+                                        type == ACL_TYPE_ACCESS ? "access" : "default",
+                                        strna(t), pretty);
+
         return 0;
 }
 #endif
 
 static int path_set_acls(Item *item, const char *path) {
+        int r = 0;
 #ifdef HAVE_ACL
-        int r;
+        char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int fd = -1;
+        struct stat st;
 
         assert(item);
         assert(path);
 
-        if (item->acl_access) {
-                r = path_set_acl(path, ACL_TYPE_ACCESS, item->acl_access, item->force);
-                if (r < 0)
-                        return r;
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_PATH|O_NOATIME);
+        if (fd < 0)
+                return log_error_errno(errno, "Adjusting ACL of %s failed: %m", path);
+
+        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (S_ISLNK(st.st_mode)) {
+                log_debug("Skipping ACL fix for symlink %s.", path);
+                return 0;
         }
 
-        if (item->acl_default) {
-                r = path_set_acl(path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
-                if (r < 0)
-                        return r;
-        }
+        xsprintf(fn, "/proc/self/fd/%i", fd);
+
+        if (item->acl_access)
+                r = path_set_acl(fn, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
+
+        if (r == 0 && item->acl_default)
+                r = path_set_acl(fn, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
+
+        if (r > 0)
+                return -r; /* already warned */
+        else if (r == -EOPNOTSUPP) {
+                log_debug_errno(r, "ACLs not supported by file system at %s", path);
+                return 0;
+        } else if (r < 0)
+                log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
 #endif
+        return r;
+}
+
+#define ATTRIBUTES_ALL                          \
+        (FS_NOATIME_FL      |                   \
+         FS_SYNC_FL         |                   \
+         FS_DIRSYNC_FL      |                   \
+         FS_APPEND_FL       |                   \
+         FS_COMPR_FL        |                   \
+         FS_NODUMP_FL       |                   \
+         FS_EXTENT_FL       |                   \
+         FS_IMMUTABLE_FL    |                   \
+         FS_JOURNAL_DATA_FL |                   \
+         FS_SECRM_FL        |                   \
+         FS_UNRM_FL         |                   \
+         FS_NOTAIL_FL       |                   \
+         FS_TOPDIR_FL       |                   \
+         FS_NOCOW_FL)
+
+static int parse_attribute_from_arg(Item *item) {
+
+        static const struct {
+                char character;
+                unsigned value;
+        } attributes[] = {
+                { 'A', FS_NOATIME_FL },      /* do not update atime */
+                { 'S', FS_SYNC_FL },         /* Synchronous updates */
+                { 'D', FS_DIRSYNC_FL },      /* dirsync behaviour (directories only) */
+                { 'a', FS_APPEND_FL },       /* writes to file may only append */
+                { 'c', FS_COMPR_FL },        /* Compress file */
+                { 'd', FS_NODUMP_FL },       /* do not dump file */
+                { 'e', FS_EXTENT_FL },       /* Top of directory hierarchies*/
+                { 'i', FS_IMMUTABLE_FL },    /* Immutable file */
+                { 'j', FS_JOURNAL_DATA_FL }, /* Reserved for ext3 */
+                { 's', FS_SECRM_FL },        /* Secure deletion */
+                { 'u', FS_UNRM_FL },         /* Undelete */
+                { 't', FS_NOTAIL_FL },       /* file tail should not be merged */
+                { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies*/
+                { 'C', FS_NOCOW_FL },        /* Do not cow file */
+        };
+
+        enum {
+                MODE_ADD,
+                MODE_DEL,
+                MODE_SET
+        } mode = MODE_ADD;
+
+        unsigned value = 0, mask = 0;
+        const char *p;
+
+        assert(item);
+
+        p = item->argument;
+        if (p) {
+                if (*p == '+') {
+                        mode = MODE_ADD;
+                        p++;
+                } else if (*p == '-') {
+                        mode = MODE_DEL;
+                        p++;
+                } else  if (*p == '=') {
+                        mode = MODE_SET;
+                        p++;
+                }
+        }
+
+        if (isempty(p) && mode != MODE_SET) {
+                log_error("Setting file attribute on '%s' needs an attribute specification.", item->path);
+                return -EINVAL;
+        }
+
+        for (; p && *p ; p++) {
+                unsigned i, v;
+
+                for (i = 0; i < ELEMENTSOF(attributes); i++)
+                        if (*p == attributes[i].character)
+                                break;
+
+                if (i >= ELEMENTSOF(attributes)) {
+                        log_error("Unknown file attribute '%c' on '%s'.", *p, item->path);
+                        return -EINVAL;
+                }
+
+                v = attributes[i].value;
+
+                if (mode == MODE_ADD || mode == MODE_SET)
+                        value |= v;
+                else
+                        value &= ~v;
+
+                mask |= v;
+        }
+
+        if (mode == MODE_SET)
+                mask |= ATTRIBUTES_ALL;
+
+        assert(mask != 0);
+
+        item->attribute_mask = mask;
+        item->attribute_value = value;
+        item->attribute_set = true;
+
+        return 0;
+}
+
+static int path_set_attribute(Item *item, const char *path) {
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+        unsigned f;
+        int r;
+
+        if (!item->attribute_set || item->attribute_mask == 0)
+                return 0;
+
+        fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOATIME|O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno == ELOOP)
+                        return log_error_errno(errno, "Skipping file attributes adjustment on symlink %s.", path);
+
+                return log_error_errno(errno, "Cannot open '%s': %m", path);
+        }
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Cannot stat '%s': %m", path);
+
+        /* Issuing the file attribute ioctls on device nodes is not
+         * safe, as that will be delivered to the drivers, not the
+         * file system containing the device node. */
+        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+                log_error("Setting file flags is only supported on regular files and directories, cannot set on '%s'.", path);
+                return -EINVAL;
+        }
+
+        f = item->attribute_value & item->attribute_mask;
+
+        /* Mask away directory-specific flags */
+        if (!S_ISDIR(st.st_mode))
+                f &= ~FS_DIRSYNC_FL;
+
+        r = chattr_fd(fd, f, item->attribute_mask);
+        if (r < 0)
+                return log_error_errno(r,
+                        "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
+                        path, item->attribute_value, item->attribute_mask);
 
         return 0;
 }
@@ -785,21 +984,28 @@ static int write_one_file(Item *i, const char *path) {
                         return 0;
                 }
 
-                log_error_errno(errno, "Failed to create file %s: %m", path);
-                return -errno;
+                r = -errno;
+                if (!i->argument && errno == EROFS && stat(path, &st) == 0 &&
+                    (i->type == CREATE_FILE || st.st_size == 0))
+                        goto check_mode;
+
+                return log_error_errno(r, "Failed to create file %s: %m", path);
         }
 
         if (i->argument) {
-                _cleanup_free_ char *unescaped;
+                _cleanup_free_ char *unescaped = NULL, *replaced = NULL;
 
-                log_debug("%s to \"%s\".",
-                          i->type == CREATE_FILE ? "Appending" : "Writing", path);
+                log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
 
-                unescaped = cunescape(i->argument);
-                if (!unescaped)
-                        return log_oom();
+                r = cunescape(i->argument, 0, &unescaped);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
 
-                r = loop_write(fd, unescaped, strlen(unescaped), false);
+                r = specifier_printf(unescaped, specifier_table, NULL, &replaced);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace specifiers in parameter to write '%s': %m", unescaped);
+
+                r = loop_write(fd, replaced, strlen(replaced), false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write file \"%s\": %m", path);
         } else
@@ -810,6 +1016,7 @@ static int write_one_file(Item *i, const char *path) {
         if (stat(path, &st) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
+ check_mode:
         if (!S_ISREG(st.st_mode)) {
                 log_error("%s is not a file.", path);
                 return -EEXIST;
@@ -921,6 +1128,7 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_item(Item *i) {
+        _cleanup_free_ char *resolved = NULL;
         struct stat st;
         int r = 0;
         CreationMode creation;
@@ -944,17 +1152,25 @@ static int create_item(Item *i) {
                         return r;
                 break;
 
-        case COPY_FILES:
-                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path, false);
+        case COPY_FILES: {
+                r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to substitute specifiers in copy source %s: %m", i->argument);
+
+                log_debug("Copying tree \"%s\" to \"%s\".", resolved, i->path);
+                r = copy_tree(resolved, i->path, false);
+
+                if (r == -EROFS && stat(i->path, &st) == 0)
+                        r = -EEXIST;
+
                 if (r < 0) {
                         struct stat a, b;
 
                         if (r != -EEXIST)
                                 return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-                        if (stat(i->argument, &a) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
+                        if (stat(resolved, &a) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", resolved);
 
                         if (stat(i->path, &b) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
@@ -998,20 +1214,25 @@ static int create_item(Item *i) {
                                 r = mkdir_label(i->path, i->mode);
 
                 if (r < 0) {
-                        if (r != -EEXIST)
+                        int k;
+
+                        if (r != -EEXIST && r != -EROFS)
                                 return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
 
-                        if (stat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if (!S_ISDIR(st.st_mode)) {
-                                log_debug("\"%s\" already exists and is not a directory.", i->path);
+                        k = is_dir(i->path, false);
+                        if (k == -ENOENT && r == -EROFS)
+                                return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
+                        if (!k) {
+                                log_warning("\"%s\" already exists and is not a directory.", i->path);
                                 return 0;
                         }
 
                         creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
+
                 log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
 
                 r = path_set_perms(i, i->path);
@@ -1032,13 +1253,12 @@ static int create_item(Item *i) {
                         if (errno != EEXIST)
                                 return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0)
+                        if (lstat(i->path, &st) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISFIFO(st.st_mode)) {
 
                                 if (i->force) {
-
                                         RUN_WITH_UMASK(0000) {
                                                 mac_selinux_create_file_prepare(i->path, S_IFIFO);
                                                 r = mkfifo_atomic(i->path, i->mode);
@@ -1049,7 +1269,7 @@ static int create_item(Item *i) {
                                                 return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
                                         creation = CREATION_FORCE;
                                 } else {
-                                        log_debug("%s is not a fifo.", i->path);
+                                        log_warning("\"%s\" already exists and is not a fifo.", i->path);
                                         return 0;
                                 }
                         } else
@@ -1063,29 +1283,34 @@ static int create_item(Item *i) {
                         return r;
 
                 break;
+        }
 
-        case CREATE_SYMLINK:
+        case CREATE_SYMLINK: {
+                r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to substitute specifiers in symlink target %s: %m", i->argument);
 
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = symlink(i->argument, i->path);
+                r = symlink(resolved, i->path);
                 mac_selinux_create_file_clear();
 
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
 
                         if (errno != EEXIST)
-                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", resolved, i->path);
 
                         r = readlink_malloc(i->path, &x);
-                        if (r < 0 || !streq(i->argument, x)) {
+                        if (r < 0 || !streq(resolved, x)) {
 
                                 if (i->force) {
                                         mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                        r = symlink_atomic(i->argument, i->path);
+                                        r = symlink_atomic(resolved, i->path);
                                         mac_selinux_create_file_clear();
 
                                         if (r < 0)
-                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", resolved, i->path);
+
                                         creation = CREATION_FORCE;
                                 } else {
                                         log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
@@ -1094,10 +1319,11 @@ static int create_item(Item *i) {
                         } else
                                 creation = CREATION_EXISTING;
                 } else
+
                         creation = CREATION_NORMAL;
                 log_debug("%s symlink \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
                 break;
+        }
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE: {
@@ -1131,7 +1357,7 @@ static int create_item(Item *i) {
                         if (errno != EEXIST)
                                 return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0)
+                        if (lstat(i->path, &st) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if ((st.st_mode & S_IFMT) != file_type) {
@@ -1155,6 +1381,7 @@ static int create_item(Item *i) {
                                 creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
+
                 log_debug("%s %s device node \"%s\" %u:%u.",
                           creation_mode_verb_to_string(creation),
                           i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
@@ -1203,9 +1430,19 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
                 break;
-        }
 
-        log_debug("%s created successfully.", i->path);
+        case SET_ATTRIBUTE:
+                r = glob_item(i, path_set_attribute, false);
+                if (r < 0)
+                        return r;
+                break;
+
+        case RECURSIVE_SET_ATTRIBUTE:
+                r = glob_item(i, path_set_attribute, true);
+                if (r < 0)
+                        return r;
+                break;
+        }
 
         return 0;
 }
@@ -1228,7 +1465,7 @@ static int remove_item_instance(Item *i, const char *instance) {
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
                 log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
+                r = rm_rf(instance, (i->type == RECURSIVE_REMOVE_PATH ? REMOVE_ROOT : 0) | REMOVE_PHYSICAL);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
 
@@ -1269,6 +1506,8 @@ static int remove_item(Item *i) {
         case RECURSIVE_SET_XATTR:
         case SET_ACL:
         case RECURSIVE_SET_ACL:
+        case SET_ATTRIBUTE:
+        case RECURSIVE_SET_ATTRIBUTE:
                 break;
 
         case REMOVE_PATH:
@@ -1378,7 +1617,7 @@ static int process_item(Item *i) {
         PATH_FOREACH_PREFIX(prefix, i->path) {
                 ItemArray *j;
 
-                j = hashmap_get(items, prefix);
+                j = ordered_hashmap_get(items, prefix);
                 if (j) {
                         int s;
 
@@ -1435,6 +1674,20 @@ static void item_array_free(ItemArray *a) {
                 item_free_contents(a->items + n);
         free(a->items);
         free(a);
+}
+
+static int item_compare(const void *a, const void *b) {
+        const Item *x = a, *y = b;
+
+        /* Make sure that the ownership taking item is put first, so
+         * that we first create the node, and then can adjust it */
+
+        if (takes_ownership(x->type) && !takes_ownership(y->type))
+                return -1;
+        if (!takes_ownership(x->type) && takes_ownership(y->type))
+                return 1;
+
+        return (int) x->type - (int) y->type;
 }
 
 static bool item_compatible(Item *a, Item *b) {
@@ -1494,37 +1747,38 @@ static bool should_include_path(const char *path) {
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
-        static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id, NULL },
-                { 'b', specifier_boot_id, NULL },
-                { 'H', specifier_host_name, NULL },
-                { 'v', specifier_kernel_release, NULL },
-                {}
-        };
-
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
         ItemArray *existing;
-        Hashmap *h;
-        int r, c = -1, pos;
+        OrderedHashmap *h;
+        int r, pos;
         bool force = false, boot = false;
 
         assert(fname);
         assert(line >= 1);
         assert(buffer);
 
-        r = sscanf(buffer,
-                   "%ms %ms %ms %ms %ms %ms %n",
-                   &action,
-                   &path,
-                   &mode,
-                   &user,
-                   &group,
-                   &age,
-                   &c);
-        if (r < 2) {
+        r = unquote_many_words(
+                        &buffer,
+                        0,
+                        &action,
+                        &path,
+                        &mode,
+                        &user,
+                        &group,
+                        &age,
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
+        else if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
+        }
+
+        if (!isempty(buffer) && !streq(buffer, "-")) {
+                i.argument = strdup(buffer);
+                if (!i.argument)
+                        return log_oom();
         }
 
         if (isempty(action)) {
@@ -1559,19 +1813,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return r;
         }
 
-        if (c >= 0)  {
-                c += strspn(buffer+c, WHITESPACE);
-                if (buffer[c] != 0 && (buffer[c] != '-' || buffer[c+1] != 0)) {
-                        i.argument = unquote(buffer+c, "\"");
-                        if (!i.argument)
-                                return log_oom();
-                }
-        }
-
         switch (i.type) {
 
-        case CREATE_FILE:
-        case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
         case CREATE_SUBVOLUME:
         case TRUNCATE_DIRECTORY:
@@ -1583,6 +1826,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case ADJUST_MODE:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
+                if (i.argument)
+                        log_warning("[%s:%u] %c lines don't take argument fields, ignoring.", fname, line, i.type);
+
+                break;
+
+        case CREATE_FILE:
+        case TRUNCATE_FILE:
                 break;
 
         case CREATE_SYMLINK:
@@ -1637,7 +1887,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_xattrs_from_arg(&i);
+                r = parse_xattrs_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
@@ -1648,7 +1898,18 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Set ACLs requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_acls_from_arg(&i);
+                r = parse_acls_from_arg(&i);
+                if (r < 0)
+                        return r;
+                break;
+
+        case SET_ATTRIBUTE:
+        case RECURSIVE_SET_ATTRIBUTE:
+                if (!i.argument) {
+                        log_error("[%s:%u] Set file attribute requires argument.", fname, line);
+                        return -EBADMSG;
+                }
+                r = parse_attribute_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
@@ -1671,7 +1932,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (arg_root) {
                 char *p;
 
-                p = strappend(arg_root, i.path);
+                p = prefix_root(arg_root, i.path);
                 if (!p)
                         return log_oom();
 
@@ -1679,7 +1940,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.path = p;
         }
 
-        if (user && !streq(user, "-")) {
+        if (!isempty(user) && !streq(user, "-")) {
                 const char *u = user;
 
                 r = get_user_creds(&u, &i.uid, NULL, NULL, NULL);
@@ -1691,7 +1952,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.uid_set = true;
         }
 
-        if (group && !streq(group, "-")) {
+        if (!isempty(group) && !streq(group, "-")) {
                 const char *g = group;
 
                 r = get_group_creds(&g, &i.gid);
@@ -1703,7 +1964,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.gid_set = true;
         }
 
-        if (mode && !streq(mode, "-")) {
+        if (!isempty(mode) && !streq(mode, "-")) {
                 const char *mm = mode;
                 unsigned m;
 
@@ -1712,9 +1973,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         mm++;
                 }
 
-                if (sscanf(mm, "%o", &m) != 1) {
+                if (parse_mode(mm, &m) < 0) {
                         log_error("[%s:%u] Invalid mode '%s'.", fname, line, mode);
-                        return -ENOENT;
+                        return -EBADMSG;
                 }
 
                 i.mode = m;
@@ -1723,7 +1984,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.mode = IN_SET(i.type, CREATE_DIRECTORY, CREATE_SUBVOLUME, TRUNCATE_DIRECTORY)
                         ? 0755 : 0644;
 
-        if (age && !streq(age, "-")) {
+        if (!isempty(age) && !streq(age, "-")) {
                 const char *a = age;
 
                 if (*a == '~') {
@@ -1741,18 +2002,20 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         h = needs_glob(i.type) ? globs : items;
 
-        existing = hashmap_get(h, i.path);
+        existing = ordered_hashmap_get(h, i.path);
         if (existing) {
                 unsigned n;
 
                 for (n = 0; n < existing->count; n++) {
-                        if (!item_compatible(existing->items + n, &i))
+                        if (!item_compatible(existing->items + n, &i)) {
                                 log_warning("[%s:%u] Duplicate line for path \"%s\", ignoring.",
                                             fname, line, i.path);
+                                return 0;
+                        }
                 }
         } else {
                 existing = new0(ItemArray, 1);
-                r = hashmap_put(h, i.path, existing);
+                r = ordered_hashmap_put(h, i.path, existing);
                 if (r < 0)
                         return log_oom();
         }
@@ -1761,6 +2024,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return log_oom();
 
         memcpy(existing->items + existing->count++, &i, sizeof(i));
+
+        /* Sort item array, to enforce stable ordering of application */
+        qsort_safe(existing->items, existing->count, sizeof(Item), item_compare);
+
         zero(i);
         return 0;
 }
@@ -1911,14 +2178,14 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         /* we have to determine age parameter for each entry of type X */
-        HASHMAP_FOREACH(i, globs, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, globs, iterator) {
                 Iterator iter;
                 Item *j, *candidate_item = NULL;
 
                 if (i->type != IGNORE_DIRECTORY_PATH)
                         continue;
 
-                HASHMAP_FOREACH(j, items, iter) {
+                ORDERED_HASHMAP_FOREACH(j, items, iter) {
                         if (j->type != CREATE_DIRECTORY && j->type != TRUNCATE_DIRECTORY && j->type != CREATE_SUBVOLUME)
                                 continue;
 
@@ -1964,8 +2231,8 @@ int main(int argc, char *argv[]) {
 
         mac_selinux_init(NULL);
 
-        items = hashmap_new(&string_hash_ops);
-        globs = hashmap_new(&string_hash_ops);
+        items = ordered_hashmap_new(&string_hash_ops);
+        globs = ordered_hashmap_new(&string_hash_ops);
 
         if (!items || !globs) {
                 r = log_oom();
@@ -2000,27 +2267,31 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        HASHMAP_FOREACH(a, globs, iterator) {
+        /* The non-globbing ones usually create things, hence we apply
+         * them first */
+        ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                 k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
-        HASHMAP_FOREACH(a, items, iterator) {
+        /* The globbing ones usually alter things, hence we apply them
+         * second. */
+        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                 k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
 finish:
-        while ((a = hashmap_steal_first(items)))
+        while ((a = ordered_hashmap_steal_first(items)))
                 item_array_free(a);
 
-        while ((a = hashmap_steal_first(globs)))
+        while ((a = ordered_hashmap_steal_first(globs)))
                 item_array_free(a);
 
-        hashmap_free(items);
-        hashmap_free(globs);
+        ordered_hashmap_free(items);
+        ordered_hashmap_free(globs);
 
         free(arg_include_prefixes);
         free(arg_exclude_prefixes);

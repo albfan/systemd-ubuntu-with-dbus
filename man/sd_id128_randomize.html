@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="sd_id128_randomize"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_id128_randomize — Generate 128-bit IDs</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-id128.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_id128_randomize</b>(</code></td><td>sd_id128_t *<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm139888702754960"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_id128_randomize()</code> generates a new
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sd_id128_randomize"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_id128_randomize — Generate 128-bit IDs</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-id128.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_id128_randomize</b>(</code></td><td>sd_id128_t *<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm139979271858784"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_id128_randomize()</code> generates a new
     randomized 128-bit ID and returns it in
     <em class="parameter"><code>ret</code></em>. Every invocation returns a new
     randomly generated ID. This uses the
@@ -29,13 +29,13 @@
     type, see
     <a href="sd-id128.html"><span class="citerefentry"><span class="refentrytitle">sd-id128</span>(3)</span></a>.</p><p><a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>'s
     <code class="option">--new-id</code> option may be used as a command line
-    front-end for <code class="function">sd_id128_randomize()</code>.</p></div><div class="refsect1"><a name="idm139888702746752"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>The call returns 0 on success (in which case
+    front-end for <code class="function">sd_id128_randomize()</code>.</p></div><div class="refsect1"><a name="idm139979271719200"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>The call returns 0 on success (in which case
     <em class="parameter"><code>ret</code></em> is filled in), or a negative
-    errno-style error code.</p></div><div class="refsect1"><a name="idm139888702744912"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_id128_randomize()</code> interface is
+    errno-style error code.</p></div><div class="refsect1"><a name="idm139979273239040"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_id128_randomize()</code> interface is
     available as a shared library, which can be compiled and linked to
     with the
     "<code class="literal">libsystemd</code>" <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-    file.</p></div><div class="refsect1"><a name="idm139888706643664"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    file.</p></div><div class="refsect1"><a name="idm139979272408816"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="sd-id128.html"><span class="citerefentry"><span class="refentrytitle">sd-id128</span>(3)</span></a>,
       <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a>,

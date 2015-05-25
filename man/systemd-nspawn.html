@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 219</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
        [ARGS...]
-      ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm140120374671376"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to run a
+      ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm139933668313648"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to run a
     command or OS in a light-weight namespace container. In many ways
     it is similar to
     <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
@@ -34,13 +34,10 @@
     system clock may not be changed from within the container. Device
     nodes may not be created. The host system cannot be rebooted and
     kernel modules may not be loaded from within the container.</p><p>Note that even though these security precautions are taken
-    <span class="command"><strong>systemd-nspawn</strong></span> is not suitable for secure
+    <span class="command"><strong>systemd-nspawn</strong></span> is not suitable for fully secure
     container setups. Many of the security features may be
     circumvented and are hence primarily useful to avoid accidental
-    changes to the host system from the container. The intended use of
-    this program is debugging and testing as well as building of
-    packages, distributions and software involved with boot and
-    systems management.</p><p>In contrast to
+    changes to the host system from the container.</p><p>In contrast to
     <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a> <span class="command"><strong>systemd-nspawn</strong></span>
     may be used to boot full Linux-based operating systems in a
     container.</p><p>Use a tool like
@@ -70,12 +67,12 @@
     <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>).
     It might be necessary to add this file to the container tree
     manually if the OS of the container is too old to contain this
-    file out-of-the-box.</p></div><div class="refsect1"><a name="idm140120378540128"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the arguments
+    file out-of-the-box.</p></div><div class="refsect1"><a name="idm139933668289296"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the arguments
     are used as arguments for the init binary. Otherwise,
     <em class="replaceable"><code>COMMAND</code></em> specifies the program to launch
     in the container, and the remaining arguments are used as
     arguments for this program. If <code class="option">-b</code> is not used and
-    no arguments are specifed, a shell is launched in the
+    no arguments are specified, a shell is launched in the
     container.</p><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-D"><span class="term"><code class="option">-D</code>, </span><span class="term"><code class="option">--directory=</code></span><a class="headerlink" title="Permalink to this term" href="#-D">¶</a></dt><dd><p>Directory to use as file system root for the
         container.</p><p>If neither <code class="option">--directory=</code>, nor
         <code class="option">--image=</code> is specified the directory is
@@ -104,14 +101,18 @@
         system, so that the "<code class="literal">btrfs</code>" subvolume may be
         created. May not be specified together with
         <code class="option">--image=</code> or
-        <code class="option">--ephemeral</code>.</p></dd><dt id="-x"><span class="term"><code class="option">-x</code>, </span><span class="term"><code class="option">--ephemeral</code></span><a class="headerlink" title="Permalink to this term" href="#-x">¶</a></dt><dd><p>If specified, the container is run with a
+        <code class="option">--ephemeral</code>.</p><p>Note that this switch leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified.</p></dd><dt id="-x"><span class="term"><code class="option">-x</code>, </span><span class="term"><code class="option">--ephemeral</code></span><a class="headerlink" title="Permalink to this term" href="#-x">¶</a></dt><dd><p>If specified, the container is run with a
         temporary "<code class="literal">btrfs</code>" snapshot of its root
         directory (as configured with <code class="option">--directory=</code>),
         that is removed immediately when the container terminates.
         This option is only supported if the root file system is
         "<code class="literal">btrfs</code>". May not be specified together with
         <code class="option">--image=</code> or
-        <code class="option">--template=</code>.</p></dd><dt id="-i"><span class="term"><code class="option">-i</code>, </span><span class="term"><code class="option">--image=</code></span><a class="headerlink" title="Permalink to this term" href="#-i">¶</a></dt><dd><p>Disk image to mount the root directory for the
+        <code class="option">--template=</code>.</p><p>Note that this switch leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified.</p></dd><dt id="-i"><span class="term"><code class="option">-i</code>, </span><span class="term"><code class="option">--image=</code></span><a class="headerlink" title="Permalink to this term" href="#-i">¶</a></dt><dd><p>Disk image to mount the root directory for the
         container from. Takes a path to a regular file or to a block
         device node. The file or block device must contain
         either:</p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>An MBR partition table with a single
@@ -153,7 +154,38 @@
         <code class="filename">/etc/machine-id</code> from this if this file is
         not set yet. </p></dd><dt id="--slice="><span class="term"><code class="option">--slice=</code></span><a class="headerlink" title="Permalink to this term" href="#--slice=">¶</a></dt><dd><p>Make the container part of the specified
         slice, instead of the default
-        <code class="filename">machine.slice</code>.</p></dd><dt id="--private-network"><span class="term"><code class="option">--private-network</code></span><a class="headerlink" title="Permalink to this term" href="#--private-network">¶</a></dt><dd><p>Disconnect networking of the container from
+        <code class="filename">machine.slice</code>. This is only applies if
+        the machine is run in its own scope unit, i.e. if
+        <code class="option">--keep-unit</code> is not used.</p></dd><dt id="--property="><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#--property=">¶</a></dt><dd><p>Set a unit property on the scope unit to
+        register for the machine. This only applies if the machine is
+        run in its own scope unit, i.e. if
+        <code class="option">--keep-unit</code> is not used. Takes unit property
+        assignments in the same format as <span class="command"><strong>systemctl
+        set-property</strong></span>. This is useful to set memory limits
+        and similar for machines.</p></dd><dt id="--private-users="><span class="term"><code class="option">--private-users=</code></span><a class="headerlink" title="Permalink to this term" href="#--private-users=">¶</a></dt><dd><p>Enables user namespacing. If enabled the
+        container will run with its own private set of Unix user and
+        group ids (UIDs and GIDs). Takes none, one or two
+        colon-separated parameters: the first parameter specifies the
+        first host UID to assign to the container, the second
+        parameter specifies the number of host UIDs to assign to the
+        container. If the second parameter is omitted, 65536 UIDs are
+        assigned. If the first parameter is also ommitted (and hence
+        no parameter passed at all), the first UID assigned to the
+        container is read from the owner of the root directory of the
+        container's directory tree. By default no user namespacing is
+        applied.</p><p>Note that user namespacing currently requires OS trees
+        that are prepared for the UID shift that is being applied:
+        UIDs and GIDs used for file ownership or in file ACL entries
+        must be shifted to the container UID base that is
+        used during container runtime.</p><p>It is recommended to assign as least 65536 UIDs to each
+        container, so that the usable UID range in the container
+        covers 16bit. For best security do not assign overlapping UID
+        ranges to multiple containers. It is hence a good idea to use
+        the upper 16bit of the host 32bit UIDs as container
+        identifier, while the lower 16bit encode the container UID
+        used.</p><p>When user namespaces are used the GID range assigned to
+        each container is always chosen identical to the UID
+        range.</p></dd><dt id="--private-network"><span class="term"><code class="option">--private-network</code></span><a class="headerlink" title="Permalink to this term" href="#--private-network">¶</a></dt><dd><p>Disconnect networking of the container from
         the host. This makes all network interfaces unavailable in the
         container, with the exception of the loopback device and those
         specified with <code class="option">--network-interface=</code> and
@@ -235,7 +267,14 @@
         capabilities are retained.</p></dd><dt id="--drop-capability="><span class="term"><code class="option">--drop-capability=</code></span><a class="headerlink" title="Permalink to this term" href="#--drop-capability=">¶</a></dt><dd><p>Specify one or more additional capabilities to
         drop for the container. This allows running the container with
         fewer capabilities than the default (see
-        above).</p></dd><dt id="--link-journal="><span class="term"><code class="option">--link-journal=</code></span><a class="headerlink" title="Permalink to this term" href="#--link-journal=">¶</a></dt><dd><p>Control whether the container's journal shall
+        above).</p></dd><dt id="--kill-signal="><span class="term"><code class="option">--kill-signal=</code></span><a class="headerlink" title="Permalink to this term" href="#--kill-signal=">¶</a></dt><dd><p>Specify the process signal to send to the
+        container's PID 1 when nspawn itself receives SIGTERM, in
+        order to trigger an orderly shutdown of the
+        container. Defaults to SIGRTMIN+3 if <code class="option">--boot</code>
+        is used (on systemd-compatible init systems SIGRTMIN+3
+        triggers an orderly shutdown). Takes a signal name like
+        "<code class="literal">SIGHUP</code>", "<code class="literal">SIGTERM</code>" or
+        similar as argument.</p></dd><dt id="--link-journal="><span class="term"><code class="option">--link-journal=</code></span><a class="headerlink" title="Permalink to this term" href="#--link-journal=">¶</a></dt><dd><p>Control whether the container's journal shall
         be made visible to the host system. If enabled, allows viewing
         the container's journal files from the host (but not vice
         versa). Takes one of "<code class="literal">no</code>",
@@ -268,8 +307,10 @@
         same path in the container --, or a colon-separated pair of
         paths -- in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container. The <code class="option">--bind-ro=</code> option creates
-        read-only bind mounts.</p></dd><dt id="--tmpfs="><span class="term"><code class="option">--tmpfs=</code></span><a class="headerlink" title="Permalink to this term" href="#--tmpfs=">¶</a></dt><dd><p>Mount a tmpfs file system into the container.
+        container. This option may be specified multiple times for
+        creating multiple independent bind mount points. The
+        <code class="option">--bind-ro=</code> option creates read-only bind
+        mounts.</p></dd><dt id="--tmpfs="><span class="term"><code class="option">--tmpfs=</code></span><a class="headerlink" title="Permalink to this term" href="#--tmpfs=">¶</a></dt><dd><p>Mount a tmpfs file system into the container.
         Takes a single absolute path argument that specifies where to
         mount the tmpfs instance to (in which case the directory
         access mode will be chosen as 0755, owned by root/root), or
@@ -279,7 +320,39 @@
         otherwise specified). This option is particularly useful for
         mounting directories such as <code class="filename">/var</code> as
         tmpfs, to allow state-less systems, in particular when
-        combined with <code class="option">--read-only</code>.</p></dd><dt id="--setenv="><span class="term"><code class="option">--setenv=</code></span><a class="headerlink" title="Permalink to this term" href="#--setenv=">¶</a></dt><dd><p>Specifies an environment variable assignment
+        combined with <code class="option">--read-only</code>.</p></dd><dt id="--overlay="><span class="term"><code class="option">--overlay=</code>, </span><span class="term"><code class="option">--overlay-ro=</code></span><a class="headerlink" title="Permalink to this term" href="#--overlay=">¶</a></dt><dd><p>Combine multiple directory trees into one
+        overlay file system and mount it into the container. Takes a
+        list of colon-separated paths to the directory trees to
+        combine and the destination mount point.</p><p>If three or more paths are specified, then the last
+        specified path is the destination mount point in the
+        container, all paths specified before refer to directory trees
+        on the host and are combined in the specified order into one
+        overlay file system. The left-most path is hence the lowest
+        directory tree, the second-to-last path the highest directory
+        tree in the stacking order. If <code class="option">--overlay-ro=</code>
+        is used instead of <code class="option">--overlay=</code> a read-only
+        overlay file system is created. If a writable overlay file
+        system is created all changes made to it are written to the
+        highest directory tree in the stacking order, i.e. the
+        second-to-last specified.</p><p>If only two paths are specified, then the second
+        specified path is used both as the top-level directory tree in
+        the stacking order as seen from the host, as well as the mount
+        point for the overlay file system in the container. At least
+        two paths have to be specified.</p><p>For details about overlay file systems, see <a class="ulink" href="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt" target="_top">overlayfs.txt</a>. Note
+        that the semantics of overlay file systems are substantially
+        different from normal file systems, in particular regarding
+        reported device and inode information. Device and inode
+        information may change for a file while it is being written
+        to, and processes might see out-of-date versions of files at
+        times. Note that this switch automatically derives the
+        "<code class="literal">workdir=</code>" mount option for the overlay file
+        system from the top-level directory tree, making it a sibling
+        of it. It is hence essential that the top-level directory tree
+        is not a mount point itself (since the working directory must
+        be on the same file system as the top-most directory
+        tree). Also note that the "<code class="literal">lowerdir=</code>" mount
+        option receives the paths to stack in the opposite order of
+        this switch.</p></dd><dt id="--setenv="><span class="term"><code class="option">--setenv=</code></span><a class="headerlink" title="Permalink to this term" href="#--setenv=">¶</a></dt><dd><p>Specifies an environment variable assignment
         to pass to the init process in the container, in the format
         "<code class="literal">NAME=VALUE</code>". This may be used to override
         the default variables or to set additional variables. This
@@ -350,24 +423,24 @@
         <code class="filename">/usr</code> mounted, and are able to populate
         <code class="filename">/var</code> automatically, as
         needed.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140120373477968"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140120373477328"></a><p class="title"><b>Example 1. Download a Fedora image and start a shell in it</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139933668130624"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm139933668129984"></a><p class="title"><b>Example 1. Download a Fedora image and start a shell in it</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
 # systemd-nspawn -M Fedora-Cloud-Base-20141203-21</pre><p>This downloads an image using
       <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>
-      and opens a shell in it.</p></div></div><br class="example-break"><div class="example"><a name="idm140120373474560"></a><p class="title"><b>Example 2. Build and boot a minimal Fedora distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
+      and opens a shell in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668127216"></a><p class="title"><b>Example 2. Build and boot a minimal Fedora distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</pre><p>This installs a minimal Fedora distribution into the
       directory <code class="filename">/srv/mycontainer/</code>
-      and then boots an OS in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm140120373471472"></a><p class="title"><b>Example 3. Spawn a shell in a container of a minimal Debian unstable distribution</b></p><div class="example-contents"><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
+      and then boots an OS in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668124128"></a><p class="title"><b>Example 3. Spawn a shell in a container of a minimal Debian unstable distribution</b></p><div class="example-contents"><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</pre><p>This installs a minimal Debian unstable distribution into
       the directory <code class="filename">~/debian-tree/</code> and then
-      spawns a shell in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm140120373468720"></a><p class="title"><b>Example 4. Boot a minimal Arch Linux distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
-# systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a mimimal Arch Linux distribution into the
+      spawns a shell in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668121376"></a><p class="title"><b>Example 4. Boot a minimal Arch Linux distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
+# systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a minimal Arch Linux distribution into the
       directory <code class="filename">~/arch-tree/</code> and then boots an OS
-      in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm140120373466064"></a><p class="title"><b>Example 5. Boot into an ephemeral "<code class="literal">btrfs</code>" snapshot of the host system</b></p><div class="example-contents"><pre class="programlisting"># systemd-nspawn -D / -xb</pre><p>This runs a copy of the host system in a
+      in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668118720"></a><p class="title"><b>Example 5. Boot into an ephemeral "<code class="literal">btrfs</code>" snapshot of the host system</b></p><div class="example-contents"><pre class="programlisting"># systemd-nspawn -D / -xb</pre><p>This runs a copy of the host system in a
       "<code class="literal">btrfs</code>" snapshot which is removed immediately
       when the container exits. All file system changes made during
-      runtime will be lost on shutdown, hence.</p></div></div><br class="example-break"><div class="example"><a name="idm140120373462864"></a><p class="title"><b>Example 6. Run a container with SELinux sandbox security contexts</b></p><div class="example-contents"><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
-# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140120373461120"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the container is
-    returned.</p></div><div class="refsect1"><a name="idm140120373459888"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      runtime will be lost on shutdown, hence.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668115520"></a><p class="title"><b>Example 6. Run a container with SELinux sandbox security contexts</b></p><div class="example-contents"><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139933668113776"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the container is
+    returned.</p></div><div class="refsect1"><a name="idm139933668112544"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
       <a href="https://www.mankier.com/8/dnf"><span class="citerefentry"><span class="refentrytitle">dnf</span>(8)</span></a>,
@@ -376,5 +449,5 @@
       <a href="https://www.archlinux.org/pacman/pacman.8.html"><span class="citerefentry"><span class="refentrytitle">pacman</span>(8)</span></a>,
       <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>,
       <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>,
-      <a href="btrfs.html"><span class="citerefentry"><span class="refentrytitle">btrfs</span>(8)</span></a>
+      <a href="http://man7.org/linux/man-pages/man8/btrfs.8.html"><span class="citerefentry"><span class="refentrytitle">btrfs</span>(8)</span></a>
     </p></div></div></body></html>

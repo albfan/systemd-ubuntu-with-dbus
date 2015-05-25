@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
 
@@ -82,17 +81,18 @@ int calc_acl_mask_if_needed(acl_t *acl_p) {
 
                 if (tag == ACL_MASK)
                         return 0;
-                if (IN_SET(tag, ACL_USER, ACL_GROUP))
-                        goto calc;
+
+                if (IN_SET(tag, ACL_USER, ACL_GROUP)) {
+                        if (acl_calc_mask(acl_p) < 0)
+                                return -errno;
+
+                        return 1;
+                }
         }
         if (r < 0)
                 return -errno;
-        return 0;
 
-calc:
-        if (acl_calc_mask(acl_p) < 0)
-                return -errno;
-        return 1;
+        return 0;
 }
 
 int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
@@ -159,59 +159,68 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
         return 0;
 }
 
-int search_acl_groups(char*** dst, const char* path, bool* belong) {
-        acl_t acl;
+int acl_search_groups(const char *path, char ***ret_groups) {
+        _cleanup_strv_free_ char **g = NULL;
+        _cleanup_(acl_free) acl_t acl = NULL;
+        bool ret = false;
+        acl_entry_t entry;
+        int r;
 
         assert(path);
-        assert(belong);
 
         acl = acl_get_file(path, ACL_TYPE_DEFAULT);
-        if (acl) {
-                acl_entry_t entry;
-                int r;
+        if (!acl)
+                return -errno;
 
-                r = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
-                while (r > 0) {
-                        acl_tag_t tag;
-                        gid_t *gid;
-                        char *name;
+        r = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
+        for (;;) {
+                _cleanup_(acl_free_gid_tpp) gid_t *gid = NULL;
+                acl_tag_t tag;
 
-                        r = acl_get_tag_type(entry, &tag);
-                        if (r < 0)
-                                break;
+                if (r < 0)
+                        return -errno;
+                if (r == 0)
+                        break;
 
-                        if (tag != ACL_GROUP)
-                                goto next;
+                if (acl_get_tag_type(entry, &tag) < 0)
+                        return -errno;
 
-                        gid = acl_get_qualifier(entry);
-                        if (!gid)
-                                break;
+                if (tag != ACL_GROUP)
+                        goto next;
 
-                        if (in_gid(*gid) > 0) {
-                                *belong = true;
-                                break;
-                        }
+                gid = acl_get_qualifier(entry);
+                if (!gid)
+                        return -errno;
 
-                        name = gid_to_name(*gid);
-                        if (!name) {
-                                acl_free(acl);
-                                return log_oom();
-                        }
+                if (in_gid(*gid) > 0) {
+                        if (!ret_groups)
+                                return true;
 
-                        r = strv_consume(dst, name);
-                        if (r < 0) {
-                                acl_free(acl);
-                                return log_oom();
-                        }
-
-                next:
-                        r = acl_get_entry(acl, ACL_NEXT_ENTRY, &entry);
+                        ret = true;
                 }
 
-                acl_free(acl);
+                if (ret_groups) {
+                        char *name;
+
+                        name = gid_to_name(*gid);
+                        if (!name)
+                                return -ENOMEM;
+
+                        r = strv_consume(&g, name);
+                        if (r < 0)
+                                return r;
+                }
+
+        next:
+                r = acl_get_entry(acl, ACL_NEXT_ENTRY, &entry);
         }
 
-        return 0;
+        if (ret_groups) {
+                *ret_groups = g;
+                g = NULL;
+        }
+
+        return ret;
 }
 
 int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask) {
@@ -282,6 +291,77 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
         return 0;
 }
 
+static int acl_entry_equal(acl_entry_t a, acl_entry_t b) {
+        acl_tag_t tag_a, tag_b;
+
+        if (acl_get_tag_type(a, &tag_a) < 0)
+                return -errno;
+
+        if (acl_get_tag_type(b, &tag_b) < 0)
+                return -errno;
+
+        if (tag_a != tag_b)
+                return false;
+
+        switch (tag_a) {
+        case ACL_USER_OBJ:
+        case ACL_GROUP_OBJ:
+        case ACL_MASK:
+        case ACL_OTHER:
+                /* can have only one of those */
+                return true;
+        case ACL_USER: {
+                _cleanup_(acl_free_uid_tpp) uid_t *uid_a = NULL, *uid_b = NULL;
+
+                uid_a = acl_get_qualifier(a);
+                if (!uid_a)
+                        return -errno;
+
+                uid_b = acl_get_qualifier(b);
+                if (!uid_b)
+                        return -errno;
+
+                return *uid_a == *uid_b;
+        }
+        case ACL_GROUP: {
+                _cleanup_(acl_free_gid_tpp) gid_t *gid_a = NULL, *gid_b = NULL;
+
+                gid_a = acl_get_qualifier(a);
+                if (!gid_a)
+                        return -errno;
+
+                gid_b = acl_get_qualifier(b);
+                if (!gid_b)
+                        return -errno;
+
+                return *gid_a == *gid_b;
+        }
+        default:
+                assert_not_reached("Unknown acl tag type");
+        }
+}
+
+static int find_acl_entry(acl_t acl, acl_entry_t entry, acl_entry_t *out) {
+        acl_entry_t i;
+        int r;
+
+        for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+             r > 0;
+             r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+
+                r = acl_entry_equal(i, entry);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *out = i;
+                        return 1;
+                }
+        }
+        if (r < 0)
+                return -errno;
+        return 0;
+}
+
 int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         _cleanup_(acl_freep) acl_t old;
         acl_entry_t i;
@@ -297,8 +377,12 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
 
                 acl_entry_t j;
 
-                if (acl_create_entry(&old, &j) < 0)
-                        return -errno;
+                r = find_acl_entry(old, i, &j);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        if (acl_create_entry(&old, &j) < 0)
+                                return -errno;
 
                 if (acl_copy_entry(j, i) < 0)
                         return -errno;

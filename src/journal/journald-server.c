@@ -24,23 +24,25 @@
 #include <linux/sockios.h>
 #include <sys/statvfs.h>
 #include <sys/mman.h>
-#include <sys/timerfd.h>
 
 #include <libudev.h>
 
 #include "sd-journal.h"
 #include "sd-messages.h"
 #include "sd-daemon.h"
-#include "fileio.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "hashmap.h"
 #include "journal-file.h"
 #include "socket-util.h"
 #include "cgroup-util.h"
-#include "list.h"
 #include "missing.h"
 #include "conf-parser.h"
 #include "selinux-util.h"
+#include "acl-util.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "hostname-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journal-authenticate.h"
@@ -48,11 +50,9 @@
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
 #include "journald-stream.h"
-#include "journald-console.h"
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"
-#include "acl-util.h"
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -1092,7 +1092,7 @@ finish:
         s->runtime_journal = NULL;
 
         if (r >= 0)
-                rm_rf("/run/log/journal", false, true, false);
+                (void) rm_rf("/run/log/journal", REMOVE_ROOT);
 
         sd_journal_close(j);
 

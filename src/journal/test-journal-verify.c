@@ -25,9 +25,10 @@
 
 #include "util.h"
 #include "log.h"
+#include "rm-rf.h"
 #include "journal-file.h"
 #include "journal-verify.h"
-#include "journal-authenticate.h"
+#include "terminal-util.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77
@@ -145,7 +146,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Exiting...");
 
-        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
         return 0;
 }

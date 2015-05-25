@@ -19,14 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 
-#include "label.h"
 #include "util.h"
 #include "path-util.h"
 #include "mkdir.h"
@@ -46,10 +41,8 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkd
             (st.st_mode & 0700) > (mode & 0700) ||
             (uid != UID_INVALID && st.st_uid != uid) ||
             (gid != GID_INVALID && st.st_gid != gid) ||
-            !S_ISDIR(st.st_mode)) {
-                errno = EEXIST;
-                return -errno;
-        }
+            !S_ISDIR(st.st_mode))
+                return -EEXIST;
 
         return 0;
 }
