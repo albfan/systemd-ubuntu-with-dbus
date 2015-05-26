@@ -53,7 +53,7 @@ class FsckdTest(unittest.TestCase):
             os.rename(SYSTEM_FSCK_PATH, SAVED_FSCK_PATH)
 
         # install mock fsck and killer
-        self.install_bin(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'test', 'mocks', 'fsck'),
+        self.install_bin(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fsck'),
                          SYSTEM_FSCK_PATH)
         self.install_bin(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'process-killer'),
                          PROCESS_KILLER_PATH)

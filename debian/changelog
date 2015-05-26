@@ -16,6 +16,8 @@ systemd (220-1) UNRELEASED; urgency=medium
   * debian/rules: Remove shipped audit_type-to-name.h and
     keyboard-keys-from-name.gperf and regenerate them during build (bug in
     upstream 220 tarball).
+  * autopkgtest: Ship/use mock fsck from debian/tests, as it's missing in the
+    220 tarball.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
