@@ -138,6 +138,21 @@ Description: system and service manager - PAM module
  .
  Packages that depend on logind functionality need to depend on libpam-systemd.
 
+Package: libnss-mymachines
+Architecture: linux-any
+Multi-Arch: same
+Section: admin
+Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}
+Description: nss module to resolve hostnames for local container instances
+ nss-mymachines is a plugin for the GNU Name Service Switch (NSS) functionality
+ of the GNU C Library (glibc) providing hostname resolution for local containers
+ that are registered with systemd-machined.service(8). The container names are
+ resolved to IP addresses of the specific container, ordered by their scope.
+ .
+ Installing this package automatically adds mymachines to /etc/nsswitch.conf.
+
 Package: libsystemd0
 Architecture: linux-any
 Multi-Arch: same
