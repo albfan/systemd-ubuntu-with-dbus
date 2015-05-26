@@ -138,6 +138,26 @@ Description: system and service manager - PAM module
  .
  Packages that depend on logind functionality need to depend on libpam-systemd.
 
+Package: libnss-myhostname
+Architecture: linux-any
+Multi-Arch: same
+Section: admin
+Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}
+Description: nss module providing fallback resolution for the current hostname
+ This package contains a plugin for the Name Service Switch, providing host
+ name resolution for the locally configured system hostname as returned by
+ gethostname(2). It returns all locally configured public IP addresses or -- if
+ none are configured, the IPv4 address 127.0.1.1 (which is on the local
+ loopback) and the IPv6 address ::1 (which is the local host).
+ .
+ A lot of software relies on that the local host name is resolvable. This
+ package provides an alternative to the fragile and error-prone manual editing
+ of /etc/hosts.
+ .
+ Installing this package automatically adds myhostname to /etc/nsswitch.conf.
+
 Package: libnss-mymachines
 Architecture: linux-any
 Multi-Arch: same

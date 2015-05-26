@@ -32,7 +32,6 @@ CONFFLAGS = \
 	--disable-firstboot \
 	--disable-coredump \
 	--disable-xkbcommon \
-	--disable-myhostname \
 	--disable-importd \
 	--disable-libiptc \
 	--disable-silent-rules \
@@ -76,6 +75,7 @@ CONFFLAGS_udeb = \
 	--disable-networkd \
 	--disable-timesyncd \
 	--disable-localed \
+	--disable-myhostname \
 	--disable-resolved \
 	--disable-polkit \
 	--disable-acl \

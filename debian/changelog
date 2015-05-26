@@ -19,6 +19,9 @@ systemd (220-1) UNRELEASED; urgency=medium
   * autopkgtest: Ship/use mock fsck from debian/tests, as it's missing in the
     220 tarball.
   * Add libnss-mymachines binary package. (Closes: #784858)
+  * Add libnss-myhostname binary package, taking over from the very old and
+    unmaintained standalone source package as per its maintainer's request.
+    (Closes: #760514)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
