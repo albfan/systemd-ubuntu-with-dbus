@@ -1,4 +1,4 @@
-systemd (215-18) UNRELEASED; urgency=medium
+systemd (215-17+deb8u1) stable; urgency=medium
 
   [ Michael Biebl ]
   * manager: Pass correct errno to strerror(), have_ask_password contains
@@ -14,7 +14,7 @@ systemd (215-18) UNRELEASED; urgency=medium
     with busybox grep. Thanks Faidon Liambotis! (Closes: #765577)
   * debian/gbp.conf: Point to jessie branch.
 
- -- Michael Biebl <biebl@debian.org>  Fri, 17 Apr 2015 15:40:29 +0200
+ -- Martin Pitt <mpitt@debian.org>  Tue, 26 May 2015 07:55:44 +0200
 
 systemd (215-17) unstable; urgency=high
 
