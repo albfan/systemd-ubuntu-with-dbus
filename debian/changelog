@@ -9,6 +9,7 @@ systemd (220-1) UNRELEASED; urgency=medium
     - Ignore comments in /etc/hostname (LP: #766413)
     - Drop all backported patches and port the others to new upstream release.
   * Cherry-pick patch to fix udevd --daemon assertion regression.
+  * Cherry-pick patch to fix udevd worker hang.
   * systemd.install: systemd.pc moved back into /usr/share/pkgconfig/.
   * libsystemd0.symbols: Add new symbols from this release.
   * Drop debian/extra/60-keyboard.hwdb for now. Upstream has a newer version,
