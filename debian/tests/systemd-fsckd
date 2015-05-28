@@ -161,8 +161,8 @@ class FsckdTest(unittest.TestCase):
 
     def was_running(self, unit):
         '''Check that a given unit has been running'''
-        out = subprocess.check_output(['systemctl', 'show', '--property=ExecMainExitTimestampMonotonic', unit])
-        if b'=0' in out:
+        out = subprocess.check_output(['systemctl', 'show', '--property=ExecStart', unit])
+        if b'start_time=[n/a]' in out:
             return False
         return True
 
