@@ -23,6 +23,9 @@ systemd (220-1) UNRELEASED; urgency=medium
   * Add libnss-myhostname binary package, taking over from the very old and
     unmaintained standalone source package as per its maintainer's request.
     (Closes: #760514)
+  * Drop buildsys-Don-t-default-to-gold-as-the-linker.patch and set LD in
+    debian/rules on sparc only. This can be dropped entirely once we build
+    GUdev from a separate source.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 

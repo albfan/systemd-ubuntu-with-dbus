@@ -10,6 +10,13 @@ ifneq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 BOOTSTRAP_DH_FLAGS := -Ngir1.2-gudev-1.0 -Nlibgudev-1.0-0 -Nlibgudev-1.0-dev
 endif
 
+# sparc fails in g-i-scanner for GUdev (#760879); drop this once we build GUdev
+# separately
+ifneq ($(findstring $(DEB_BUILD_ARCH), sparc),)
+    LD=ld
+endif
+
+
 CONFFLAGS = \
 	--with-rootprefix= \
 	--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
