@@ -28,8 +28,10 @@ systemd (220-1) UNRELEASED; urgency=medium
     GUdev from a separate source.
   * bootchart autopkgtest: Skip test if /proc/schedstat does not exist, i. e.
     the kernel is missing CONFIG_SCHEDSTAT. Bootchart requires this.
-  * systemd-fsckd: On Debian plymouth-start stays running, adjust
+  * systemd-fsckd autopkgtest: On Debian plymouth-start stays running, adjust
     was_running() for that.
+  * systemd-fsckd autopkgtest: In test_systemd_fsck_with_plymouth_failure(),
+    fix plymouthd status check to work under both Debian and Ubuntu.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 

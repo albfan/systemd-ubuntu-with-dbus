@@ -134,7 +134,7 @@ class FsckdTest(unittest.TestCase):
             self.assertFsckdStop()
             self.assertProcessKilled()
             self.assertFsckProceeded()
-            self.assertTrue(self.is_failed_unit('plymouth-start'))
+            self.assertFalse(self.is_active_unit('plymouth-start'))
             self.assertSystemRunning()
 
     def install_bin(self, source, dest):
