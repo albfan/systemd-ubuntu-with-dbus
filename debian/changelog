@@ -26,6 +26,8 @@ systemd (220-1) UNRELEASED; urgency=medium
   * Drop buildsys-Don-t-default-to-gold-as-the-linker.patch and set LD in
     debian/rules on sparc only. This can be dropped entirely once we build
     GUdev from a separate source.
+  * bootchart autopkgtest: Skip test if /proc/schedstat does not exist, i. e.
+    the kernel is missing CONFIG_SCHEDSTAT. Bootchart requires this.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 

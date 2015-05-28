@@ -10,6 +10,12 @@ fi
 
 if ! [ -x /tmp/autopkgtest-reboot ]; then
     echo "autopkgtest testbed does not support reboot, skipping"
+    exit 0
+fi
+
+if [ ! -e /proc/schedstat ]; then
+    echo "CONFIG_SCHEDSTAT not enabled on this kernel, bootchart not available"
+    exit 0
 fi
 
 # first stage: prepare bootchart boot
