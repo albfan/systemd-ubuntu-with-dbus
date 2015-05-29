@@ -51,6 +51,10 @@ systemd (220-1) UNRELEASED; urgency=medium
     in wheezy and jessie ships a fixed mountnfs hook. In addition we now use
     the ignore-dependencies job mode in our lsb init-functions hook, so it's
     safe to drop this dependency.
+  * Stop building gudev packages. Upstream has moved the gudev code into a
+    separate repository which is now managed on gnome.org. The gudev packages
+    will be built from src:libgudev from now on. See also
+    http://lists.freedesktop.org/archives/systemd-devel/2015-May/032070.html
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
