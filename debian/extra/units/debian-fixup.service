@@ -1,5 +1,6 @@
 [Unit]
 Description=Various fixups to make systemd work better on Debian
+Before=sysinit.target
 After=systemd-remount-fs.service
 DefaultDependencies=no
 ConditionPathIsSymbolicLink=|!/etc/mtab
