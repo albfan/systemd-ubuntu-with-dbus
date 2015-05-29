@@ -1,5 +1,6 @@
 systemd (220-1) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * New upstream release:
     - Ship sdio.ids and ids-update.pl in upstream tarball. (Closes: #780650)
     - Drop non-working "journalctl /dev/sda" example from manpage
@@ -32,6 +33,10 @@ systemd (220-1) UNRELEASED; urgency=medium
     was_running() for that.
   * systemd-fsckd autopkgtest: In test_systemd_fsck_with_plymouth_failure(),
     fix plymouthd status check to work under both Debian and Ubuntu.
+
+  [ Michael Biebl ]
+  * Remove /var/run and /var/lock migration code from debian-fixup. The /run
+    migration was completed in wheezy so this is no longer necessary.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
