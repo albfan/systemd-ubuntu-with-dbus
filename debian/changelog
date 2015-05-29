@@ -1,4 +1,14 @@
-systemd (220-1) experimental; urgency=medium
+systemd (220-2) unstable; urgency=low
+
+  * 220-1 was meant to go to experimental, but was accidentally uploaded to
+    unstable. This was planned for next week anyway, just not on a Friday;
+    we don't revert, but keep an RC bug open for a few days to get broader
+    testing. Reupload 220-1 with its changelog actually pointing to unstable
+    and with all versions in the .changes.
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 29 May 2015 18:54:09 +0200
+
+systemd (220-1) unstable; urgency=medium
 
   [ Martin Pitt ]
   * New upstream release:
