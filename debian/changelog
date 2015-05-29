@@ -1,4 +1,4 @@
-systemd (220-1) UNRELEASED; urgency=medium
+systemd (220-1) experimental; urgency=medium
 
   [ Martin Pitt ]
   * New upstream release:
@@ -57,7 +57,7 @@ systemd (220-1) UNRELEASED; urgency=medium
     will be built from src:libgudev from now on. See also
     http://lists.freedesktop.org/archives/systemd-devel/2015-May/032070.html
 
- -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
+ -- Martin Pitt <mpitt@debian.org>  Fri, 29 May 2015 10:37:40 +0200
 
 systemd (219-10) experimental; urgency=medium
 
