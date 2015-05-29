@@ -37,6 +37,12 @@ systemd (220-1) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * Remove /var/run and /var/lock migration code from debian-fixup. The /run
     migration was completed in wheezy so this is no longer necessary.
+  * Drop our versioned Depends on initscripts. This was initially added for
+    the /run migration and later to ensure we have a mountnfs hook which
+    doesn't cause a deadlock under systemd. The /run migration was completed
+    in wheezy and jessie ships a fixed mountnfs hook. In addition we now use
+    the ignore-dependencies job mode in our lsb init-functions hook, so it's
+    safe to drop this dependency.
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 22 May 2015 14:41:48 +0200
 
