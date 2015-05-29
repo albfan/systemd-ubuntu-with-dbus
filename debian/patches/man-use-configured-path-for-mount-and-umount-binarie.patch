@@ -1,0 +1,45 @@
+From: Filipe Brandenburger <filbranden@google.com>
+Date: Wed, 27 May 2015 02:38:20 -0700
+Subject: man: use configured path for mount and umount binaries in manpages
+
+Export the MOUNT_PATH and UMOUNT_PATH variables as XML entities and use them in
+the systemctl.1 manpage instead of hardcoding the path in /usr/bin.
+
+Tested:
+- Ran ./configure ac_cv_path_MOUNT_PATH=/bin/mount (same for umount) and
+  rebuilt the manpages, confirmed that the correct path was in man/systemctl.1
+- Rebuilt man/systemd.directives.xml and the man pages derived from it,
+  confirmed that the correct paths were there as well.
+---
+ Makefile.am       | 2 ++
+ man/systemctl.xml | 4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 3821ee5..dd80b10 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -6490,6 +6490,8 @@ substitutions = \
+        '|DEBUGTTY=$(DEBUGTTY)|' \
+        '|KILL=$(KILL)|' \
+        '|KMOD=$(KMOD)|' \
++       '|MOUNT_PATH=$(MOUNT_PATH)|' \
++       '|UMOUNT_PATH=$(UMOUNT_PATH)|' \
+        '|MKDIR_P=$(MKDIR_P)|' \
+        '|QUOTAON=$(QUOTAON)|' \
+        '|QUOTACHECK=$(QUOTACHECK)|' \
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index a2c8a73..35f47de 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -413,8 +413,8 @@
+           processes. Not all unit types manage processes of these
+           types however. For example, for mount units, control processes
+           are defined (which are the invocations of
+-          <filename>/usr/bin/mount</filename> and
+-          <filename>/usr/bin/umount</filename>), but no main process
++          <filename>&MOUNT_PATH;</filename> and
++          <filename>&UMOUNT_PATH;</filename>), but no main process
+           is defined. If omitted, defaults to
+           <option>all</option>.</para>
+         </listitem>

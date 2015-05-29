@@ -1,6 +1,8 @@
 ## Cherry-picked from upstream
 udevd-event-fix-event-queue-in-daemenozied-mode.patch
 udevd-fix-SIGCHLD-handling-in-daemon-mode.patch
+man-generate-configured-paths-in-manpages.patch
+man-use-configured-path-for-mount-and-umount-binarie.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
