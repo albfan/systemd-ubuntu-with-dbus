@@ -40,6 +40,7 @@ systemd (220-1) UNRELEASED; urgency=medium
     update-rc.d. Also implement "is-enabled" command by directly checking for
     the presence of rcS or rc5 symlinks. (Closes: #760616)
   * Fix path_is_mount_point for files (regression in 220).
+  * debian/control: Drop obsolete XS-Testsuite:, dpkg adds it automatically.
 
   [ Michael Biebl ]
   * Remove /var/run and /var/lock migration code from debian-fixup. The /run
