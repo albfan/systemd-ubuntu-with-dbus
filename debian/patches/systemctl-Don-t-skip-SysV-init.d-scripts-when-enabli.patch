@@ -1,0 +1,51 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 27 May 2015 14:52:17 +0200
+Subject: systemctl: Don't skip SysV init.d scripts when enabling/disabling
+ units
+
+If there is both a SysV init.d script and a systemd unit for a given name, we
+want to do the same enable/disable operation for both, instead of just on the
+systemd unit. This keeps the enablement status in sync so that switching init
+systems behaves as expected.
+---
+ src/systemctl/systemctl.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index f0ba83d..897248a 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -5149,7 +5149,10 @@ static int enable_sysv_units(const char *verb, char **args) {
+                                 break;
+                 }
+ 
+-                if (found_native)
++                /* If we have both a native unit and a SysV script,
++                 * enable/disable them both (below); for is-enabled, prefer the
++                 * native unit */
++                if (found_native && streq(verb, "is-enabled"))
+                         continue;
+ 
+                 p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
+@@ -5161,7 +5164,10 @@ static int enable_sysv_units(const char *verb, char **args) {
+                 if (!found_sysv)
+                         continue;
+ 
+-                log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
++                if (found_native)
++                        log_info("Synchronizing state of %s with SysV init with %s...", name, argv[0]);
++                else
++                        log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
+ 
+                 if (!isempty(arg_root))
+                         argv[c++] = q = strappend("--root=", arg_root);
+@@ -5209,6 +5215,9 @@ static int enable_sysv_units(const char *verb, char **args) {
+                 } else
+                         return -EPROTO;
+ 
++                if (found_native)
++                        continue;
++
+                 /* Remove this entry, so that we don't try enabling it as native unit */
+                 assert(f > 0);
+                 f--;

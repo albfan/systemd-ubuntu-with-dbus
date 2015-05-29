@@ -3,11 +3,11 @@ udevd-event-fix-event-queue-in-daemenozied-mode.patch
 udevd-fix-SIGCHLD-handling-in-daemon-mode.patch
 man-generate-configured-paths-in-manpages.patch
 man-use-configured-path-for-mount-and-umount-binarie.patch
+systemctl-drop-hardcoded-chkconfig-invocation.patch
+systemctl-Don-t-skip-SysV-init.d-scripts-when-enabli.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
-Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
-systemctl-don-t-skip-native-units-when-enabling-disa.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
 Make-logind-hostnamed-localed-timedated-D-Bus-activa.patch

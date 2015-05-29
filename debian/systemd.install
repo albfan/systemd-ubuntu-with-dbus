@@ -52,4 +52,5 @@ usr/share/locale/
 ../../extra/init-functions.d lib/lsb/
 ../../extra/tmpfiles.d/*.conf usr/lib/tmpfiles.d/
 ../../extra/debian-fixup lib/systemd/
+../../extra/systemd-sysv-install lib/systemd/
 ../../extra/units/* lib/systemd/system/

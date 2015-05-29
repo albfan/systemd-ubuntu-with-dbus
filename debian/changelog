@@ -35,6 +35,10 @@ systemd (220-1) UNRELEASED; urgency=medium
     fix plymouthd status check to work under both Debian and Ubuntu.
   * Replace almost all of Fix-paths-in-man-pages.patch with upstreamed
     patches. (The reminder is planned to get fixed upstream as well.)
+  * Remove our update-rc.d patches, replace them with upstream patches for
+    /lib/systemd/systemd-sysv-install abstraction, and provide one for
+    update-rc.d. Also implement "is-enabled" command by directly checking for
+    the presence of rcS or rc5 symlinks. (Closes: #760616)
 
   [ Michael Biebl ]
   * Remove /var/run and /var/lock migration code from debian-fixup. The /run
