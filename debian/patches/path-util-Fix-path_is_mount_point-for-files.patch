@@ -1,0 +1,245 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 27 May 2015 09:56:03 +0200
+Subject: path-util: Fix path_is_mount_point for files
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Commits 27cc6f166 and f25afeb broke path_is_mount_point() for files (such as
+/etc/machine-id → /run/machine-id bind mounts) as with the factorization of
+fd_is_mount_point() we lost the parent directory. We cannot determine that from
+an fd only as openat(fd, "..") only works for directory fds.
+
+Change fd_is_mount_point() to get a parent path, which we use instead of ".."
+when it's not NULL.
+
+Drop the O_DIRECTORY restriction in path_is_mount_point() so that we can handle
+files, and add the missing O_NOFOLLOW so that symlinks actually get opened as
+symlinks; the latter fixes path_is_mountpoint("some/symlink", false).
+
+Add test cases for files, links, and file bind mounts (the latter will only
+work when running as root). Split out a new test_path_is_mount_point() test
+case function as it got significantly larger now.
+---
+ src/shared/path-util.c    | 30 +++++++++++++++----
+ src/shared/path-util.h    |  2 +-
+ src/shared/rm-rf.c        |  4 +--
+ src/test/test-path-util.c | 76 +++++++++++++++++++++++++++++++++++++++--------
+ 4 files changed, 90 insertions(+), 22 deletions(-)
+
+diff --git a/src/shared/path-util.c b/src/shared/path-util.c
+index 7090989..a43cde2 100644
+--- a/src/shared/path-util.c
++++ b/src/shared/path-util.c
+@@ -509,7 +509,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
+         return safe_atoi(p, mnt_id);
+ }
+ 
+-int fd_is_mount_point(int fd) {
++int fd_is_mount_point(int fd, const char *parent) {
+         union file_handle_union h = FILE_HANDLE_INIT, h_parent = FILE_HANDLE_INIT;
+         int mount_id = -1, mount_id_parent = -1;
+         bool nosupp = false, check_st_dev = true;
+@@ -558,7 +558,11 @@ int fd_is_mount_point(int fd) {
+                         return -errno;
+         }
+ 
+-        r = name_to_handle_at(fd, "..", &h_parent.handle, &mount_id_parent, 0);
++        if (parent)
++                r = name_to_handle_at(AT_FDCWD, parent, &h_parent.handle, &mount_id_parent, 0);
++        else
++                /* this only works for directories */
++                r = name_to_handle_at(fd, "..", &h_parent.handle, &mount_id_parent, 0);
+         if (r < 0) {
+                 if (errno == EOPNOTSUPP) {
+                         if (nosupp)
+@@ -599,7 +603,11 @@ fallback_fdinfo:
+         if (r < 0)
+                 return r;
+ 
+-        r = fd_fdinfo_mnt_id(fd, "..", 0, &mount_id_parent);
++        if (parent)
++                r = fd_fdinfo_mnt_id(AT_FDCWD, parent, 0, &mount_id_parent);
++        else
++                /* this only works for directories */
++                r = fd_fdinfo_mnt_id(fd, "..", 0, &mount_id_parent);
+         if (r < 0)
+                 return r;
+ 
+@@ -618,7 +626,11 @@ fallback_fstat:
+         if (fstatat(fd, "", &a, AT_EMPTY_PATH) < 0)
+                 return -errno;
+ 
+-        if (fstatat(fd, "..", &b, 0) < 0)
++        if (parent)
++                r = fstatat(AT_FDCWD, parent, &b, 0);
++        else
++                r = fstatat(fd, "..", &b, 0);
++        if (r < 0)
+                 return -errno;
+ 
+         /* A directory with same device and inode as its parent? Must
+@@ -632,17 +644,23 @@ fallback_fstat:
+ 
+ int path_is_mount_point(const char *t, bool allow_symlink) {
+         _cleanup_close_ int fd = -1;
++        _cleanup_free_ char *parent = NULL;
++        int r;
+ 
+         assert(t);
+ 
+         if (path_equal(t, "/"))
+                 return 1;
+ 
+-        fd = openat(AT_FDCWD, t, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|(allow_symlink ? 0 : O_PATH));
++        r = path_get_parent(t, &parent);
++        if (r < 0)
++                return r;
++
++        fd = openat(AT_FDCWD, t, O_RDONLY|O_NONBLOCK|O_CLOEXEC|(allow_symlink ? 0 : O_PATH|O_NOFOLLOW));
+         if (fd < 0)
+                 return -errno;
+ 
+-        return fd_is_mount_point(fd);
++        return fd_is_mount_point(fd, parent);
+ }
+ 
+ int path_is_read_only_fs(const char *path) {
+diff --git a/src/shared/path-util.h b/src/shared/path-util.h
+index 4f45cfd..cf5143f 100644
+--- a/src/shared/path-util.h
++++ b/src/shared/path-util.h
+@@ -53,7 +53,7 @@ char** path_strv_make_absolute_cwd(char **l);
+ char** path_strv_resolve(char **l, const char *prefix);
+ char** path_strv_resolve_uniq(char **l, const char *prefix);
+ 
+-int fd_is_mount_point(int fd);
++int fd_is_mount_point(int fd, const char *parent);
+ int path_is_mount_point(const char *path, bool allow_symlink);
+ int path_is_read_only_fs(const char *path);
+ int path_is_os_tree(const char *path);
+diff --git a/src/shared/rm-rf.c b/src/shared/rm-rf.c
+index a89e8af..e84bb10 100644
+--- a/src/shared/rm-rf.c
++++ b/src/shared/rm-rf.c
+@@ -102,8 +102,8 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
+                                 continue;
+                         }
+ 
+-                        /* Stop at mount points */
+-                        r = fd_is_mount_point(subdir_fd);
++                        /* Stop at directory mount points */
++                        r = fd_is_mount_point(subdir_fd, NULL);
+                         if (r < 0) {
+                                 if (ret == 0 && r != -ENOENT)
+                                         ret = r;
+diff --git a/src/test/test-path-util.c b/src/test/test-path-util.c
+index 09f0f2f..0a03941 100644
+--- a/src/test/test-path-util.c
++++ b/src/test/test-path-util.c
+@@ -21,6 +21,7 @@
+ 
+ #include <stdio.h>
+ #include <unistd.h>
++#include <sys/mount.h>
+ 
+ #include "path-util.h"
+ #include "util.h"
+@@ -88,21 +89,9 @@ static void test_path(void) {
+         test_parent("/aa///file...", "/aa///");
+         test_parent("file.../", NULL);
+ 
+-        assert_se(path_is_mount_point("/", true) > 0);
+-        assert_se(path_is_mount_point("/", false) > 0);
+-
+         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+         assert_se(fd >= 0);
+-        assert_se(fd_is_mount_point(fd) > 0);
+-
+-        assert_se(path_is_mount_point("/proc", true) > 0);
+-        assert_se(path_is_mount_point("/proc", false) > 0);
+-
+-        assert_se(path_is_mount_point("/proc/1", true) == 0);
+-        assert_se(path_is_mount_point("/proc/1", false) == 0);
+-
+-        assert_se(path_is_mount_point("/sys", true) > 0);
+-        assert_se(path_is_mount_point("/sys", false) > 0);
++        assert_se(fd_is_mount_point(fd, NULL) > 0);
+ 
+         {
+                 char p1[] = "aaa/bbb////ccc";
+@@ -322,6 +311,66 @@ static void test_prefix_root(void) {
+         test_prefix_root_one("/foo///", "//bar", "/foo/bar");
+ }
+ 
++static void test_path_is_mount_point(void) {
++        int fd, rt, rf, rlt, rlf;
++        char tmp_dir[] = "/tmp/test-path-is-mount-point-XXXXXX";
++        _cleanup_free_ char *file1 = NULL, *file2 = NULL, *link1 = NULL, *link2 = NULL;
++
++        assert_se(path_is_mount_point("/", true) > 0);
++        assert_se(path_is_mount_point("/", false) > 0);
++
++        assert_se(path_is_mount_point("/proc", true) > 0);
++        assert_se(path_is_mount_point("/proc", false) > 0);
++
++        assert_se(path_is_mount_point("/proc/1", true) == 0);
++        assert_se(path_is_mount_point("/proc/1", false) == 0);
++
++        assert_se(path_is_mount_point("/sys", true) > 0);
++        assert_se(path_is_mount_point("/sys", false) > 0);
++
++        /* file mountpoints */
++        assert_se(mkdtemp(tmp_dir) != NULL);
++        file1 = path_join(NULL, tmp_dir, "file1");
++        assert_se(file1);
++        file2 = path_join(NULL, tmp_dir, "file2");
++        assert_se(file2);
++        fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
++        assert_se(fd > 0);
++        close(fd);
++        fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
++        assert_se(fd > 0);
++        close(fd);
++        link1 = path_join(NULL, tmp_dir, "link1");
++        assert_se(link1);
++        assert_se(symlink("file1", link1) == 0);
++        link2 = path_join(NULL, tmp_dir, "link2");
++        assert_se(link1);
++        assert_se(symlink("file2", link2) == 0);
++
++        assert_se(path_is_mount_point(file1, true) == 0);
++        assert_se(path_is_mount_point(file1, false) == 0);
++        assert_se(path_is_mount_point(link1, true) == 0);
++        assert_se(path_is_mount_point(link1, false) == 0);
++
++        /* this test will only work as root */
++        if (mount(file1, file2, NULL, MS_BIND, NULL) >= 0) {
++                rf = path_is_mount_point(file2, false);
++                rt = path_is_mount_point(file2, true);
++                rlf = path_is_mount_point(link2, false);
++                rlt = path_is_mount_point(link2, true);
++
++                assert_se(umount(file2) == 0);
++
++                assert_se(rf == 1);
++                assert_se(rt == 1);
++                assert_se(rlf == 0);
++                assert_se(rlt == 1);
++        } else
++                printf("Skipping bind mount file test: %m\n");
++
++        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
++}
++
+ int main(int argc, char **argv) {
+         test_path();
+         test_find_binary(argv[0], true);
+@@ -333,6 +382,7 @@ int main(int argc, char **argv) {
+         test_strv_resolve();
+         test_path_startswith();
+         test_prefix_root();
++        test_path_is_mount_point();
+ 
+         return 0;
+ }
