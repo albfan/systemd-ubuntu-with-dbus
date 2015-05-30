@@ -58,7 +58,7 @@ check_kernel_version() {
   if [ -e /etc/udev/kernel-upgrade ]; then
     echo "This version of udev requires a kernel >= 2.6.32, but the upgrade was forced."
     # restart udevd which was killed by the old prerm
-    udevd -d || true
+    /lib/systemd/systemd-udevd -d || true
     return 0
   fi
   
@@ -72,7 +72,7 @@ check_kernel_version() {
     echo "A reboot is needed, but proceeding with the upgrade."
     touch /etc/udev/kernel-upgrade
     # restart udevd which was killed by the old prerm
-    udevd -d || true
+    /lib/systemd/systemd-udevd -d || true
     return 0
   fi
 
@@ -86,7 +86,7 @@ check_kernel_version() {
     echo "This version of udev requires a kernel >= 2.6.32, but the upgrade was forced."
     touch /etc/udev/kernel-upgrade
     # restart udevd which was killed by the old prerm
-    udevd -d || true
+    /lib/systemd/systemd-udevd -d || true
     return 0
   fi
   db_stop

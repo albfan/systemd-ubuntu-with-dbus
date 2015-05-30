@@ -1,11 +1,11 @@
 #!/bin/sh -e
 ### BEGIN INIT INFO
 # Provides:          udev
-# Required-Start:    mountkernfs 
-# Required-Stop:     
+# Required-Start:    mountkernfs
+# Required-Stop:
 # Default-Start:     S
 # Default-Stop:
-# Short-Description: Start udevd, populate /dev and load drivers.
+# Short-Description: Start systemd-udevd, populate /dev and load drivers.
 ### END INIT INFO
 
 # we need to unmount /dev/pts/ and remount it later over the devtmpfs
@@ -109,9 +109,12 @@ make_static_nodes() {
 
 ##############################################################################
 
-[ -x /sbin/udevd ] || exit 0
-
 PATH="/sbin:/bin"
+NAME="systemd-udevd"
+DAEMON="/lib/systemd/systemd-udevd"
+DESC="the hotplug events dispatcher"
+
+[ -x $DAEMON ] || exit 0
 
 # defaults
 tmpfs_size="10M"
@@ -193,8 +196,8 @@ case "$1" in
     # set the SELinux context for devices created in the initramfs
     [ -x /sbin/restorecon ] && /sbin/restorecon -R /dev
 
-    log_daemon_msg "Starting the hotplug events dispatcher" "udevd"
-    if udevd --daemon; then
+    log_daemon_msg "Starting $DESC" "$NAME"
+    if $DAEMON --daemon; then
 	log_end_msg $?
     else
 	log_warning_msg $?
@@ -211,7 +214,7 @@ case "$1" in
 
     create_dev_makedev
 
-    # wait for the udevd childs to finish
+    # wait for the systemd-udevd childs to finish
     log_action_begin_msg "Waiting for /dev to be fully populated"
     if udevadm settle; then
 	log_action_end_msg 0
@@ -221,8 +224,8 @@ case "$1" in
     ;;
 
     stop)
-    log_daemon_msg "Stopping the hotplug events dispatcher" "udevd"
-    if start-stop-daemon --stop --name udevd --user root --quiet --oknodo --retry 5; then
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    if start-stop-daemon --stop --name $NAME --user root --quiet --oknodo --retry 5; then
 	log_end_msg $?
     else
 	log_end_msg $?
@@ -233,15 +236,15 @@ case "$1" in
     if init_is_upstart 2>/dev/null; then
 	exit 1
     fi
-    log_daemon_msg "Stopping the hotplug events dispatcher" "udevd"
-    if start-stop-daemon --stop --name udevd --user root --quiet --oknodo --retry 5; then
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    if start-stop-daemon --stop --name $NAME --user root --quiet --oknodo --retry 5; then
 	log_end_msg $?
     else
 	log_end_msg $? || true
     fi
 
-    log_daemon_msg "Starting the hotplug events dispatcher" "udevd"
-    if udevd --daemon; then
+    log_daemon_msg "Starting $DESC" "$NAME"
+    if $DAEMON --daemon; then
 	log_end_msg $?
     else
 	log_end_msg $?
@@ -253,7 +256,7 @@ case "$1" in
     ;;
 
     status)
-    status_of_proc /sbin/udevd udevd && exit 0 || exit $?
+    status_of_proc $DAEMON $NAME && exit 0 || exit $?
     ;;
 
     *)

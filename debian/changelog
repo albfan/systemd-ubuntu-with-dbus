@@ -15,6 +15,7 @@ systemd (220-4) UNRELEASED; urgency=medium
   * Bump Depends on util-linux to make sure we have a sulogin implementation
     which properly cleans up its children when emergency.service is restarted.
     (Closes: #784238)
+  * Stop using /sbin/udevd and drop the compat symlink.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
 
