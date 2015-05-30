@@ -14,9 +14,9 @@ start on (startup
 
 pre-start script
     # Save udev log in /var/log/udev
-    if [ -e /dev/.udev.log ]
+    if [ -e /run/udev/udev.log ]
     then
-	mv -f /dev/.udev.log /var/log/udev || :
+	mv -f /run/udev/udev.log /var/log/udev || :
     fi
 
     # Copy any rules generated while the root filesystem was read-only

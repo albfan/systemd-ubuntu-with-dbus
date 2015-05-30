@@ -16,6 +16,8 @@ systemd (220-4) UNRELEASED; urgency=medium
     which properly cleans up its children when emergency.service is restarted.
     (Closes: #784238)
   * Stop using /sbin/udevd and drop the compat symlink.
+  * Remove any vestiges of /dev/.udev/. This directory has been replaced by
+    /run/udev/ since wheezy.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
 

@@ -42,17 +42,6 @@ create_dev_makedev() {
   fi
 }
 
-# If the initramfs does not have /run, the initramfs udev database must
-# be migrated from /dev/.udev/ to /run/udev/.
-move_udev_database() {
-  [ -e "/dev/.udev/" ] || return 0
-  [ ! -e /run/udev/ ] || return 0
-  [ -e /run/ ] || return 0
-  mountpoint -q /run/ || return 0
-
-  mv /dev/.udev/ /run/udev/ || true
-}
-
 supported_kernel() {
   case "$(uname -r)" in
     2.[012345].*|2.6.[0-9]|2.6.[0-9][!0-9]*) return 1 ;;
@@ -166,13 +155,8 @@ case "$1" in
     if init_is_upstart 2>/dev/null; then
 	exit 1
     fi
-    if mountpoint -q /dev/; then
-	TMPFS_MOUNTED=1
-    elif [ -e "/dev/.udev/" ]; then
-	log_warning_msg ".udev/ already exists on the static /dev"
-    fi
 
-    if [ ! -e "/dev/.udev/" -a ! -e "/run/udev/" ]; then
+    if [ ! -e "/run/udev/" ]; then
 	warn_if_interactive
     fi
 
@@ -180,9 +164,7 @@ case "$1" in
 	echo > /sys/kernel/uevent_helper
     fi
 
-    move_udev_database
-
-    if [ -z "$TMPFS_MOUNTED" ]; then
+    if ! mountpoint -q /dev/; then
 	unmount_devpts
 	mount_devtmpfs
 	[ -d /proc/1 ] || mount -n /proc

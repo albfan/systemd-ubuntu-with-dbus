@@ -51,7 +51,7 @@ check_installing_kernel() {
 
 check_kernel_version() {
   # skip the check if udev is not already active
-  [ -d /dev/.udev/ -o -d /run/udev/ ] || return 0
+  [ -d /run/udev/ ] || return 0
 
   supported_kernel && return
 
@@ -95,7 +95,7 @@ check_kernel_version() {
 
 check_kernel_features() {
   # skip the check if udev is not already active
-  [ -d /dev/.udev/ -o -d /run/udev/ ] || return 0
+  [ -d /run/udev/ ] || return 0
 
   # skip the check if check_kernel_version() decided that a new kernel is
   # being installed
