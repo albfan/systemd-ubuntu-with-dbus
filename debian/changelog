@@ -18,6 +18,7 @@ systemd (220-4) UNRELEASED; urgency=medium
   * Stop using /sbin/udevd and drop the compat symlink.
   * Remove any vestiges of /dev/.udev/. This directory has been replaced by
     /run/udev/ since wheezy.
+  * Drop udev migration code from pre-wheezy.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
 
