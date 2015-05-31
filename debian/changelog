@@ -1,3 +1,10 @@
+systemd (220-3) UNRELEASED; urgency=medium
+
+  * Fix ProtectSystem=yes to actually protect /usr, not /home.
+    (Closes: #787343)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 31 May 2015 20:33:36 +0200
+
 systemd (220-2) unstable; urgency=low
 
   * 220-1 was meant to go to experimental, but was accidentally uploaded to

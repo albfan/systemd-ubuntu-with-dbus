@@ -7,7 +7,7 @@ Subject: Include additional directories in ProtectSystem
  1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/src/core/namespace.c b/src/core/namespace.c
-index 7d0b7e7..64b8b57 100644
+index 01a817b..0735fff 100644
 --- a/src/core/namespace.c
 +++ b/src/core/namespace.c
 @@ -439,7 +439,7 @@ int setup_namespace(
@@ -25,7 +25,7 @@ index 7d0b7e7..64b8b57 100644
                          const char *usr_dir, *boot_dir, *etc_dir;
 +                        const char *bin_dir, *sbin_dir, *lib_dir, *lib64_dir;
  
-                         usr_dir = prefix_roota(root_directory, "/home");
+                         usr_dir = prefix_roota(root_directory, "/usr");
                          boot_dir = prefix_roota(root_directory, "/boot");
                          boot_dir = strjoina("-", boot_dir);
                          etc_dir = prefix_roota(root_directory, "/etc");
