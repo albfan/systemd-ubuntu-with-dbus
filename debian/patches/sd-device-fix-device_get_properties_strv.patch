@@ -1,0 +1,30 @@
+From: Tom Gundersen <teg@jklm.no>
+Date: Wed, 27 May 2015 23:26:39 +0200
+Subject: sd-device: fix device_get_properties_strv()
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+A NULL pointer was inserted as the first element of the strv.
+
+This had the effect of always passing the empty environment to processes
+spawned by udev.
+
+Reported by Michał Bartoszkiewicz.
+---
+ src/libsystemd/sd-device/device-private.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libsystemd/sd-device/device-private.c b/src/libsystemd/sd-device/device-private.c
+index 3cadedb..10370af 100644
+--- a/src/libsystemd/sd-device/device-private.c
++++ b/src/libsystemd/sd-device/device-private.c
+@@ -659,7 +659,7 @@ static int device_update_properties_bufs(sd_device *device) {
+                 if (!buf_strv)
+                         return -ENOMEM;
+ 
+-                buf_strv[++ strv_size] = (char *)&buf_nulstr[nulstr_len];
++                buf_strv[strv_size ++] = (char *)&buf_nulstr[nulstr_len];
+                 strscpyl((char *)buf_nulstr + nulstr_len, len + 1, prop, "=", val, NULL);
+                 nulstr_len += len + 1;
+         }

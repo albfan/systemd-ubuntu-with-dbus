@@ -2,6 +2,9 @@ systemd (220-3) UNRELEASED; urgency=medium
 
   * Fix ProtectSystem=yes to actually protect /usr, not /home.
     (Closes: #787343)
+  * sd-device: fix device_get_properties_strv(). Fixes environment for
+    processes spawned by udev, in particular "allow-hoplug" ifupdown
+    interfaces via ifup@.service. (Closes: #787263)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 31 May 2015 20:33:36 +0200
 
