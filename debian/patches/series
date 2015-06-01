@@ -7,6 +7,7 @@ systemctl-drop-hardcoded-chkconfig-invocation.patch
 systemctl-Don-t-skip-SysV-init.d-scripts-when-enabli.patch
 core-namespace-Protect-usr-instead-of-home-with-Prot.patch
 sd-device-fix-device_get_properties_strv.patch
+udev-Bring-back-persistant-storage-symlinks-for-bcac.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -56,4 +57,3 @@ syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
 Revert-core-one-step-back-again-for-nspawn-we-actual.patch
-udev-Bring-back-persistant-storage-symlinks-for-bcac.patch

@@ -2,7 +2,7 @@ From: David Mohr <david@mcbf.net>
 Date: Mon, 1 Jun 2015 08:10:28 +0200
 Subject: udev: Bring back persistant storage symlinks for bcache
 
-Bug-Debian: https://bugs.debian.org/787367
+https://bugs.debian.org/787367
 ---
  rules/60-persistent-storage.rules | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
