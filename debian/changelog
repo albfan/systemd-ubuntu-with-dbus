@@ -5,6 +5,10 @@ systemd (220-4) UNRELEASED; urgency=medium
     initramfs-tools itself (scripts/local). The intention of this parameter is
     not to statically wait for the given time, but wait *up to* that time for
     the root device to appear.
+  * Add debian/extra/units/rc-local.service.d/wait-online.conf: Make
+    rc-local.service wait for network-online.target (if it gets started). This
+    not specified by LSB, but has been behaving that way in Debian under SysV
+    init and upstart. (LP: #1451797)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
 
