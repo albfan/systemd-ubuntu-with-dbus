@@ -1,5 +1,6 @@
 systemd (220-4) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * debian/extra/initramfs-tools/scripts/init-top/udev: Drop $ROOTDELAY wait.
     This does not concern udev in particular, but is handled by
     initramfs-tools itself (scripts/local). The intention of this parameter is
@@ -9,6 +10,11 @@ systemd (220-4) UNRELEASED; urgency=medium
     rc-local.service wait for network-online.target (if it gets started). This
     not specified by LSB, but has been behaving that way in Debian under SysV
     init and upstart. (LP: #1451797)
+
+  [ Michael Biebl ]
+  * Bump Depends on util-linux to make sure we have a sulogin implementation
+    which properly cleans up its children when emergency.service is restarted.
+    (Closes: #784238)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
 
