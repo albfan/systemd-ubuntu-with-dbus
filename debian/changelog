@@ -5,6 +5,8 @@ systemd (220-3) UNRELEASED; urgency=medium
   * sd-device: fix device_get_properties_strv(). Fixes environment for
     processes spawned by udev, in particular "allow-hoplug" ifupdown
     interfaces via ifup@.service. (Closes: #787263)
+  * Ignore test failures on mipsel; the three failures are not reproducible on
+    the porter box (different kernel?). (See #787258)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 31 May 2015 20:33:36 +0200
 
