@@ -1,4 +1,4 @@
-systemd (220-3) UNRELEASED; urgency=medium
+systemd (220-3) unstable; urgency=medium
 
   * Fix ProtectSystem=yes to actually protect /usr, not /home.
     (Closes: #787343)
@@ -13,7 +13,7 @@ systemd (220-3) UNRELEASED; urgency=medium
   * sd-device: Fix invalid property strv pointers. This unbreaks the
     environment of udev callouts.
 
- -- Martin Pitt <mpitt@debian.org>  Sun, 31 May 2015 20:33:36 +0200
+ -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 12:58:20 +0200
 
 systemd (220-2) unstable; urgency=low
 
