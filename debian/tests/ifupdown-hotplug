@@ -35,8 +35,7 @@ fi
 
 # v$IFACE is not configured in ifupdown, should be down
 ! ifquery --state v$IFACE
-# but unit should not fail
-systemctl status -l ifup@v${IFACE}.service
+! systemctl status -l ifup@v${IFACE}.service
 
 OUT=$(ip a show dev v$IFACE)
 if echo "$OUT" | grep -q 'inet'; then
