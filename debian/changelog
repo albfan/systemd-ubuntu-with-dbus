@@ -1,3 +1,13 @@
+systemd (220-4) UNRELEASED; urgency=medium
+
+  * debian/extra/initramfs-tools/scripts/init-top/udev: Drop $ROOTDELAY wait.
+    This does not concern udev in particular, but is handled by
+    initramfs-tools itself (scripts/local). The intention of this parameter is
+    not to statically wait for the given time, but wait *up to* that time for
+    the root device to appear.
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
+
 systemd (220-3) unstable; urgency=medium
 
   * Fix ProtectSystem=yes to actually protect /usr, not /home.
