@@ -7,6 +7,7 @@ systemd (220-3) UNRELEASED; urgency=medium
     interfaces via ifup@.service. (Closes: #787263)
   * Ignore test failures on mipsel; the three failures are not reproducible on
     the porter box (different kernel?). (See #787258)
+  * Add ifupdown-hotplug autopkgtest. Reproduces #787263.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 31 May 2015 20:33:36 +0200
 

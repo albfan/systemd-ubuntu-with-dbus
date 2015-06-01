@@ -1,0 +1,46 @@
+#!/bin/sh
+# check ifupdown integration for "allow-hotplug" interface
+set -e
+
+IFACE=sdtest42
+
+if [ -e /sys/class/net/$IFACE ]; then
+    echo "SKIP: network interface $IFACE already exists"
+    exit 0
+fi
+
+cat <<EOF > /etc/network/interfaces.d/${IFACE}.cfg
+allow-hotplug $IFACE
+iface $IFACE inet static
+    address 192.168.234.129
+    netmask 255.255.255.0
+EOF
+
+# these should trigger uevents and ifup@.service
+ip link add name $IFACE type veth peer name v$IFACE
+trap "ip link del dev $IFACE" EXIT INT QUIT PIPE
+
+sleep 3
+
+# $IFACE is configured in ifupdown, should succeed and be up
+systemctl status -l ifup@${IFACE}.service
+ifquery --state $IFACE
+
+OUT=$(ip a show dev $IFACE)
+if ! echo "$OUT" | grep -q 'inet 192.168.234.129/24'; then
+    echo "interface $IFACE not configured" >&2
+    echo "$OUT" >&2
+    exit 1
+fi
+
+# v$IFACE is not configured in ifupdown, should be down
+! ifquery --state v$IFACE
+# but unit should not fail
+systemctl status -l ifup@v${IFACE}.service
+
+OUT=$(ip a show dev v$IFACE)
+if echo "$OUT" | grep -q 'inet'; then
+    echo "interface $IFACE unexpectedly configured" >&2
+    echo "$OUT" >&2
+    exit 1
+fi
