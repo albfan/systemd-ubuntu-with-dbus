@@ -28,11 +28,8 @@ Make-net.ifnames-opt-in-instead-of-opt-out.patch
 Use-different-default-paths-for-various-binaries.patch
 Order-remote-fs.target-after-local-fs.target.patch
 Skip-99-systemd.rules-when-not-running-systemd-as-in.patch
-Load-sg-module-from-80-drivers.rules.patch
-Updates-to-default-device-permissions.patch
 insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
-more-cd-aliases.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
 Add-support-for-TuxOnIce-hibernation.patch

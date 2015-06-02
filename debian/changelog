@@ -16,6 +16,9 @@ systemd (220-4) UNRELEASED; urgency=medium
     against the current code, and overlayfs in general. On overlayfs this
     still reports false positives for files that changed in the upperdir, but
     this does not break systemd-machine-id-commit any more.
+  * Add debian/extra/rules/80-debian-compat.rules, replacing three of our
+    patches. These are independent udev rules to change device permissions and
+    add CD/DVD symlinks for compatibility with earlier Debian releases.
 
   [ Michael Biebl ]
   * Bump Depends on util-linux to make sure we have a sulogin implementation
