@@ -1,4 +1,4 @@
-systemd (220-4) UNRELEASED; urgency=medium
+systemd (220-4) unstable; urgency=medium
 
   [ Martin Pitt ]
   * debian/extra/initramfs-tools/scripts/init-top/udev: Drop $ROOTDELAY wait.
@@ -29,7 +29,7 @@ systemd (220-4) UNRELEASED; urgency=medium
     /run/udev/ since wheezy.
   * Drop udev migration code from pre-wheezy.
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 01 Jun 2015 15:12:34 +0200
+ -- Martin Pitt <mpitt@debian.org>  Tue, 02 Jun 2015 08:16:36 +0200
 
 systemd (220-3) unstable; urgency=medium
 
