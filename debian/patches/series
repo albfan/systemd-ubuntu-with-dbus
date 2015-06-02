@@ -9,6 +9,8 @@ core-namespace-Protect-usr-instead-of-home-with-Prot.patch
 sd-device-fix-device_get_properties_strv.patch
 udev-Bring-back-persistant-storage-symlinks-for-bcac.patch
 sd-device-fix-invalid-property-strv-pointers.patch
+load-fragment-use-UNESCAPE_RELAX-flag-to-parse-exec-.patch
+test-unit-file-add-test-for-improperly-escaped-exec-.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

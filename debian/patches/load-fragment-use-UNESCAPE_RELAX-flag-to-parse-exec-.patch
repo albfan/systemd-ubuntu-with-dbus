@@ -1,0 +1,40 @@
+From: Daniel Mack <daniel@zonque.org>
+Date: Mon, 1 Jun 2015 17:49:04 +0200
+Subject: load-fragment: use UNESCAPE_RELAX flag to parse exec directives
+
+The cunescape() helper function used to handle unknown escaping sequences
+gracefully by copying them over verbatim.
+
+Commit 527b7a42 ("util: rework cunescape(), improve error handling") added
+a flag to make that behavior optional, and changed to default to error out
+with -EINVAL otherwise.
+
+However, config_parse_exec(), which is used to parse the
+Exec{Start,Stop}{Post,Pre,} directives of unit files, was not changed along
+with that commit, which means that directives with improperly escaped
+command line strings are no longer parsed.
+
+Relevant bugreports include:
+
+  https://bugs.freedesktop.org/show_bug.cgi?id=90794
+  https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=787256
+
+Fix this by passing UNESCAPE_RELAX to config_parse_exec() in order to
+restore the original behavior.
+---
+ src/core/load-fragment.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/load-fragment.c b/src/core/load-fragment.c
+index 9415e92..b09481a 100644
+--- a/src/core/load-fragment.c
++++ b/src/core/load-fragment.c
+@@ -609,7 +609,7 @@ int config_parse_exec(
+                         else
+                                 skip = strneq(word, "\\;", MAX(l, 1U));
+ 
+-                        r = cunescape_length(word + skip, l - skip, 0, &c);
++                        r = cunescape_length(word + skip, l - skip, UNESCAPE_RELAX, &c);
+                         if (r < 0) {
+                                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to unescape command line, ignoring: %s", rvalue);
+                                 r = 0;

@@ -10,6 +10,7 @@ systemd (220-4) UNRELEASED; urgency=medium
     rc-local.service wait for network-online.target (if it gets started). This
     not specified by LSB, but has been behaving that way in Debian under SysV
     init and upstart. (LP: #1451797)
+  * Fix parsing of escape characters in Exec*= lines. (Closes: #787256)
 
   [ Michael Biebl ]
   * Bump Depends on util-linux to make sure we have a sulogin implementation
