@@ -11,6 +11,11 @@ systemd (220-4) UNRELEASED; urgency=medium
     not specified by LSB, but has been behaving that way in Debian under SysV
     init and upstart. (LP: #1451797)
   * Fix parsing of escape characters in Exec*= lines. (Closes: #787256)
+  * Drop path_is_mount_point-handle-false-positive-on-some-fs.patch (it was
+    already not applied in 220-1). This needs to be re-thought and re-done
+    against the current code, and overlayfs in general. On overlayfs this
+    still reports false positives for files that changed in the upperdir, but
+    this does not break systemd-machine-id-commit any more.
 
   [ Michael Biebl ]
   * Bump Depends on util-linux to make sure we have a sulogin implementation
