@@ -2,6 +2,8 @@ systemd (220-5) UNRELEASED; urgency=medium
 
   * debian/README.source: Upstream repository moved to github, adjust
     cherry-picking instructions accordingly.
+  * debian/control: Replace obsolete Python2 version header with
+    X-Python3-Version.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
 

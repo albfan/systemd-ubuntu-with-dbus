@@ -10,7 +10,7 @@ Uploaders: Michael Biebl <biebl@debian.org>,
 Standards-Version: 3.9.6
 Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-systemd/systemd.git
-X-Python-Version: >= 2.7
+X-Python3-Version: >= 3.1
 Homepage: http://www.freedesktop.org/wiki/Software/systemd
 Build-Depends: debhelper (>= 9),
                pkg-config,
