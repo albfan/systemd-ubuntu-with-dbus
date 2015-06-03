@@ -4,6 +4,7 @@ systemd (220-5) UNRELEASED; urgency=medium
     cherry-picking instructions accordingly.
   * debian/control: Replace obsolete Python2 version header with
     X-Python3-Version.
+  * dracut: Fix path to systemd-fsck. (Closes: #787553)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
 
