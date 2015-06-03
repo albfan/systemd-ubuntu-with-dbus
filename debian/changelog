@@ -1,3 +1,10 @@
+systemd (220-5) UNRELEASED; urgency=medium
+
+  * debian/README.source: Upstream repository moved to github, adjust
+    cherry-picking instructions accordingly.
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
+
 systemd (220-4) unstable; urgency=medium
 
   [ Martin Pitt ]

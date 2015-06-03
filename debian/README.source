@@ -66,15 +66,15 @@ Note that our debian/gbp.conf disables patch numbers.
 Cherry-picking upstream patches
 -------------------------------
 You can add the systemd upstream branch as an additional remote to the Debian
-packaging branch. Call it "fdo" or "systemd" or similar to avoid confusing it
-with the already existing "upstream" branch from git-buildpackage:
+packaging branch. Call it "github" or similar to avoid confusing it with the
+already existing "upstream" branch from git-buildpackage:
 
-  git remote add fdo git://anongit.freedesktop.org/systemd/systemd
-  git fetch fdo -n
+  git remote add github https://github.com/systemd/systemd.git
+  git fetch github -n
 
 Now you can look at the upstream log and cherry-pick patches into the
 patch-queue branch:
 
   gbp pq import --force
-  git log fdo/master
+  git log github/master
   git cherry-pick 123DEADBEEF
