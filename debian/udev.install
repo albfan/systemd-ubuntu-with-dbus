@@ -19,3 +19,4 @@ usr/share/pkgconfig/udev.pc
 ../../extra/fbdev-blacklist.conf etc/modprobe.d/
 ../../extra/udev-helpers/* lib/udev/
 ../../extra/udev-finish.service lib/systemd/system/
+../../extra/*.link lib/systemd/network/

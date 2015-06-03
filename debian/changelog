@@ -12,6 +12,9 @@ systemd (220-5) UNRELEASED; urgency=medium
     in ifupdown under systemd.
   * debian/udev.README.Debian: Document net.ifnames, and how to write udev
     rules for custom network names.
+  * Add debian/extra/01-mac-for-usb.link: Use MAC based names for network
+    interfaces which are (directly or indirectly) on USB. Path based names
+    are inadequate for dynamic buses like USB.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
 

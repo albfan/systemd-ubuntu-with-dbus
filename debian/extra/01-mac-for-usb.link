@@ -1,0 +1,9 @@
+# Use MAC based names for network interfaces which are (directly or indirectly)
+# on USB. Path based names are inadequate for dynamic buses like USB.
+
+[Match]
+Path=*-usb-*
+
+[Link]
+NamePolicy=kernel database onboard mac
+MACAddressPolicy=persistent
