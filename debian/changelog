@@ -5,6 +5,8 @@ systemd (220-5) UNRELEASED; urgency=medium
   * debian/control: Replace obsolete Python2 version header with
     X-Python3-Version.
   * dracut: Fix path to systemd-fsck. (Closes: #787553)
+  * Ignore test failures during build if /etc/machine-id is missing (which is
+    the case in a few buildd chroots still). (Closes: #787258)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
 
