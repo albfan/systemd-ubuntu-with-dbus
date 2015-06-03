@@ -1,14 +1,8 @@
 This documents udev integration Debian specifics. Please see man udev(7) and
 its referenced manpages for general documentation.
 
-Network Interfaces
-~~~~~~~~~~~~~~~~~~
-After receiving events about network interfaces, net.agent will call
-ifupdown using the --allow=hotplug option. This makes the program act
-only on interfaces marked with the "allow-hotplug" statement.
-E.g: "allow-hotplug eth0" instead of the usual "auto eth0".
-The loopback interface must always be configured with "auto lo".
-
+Network interface naming
+~~~~~~~~~~~~~~~~~~~~~~~~
 The persistent names of network interfaces by default are automatically
 written to /etc/udev/rules.d/70-persistent-net.rules .
 Users can add their own rules there or at any other place before 70.
@@ -30,6 +24,14 @@ explicitly setting "export NEED_PERSISTENT_NET=yes" in a file in
 If 70-persistent-net.rules is copied to the initramfs then it must be
 updated every time a new interface is added.
 
+Hotplugged Network Interfaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+After receiving events about network interfaces, net.agent will call
+ifupdown using the --allow=hotplug option. This makes the program act
+only on interfaces marked with the "allow-hotplug" statement.
+E.g: "allow-hotplug eth0" instead of the usual "auto eth0".
+Under SysVinit, the loopback interface must always be configured with "auto
+lo". Under systemd it is not necessary to explicitly configure "lo".
 
 Using udev with LDAP or NIS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
