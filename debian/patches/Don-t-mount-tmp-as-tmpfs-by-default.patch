@@ -18,10 +18,10 @@ anymore afterwards).
  2 files changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 4353cf2..c89f016 100644
+index 89d94a0..89b7d12 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -6685,7 +6685,6 @@ SYSINIT_TARGET_WANTS += \
+@@ -6686,7 +6686,6 @@ SYSINIT_TARGET_WANTS += \
  
  LOCAL_FS_TARGET_WANTS += \
  	systemd-remount-fs.service \

@@ -108,10 +108,10 @@ index 85579e0..d52f445 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 6e540e1..54dd199 100644
+index 378c8db..895b77c 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -399,6 +399,7 @@ rootlibexec_PROGRAMS = \
+@@ -400,6 +400,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -119,7 +119,7 @@ index 6e540e1..54dd199 100644
  	systemd-machine-id-commit \
  	systemd-ac-power \
  	systemd-sysctl \
-@@ -503,6 +504,7 @@ dist_systemunit_DATA = \
+@@ -504,6 +505,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
  	units/x-.slice \
@@ -127,7 +127,7 @@ index 6e540e1..54dd199 100644
  	units/systemd-initctl.socket \
  	units/syslog.socket \
  	units/dev-hugepages.mount \
-@@ -553,6 +555,7 @@ nodist_systemunit_DATA = \
+@@ -554,6 +556,7 @@ nodist_systemunit_DATA = \
  	units/systemd-kexec.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
@@ -135,7 +135,7 @@ index 6e540e1..54dd199 100644
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -610,6 +613,7 @@ EXTRA_DIST += \
+@@ -611,6 +614,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \
@@ -143,7 +143,7 @@ index 6e540e1..54dd199 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2397,6 +2401,18 @@ systemd_fsck_LDADD = \
+@@ -2398,6 +2402,18 @@ systemd_fsck_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------
