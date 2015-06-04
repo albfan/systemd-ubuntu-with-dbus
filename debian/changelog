@@ -10,6 +10,8 @@ systemd (220-5) UNRELEASED; urgency=medium
   * debian/udev.README.Debian: Move network interface hotplug documentation
     into separate section. Point out that "lo" does not need to be configured
     in ifupdown under systemd.
+  * debian/udev.README.Debian: Document net.ifnames, and how to write udev
+    rules for custom network names.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
 

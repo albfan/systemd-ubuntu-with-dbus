@@ -24,6 +24,58 @@ explicitly setting "export NEED_PERSISTENT_NET=yes" in a file in
 If 70-persistent-net.rules is copied to the initramfs then it must be
 updated every time a new interface is added.
 
+Optional: ifnames network interface naming
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since version 197 udev has a builtin persistant name generator which checks
+firmware/BIOS provided index numbers or slot names (similar to biosdevname),
+falls back to slot names (PCI numbers, etc., in the spirit of
+/dev/disks/by-path/), and then optionally (not done by default) falls back to
+MAC address, and generates names based on these properties.
+
+This avoids inherent race conditions (which sometimes caused collisions and
+interface names like "rename1" with the old 75-persistent-net-generator.rules),
+avoids having to write any state into /etc (for read-only root etc.), also
+works in virtualized environments (75-persistent-net-generator is disabled
+there), and provides more natural "location oriented" names for PCI cards (so
+that replacing a broken network card does not change the name).
+
+You can enable this by putting "net.ifnames=1" into the kernel command line
+(e. g. in /etc/default/grub's GRUB_CMDLINE_LINUX_DEFAULT) and removing
+/etc/udev/rules.d/70-persistent-net.rules.
+
+Custom net interface naming
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In some cases it is convenient to define your own specific names for network
+interfaces. These can be customized in two different ways:
+
+ * You can create your own names via udev rules, based on arbitrary attribute
+   and property matches. See man udev(7) for documentation how to write udev
+   rules. For example, you can create /etc/udev/rules.d/76-netnames.rules with
+
+   ------------ snip ----------
+   # identify device by MAC address
+   SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="11:22:aa:bb:cc:33", NAME="eth-dmz"
+
+   # identify by vendor/model ID
+   SUBSYSTEM=="net", ACTION=="add", ENV{ID_VENDOR_ID}=="0x8086", \
+       ENV{ID_MODEL_ID}=="0x1502", NAME="eth-intel-gb"
+
+   # USB device by path
+   # get ID_PATH if not present yet
+   ENV{ID_PATH}=="", IMPORT{builtin}="path_id"
+   SUBSYSTEM=="net", ACTION=="add", ENV{ID_PATH}=="*-usb-0:3:1*", NAME="eth-blue-hub"
+   ------------ snip ----------
+
+   The name of the rules file needs to have a prefix smaller than "80" so that
+   it runs before /lib/udev/rules.d/80-net-setup-link.rules, and should have a
+   prefix bigger than "75" so that it runs after 75-net-description.rules and
+   thus you can use matches on ID_VENDOR and similar properties.
+
+ * If you use net.ifnames, you can change the policy (kernel/bios/path/MAC
+   based naming) in a *.link file, for individual devices or entire device
+   classes. See man systemd.link(5) for details about this. The default policy
+   is in /lib/systemd/network/99-default.link.
+
 Hotplugged Network Interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 After receiving events about network interfaces, net.agent will call
