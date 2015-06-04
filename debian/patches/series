@@ -11,6 +11,8 @@ udev-Bring-back-persistant-storage-symlinks-for-bcac.patch
 sd-device-fix-invalid-property-strv-pointers.patch
 load-fragment-use-UNESCAPE_RELAX-flag-to-parse-exec-.patch
 test-unit-file-add-test-for-improperly-escaped-exec-.patch
+test-unit-file.c-fixup-the-test-for-commit-3b51f8ddd.patch
+util-fix-another-cunescape-regression.patch
 shared-generator-correct-path-to-systemd-fsck.patch
 
 ## Debian specific patches
