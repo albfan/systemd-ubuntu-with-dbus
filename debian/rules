@@ -53,6 +53,7 @@ CONFFLAGS_deb = \
 	--enable-gtk-doc \
 	--enable-compat-libs \
 	--enable-hwdb \
+	--enable-efi \
 	PYTHON=python3
 
 CONFFLAGS_udeb = \
@@ -86,6 +87,7 @@ CONFFLAGS_udeb = \
 	--disable-rfkill \
 	--disable-hwdb \
 	--disable-manpages \
+	--disable-efi \
 	--without-python
 
 override_dh_auto_configure:

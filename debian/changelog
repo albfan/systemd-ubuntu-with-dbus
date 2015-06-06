@@ -16,6 +16,7 @@ systemd (220-5) UNRELEASED; urgency=medium
     interfaces which are (directly or indirectly) on USB. Path based names
     are inadequate for dynamic buses like USB.
   * Fix another escape parsing regression in Exec*= lines. (Closes: #787256)
+  * Disable EFI support for udeb build.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
 
