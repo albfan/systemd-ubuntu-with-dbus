@@ -1,4 +1,4 @@
-systemd (220-5) UNRELEASED; urgency=medium
+systemd (220-5) unstable; urgency=medium
 
   * debian/README.source: Upstream repository moved to github, adjust
     cherry-picking instructions accordingly.
@@ -19,7 +19,7 @@ systemd (220-5) UNRELEASED; urgency=medium
   * Disable EFI support for udeb build.
   * Refine detection of touch screen devices.
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 03 Jun 2015 08:23:26 +0200
+ -- Martin Pitt <mpitt@debian.org>  Sun, 07 Jun 2015 16:52:33 +0200
 
 systemd (220-4) unstable; urgency=medium
 
