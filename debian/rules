@@ -22,7 +22,6 @@ CONFFLAGS = \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
 	--disable-gudev \
-	--disable-seccomp \
 	--disable-qrencode \
 	--disable-microhttpd \
 	--disable-chkconfig \
@@ -88,6 +87,7 @@ CONFFLAGS_udeb = \
 	--disable-hwdb \
 	--disable-manpages \
 	--disable-efi \
+	--disable-seccomp \
 	--without-python
 
 override_dh_auto_configure:

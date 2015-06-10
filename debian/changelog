@@ -1,3 +1,10 @@
+systemd (220-6) UNRELEASED; urgency=medium
+
+  * Enable seccomp support on the architectures that provide libseccomp.
+    (Closes: #760299)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 10 Jun 2015 07:54:22 +0200
+
 systemd (220-5) unstable; urgency=medium
 
   * debian/README.source: Upstream repository moved to github, adjust
