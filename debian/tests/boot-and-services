@@ -401,6 +401,8 @@ SystemCallFilter=access
         # unit should be stopped
         self.assertEqual(st.returncode, 3)
 
+        subprocess.check_call(['systemctl', 'reset-failed', 'scfail.service'])
+
         self.assertIn(b'failed', out)
         self.assertIn(b'code=killed, signal=SYS', out)
         with open('/etc/machine-id') as f:
