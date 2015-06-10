@@ -7,6 +7,8 @@ systemd (220-6) UNRELEASED; urgency=medium
     tmp.mount unless /etc/fstab explicitly specifies it.
   * Drop "RequiresMountsFor=/tmp" from basic.target again, to avoid mounting
     tmp.mount by default.
+  * Bump libcap-dev build dep to the version that provides libcap2-udeb.
+    (Closes: #787542)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 10 Jun 2015 07:54:22 +0200
 
