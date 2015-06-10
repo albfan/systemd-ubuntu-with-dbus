@@ -122,11 +122,12 @@ class ServicesTest(unittest.TestCase):
         self.assertFalse(os.path.exists('/tmp/newfile.test'))
         # files in /var/tmp/ older than 30d should get cleaned up
         # XXX FIXME: /var/tmp/ cleanup was disabled in #675422
-        #self.assertFalse(os.path.exists('/var/tmp/oldfile.test'))
+        # self.assertFalse(os.path.exists('/var/tmp/oldfile.test'))
         self.assertTrue(os.path.exists('/var/tmp/newfile.test'))
 
         # next run should leave the recent ones
-        os.close(os.open('/tmp/newfile.test', os.O_CREAT|os.O_EXCL|os.O_WRONLY))
+        os.close(os.open('/tmp/newfile.test',
+                         os.O_CREAT | os.O_EXCL | os.O_WRONLY))
         subprocess.check_call(['systemctl', 'start', 'systemd-tmpfiles-clean'])
         time.sleep(2)
         self.assertTrue(os.path.exists('/tmp/newfile.test'))
@@ -410,14 +411,18 @@ def pre_boot_setup():
     '''Test setup before rebooting testbed'''
 
     # create a few temporary files to ensure that they get cleaned up on boot
-    os.close(os.open('/tmp/newfile.test', os.O_CREAT|os.O_EXCL|os.O_WRONLY))
-    os.close(os.open('/var/tmp/newfile.test', os.O_CREAT|os.O_EXCL|os.O_WRONLY))
+    os.close(os.open('/tmp/newfile.test',
+                     os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    os.close(os.open('/var/tmp/newfile.test',
+                     os.O_CREAT | os.O_EXCL | os.O_WRONLY))
     # we can't use utime() here, as systemd looks for ctime
     cur_time = time.clock_gettime(time.CLOCK_REALTIME)
     time.clock_settime(time.CLOCK_REALTIME, cur_time - 2 * 30 * 86400)
     try:
-        os.close(os.open('/tmp/oldfile.test', os.O_CREAT|os.O_EXCL|os.O_WRONLY))
-        os.close(os.open('/var/tmp/oldfile.test', os.O_CREAT|os.O_EXCL|os.O_WRONLY))
+        os.close(os.open('/tmp/oldfile.test',
+                         os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        os.close(os.open('/var/tmp/oldfile.test',
+                         os.O_CREAT | os.O_EXCL | os.O_WRONLY))
     finally:
         time.clock_settime(time.CLOCK_REALTIME, cur_time)
 
