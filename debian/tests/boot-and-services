@@ -351,6 +351,39 @@ ExecStart=/bin/sleep 500
         self.assertTrue(os.path.exists('/sys/fs/cgroup/perf_event/aux'))
 
 
+@unittest.skipUnless('+SECCOMP' in subprocess.getoutput('systemctl --version'),
+                     'seccomp support not enabled')
+class SeccompTest(unittest.TestCase):
+    '''Check seccomp syscall filtering'''
+
+    def test_failing(self):
+        with open('/run/systemd/system/scfail.service', 'w') as f:
+            f.write('''[Unit]
+Description=seccomp test
+[Service]
+ExecStart=/bin/cat /etc/machine-id
+SystemCallFilter=access
+''')
+        self.addCleanup(os.unlink, '/run/systemd/system/scfail.service')
+
+        # launch
+        subprocess.check_call(['systemctl', 'daemon-reload'])
+        subprocess.check_call(['systemctl', 'start', 'scfail.service'])
+        time.sleep(2)
+
+        # check status
+        st = subprocess.Popen(['systemctl', 'status', '-l',
+                               'scfail.service'], stdout=subprocess.PIPE)
+        out = st.communicate()[0]
+        # unit should be stopped
+        self.assertEqual(st.returncode, 3)
+
+        self.assertIn(b'failed', out)
+        self.assertIn(b'code=killed, signal=SYS', out)
+        with open('/etc/machine-id') as f:
+            self.assertNotIn(f.read().strip().encode('ASCII'), out)
+
+
 def pre_boot_setup():
     '''Test setup before rebooting testbed'''
 
