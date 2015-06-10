@@ -88,6 +88,28 @@ class ServicesTest(unittest.TestCase):
         self.assertIn(b'\nP: /devices/', out)
         self.active_unit('systemd-udevd')
 
+    def test_tmp_mount(self):
+        # check if we want to mount /tmp in fstab
+        want_tmp_mount = False
+        with open('/etc/fstab') as f:
+            for l in f:
+                try:
+                    if not l.startswith('#') and l.split()[1] in ('/tmp', '/tmp/'):
+                        want_tmp_mount = True
+                        break
+                except IndexError:
+                    pass
+
+        # ensure that we actually do/don't have a /tmp mount
+        (status, status_out) = subprocess.getstatusoutput('systemctl status tmp.mount')
+        findmnt = subprocess.call(['findmnt', '-n', '/tmp'], stdout=subprocess.PIPE)
+        if want_tmp_mount:
+            self.assertEqual(status, 0, status_out)
+            self.assertEqual(findmnt, 0)
+        else:
+            self.assertEqual(status, 3, status_out)
+            self.assertNotEqual(findmnt, 0)
+
     def test_tmp_cleanup(self):
         # systemd-tmpfiles-clean.timer only runs 15 mins after boot, shortcut
         # it
