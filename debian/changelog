@@ -5,6 +5,8 @@ systemd (220-6) UNRELEASED; urgency=medium
   * boot-and-services autopkgtest: Add SeccompTest for the above.
   * boot-and-services autopkgtest: Check that we don't get an unwanted
     tmp.mount unless /etc/fstab explicitly specifies it.
+  * Drop "RequiresMountsFor=/tmp" from basic.target again, to avoid mounting
+    tmp.mount by default.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 10 Jun 2015 07:54:22 +0200
 

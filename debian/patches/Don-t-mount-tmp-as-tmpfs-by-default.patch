@@ -13,9 +13,10 @@ the next reboot and “systemctl start tmp.mount” to get /tmp mounted as
 tmpfs right now (beware, files currently in /tmp will not be visible
 anymore afterwards).
 ---
- Makefile.am     | 1 -
- units/tmp.mount | 3 +++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ Makefile.am        | 1 -
+ units/basic.target | 2 +-
+ units/tmp.mount    | 3 +++
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
 index 89d94a0..89b7d12 100644
@@ -29,6 +30,16 @@ index 89d94a0..89b7d12 100644
  	var-lib-machines.mount
  
  MULTI_USER_TARGET_WANTS += \
+diff --git a/units/basic.target b/units/basic.target
+index e0e1e60..9fa8c9c 100644
+--- a/units/basic.target
++++ b/units/basic.target
+@@ -14,4 +14,4 @@ After=sysinit.target sockets.target paths.target slices.target
+ 
+ # We support /var, /tmp, /var/tmp, being on NFS, but we don't pull in
+ # remote-fs.target by default, hence explicitly pull /var in here.
+-RequiresMountsFor=/var /tmp /var/tmp
++RequiresMountsFor=/var /var/tmp
 diff --git a/units/tmp.mount b/units/tmp.mount
 index 00a0d28..8777171 100644
 --- a/units/tmp.mount
