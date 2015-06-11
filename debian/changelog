@@ -1,4 +1,4 @@
-systemd (220-6) UNRELEASED; urgency=medium
+systemd (220-6) unstable; urgency=medium
 
   * Enable seccomp support on the architectures that provide libseccomp.
     (Closes: #760299)
@@ -20,7 +20,7 @@ systemd (220-6) UNRELEASED; urgency=medium
     - Drop Don-t-mount-tmp-as-tmpfs-by-default.patch and
       PrivateTmp-shouldn-t-require-tmpfs.patch, not necessary any more.
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 10 Jun 2015 07:54:22 +0200
+ -- Martin Pitt <mpitt@debian.org>  Thu, 11 Jun 2015 09:25:49 +0200
 
 systemd (220-5) unstable; urgency=medium
 
