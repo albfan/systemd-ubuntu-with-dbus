@@ -172,6 +172,11 @@ override_dh_install:
 			debian/systemd/lib/systemd/system/$${t}.target.wants ;\
 	done
 
+	# we don't want /tmp to be a tmpfs by default
+	mv debian/systemd/lib/systemd/system/tmp.mount debian/systemd/usr/share/systemd/
+	printf '\n[Install]\nWantedBy=local-fs.target\n' >> debian/systemd/usr/share/systemd/tmp.mount
+	rm debian/systemd/lib/systemd/system/local-fs.target.wants/tmp.mount
+
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1

@@ -27,7 +27,6 @@ Start-logind-on-demand-via-libpam-systemd.patch
 Update-localed-to-use-the-Debian-config-files.patch
 Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
 Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
-Don-t-mount-tmp-as-tmpfs-by-default.patch
 Fix-up-tmpfiles.d-permissions-properly.patch
 Revert-udev-network-device-renaming-immediately-give.patch
 Make-net.ifnames-opt-in-instead-of-opt-out.patch
@@ -56,7 +55,6 @@ util-Add-hidden-suffixes-for-ucf.patch
 Drop-rc-local-generator.patch
 Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
-PrivateTmp-shouldn-t-require-tmpfs.patch
 path-util-Fix-path_is_mount_point-for-files.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
