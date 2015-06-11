@@ -13,7 +13,7 @@ which display-manager is started.
  create mode 100644 src/default-display-manager-generator/default-display-manager-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 0c84d8a..cddc36e 100644
+index 618dacb..9380118 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -418,7 +418,8 @@ systemgenerator_PROGRAMS = \

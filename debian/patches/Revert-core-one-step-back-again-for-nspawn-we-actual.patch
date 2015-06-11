@@ -14,7 +14,7 @@ Bug-Fedora: https://bugzilla.redhat.com/show_bug.cgi?id=1141137
  1 file changed, 1 insertion(+), 9 deletions(-)
 
 diff --git a/src/core/unit.c b/src/core/unit.c
-index b2005f5..98539e9 100644
+index e380276..45000dc 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
 @@ -3546,15 +3546,7 @@ int unit_kill_context(

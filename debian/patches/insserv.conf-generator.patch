@@ -25,7 +25,7 @@ It has the following modifications:
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 89b7d12..808ea35 100644
+index 89d94a0..aa1edd3 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -414,6 +414,7 @@ rootlibexec_PROGRAMS += \

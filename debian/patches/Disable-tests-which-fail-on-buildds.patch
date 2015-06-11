@@ -9,7 +9,7 @@ Presumably these are due to running on too old kernels, misconfigured
  1 file changed, 7 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index cddc36e..faca5a2 100644
+index 9380118..1723c34 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -1463,14 +1463,11 @@ tests += \

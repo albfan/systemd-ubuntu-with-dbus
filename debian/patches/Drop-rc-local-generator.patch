@@ -14,7 +14,7 @@ Bug-Debian: https://bugs.debian.org/776170
  1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index faca5a2..378c8db 100644
+index 1723c34..51b2dd4 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -625,12 +625,13 @@ EXTRA_DIST += \
