@@ -37,7 +37,7 @@ Build-Depends: debhelper (>= 9),
                libkmod-dev (>= 15),
                libblkid-dev (>= 2.24),
                libmount-dev (>= 2.20),
-               libseccomp-dev (>= 1.0.0) [amd64 armel armhf i386 mips mipsel],
+               libseccomp-dev (>= 1.0.0) [amd64 arm64 armel armhf i386 mips mipsel],
                python3-all-dev,
                python3-lxml
 
