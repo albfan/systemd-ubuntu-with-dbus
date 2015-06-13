@@ -1,6 +1,8 @@
 systemd (220-7) UNRELEASED; urgency=medium
 
   * Enable seccomp support on arm64 as well.
+  * Replace the remainder of Fix-paths-in-man-pages.patch with an upstream
+    provided patch.
 
  -- Michael Biebl <biebl@debian.org>  Fri, 12 Jun 2015 08:05:46 +0200
 
@@ -147,7 +149,7 @@ systemd (220-1) unstable; urgency=medium
   * systemd-fsckd autopkgtest: In test_systemd_fsck_with_plymouth_failure(),
     fix plymouthd status check to work under both Debian and Ubuntu.
   * Replace almost all of Fix-paths-in-man-pages.patch with upstreamed
-    patches. (The reminder is planned to get fixed upstream as well.)
+    patches. (The remainder is planned to get fixed upstream as well.)
   * Remove our update-rc.d patches, replace them with upstream patches for
     /lib/systemd/systemd-sysv-install abstraction, and provide one for
     update-rc.d. Also implement "is-enabled" command by directly checking for

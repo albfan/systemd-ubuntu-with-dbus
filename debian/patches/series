@@ -3,6 +3,7 @@ udevd-event-fix-event-queue-in-daemenozied-mode.patch
 udevd-fix-SIGCHLD-handling-in-daemon-mode.patch
 man-generate-configured-paths-in-manpages.patch
 man-use-configured-path-for-mount-and-umount-binarie.patch
+man-replace-hard-coded-usr-lib.patch
 systemctl-drop-hardcoded-chkconfig-invocation.patch
 systemctl-Don-t-skip-SysV-init.d-scripts-when-enabli.patch
 core-namespace-Protect-usr-instead-of-home-with-Prot.patch
@@ -42,7 +43,6 @@ Add-support-for-rcS.d-init-scripts-to-the-sysv-gener.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
 Make-run-lock-tmpfs-an-API-fs.patch
 Include-additional-directories-in-ProtectSystem.patch
-Fix-paths-in-man-pages.patch
 udev-re-enable-mount-propagation-for-udevd.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Re-enable-journal-forwarding-to-syslog.patch
