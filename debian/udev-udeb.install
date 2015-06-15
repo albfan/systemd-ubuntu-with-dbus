@@ -12,8 +12,6 @@ lib/udev/rules.d/75-probe_mtd.rules
 lib/udev/rules.d/80-drivers.rules
 ../../extra/rules/50-firmware.rules lib/udev/rules.d/
 ../../extra/rules/73-idrac.rules lib/udev/rules.d/
-../../extra/rules/75-persistent-net-generator.rules lib/udev/rules.d/
 ../../extra/udev-helpers/*.functions lib/udev/
-../../extra/udev-helpers/write_net_rules lib/udev/
 ../../extra/start-udev lib/debian-installer/
 ../../extra/base-installer.d usr/lib/

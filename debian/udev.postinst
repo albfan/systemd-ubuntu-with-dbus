@@ -87,18 +87,27 @@ update_initramfs() {
   update-initramfs -u
 }
 
-write_interfaces_rules() {
-  local devpath
-  for devpath in /sys/class/net/*; do
-    [ -d "$devpath" ] || continue
-    udevadm test --action=add $devpath > /dev/null || true
-  done
-}
-
 upgrade_fixes() {
   if dpkg --compare-versions "$2" lt "204-1"; then
     # We dropped udev-mtab with udev 204.
     update-rc.d udev-mtab remove
+  fi
+
+  # we enabled net.ifnames in 220-7 by default; don't change iface names in
+  # virtualized envs (where 75-persistent-net-generator.rules didn't work)
+  if dpkg --compare-versions "$2" lt-nl "220-7~" &&
+     [ ! -e /etc/udev/rules.d/70-persistent-net.rules ] &&
+     [ ! -e /etc/udev/rules.d/80-net-setup-link.rules ] &&
+     ! grep -q net.ifnames /proc/cmdline ; then
+    mkdir -p /etc/udev/rules.d
+    cat <<EOF > /etc/udev/rules.d/80-net-setup-link.rules
+# This machine is most likely a virtualized guest, where the old persistant
+# network interface mechanism (75-persistent-net-generator.rules) did not work.
+# This file disables /lib/udev/rules.d/80-net-setup-link.rules to avoid
+# changing network interface names on upgrade. Please read
+# /usr/share/doc/udev/README.Debian.gz about how to migrate to the currently
+# supported mechanism.
+EOF
   fi
 }
 
@@ -135,7 +144,6 @@ case "$1" in
 
     if [ -z "$2" ]; then # first install
       if ! chrooted && ! in_debootstrap; then
-	write_interfaces_rules
 	enable_udev
       fi
     else # upgrades
@@ -168,10 +176,6 @@ case "$1" in
     triggered)
     update_hwdb
     exit 0
-    ;;
-
-    interfaces)
-    write_interfaces_rules
     ;;
 
     *)

@@ -1,8 +1,32 @@
 systemd (220-7) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * Enable seccomp support on arm64 as well.
   * Replace the remainder of Fix-paths-in-man-pages.patch with an upstream
     provided patch.
+
+  [ Martin Pitt ]
+  * Switch to net.ifnames persistant network interfaces (on new
+    installations/for new hardware), and deprecate the old
+    75-persistent-net-generator.rules. See the ML discussion for details:
+        https://lists.debian.org/debian-devel/2015/05/msg00170.html
+        https://lists.debian.org/debian-devel/2015/06/msg00018.html
+    - Drop Make-net.ifnames-opt-in-instead-of-opt-out.patch, to use
+      net.ifnames by default.
+    - Revert-udev-network-device-renaming-immediately-give.patch: Adjust
+      patch comment.
+    - Drop 75-persistent-net-generator.rules, write_net_rules helper and
+      rule_generator.functions.
+    - Adjust udev's README.Debian accordingly, and describe the migration.
+      This needs to happen manually as there is no robust way of doing this
+      automatically.
+    - Add udev NEWS file for announcing this change and pointing to udev's
+      README.
+    - udev.postinst: Drop write_interfaces_rules().
+    - udev.postinst: Disable net.ifnames on systems which did not support
+      75-persistent-net-generator.rules (most importantly, virtualized guests)
+      to avoid changing network interface names on upgrade.
+    - LP: #1454254
 
  -- Michael Biebl <biebl@debian.org>  Fri, 12 Jun 2015 08:05:46 +0200
 

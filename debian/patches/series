@@ -30,7 +30,6 @@ Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
 Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
 Fix-up-tmpfiles.d-permissions-properly.patch
 Revert-udev-network-device-renaming-immediately-give.patch
-Make-net.ifnames-opt-in-instead-of-opt-out.patch
 Use-different-default-paths-for-various-binaries.patch
 Order-remote-fs.target-after-local-fs.target.patch
 Skip-99-systemd.rules-when-not-running-systemd-as-in.patch

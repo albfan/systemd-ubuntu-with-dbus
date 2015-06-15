@@ -5,12 +5,9 @@ Subject: Revert "udev: network device renaming - immediately give up if the
 
 This reverts commit 97595710b77aa162ca5e20da57d0a1ed7355eaad.
 
-Since we are keeping the old persistent network interface naming for
-now, and make the new naming scheme [1] explictly opt-in [2], re-apply
-this old hack to make the renaming less likely to fail.
-
-[1] http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/
-[2] d5051f7666e25ecf2b32c7076ce18c1de969d01b
+We need to keep supporting systems with 75-persistent-net-generator.rules
+generated names for a while after switching to net.ifnames. Re-apply this old
+hack to make the renaming less likely to fail.
 ---
  src/udev/udev-event.c | 41 ++++++++++++++++++++++++++++++++++++++---
  1 file changed, 38 insertions(+), 3 deletions(-)
