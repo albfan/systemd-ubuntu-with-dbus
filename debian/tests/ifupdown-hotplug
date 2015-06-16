@@ -9,12 +9,13 @@ if [ -e /sys/class/net/$IFACE ]; then
     exit 0
 fi
 
-cat <<EOF > /etc/network/interfaces.d/${IFACE}.cfg
+cat <<EOF > /etc/network/interfaces.d/$IFACE
 allow-hotplug $IFACE
 iface $IFACE inet static
     address 192.168.234.129
     netmask 255.255.255.0
 EOF
+trap "rm /etc/network/interfaces.d/$IFACE" EXIT INT QUIT PIPE
 
 # these should trigger uevents and ifup@.service
 ip link add name $IFACE type veth peer name v$IFACE
