@@ -45,12 +45,13 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  Makefile-man.am                    |  12 +
  Makefile.am                        |  16 +
  man/systemd-fsckd.service.xml      | 162 +++++++++
+ po/POTFILES.in                     |   1 +
  src/fsckd/fsckd.c                  | 680 +++++++++++++++++++++++++++++++++++++
  units/systemd-fsck-root.service.in |   2 +
  units/systemd-fsck@.service.in     |   3 +-
  units/systemd-fsckd.service.in     |  17 +
  units/systemd-fsckd.socket         |  15 +
- 8 files changed, 906 insertions(+), 1 deletion(-)
+ 9 files changed, 907 insertions(+), 1 deletion(-)
  create mode 100644 man/systemd-fsckd.service.xml
  create mode 100644 src/fsckd/fsckd.c
  create mode 100644 units/systemd-fsckd.service.in
@@ -330,6 +331,15 @@ index 0000000..c976062
 +  </refsect1>
 +
 +</refentry>
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index b4c1121..70e7594 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -5,3 +5,4 @@ src/locale/org.freedesktop.locale1.policy.in
+ src/login/org.freedesktop.login1.policy.in
+ src/machine/org.freedesktop.machine1.policy.in
+ src/timedate/org.freedesktop.timedate1.policy.in
++src/fsckd/fsckd.c
 diff --git a/src/fsckd/fsckd.c b/src/fsckd/fsckd.c
 new file mode 100644
 index 0000000..e170d7f
