@@ -34,8 +34,8 @@ systemd (220-7) UNRELEASED; urgency=medium
       out upstream git, applies debian/, applies some packaging modifications,
       applies most of our Debian patches (ignoring the backported upstream
       ones and ignoring fuzz), and builds a dsc.
-   - Add debian/patches/upstream-master/: These patches override the ones in
-     debian/patches/ for trunk builds, in order to apply.
+    - Add debian/patches/upstream-master/: These patches override the ones in
+      debian/patches/ for trunk builds, in order to apply.
   * ifupdown-hotplug autopkgtest: Fix config name in interfaces.d/, it must
     not have a suffix in Debian. Also clean up the file after the test.
 
