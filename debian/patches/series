@@ -15,6 +15,7 @@ test-unit-file-add-test-for-improperly-escaped-exec-.patch
 test-unit-file.c-fixup-the-test-for-commit-3b51f8ddd.patch
 util-fix-another-cunescape-regression.patch
 shared-generator-correct-path-to-systemd-fsck.patch
+path-util-Fix-path_is_mount_point-for-files.patch
 udev-input_id-refactor-device-detection.patch
 udev-input_id-use-direct-property-and-mt-axis-for-to.patch
 udev-input_id-use-ABS_MT_SLOT-1-to-exclude-non-touch.patch
@@ -54,7 +55,6 @@ util-Add-hidden-suffixes-for-ucf.patch
 Drop-rc-local-generator.patch
 Only-start-logind-if-dbus-is-installed.patch
 cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
-path-util-Fix-path_is_mount_point-for-files.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
