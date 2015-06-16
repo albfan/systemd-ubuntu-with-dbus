@@ -29,6 +29,13 @@ systemd (220-7) UNRELEASED; urgency=medium
     - LP: #1454254
   * fsckd-daemon-for-inter-fsckd-communication.patch: Add fsckd.c to
     POTFILES.in.
+  * Automate building packages for upstream trunk:
+    - Add debian/extra/build-upstream-master-dsc script. This checks
+      out upstream git, applies debian/, applies some packaging modifications,
+      applies most of our Debian patches (ignoring the backported upstream
+      ones and ignoring fuzz), and builds a dsc.
+   - Add debian/patches/upstream-master/: These patches override the ones in
+     debian/patches/ for trunk builds, in order to apply.
 
  -- Michael Biebl <biebl@debian.org>  Fri, 12 Jun 2015 08:05:46 +0200
 
