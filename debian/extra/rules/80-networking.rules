@@ -1,4 +1,4 @@
-SUBSYSTEM=="net",			RUN+="net.agent"
+SUBSYSTEM=="net", ACTION=="add|remove", RUN+="net.agent"
 
-SUBSYSTEM=="atm",			RUN+="dsl-modem.agent"
+SUBSYSTEM=="atm", ACTION=="add|remove", RUN+="dsl-modem.agent"
 
