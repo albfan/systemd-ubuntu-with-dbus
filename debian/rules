@@ -112,12 +112,14 @@ override_dh_auto_install:
 		--destdir=debian/install/deb
 	dh_auto_install --builddirectory=build-udeb \
 		--destdir=debian/install/udeb
+ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 	echo "Checking that executables don't link to libraries in /usr..."
 	set -e; for e in debian/install/deb/lib/systemd/systemd-*; do \
 	    OUT=`ldd $$e | grep -v libfakeroot`; if echo "$$OUT" | grep -q /usr; then \
 	        echo "ERROR: $$e links to /usr"; echo "$$OUT"; exit 1; \
 	    fi; \
 	done
+endif
 
 override_dh_auto_clean:
 	dh_auto_clean --builddirectory=build-deb
