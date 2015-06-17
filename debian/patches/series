@@ -33,7 +33,6 @@ Fix-up-tmpfiles.d-permissions-properly.patch
 Revert-udev-network-device-renaming-immediately-give.patch
 Use-different-default-paths-for-various-binaries.patch
 Order-remote-fs.target-after-local-fs.target.patch
-Skip-99-systemd.rules-when-not-running-systemd-as-in.patch
 insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch

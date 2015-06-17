@@ -36,6 +36,9 @@ systemd (220-7) UNRELEASED; urgency=medium
     systemd when the parent exits.
   * Check during build that systemd and systemd-journald don't link against
     anything in /usr, to prevent bugs like #771652 and #788913 in the future.
+  * Drop Skip-99-systemd.rules-when-not-running-systemd-as-in.patch. The rules
+    mostly just attach tags systemd specific properties which are harmless
+    under other init systems, and systemd-sysctl also works there.
 
  -- Michael Biebl <biebl@debian.org>  Fri, 12 Jun 2015 08:05:46 +0200
 
