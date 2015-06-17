@@ -19,6 +19,7 @@ path-util-Fix-path_is_mount_point-for-files.patch
 udev-input_id-refactor-device-detection.patch
 udev-input_id-use-direct-property-and-mt-axis-for-to.patch
 udev-input_id-use-ABS_MT_SLOT-1-to-exclude-non-touch.patch
+rules-restore-block-watch-after-CHANGE-events.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
