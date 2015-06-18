@@ -6,7 +6,7 @@ systemd (220-7) unstable; urgency=medium
     provided patch.
 
   [ Martin Pitt ]
-  * Switch to net.ifnames persistant network interfaces (on new
+  * Switch to net.ifnames persistent network interfaces (on new
     installations/for new hardware), and deprecate the old
     75-persistent-net-generator.rules. See the ML discussion for details:
         https://lists.debian.org/debian-devel/2015/05/msg00170.html
@@ -136,7 +136,7 @@ systemd (220-3) unstable; urgency=medium
   * Ignore test failures on mipsel; the three failures are not reproducible on
     the porter box (different kernel?). (See #787258)
   * Add ifupdown-hotplug autopkgtest. Reproduces #787263.
-  * udev: Bring back persistant storage symlinks for bcache. Thanks David
+  * udev: Bring back persistent storage symlinks for bcache. Thanks David
     Mohr! (Closes: #787367)
   * sd-device: Fix invalid property strv pointers. This unbreaks the
     environment of udev callouts.
@@ -487,7 +487,7 @@ systemd (219-1) experimental; urgency=medium
     - Fix spelling mistake in systemd.unit(5). (Closes: #773302)
     - Fix timeouts with D-Bus, leading to SIGFPE. (Closes: #774012)
     - Fix load/save of multiple rfkill states. (Closes: #759489)
-    - Non-persistant journal (/run/log/journal) is now readable by group adm.
+    - Non-persistent journal (/run/log/journal) is now readable by group adm.
       (Closes: #771980)
     - Read netdev user mount option to correctly order network mounts after
       network.target. (Closes: #769186)
@@ -648,7 +648,7 @@ systemd (218-7) experimental; urgency=medium
 systemd (218-6) experimental; urgency=medium
 
   [ Martin Pitt ]
-  * initramfs hook: Install 61-persistant-storage-android.rules if it exists.
+  * initramfs hook: Install 61-persistent-storage-android.rules if it exists.
   * Generate POT file during package build, for translators.
   * Pull latest keymaps from upstream git.
   * Order ifup@.service and networking.service after network-pre.target.
@@ -679,7 +679,7 @@ systemd (218-5) experimental; urgency=medium
   * Merge some changes from the Ubuntu package to reduce the delta; these only
     apply when building on/for Ubuntu:
     - Add 40-hyperv-hotadd.rules: Workaround for LP: #1233466.
-    - Add 61-persistant-storage-android.rules to create persistent symlinks
+    - Add 61-persistent-storage-android.rules to create persistent symlinks
       for partitions with PARTNAME. By Ricardo Salveti.
     - Add 71-power-switch-proliant.rules for supporting the power switches of
       ProLiant Server Cartridges. By Dann Frazier.
@@ -1189,7 +1189,7 @@ systemd (215-7) unstable; urgency=medium
   * Make systemd-nspawn@.service work out of the box: (Closes: #770275)
     - Pre-create /var/lib/container with a secure mode (0700) via tmpfiles.d.
     - Add new try-{guest,host} modes for --link-journal to silently skip
-      setting up the guest journal if the host has no persistant journal.
+      setting up the guest journal if the host has no persistent journal.
     - Extend boot-and-services autopkgtest to cover systemd-nspawn@.service.
   * Cherry-pick upstream patch to fix SELinux unit access check (regression
     in 215).

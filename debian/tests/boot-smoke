@@ -8,7 +8,7 @@ set -e
 . `dirname $0`/assert.sh
 
 if [ -z "$ADT_REBOOT_MARK" ]; then
-    # enable persistant journal
+    # enable persistent journal
     mkdir -p /var/log/journal
     ADT_REBOOT_MARK=0
     if [ -d /tmp/systemd-replace/ ]; then

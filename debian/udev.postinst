@@ -101,7 +101,7 @@ upgrade_fixes() {
      ! grep -q net.ifnames /proc/cmdline ; then
     mkdir -p /etc/udev/rules.d
     cat <<EOF > /etc/udev/rules.d/80-net-setup-link.rules
-# This machine is most likely a virtualized guest, where the old persistant
+# This machine is most likely a virtualized guest, where the old persistent
 # network interface mechanism (75-persistent-net-generator.rules) did not work.
 # This file disables /lib/udev/rules.d/80-net-setup-link.rules to avoid
 # changing network interface names on upgrade. Please read

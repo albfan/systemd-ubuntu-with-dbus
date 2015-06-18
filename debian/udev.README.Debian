@@ -3,7 +3,7 @@ its referenced manpages for general documentation.
 
 Network interface naming
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Since version 197 udev has a builtin persistant name generator which checks
+Since version 197 udev has a builtin persistent name generator which checks
 firmware/BIOS provided index numbers or slot names (similar to biosdevname),
 falls back to slot names (PCI numbers, etc., in the spirit of
 /dev/disks/by-path/), and then optionally falls back to MAC address, and
@@ -25,7 +25,7 @@ command line (e. g. in /etc/default/grub's GRUB_CMDLINE_LINUX_DEFAULT).
 See this page for more information:
 http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/
 
-Legacy persistant network interface naming
+Legacy persistent network interface naming
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Debian releases up to 8 ("Jessie") and Ubuntu up to 15.04 had an udev rule
 /lib/udev/rules.d/75-persistent-net-generator.rules which fixed the name of a
