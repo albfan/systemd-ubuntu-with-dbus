@@ -93,8 +93,10 @@ CONFFLAGS_udeb = \
 override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build-deb \
 		-- $(CONFFLAGS) $(CONFFLAGS_deb)
+ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 	dh_auto_configure --builddirectory=build-udeb \
 		-- $(CONFFLAGS) $(CONFFLAGS_udeb)
+endif
 	# workarounds for broken 220 tarball, see
 	# http://lists.freedesktop.org/archives/systemd-devel/2015-May/032148.html
 	rm -f src/journal/audit_type-to-name.h
@@ -103,15 +105,19 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	dh_auto_build --builddirectory=build-deb
+ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 	dh_auto_build --builddirectory=build-udeb
+endif
 	# generate POT file for translators
 	cd build-deb/po; srcdir=../../po intltool-update --pot --verbose
 
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build-deb \
 		--destdir=debian/install/deb
+ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 	dh_auto_install --builddirectory=build-udeb \
 		--destdir=debian/install/udeb
+endif
 ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 	echo "Checking that executables don't link to libraries in /usr..."
 	set -e; for e in debian/install/deb/lib/systemd/systemd*; do \
@@ -124,7 +130,9 @@ endif
 
 override_dh_auto_clean:
 	dh_auto_clean --builddirectory=build-deb
+ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 	dh_auto_clean --builddirectory=build-udeb
+endif
 	rm -rf debian/install/
 	# remove pre-generated man pages so they are rebuilt
 	rm -f man/*.[13578]
@@ -164,14 +172,16 @@ override_dh_install:
 	rm -f debian/install/*/lib/*/libsystemd-*.so.*
 	# remove symlinks enabling default-on services
 	rm -rf debian/install/*/etc/systemd/system/*.target.wants/
+ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
+endif
 	# still needs to mature a bit, and packaging
 	rm -f debian/install/*/usr/lib/*/libnss_resolve*
 
 	# fix location of NSS modules
 	cd debian/install/deb/; for f in usr/lib/*/libnss_*; do mv $$f $${f#usr/}; done
 
-	dh_install -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
+	dh_install --remaining-packages --sourcedir=debian/install/deb --fail-missing
 
 	# Make sure the runlevel services are known by systemd so their targets
 	# get launches. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
@@ -276,5 +286,9 @@ ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 		if [ ! -e /etc/machine-id ]; then echo "/etc/machine-id missing, ignoring test failures"; else exit 1; fi; )
 endif
 
+ifneq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+dh_options = -Nudev-udeb -Nlibudev1-udeb
+endif
+
 %:
-	dh $@ --with autoreconf,python3 --parallel
+	dh $@ $(dh_options) --with autoreconf,python3 --parallel

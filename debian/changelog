@@ -6,6 +6,9 @@ systemd (220-8) UNRELEASED; urgency=medium
     to make sure their udev rules files are installed into the initramfs.
     Having the copy rules at two places is confusing and makes debugging
     harder.
+  * Make it possible to skip building udeb packages via
+    DEB_BUILD_OPTIONS="noudeb". This allows quicker builds for local testing
+    and is benefical for derivatives that don't use d-i.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
