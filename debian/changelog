@@ -1,3 +1,14 @@
+systemd (220-8) UNRELEASED; urgency=medium
+
+  * initramfs hook: Stop installing 55-dm.rules, 64-md-raid.rules,
+    60-persistent-storage-lvm.rules and 60-persistent-storage-dm.rules.
+    The mdadm, lvm2 and dmsetup package provide their own udev hooks nowadays
+    to make sure their udev rules files are installed into the initramfs.
+    Having the copy rules at two places is confusing and makes debugging
+    harder.
+
+ -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
+
 systemd (220-7) unstable; urgency=medium
 
   [ Michael Biebl ]
