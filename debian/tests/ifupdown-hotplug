@@ -9,18 +9,27 @@ if [ -e /sys/class/net/$IFACE ]; then
     exit 0
 fi
 
-cat <<EOF > /etc/network/interfaces.d/$IFACE
+# different kinds of installs/images have different conventions; e. g.
+# cloud-init sources *.cfg, a Debian desktop sources only prefix-less files
+if grep -q 'source-directory .*interfaces.d' /etc/network/interfaces; then
+    IFACE_CFG=/etc/network/interfaces.d/${IFACE}
+elif grep -q 'source .*interfaces.d.*cfg' /etc/network/interfaces; then
+    IFACE_CFG=/etc/network/interfaces.d/${IFACE}.cfg
+else
+    echo "SKIP: /etc/network/interfaces does not include interfaces.d/"
+    exit 0
+fi
+
+cat <<EOF > $IFACE_CFG
 allow-hotplug $IFACE
 iface $IFACE inet static
     address 192.168.234.129
     netmask 255.255.255.0
 EOF
-# older ifupdown versions expect a .cfg suffix
-ln -s $IFACE /etc/network/interfaces.d/${IFACE}.cfg
 
 # these should trigger uevents and ifup@.service
 ip link add name $IFACE type veth peer name v$IFACE
-trap "ip link del dev $IFACE; rm /etc/network/interfaces.d/$IFACE /etc/network/interfaces.d/${IFACE}.cfg" EXIT INT QUIT PIPE
+trap "ip link del dev $IFACE; rm $IFACE_CFG" EXIT INT QUIT PIPE
 
 sleep 3
 

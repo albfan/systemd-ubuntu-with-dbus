@@ -1,5 +1,6 @@
 systemd (220-8) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * initramfs hook: Stop installing 55-dm.rules, 64-md-raid.rules,
     60-persistent-storage-lvm.rules and 60-persistent-storage-dm.rules.
     The mdadm, lvm2 and dmsetup package provide their own udev hooks nowadays
@@ -9,6 +10,12 @@ systemd (220-8) UNRELEASED; urgency=medium
   * Make it possible to skip building udeb packages via
     DEB_BUILD_OPTIONS="noudeb". This allows quicker builds for local testing
     and is benefical for derivatives that don't use d-i.
+
+  [ Martin Pitt ]
+  * ifupdown-hotplug autopkgtest: Different cloud/desktop environments have
+    different ways of including /etc/network/interfaces.d/, try to get along
+    wit either and skip the test if interfaces.d/ does not get included at
+    all.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
