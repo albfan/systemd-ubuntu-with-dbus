@@ -26,6 +26,9 @@ systemd (221-1) UNRELEASED; urgency=medium
   * libudev-dev.install: Drop gtk-doc files, not built by upstream any more
     and replaced with manpages.
   * libsystemd0.symbols: Add new symbols for this release.
+  * debian/rules: Fix paths in manpages as we don't currently have a merged
+    /usr in Debian but have most systemd things in /lib. This replaces the
+    previous huge and maintenance-intense patch.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
