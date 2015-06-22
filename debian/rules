@@ -21,7 +21,6 @@ CONFFLAGS = \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
-	--disable-gudev \
 	--disable-qrencode \
 	--disable-microhttpd \
 	--disable-chkconfig \
@@ -48,8 +47,6 @@ endif
 CONFFLAGS_deb = \
 	--enable-selinux \
 	--enable-apparmor \
-	--enable-introspection \
-	--enable-gtk-doc \
 	--enable-compat-libs \
 	--enable-hwdb \
 	--enable-efi \
@@ -63,8 +60,6 @@ CONFFLAGS_udeb = \
 	--disable-apparmor \
 	--disable-smack \
 	--disable-ima \
-	--disable-introspection \
-	--disable-gtk-doc \
 	--disable-binfmt \
 	--disable-bootchart \
 	--disable-quotacheck \
@@ -261,7 +256,6 @@ override_dh_makeshlibs:
 	dh_makeshlibs --remaining-packages -- -c4
 
 autoreconf:
-	gtkdocize --copy --docdir docs/
 	intltoolize -f -c
 	autoreconf -f -i
 

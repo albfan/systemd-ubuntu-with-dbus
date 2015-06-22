@@ -21,6 +21,8 @@ systemd (221-1) UNRELEASED; urgency=medium
     different ways of including /etc/network/interfaces.d/, try to get along
     wit either and skip the test if interfaces.d/ does not get included at
     all.
+  * Drop obsolete gtk-doc-tools build dependency, gtkdocize autoreconfig, and
+    ./configure options.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
