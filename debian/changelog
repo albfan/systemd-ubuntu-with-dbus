@@ -1,7 +1,7 @@
 systemd (221-1) UNRELEASED; urgency=medium
 
   * New upstream release 221:
-    - Fix persistant storage links for Xen devices. (LP: #1467151)
+    - Fix persistent storage links for Xen devices. (LP: #1467151)
     - Drop all backported patches and port the others to new upstream release.
     - debian/rules: Drop workarounds for broken 220 tarball, 221 is fine.
 
