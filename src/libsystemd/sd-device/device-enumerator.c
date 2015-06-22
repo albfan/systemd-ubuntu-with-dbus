@@ -137,7 +137,6 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
 
         assert_return(enumerator, -EINVAL);
         assert_return(_sysattr, -EINVAL);
-        assert_return(_value, -EINVAL);
 
         if (match)
                 hashmap = &enumerator->match_sysattr;
@@ -152,9 +151,11 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         if (!sysattr)
                 return -ENOMEM;
 
-        value = strdup(_value);
-        if (!value)
-                return -ENOMEM;
+        if (_value) {
+                value = strdup(_value);
+                if (!value)
+                        return -ENOMEM;
+        }
 
         r = hashmap_put(*hashmap, sysattr, value);
         if (r < 0)
@@ -174,7 +175,6 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
 
         assert_return(enumerator, -EINVAL);
         assert_return(_property, -EINVAL);
-        assert_return(_value, -EINVAL);
 
         r = hashmap_ensure_allocated(&enumerator->match_property, NULL);
         if (r < 0)
@@ -184,9 +184,11 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         if (!property)
                 return -ENOMEM;
 
-        value = strdup(_value);
-        if (!value)
-                return -ENOMEM;
+        if (_value) {
+                value = strdup(_value);
+                if (!value)
+                        return -ENOMEM;
+        }
 
         r = hashmap_put(enumerator->match_property, property, value);
         if (r < 0)
@@ -367,11 +369,11 @@ static bool match_sysattr(sd_device_enumerator *enumerator, sd_device *device) {
         assert(enumerator);
         assert(device);
 
-        HASHMAP_FOREACH_KEY(sysattr, value, enumerator->nomatch_sysattr, i)
+        HASHMAP_FOREACH_KEY(value, sysattr, enumerator->nomatch_sysattr, i)
                 if (match_sysattr_value(device, sysattr, value))
                         return false;
 
-        HASHMAP_FOREACH_KEY(sysattr, value, enumerator->match_sysattr, i)
+        HASHMAP_FOREACH_KEY(value, sysattr, enumerator->match_sysattr, i)
                 if (!match_sysattr_value(device, sysattr, value))
                         return false;
 
@@ -389,7 +391,7 @@ static bool match_property(sd_device_enumerator *enumerator, sd_device *device) 
         if (hashmap_isempty(enumerator->match_property))
                 return true;
 
-        HASHMAP_FOREACH_KEY(property, value, enumerator->match_property, i) {
+        HASHMAP_FOREACH_KEY(value, property, enumerator->match_property, i) {
                 const char *property_dev, *value_dev;
 
                 FOREACH_DEVICE_PROPERTY(device, property_dev, value_dev) {

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.DIRECTIVES" "7" "" "systemd 220" "systemd.directives"
+.TH "SYSTEMD\&.DIRECTIVES" "7" "" "systemd 221" "systemd.directives"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -2263,7 +2263,7 @@ Directives for configuring systemd units through the udev database\&.
 \fBudev\fR(7)
 .RE
 .PP
-\fIACTION\fR
+\fBACTION\fR
 .RS 4
 \fBudev\fR(7)
 .RE
@@ -2278,7 +2278,7 @@ Directives for configuring systemd units through the udev database\&.
 \fBudev\fR(7)
 .RE
 .PP
-\fIDEVPATH\fR
+\fBDEVPATH\fR
 .RS 4
 \fBudev\fR(7)
 .RE
@@ -2378,7 +2378,7 @@ Directives for configuring systemd units through the udev database\&.
 \fBudev\fR(7)
 .RE
 .PP
-\fISUBSYSTEM\fR
+\fBSUBSYSTEM\fR
 .RS 4
 \fBudev\fR(7)
 .RE
@@ -4889,6 +4889,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-run\fR(1)
 .RE
 .PP
+\fB\-\-raw\fR
+.RS 4
+\fBsystemd-cgtop\fR(1)
+.RE
+.PP
 \fB\-\-read\-only\fR
 .RS 4
 \fBmachinectl\fR(1),
@@ -5703,6 +5708,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBshutdown\fR(8),
 \fBsystemctl\fR(1),
 \fBsystemd-bootchart\fR(1),
+\fBsystemd-cgtop\fR(1),
 \fBsystemd-hwdb\fR(8),
 \fBudevadm\fR(8)
 .RE
@@ -6043,17 +6049,30 @@ Various constant used and/or defined by systemd\&.
 .PP
 \fB0\fR
 .RS 4
-\fBsystemctl\fR(1)
+\fBsystemctl\fR(1),
+\fBudev_device_get_syspath\fR(3),
+\fBudev_device_has_tag\fR(3),
+\fBudev_enumerate_add_match_subsystem\fR(3),
+\fBudev_enumerate_scan_devices\fR(3),
+\fBudev_monitor_filter_update\fR(3),
+\fBudev_monitor_receive_device\fR(3)
 .RE
 .PP
 \fB1\fR
 .RS 4
-\fBjournalctl\fR(1)
+\fBjournalctl\fR(1),
+\fBudev_device_get_syspath\fR(3),
+\fBudev_device_has_tag\fR(3)
 .RE
 .PP
 \fB2\fR
 .RS 4
 \fBjournalctl\fR(1)
+.RE
+.PP
+\fBACTION\fR
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
 .RE
 .PP
 \fBAF_INET\fR
@@ -6141,6 +6160,11 @@ Various constant used and/or defined by systemd\&.
 \fBsd_journal_get_realtime_usec\fR(3),
 \fBsd_journal_seek_head\fR(3),
 \fBsystemd.journal-fields\fR(7)
+.RE
+.PP
+\fBDEVPATH\fR
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
 .RE
 .PP
 \fBEACCES\fR
@@ -6248,7 +6272,16 @@ Various constant used and/or defined by systemd\&.
 \fBsd_login_monitor_new\fR(3),
 \fBsd_seat_get_active\fR(3),
 \fBsd_session_is_active\fR(3),
-\fBsd_uid_get_state\fR(3)
+\fBsd_uid_get_state\fR(3),
+\fBudev_device_get_syspath\fR(3),
+\fBudev_device_has_tag\fR(3),
+\fBudev_device_new_from_syspath\fR(3),
+\fBudev_enumerate_new\fR(3),
+\fBudev_enumerate_scan_devices\fR(3),
+\fBudev_list_entry\fR(3),
+\fBudev_monitor_new_from_netlink\fR(3),
+\fBudev_monitor_receive_device\fR(3),
+\fBudev_new\fR(3)
 .RE
 .PP
 \fBO_NONBLOCK\fR
@@ -6718,9 +6751,19 @@ Various constant used and/or defined by systemd\&.
 \fBsd_journal_stream_fd\fR(3)
 .RE
 .PP
+\fBSEQNUM\fR
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
+.RE
+.PP
 \fBSIGABRT\fR
 .RS 4
 \fBsystemd.service\fR(5)
+.RE
+.PP
+\fBSIGCONT\fR
+.RS 4
+\fBsystemd.kill\fR(5)
 .RE
 .PP
 \fBSIGHUP\fR
@@ -6921,6 +6964,11 @@ Various constant used and/or defined by systemd\&.
 \fBsystemd.socket\fR(5)
 .RE
 .PP
+\fBSUBSYSTEM\fR
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
+.RE
+.PP
 \fBTCP_DEFER_ACCEPT\fR
 .RS 4
 \fBsystemd.socket\fR(5)
@@ -6979,6 +7027,16 @@ Various constant used and/or defined by systemd\&.
 \fBauto\fR
 .RS 4
 \fBsystemd\fR(1)
+.RE
+.PP
+\fBb\fR
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
+.RE
+.PP
+\fBc\fR
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
 .RE
 .PP
 \fBd\fR
@@ -7152,6 +7210,16 @@ Various constant used and/or defined by systemd\&.
 \fBtrue\fR
 .RS 4
 \fBsd_bus_error\fR(3)
+.RE
+.PP
+\fBudev_hwdb\fR
+.RS 4
+\fBlibudev\fR(3)
+.RE
+.PP
+\fBudev_queue\fR
+.RS 4
+\fBlibudev\fR(3)
 .RE
 .PP
 \fBus\fR
@@ -7671,7 +7739,7 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 \fBtmpfiles.d\fR(5)
 .RE
 .PP
-\fIb\fR
+\fBb\fR
 .RS 4
 \fBtmpfiles.d\fR(5)
 .RE
@@ -7681,7 +7749,7 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 \fBtmpfiles.d\fR(5)
 .RE
 .PP
-\fIc\fR
+\fBc\fR
 .RS 4
 \fBtmpfiles.d\fR(5)
 .RE
@@ -8534,7 +8602,6 @@ $XDG_RUNTIME_DIR/systemd/user/
 .RS 4
 \fBbinfmt.d\fR(5),
 \fBfile-hierarchy\fR(7),
-\fBhwdb\fR(7),
 \fBmodules-load.d\fR(5),
 \fBsd-login\fR(3),
 \fBsd_notify\fR(3),
@@ -8712,11 +8779,6 @@ $XDG_RUNTIME_DIR/systemd/user/
 \fBtmpfiles.d\fR(5)
 .RE
 .PP
-/run/udev/hwdb\&.d
-.RS 4
-\fBhwdb\fR(7)
-.RE
-.PP
 /run/udev/rules\&.d
 .RS 4
 \fBudev\fR(7)
@@ -8783,7 +8845,13 @@ $XDG_RUNTIME_DIR/systemd/user/
 \fBsystemd.journal-fields\fR(7),
 \fBsystemd.socket\fR(5),
 \fBtmpfiles.d\fR(5),
+\fBudev_device_new_from_syspath\fR(3),
 \fBudevadm\fR(8)
+.RE
+.PP
+/sys/devices
+.RS 4
+\fBudev_device_new_from_syspath\fR(3)
 .RE
 .PP
 /sys/fs/cgroup
@@ -9816,6 +9884,7 @@ paths\&.target
 .PP
 \fBpkg\-config\fR
 .RS 4
+\fBlibudev\fR(3),
 \fBsd-daemon\fR(3),
 \fBsd-id128\fR(3),
 \fBsd-journal\fR(3),
@@ -10458,4 +10527,4 @@ user\&.slice
 .RE
 .SH "COLOPHON"
 .PP
-This index contains 1870 entries in 14 sections, referring to 199 individual manual pages\&.
+This index contains 1880 entries in 14 sections, referring to 211 individual manual pages\&.

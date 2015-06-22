@@ -53,26 +53,25 @@ int kmod_setup(void) {
         static const struct {
                 const char *module;
                 const char *path;
-                bool warn;
+                bool warn_if_unavailable:1;
+                bool warn_if_module:1;
                 bool (*condition_fn)(void);
         } kmod_table[] = {
                 /* auto-loading on use doesn't work before udev is up */
-                { "autofs4",   "/sys/class/misc/autofs",    true,  NULL                },
+                { "autofs4",   "/sys/class/misc/autofs",    true,   false,   NULL      },
 
                 /* early configure of ::1 on the loopback device */
-                { "ipv6",      "/sys/module/ipv6",          true,  NULL                },
+                { "ipv6",      "/sys/module/ipv6",          false,  true,    NULL      },
 
                 /* this should never be a module */
-                { "unix",      "/proc/net/unix",            true,  NULL                },
+                { "unix",      "/proc/net/unix",            true,   true,    NULL      },
 
-#ifdef ENABLE_KDBUS
                 /* IPC is needed before we bring up any other services */
-                { "kdbus",     "/sys/fs/kdbus",             false, is_kdbus_wanted     },
-#endif
+                { "kdbus",     "/sys/fs/kdbus",             false,  false,   is_kdbus_wanted },
 
 #ifdef HAVE_LIBIPTC
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
-                { "ip_tables", "/proc/net/ip_tables_names", false, NULL                },
+                { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },
 #endif
         };
         struct kmod_ctx *ctx = NULL;
@@ -91,7 +90,7 @@ int kmod_setup(void) {
                 if (kmod_table[i].condition_fn && !kmod_table[i].condition_fn())
                         continue;
 
-                if (kmod_table[i].warn)
+                if (kmod_table[i].warn_if_module)
                         log_debug("Your kernel apparently lacks built-in %s support. Might be "
                                   "a good idea to compile it in. We'll now try to work around "
                                   "this by loading the module...", kmod_table[i].module);
@@ -116,8 +115,12 @@ int kmod_setup(void) {
                         log_info("Inserted module '%s'", kmod_module_get_name(mod));
                 else if (r == KMOD_PROBE_APPLY_BLACKLIST)
                         log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                else if (kmod_table[i].warn)
-                        log_error("Failed to insert module '%s'", kmod_module_get_name(mod));
+                else {
+                        bool print_warning = kmod_table[i].warn_if_unavailable || (r < 0 && r != -ENOSYS);
+
+                        log_full_errno(print_warning ? LOG_WARNING : LOG_DEBUG, r,
+                                       "Failed to insert module '%s': %m", kmod_module_get_name(mod));
+                }
 
                 kmod_module_unref(mod);
         }

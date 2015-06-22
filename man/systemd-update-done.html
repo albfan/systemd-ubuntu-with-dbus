@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-update-done.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-update-done.service, systemd-update-done — Mark <code class="filename">/etc</code> and <code class="filename">/var</code> fully updated</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-update-done.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-update-done</code></p></div><div class="refsect1"><a name="idm140342385190976"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-update-done.service</code> is a
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-update-done.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-update-done.service, systemd-update-done — Mark <code class="filename">/etc</code> and <code class="filename">/var</code> fully updated</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-update-done.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-update-done</code></p></div><div class="refsect1"><a name="idm47246327173808"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-update-done.service</code> is a
     service that is invoked as part of the first boot after the vendor
     operating system resources in <code class="filename">/usr</code> have been
     updated. This is useful to implement offline updates of
@@ -42,7 +42,7 @@
     followed by an update of the modification time of
     <code class="filename">/usr</code>, for example by invoking
     <a href="http://man7.org/linux/man-pages/man1/touch.1.html"><span class="citerefentry"><span class="refentrytitle">touch</span>(1)</span></a>
-    on it.</p></div><div class="refsect1"><a name="idm140342380268656"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    on it.</p></div><div class="refsect1"><a name="idm47246325407040"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/touch.1.html"><span class="citerefentry"><span class="refentrytitle">touch</span>(1)</span></a>

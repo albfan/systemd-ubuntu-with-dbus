@@ -49,6 +49,21 @@
 #include "bus-track.h"
 #include "bus-slot.h"
 
+#define log_debug_bus_message(m)                                         \
+        do {                                                             \
+                sd_bus_message *_mm = (m);                               \
+                log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
+                          bus_message_type_to_string(_mm->header->type), \
+                          strna(sd_bus_message_get_sender(_mm)),         \
+                          strna(sd_bus_message_get_destination(_mm)),    \
+                          strna(sd_bus_message_get_path(_mm)),           \
+                          strna(sd_bus_message_get_interface(_mm)),      \
+                          strna(sd_bus_message_get_member(_mm)),         \
+                          BUS_MESSAGE_COOKIE(_mm),                       \
+                          _mm->reply_cookie,                             \
+                          strna(_mm->error.message));                    \
+        } while (false)
+
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
 static void detach_io_events(sd_bus *b);
@@ -116,6 +131,7 @@ static void bus_free(sd_bus *b) {
         if (b->kdbus_buffer)
                 munmap(b->kdbus_buffer, KDBUS_POOL_SIZE);
 
+        free(b->label);
         free(b->rbuffer);
         free(b->unique_name);
         free(b->auth_buffer);
@@ -1223,18 +1239,9 @@ int bus_set_address_user(sd_bus *b) {
                 if (!ee)
                         return -ENOMEM;
 
-#ifdef ENABLE_KDBUS
                 (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, getuid(), ee);
-#else
-                (void) asprintf(&b->address, UNIX_USER_BUS_ADDRESS_FMT, ee);
-#endif
-        } else {
-#ifdef ENABLE_KDBUS
+        } else
                 (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
-#else
-                return -ECONNREFUSED;
-#endif
-        }
 
         if (!b->address)
                 return -ENOMEM;
@@ -1356,11 +1363,7 @@ int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         if (!e)
                 return -ENOMEM;
 
-#ifdef ENABLE_KDBUS
         b->address = strjoin("x-machine-kernel:machine=", e, ";x-machine-unix:machine=", e, NULL);
-#else
-        b->address = strjoin("x-machine-unix:machine=", e, NULL);
-#endif
         if (!b->address)
                 return -ENOMEM;
 
@@ -1992,6 +1995,7 @@ _public_ int sd_bus_call(
 
                                 memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
                                 bus->rqueue_size--;
+                                log_debug_bus_message(incoming);
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
 
@@ -2480,16 +2484,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current_message = m;
         bus->iteration_counter++;
 
-        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
-                  bus_message_type_to_string(m->header->type),
-                  strna(sd_bus_message_get_sender(m)),
-                  strna(sd_bus_message_get_destination(m)),
-                  strna(sd_bus_message_get_path(m)),
-                  strna(sd_bus_message_get_interface(m)),
-                  strna(sd_bus_message_get_member(m)),
-                  BUS_MESSAGE_COOKIE(m),
-                  m->reply_cookie,
-                  strna(m->error.message));
+        log_debug_bus_message(m);
 
         r = process_hello(bus, m);
         if (r != 0)
@@ -2944,22 +2939,33 @@ _public_ int sd_bus_add_match(
         s->match_callback.cookie = ++bus->match_cookie;
 
         if (bus->bus_client) {
+                enum bus_match_scope scope;
 
-                if (!bus->is_kernel) {
-                        /* When this is not a kernel transport, we
-                         * store the original match string, so that we
-                         * can use it to remove the match again */
+                scope = bus_match_get_scope(components, n_components);
 
-                        s->match_callback.match_string = strdup(match);
-                        if (!s->match_callback.match_string) {
-                                r = -ENOMEM;
-                                goto finish;
+                /* Do not install server-side matches for matches
+                 * against the local service, interface or bus
+                 * path. */
+                if (scope != BUS_MATCH_LOCAL) {
+
+                        if (!bus->is_kernel) {
+                                /* When this is not a kernel transport, we
+                                 * store the original match string, so that we
+                                 * can use it to remove the match again */
+
+                                s->match_callback.match_string = strdup(match);
+                                if (!s->match_callback.match_string) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
                         }
-                }
 
-                r = bus_add_match_internal(bus, s->match_callback.match_string, components, n_components, s->match_callback.cookie);
-                if (r < 0)
-                        goto finish;
+                        r = bus_add_match_internal(bus, s->match_callback.match_string, components, n_components, s->match_callback.cookie);
+                        if (r < 0)
+                                goto finish;
+
+                        s->match_added = true;
+                }
         }
 
         bus->match_callbacks_modified = true;
@@ -3513,7 +3519,7 @@ _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
         return -ENODATA;
 }
 
-int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
+_public_ int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
         assert_return(bus, -EINVAL);
         assert_return(mask, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -3522,35 +3528,35 @@ int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
         return 0;
 }
 
-int sd_bus_is_bus_client(sd_bus *bus) {
+_public_ int sd_bus_is_bus_client(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->bus_client;
 }
 
-int sd_bus_is_server(sd_bus *bus) {
+_public_ int sd_bus_is_server(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->is_server;
 }
 
-int sd_bus_is_anonymous(sd_bus *bus) {
+_public_ int sd_bus_is_anonymous(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->anonymous_auth;
 }
 
-int sd_bus_is_trusted(sd_bus *bus) {
+_public_ int sd_bus_is_trusted(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->trusted;
 }
 
-int sd_bus_is_monitor(sd_bus *bus) {
+_public_ int sd_bus_is_monitor(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 

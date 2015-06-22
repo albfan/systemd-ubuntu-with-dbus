@@ -33,8 +33,9 @@
 #include "mkdir.h"
 #include "conf-parser.h"
 #include "sigbus.h"
-#include "journal-upload.h"
 #include "formats-util.h"
+#include "signal-util.h"
+#include "journal-upload.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
@@ -395,14 +396,11 @@ static int dispatch_sigterm(sd_event_source *event,
 }
 
 static int setup_signals(Uploader *u) {
-        sigset_t mask;
         int r;
 
         assert(u);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
 
         r = sd_event_add_signal(u->events, &u->sigterm_event, SIGTERM, dispatch_sigterm, u);
         if (r < 0)

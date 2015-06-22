@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 220" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 221" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -124,6 +124,9 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBlibnss_mymachines.so.2\fR(8)
 \-\- Provide hostname resolution for local container instances\&.
+.br
+\fBlibudev\fR(3)
+\-\- API for enumerating and introspecting local devices
 .br
 \fBlocale.conf\fR(5)
 \-\- Configuration file for locale settings
@@ -1457,6 +1460,204 @@ systemd.index \- List all manpages from the systemd project
 \fBudev.conf\fR(5)
 \-\- Configuration for device event managing daemon
 .br
+\fBudev_device_get_action\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_devlinks_list_entry\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_get_devnode\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_devnum\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_devpath\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_devtype\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_driver\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_is_initialized\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_parent\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_parent_with_subsystem_devtype\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_properties_list_entry\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_get_property_value\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_get_subsystem\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_sysattr_list_entry\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_get_sysattr_value\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_get_sysname\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_sysnum\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_syspath\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_get_tags_list_entry\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_get_udev\fR(3)
+\-\- Query device properties
+.br
+\fBudev_device_has_tag\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_new_from_device_id\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_device_new_from_devnum\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_device_new_from_environment\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_device_new_from_subsystem_sysname\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_device_new_from_syspath\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_device_ref\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_device_set_sysattr_value\fR(3)
+\-\- Retrieve or set device attributes
+.br
+\fBudev_device_unref\fR(3)
+\-\- Create, acquire and release a udev device object
+.br
+\fBudev_enumerate_add_match_is_initialized\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_match_parent\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_match_property\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_match_subsystem\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_match_sysattr\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_match_sysname\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_match_tag\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_nomatch_subsystem\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_nomatch_sysattr\fR(3)
+\-\- Modify filters
+.br
+\fBudev_enumerate_add_syspath\fR(3)
+\-\- Query or modify a udev enumerate object
+.br
+\fBudev_enumerate_get_list_entry\fR(3)
+\-\- Query or modify a udev enumerate object
+.br
+\fBudev_enumerate_get_udev\fR(3)
+\-\- Query or modify a udev enumerate object
+.br
+\fBudev_enumerate_new\fR(3)
+\-\- Create, acquire and release a udev enumerate object
+.br
+\fBudev_enumerate_ref\fR(3)
+\-\- Create, acquire and release a udev enumerate object
+.br
+\fBudev_enumerate_scan_devices\fR(3)
+\-\- Query or modify a udev enumerate object
+.br
+\fBudev_enumerate_scan_subsystems\fR(3)
+\-\- Query or modify a udev enumerate object
+.br
+\fBudev_enumerate_unref\fR(3)
+\-\- Create, acquire and release a udev enumerate object
+.br
+\fBudev_list_entry\fR(3)
+\-\- Iterate and access udev lists
+.br
+\fBudev_list_entry_get_by_name\fR(3)
+\-\- Iterate and access udev lists
+.br
+\fBudev_list_entry_get_name\fR(3)
+\-\- Iterate and access udev lists
+.br
+\fBudev_list_entry_get_next\fR(3)
+\-\- Iterate and access udev lists
+.br
+\fBudev_list_entry_get_value\fR(3)
+\-\- Iterate and access udev lists
+.br
+\fBudev_monitor_enable_receiving\fR(3)
+\-\- Query and modify device monitor
+.br
+\fBudev_monitor_filter_add_match_subsystem_devtype\fR(3)
+\-\- Modify filters
+.br
+\fBudev_monitor_filter_add_match_tag\fR(3)
+\-\- Modify filters
+.br
+\fBudev_monitor_filter_remove\fR(3)
+\-\- Modify filters
+.br
+\fBudev_monitor_filter_update\fR(3)
+\-\- Modify filters
+.br
+\fBudev_monitor_get_fd\fR(3)
+\-\- Query and modify device monitor
+.br
+\fBudev_monitor_get_udev\fR(3)
+\-\- Query and modify device monitor
+.br
+\fBudev_monitor_new_from_netlink\fR(3)
+\-\- Create, acquire and release a udev monitor object
+.br
+\fBudev_monitor_receive_device\fR(3)
+\-\- Query and modify device monitor
+.br
+\fBudev_monitor_ref\fR(3)
+\-\- Create, acquire and release a udev monitor object
+.br
+\fBudev_monitor_set_receive_buffer_size\fR(3)
+\-\- Query and modify device monitor
+.br
+\fBudev_monitor_unref\fR(3)
+\-\- Create, acquire and release a udev monitor object
+.br
+\fBudev_new\fR(3)
+\-\- Create, acquire and release a udev context object
+.br
+\fBudev_ref\fR(3)
+\-\- Create, acquire and release a udev context object
+.br
+\fBudev_unref\fR(3)
+\-\- Create, acquire and release a udev context object
+.br
 \fBudevadm\fR(8)
 \-\- udev management tool
 .br
@@ -1474,4 +1675,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 465 entries, referring to 201 individual manual pages\&.
+This index contains 532 entries, referring to 213 individual manual pages\&.

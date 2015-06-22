@@ -928,6 +928,8 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         r = sd_event_source_set_priority(client->timeout_resend,
                                          client->event_priority);
+        if (r < 0)
+                goto error;
 
         r = sd_event_source_set_description(client->timeout_resend, "dhcp4-resend-timer");
         if (r < 0)
@@ -1588,7 +1590,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         } else if ((size_t)len < sizeof(DHCPPacket))
                 return 0;
 
-        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+        CMSG_FOREACH(cmsg, &msg) {
                 if (cmsg->cmsg_level == SOL_PACKET &&
                     cmsg->cmsg_type == PACKET_AUXDATA &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct tpacket_auxdata))) {

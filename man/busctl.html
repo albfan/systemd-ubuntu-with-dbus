@@ -18,9 +18,9 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="busctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>busctl — Introspect the bus</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">busctl</code>  [OPTIONS...] [COMMAND] [<em class="replaceable"><code>NAME</code></em>...]</p></div></div><div class="refsect1"><a name="idm140467405007344"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>busctl</strong></span> may be used to
-    introspect and monitor the D-Bus bus.</p></div><div class="refsect1"><a name="idm140467405005600"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--address=ADDRESS"><span class="term"><code class="option">--address=<em class="replaceable"><code>ADDRESS</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--address=ADDRESS">¶</a></dt><dd><p>Connect to the bus specified by
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="busctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>busctl — Introspect the bus</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">busctl</code>  [OPTIONS...] [COMMAND] [<em class="replaceable"><code>NAME</code></em>...]</p></div></div><div class="refsect1"><a name="idm47823511423216"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>busctl</strong></span> may be used to
+    introspect and monitor the D-Bus bus.</p></div><div class="refsect1"><a name="idm47823506520496"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--address=ADDRESS"><span class="term"><code class="option">--address=<em class="replaceable"><code>ADDRESS</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--address=ADDRESS">¶</a></dt><dd><p>Connect to the bus specified by
           <em class="replaceable"><code>ADDRESS</code></em> instead of using suitable
           defaults for either the system or user bus (see
           <code class="option">--system</code> and <code class="option">--user</code>
@@ -89,7 +89,7 @@
       <em class="replaceable"><code>HOST</code></em></strong></span>.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
       container name to connect to.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd><dt id="--no-legend"><span class="term"><code class="option">--no-legend</code></span><a class="headerlink" title="Permalink to this term" href="#--no-legend">¶</a></dt><dd><p>Do not print the legend, i.e. column headers and the
       footer with hints.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140467400333936"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>Show service names on the bus. This is the
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm47823506467552"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>Show service names on the bus. This is the
         default if no command is specified.</p></dd><dt id="status SERVICE"><span class="term"><span class="command"><strong>status</strong></span>  [<em class="replaceable"><code>SERVICE</code></em>]</span><a class="headerlink" title="Permalink to this term" href="#status%20SERVICE">¶</a></dt><dd><p>Show process information and credentials of a
         bus service (if one is specified by its unique or well-known
         name), a process (if one is specified by its numeric PID), or
@@ -126,7 +126,7 @@
         more elaborate output format.</p></dd><dt id="set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT"><span class="term"><span class="command"><strong>set-property</strong></span>   <em class="replaceable"><code>SERVICE</code></em>    <em class="replaceable"><code>OBJECT</code></em>    <em class="replaceable"><code>INTERFACE</code></em>    <em class="replaceable"><code>PROPERTY</code></em>    <em class="replaceable"><code>SIGNATURE</code></em>    <em class="replaceable"><code>ARGUMENT</code></em>... </span><a class="headerlink" title="Permalink to this term" href="#set-property%20SERVICE%20OBJECT%20INTERFACE%20PROPERTY%20SIGNATURE%20ARGUMENT">¶</a></dt><dd><p>Set the current value an object
         property. Takes a service name, object path, interface name,
         property name, property signature, followed by a list of
-        parameters formatted as strings.</p></dd><dt id="help"><span class="term"><span class="command"><strong>help</strong></span></span><a class="headerlink" title="Permalink to this term" href="#help">¶</a></dt><dd><p>Show command syntax help.</p></dd></dl></div></div><div class="refsect1"><a name="idm140467400287184"></a><h2 id="Parameter Formatting">Parameter Formatting<a class="headerlink" title="Permalink to this headline" href="#Parameter%20Formatting">¶</a></h2><p>The <span class="command"><strong>call</strong></span> and
+        parameters formatted as strings.</p></dd><dt id="help"><span class="term"><span class="command"><strong>help</strong></span></span><a class="headerlink" title="Permalink to this term" href="#help">¶</a></dt><dd><p>Show command syntax help.</p></dd></dl></div></div><div class="refsect1"><a name="idm47823506420720"></a><h2 id="Parameter Formatting">Parameter Formatting<a class="headerlink" title="Permalink to this headline" href="#Parameter%20Formatting">¶</a></h2><p>The <span class="command"><strong>call</strong></span> and
     <span class="command"><strong>set-property</strong></span> commands take a signature string
     followed by a list of parameters formatted as string (for details
     on D-Bus signature strings see the <a class="ulink" href="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system" target="_top">Type
@@ -162,7 +162,7 @@
     understood, the <span class="command"><strong>call</strong></span> and
     <span class="command"><strong>get-property</strong></span> commands may generate a more
     verbose, multi-line output when passed the
-    <code class="option">--verbose</code> option.</p></div><div class="refsect1"><a name="idm140467400266192"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140467400265552"></a><p class="title"><b>Example 1. Write and Read a Property</b></p><div class="example-contents"><p>The following two commands first write a property and then
+    <code class="option">--verbose</code> option.</p></div><div class="refsect1"><a name="idm47823506399488"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm47823506398848"></a><p class="title"><b>Example 1. Write and Read a Property</b></p><div class="example-contents"><p>The following two commands first write a property and then
       read it back. The property is found on the
       "<code class="literal">/org/freedesktop/systemd1</code>" object of the
       "<code class="literal">org.freedesktop.systemd1</code>" service. The name of
@@ -170,7 +170,7 @@
       "<code class="literal">org.freedesktop.systemd1.Manager</code>"
       interface. The property contains a single string:</p><pre class="programlisting"># busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LogLevel s debug
 # busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LogLevel
-s "debug"</pre></div></div><br class="example-break"><div class="example"><a name="idm140467400260816"></a><p class="title"><b>Example 2. Terse and Verbose Output</b></p><div class="example-contents"><p>The following two commands read a property that contains
+s "debug"</pre></div></div><br class="example-break"><div class="example"><a name="idm47823506394112"></a><p class="title"><b>Example 2. Terse and Verbose Output</b></p><div class="example-contents"><p>The following two commands read a property that contains
       an array of strings, and first show it in terse format, followed
       by verbose format:</p><pre class="programlisting">$ busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Environment
 as 2 "LANG=en_US.UTF-8" "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
@@ -178,7 +178,7 @@ $ busctl get-property --verbose org.freedesktop.systemd1 /org/freedesktop/system
 ARRAY "s" {
         STRING "LANG=en_US.UTF-8";
         STRING "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin";
-};</pre></div></div><br class="example-break"><div class="example"><a name="idm140467400258400"></a><p class="title"><b>Example 3. Invoking a Method</b></p><div class="example-contents"><p>The following command invokes a the
+};</pre></div></div><br class="example-break"><div class="example"><a name="idm47823506391696"></a><p class="title"><b>Example 3. Invoking a Method</b></p><div class="example-contents"><p>The following command invokes a the
       "<code class="literal">StartUnit</code>" method on the
       "<code class="literal">org.freedesktop.systemd1.Manager</code>"
       interface of the
@@ -189,7 +189,7 @@ ARRAY "s" {
       "<code class="literal">replace</code>". As result of the method
       call a single object path parameter is received and
       shown:</p><pre class="programlisting"># busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager StartUnit ss "cups.service" "replace"
-o "/org/freedesktop/systemd1/job/42684"</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140467400252448"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+o "/org/freedesktop/systemd1/job/42684"</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm47823506385744"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="http://dbus.freedesktop.org/doc/dbus-daemon.1.html"><span class="citerefentry"><span class="refentrytitle">dbus-daemon</span>(1)</span></a>,
       <a class="ulink" href="http://freedesktop.org/wiki/Software/dbus" target="_top">D-Bus</a>,
       <a class="ulink" href="https://code.google.com/p/d-bus/" target="_top">kdbus</a>,

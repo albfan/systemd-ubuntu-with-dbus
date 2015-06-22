@@ -30,6 +30,7 @@
 #include "mkdir.h"
 #include "btrfs-util.h"
 #include "path-util.h"
+#include "signal-util.h"
 #include "machine-pool.h"
 
 #define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)
@@ -74,7 +75,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
         if (errno != ENOENT)
                 return sd_bus_error_set_errnof(error, errno, "Failed to open /var/lib/machines.raw: %m");
 
-        r = tempfn_xxxxxx("/var/lib/machines.raw", &tmp);
+        r = tempfn_xxxxxx("/var/lib/machines.raw", NULL, &tmp);
         if (r < 0)
                 return r;
 
@@ -108,8 +109,8 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
 
                 /* Child */
 
-                reset_all_signal_handlers();
-                reset_signal_mask();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 fd = safe_close(fd);
@@ -198,7 +199,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
                 return 0;
         }
 
-        if (path_is_mount_point("/var/lib/machines", true) > 0 ||
+        if (path_is_mount_point("/var/lib/machines", AT_SYMLINK_FOLLOW) > 0 ||
             dir_is_empty("/var/lib/machines") == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "/var/lib/machines is not a btrfs file system. Operation is not supported on legacy file systems.");
 

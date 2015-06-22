@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sd_id128_to_string"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_id128_to_string, sd_id128_from_string — Format or parse 128-bit IDs as strings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-id128.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">char *<b class="fsfunc">sd_id128_to_string</b>(</code></td><td>sd_id128_t <var class="pdparam">id</var>, char <var class="pdparam">s</var>[33]<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_id128_from_string</b>(</code></td><td>const char *<var class="pdparam">s</var>, sd_id128_t *<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm139840388368720"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_id128_to_string()</code> formats a 128-bit
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="sd_id128_to_string"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_id128_to_string, sd_id128_from_string — Format or parse 128-bit IDs as strings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-id128.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">char *<b class="fsfunc">sd_id128_to_string</b>(</code></td><td>sd_id128_t <var class="pdparam">id</var>, char <var class="pdparam">s</var>[33]<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_id128_from_string</b>(</code></td><td>const char *<var class="pdparam">s</var>, sd_id128_t *<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm47517189849248"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_id128_to_string()</code> formats a 128-bit
     ID as a character string. It expects the ID and a string array
     capable of storing 33 characters. The ID will be formatted as 32
     lowercase hexadecimal digits and be terminated by a
@@ -40,16 +40,16 @@
     <code class="function">SD_ID128_FORMAT_STR</code> and
     <code class="function">SD_ID128_FORMAT_VAL()</code> macros. For more
     information see
-    <a href="sd-id128.html"><span class="citerefentry"><span class="refentrytitle">sd-id128</span>(3)</span></a>.</p></div><div class="refsect1"><a name="idm139840389620320"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p><code class="function">sd_id128_to_string()</code> always succeeds
+    <a href="sd-id128.html"><span class="citerefentry"><span class="refentrytitle">sd-id128</span>(3)</span></a>.</p></div><div class="refsect1"><a name="idm47517185222208"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p><code class="function">sd_id128_to_string()</code> always succeeds
     and returns a pointer to the string array passed in.
     <code class="function">sd_id128_from_string</code> returns 0 on success, in
     which case <em class="parameter"><code>ret</code></em> is filled in, or a negative
-    errno-style error code.</p></div><div class="refsect1"><a name="idm139840389037216"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_id128_to_string()</code> and
+    errno-style error code.</p></div><div class="refsect1"><a name="idm47517185219312"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_id128_to_string()</code> and
     <code class="function">sd_id128_from_string()</code> interfaces are
     available as a shared library, which can be compiled and linked to
     with the
     "<code class="literal">libsystemd</code>" <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-    file.</p></div><div class="refsect1"><a name="idm139840387902368"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    file.</p></div><div class="refsect1"><a name="idm47517185215152"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="sd-id128.html"><span class="citerefentry"><span class="refentrytitle">sd-id128</span>(3)</span></a>,
       <a href="http://man7.org/linux/man-pages/man3/printf.3.html"><span class="citerefentry"><span class="refentrytitle">printf</span>(3)</span></a>

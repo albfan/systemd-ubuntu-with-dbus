@@ -40,8 +40,6 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
-#include "manager.h"
-#include "transaction.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "strv.h"
@@ -65,14 +63,17 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "dbus.h"
-#include "dbus-unit.h"
-#include "dbus-job.h"
-#include "dbus-manager.h"
 #include "bus-kernel.h"
 #include "time-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
+#include "dbus.h"
+#include "dbus-unit.h"
+#include "dbus-job.h"
+#include "dbus-manager.h"
+#include "manager.h"
+#include "transaction.h"
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
@@ -664,7 +665,7 @@ static int manager_setup_notify(Manager *m) {
 
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
-                union sockaddr_union sa =  {
+                union sockaddr_union sa = {
                         .sa.sa_family = AF_UNIX,
                 };
                 static const int one = 1;
@@ -730,7 +731,6 @@ static int manager_setup_notify(Manager *m) {
 }
 
 static int manager_setup_kdbus(Manager *m) {
-#ifdef ENABLE_KDBUS
         _cleanup_free_ char *p = NULL;
 
         assert(m);
@@ -740,9 +740,6 @@ static int manager_setup_kdbus(Manager *m) {
         if (!is_kdbus_available())
                 return -ESOCKTNOSUPPORT;
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0)
-                bus_kernel_fix_attach_mask();
-
         m->kdbus_fd = bus_kernel_create_bus(
                         m->running_as == MANAGER_SYSTEM ? "system" : "user",
                         m->running_as == MANAGER_SYSTEM, &p);
@@ -751,7 +748,6 @@ static int manager_setup_kdbus(Manager *m) {
                 return log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
 
         log_debug("Successfully set up kdbus on %s", p);
-#endif
 
         return 0;
 }
@@ -1548,7 +1544,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                         return -errno;
                 }
 
-                for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+                CMSG_FOREACH(cmsg, &msghdr) {
                         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
                                 fd_array = (int*) CMSG_DATA(cmsg);

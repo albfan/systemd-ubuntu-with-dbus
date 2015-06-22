@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.device"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.device — Device unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>device</code></em>.device</code></p></div><div class="refsect1"><a name="idm139900498813376"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd.device"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.device — Device unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>device</code></em>.device</code></p></div><div class="refsect1"><a name="idm47009491051952"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     "<code class="literal">.device</code>" encodes information about a device unit
     as exposed in the
     sysfs/<a href="udev.html"><span class="citerefentry"><span class="refentrytitle">udev</span>(7)</span></a>
@@ -42,7 +42,7 @@
     systemd as <code class="filename">dev-sda5.device</code>. For details about
     the escaping logic used to convert a file system path to a unit
     name see
-    <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.</p></div><div class="refsect1"><a name="idm139900493893360"></a><h2 id="The udev Database">The udev Database<a class="headerlink" title="Permalink to this headline" href="#The%20udev%20Database">¶</a></h2><p>The settings of device units may either be configured via
+    <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.</p></div><div class="refsect1"><a name="idm47009486139808"></a><h2 id="The udev Database">The udev Database<a class="headerlink" title="Permalink to this headline" href="#The%20udev%20Database">¶</a></h2><p>The settings of device units may either be configured via
     unit files, or directly from the udev database (which is
     recommended). The following udev device properties are understood
     by systemd:</p><div class="variablelist"><dl class="variablelist"><dt id="SYSTEMD_WANTS="><span class="term"><code class="varname">SYSTEMD_WANTS=</code>, </span><span class="term"><code class="varname">SYSTEMD_USER_WANTS=</code></span><a class="headerlink" title="Permalink to this term" href="#SYSTEMD_WANTS=">¶</a></dt><dd><p>Adds dependencies of type
@@ -74,7 +74,7 @@
         (see above) is not acted on as long as
         <code class="varname">SYSTEMD_READY=0</code> is set for a
         device.</p></dd><dt id="ID_MODEL_FROM_DATABASE="><span class="term"><code class="varname">ID_MODEL_FROM_DATABASE=</code>, </span><span class="term"><code class="varname">ID_MODEL=</code></span><a class="headerlink" title="Permalink to this term" href="#ID_MODEL_FROM_DATABASE=">¶</a></dt><dd><p>If set, this property is used as description
-        string for the device unit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139900493878672"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        string for the device unit.</p></dd></dl></div></div><div class="refsect1"><a name="idm47009486125216"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

@@ -23,10 +23,8 @@
 
 #include <unistd.h>
 #include <errno.h>
-#include <fcntl.h>
 
 #include "ima-setup.h"
-#include "copy.h"
 #include "util.h"
 #include "log.h"
 
@@ -35,18 +33,19 @@
 #define IMA_POLICY_PATH "/etc/ima/ima-policy"
 
 int ima_setup(void) {
-        int r = 0;
-
 #ifdef HAVE_IMA
-        _cleanup_close_ int policyfd = -1, imafd = -1;
+        _cleanup_fclose_ FILE *input = NULL;
+        _cleanup_close_ int imafd = -1;
+        unsigned lineno = 0;
+        char line[page_size()];
 
         if (access(IMA_SECFS_DIR, F_OK) < 0) {
                 log_debug("IMA support is disabled in the kernel, ignoring.");
                 return 0;
         }
 
-        policyfd = open(IMA_POLICY_PATH, O_RDONLY|O_CLOEXEC);
-        if (policyfd < 0) {
+        input = fopen(IMA_POLICY_PATH, "re");
+        if (!input) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
                                "Failed to open the IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
                 return 0;
@@ -63,12 +62,19 @@ int ima_setup(void) {
                 return 0;
         }
 
-        r = copy_bytes(policyfd, imafd, (off_t) -1, false);
-        if (r < 0)
-                log_error_errno(r, "Failed to load the IMA custom policy file "IMA_POLICY_PATH": %m");
-        else
-                log_info("Successfully loaded the IMA custom policy "IMA_POLICY_PATH".");
+        FOREACH_LINE(line, input,
+                     return log_error_errno(errno, "Failed to read the IMA custom policy file "IMA_POLICY_PATH": %m")) {
+                size_t len;
 
+                len = strlen(line);
+                lineno++;
+
+                if (len > 0 && write(imafd, line, len) < 0)
+                        return log_error_errno(errno, "Failed to load the IMA custom policy file "IMA_POLICY_PATH"%u: %m",
+                                               lineno);
+        }
+
+        log_info("Successfully loaded the IMA custom policy "IMA_POLICY_PATH".");
 #endif /* HAVE_IMA */
-        return r;
+        return 0;
 }

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-GPT\-AUTO\-GENERATOR" "8" "" "systemd 220" "systemd-gpt-auto-generator"
+.TH "SYSTEMD\-GPT\-AUTO\-GENERATOR" "8" "" "systemd 221" "systemd-gpt-auto-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,8 +31,8 @@ is a unit generator that automatically discovers root,
 /home,
 /srv
 and swap partitions and creates mount and swap units for them, based on the partition type GUIDs of GUID partition tables (GPT)\&. It implements the
-\m[blue]\fBDiscoverable Partitions Specification\fR\m[]\&\s-2\u[1]\d\s+2\&. Note that this generator has no effect on non\-GPT systems, on systems where the units are explicitly configured (for example, listed in
-\fBfstab\fR(5)), or where the mount points are non\-empty\&.
+\m[blue]\fBDiscoverable Partitions Specification\fR\m[]\&\s-2\u[1]\d\s+2\&. Note that this generator has no effect on non\-GPT systems, or where the directories under the mount points are already non\-empty\&. Also, on systems where the units are explicitly configured (for example, listed in
+\fBfstab\fR(5)), the units this generator creates are overriden, but additional automatic dependencies might be created\&.
 .PP
 This generator will only look for root partitions on the same physical disk the EFI System Partition (ESP) is located on\&. It will only look for the other partitions on the same physical disk the root file system is located on\&. These partitions will not be searched on systems where the root file system is distributed on multiple disks, for example via btrfs RAID\&.
 .PP

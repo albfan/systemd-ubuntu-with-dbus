@@ -25,6 +25,10 @@
 #include <sys/statvfs.h>
 #include <sys/mman.h>
 
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #include <libudev.h>
 
 #include "sd-journal.h"
@@ -43,6 +47,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "hostname-util.h"
+#include "signal-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journal-authenticate.h"
@@ -53,10 +58,6 @@
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"
-
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
 
 #define USER_JOURNALS_MAX 1024
 
@@ -1103,6 +1104,42 @@ finish:
 
 int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Server *s = userdata;
+        struct ucred *ucred = NULL;
+        struct timeval *tv = NULL;
+        struct cmsghdr *cmsg;
+        char *label = NULL;
+        size_t label_len = 0, m;
+        struct iovec iovec;
+        ssize_t n;
+        int *fds = NULL, v = 0;
+        unsigned n_fds = 0;
+
+        union {
+                struct cmsghdr cmsghdr;
+
+                /* We use NAME_MAX space for the SELinux label
+                 * here. The kernel currently enforces no
+                 * limit, but according to suggestions from
+                 * the SELinux people this will change and it
+                 * will probably be identical to NAME_MAX. For
+                 * now we use that, but this should be updated
+                 * one day when the final limit is known. */
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(struct timeval)) +
+                            CMSG_SPACE(sizeof(int)) + /* fd */
+                            CMSG_SPACE(NAME_MAX)]; /* selinux label */
+        } control = {};
+
+        union sockaddr_union sa = {};
+
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+                .msg_name = &sa,
+                .msg_namelen = sizeof(sa),
+        };
 
         assert(s);
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
@@ -1112,119 +1149,79 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                 return -EIO;
         }
 
-        for (;;) {
-                struct ucred *ucred = NULL;
-                struct timeval *tv = NULL;
-                struct cmsghdr *cmsg;
-                char *label = NULL;
-                size_t label_len = 0;
-                struct iovec iovec;
+        /* Try to get the right size, if we can. (Not all
+         * sockets support SIOCINQ, hence we just try, but
+         * don't rely on it. */
+        (void) ioctl(fd, SIOCINQ, &v);
 
-                union {
-                        struct cmsghdr cmsghdr;
+        /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful! */
+        m = PAGE_ALIGN(MAX3((size_t) v + 1,
+                            (size_t) LINE_MAX,
+                            ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
 
-                        /* We use NAME_MAX space for the SELinux label
-                         * here. The kernel currently enforces no
-                         * limit, but according to suggestions from
-                         * the SELinux people this will change and it
-                         * will probably be identical to NAME_MAX. For
-                         * now we use that, but this should be updated
-                         * one day when the final limit is known. */
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                                    CMSG_SPACE(sizeof(struct timeval)) +
-                                    CMSG_SPACE(sizeof(int)) + /* fd */
-                                    CMSG_SPACE(NAME_MAX)]; /* selinux label */
-                } control = {};
-                union sockaddr_union sa = {};
-                struct msghdr msghdr = {
-                        .msg_iov = &iovec,
-                        .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
-                        .msg_name = &sa,
-                        .msg_namelen = sizeof(sa),
-                };
+        if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
+                return log_oom();
 
-                ssize_t n;
-                int *fds = NULL;
-                unsigned n_fds = 0;
-                int v = 0;
-                size_t m;
+        iovec.iov_base = s->buffer;
+        iovec.iov_len = s->buffer_size - 1; /* Leave room for trailing NUL we add later */
 
-                /* Try to get the right size, if we can. (Not all
-                 * sockets support SIOCINQ, hence we just try, but
-                 * don't rely on it. */
-                (void) ioctl(fd, SIOCINQ, &v);
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (errno == EINTR || errno == EAGAIN)
+                        return 0;
 
-                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful! */
-                m = PAGE_ALIGN(MAX3((size_t) v + 1,
-                                    (size_t) LINE_MAX,
-                                    ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
-
-                if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
-                        return log_oom();
-
-                iovec.iov_base = s->buffer;
-                iovec.iov_len = s->buffer_size - 1; /* Leave room for trailing NUL we add later */
-
-                n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (n < 0) {
-                        if (errno == EINTR || errno == EAGAIN)
-                                return 0;
-
-                        log_error_errno(errno, "recvmsg() failed: %m");
-                        return -errno;
-                }
-
-                for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
-
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_CREDENTIALS &&
-                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                                ucred = (struct ucred*) CMSG_DATA(cmsg);
-                        else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                 cmsg->cmsg_type == SCM_SECURITY) {
-                                label = (char*) CMSG_DATA(cmsg);
-                                label_len = cmsg->cmsg_len - CMSG_LEN(0);
-                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                   cmsg->cmsg_type == SO_TIMESTAMP &&
-                                   cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                                tv = (struct timeval*) CMSG_DATA(cmsg);
-                        else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                 cmsg->cmsg_type == SCM_RIGHTS) {
-                                fds = (int*) CMSG_DATA(cmsg);
-                                n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                        }
-                }
-
-                /* And a trailing NUL, just in case */
-                s->buffer[n] = 0;
-
-                if (fd == s->syslog_fd) {
-                        if (n > 0 && n_fds == 0)
-                                server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
-                        else if (n_fds > 0)
-                                log_warning("Got file descriptors via syslog socket. Ignoring.");
-
-                } else if (fd == s->native_fd) {
-                        if (n > 0 && n_fds == 0)
-                                server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
-                        else if (n == 0 && n_fds == 1)
-                                server_process_native_file(s, fds[0], ucred, tv, label, label_len);
-                        else if (n_fds > 0)
-                                log_warning("Got too many file descriptors via native socket. Ignoring.");
-
-                } else {
-                        assert(fd == s->audit_fd);
-
-                        if (n > 0 && n_fds == 0)
-                                server_process_audit_message(s, s->buffer, n, ucred, &sa, msghdr.msg_namelen);
-                        else if (n_fds > 0)
-                                log_warning("Got file descriptors via audit socket. Ignoring.");
-                }
-
-                close_many(fds, n_fds);
+                return log_error_errno(errno, "recvmsg() failed: %m");
         }
+
+        CMSG_FOREACH(cmsg, &msghdr) {
+
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
+                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                else if (cmsg->cmsg_level == SOL_SOCKET &&
+                         cmsg->cmsg_type == SCM_SECURITY) {
+                        label = (char*) CMSG_DATA(cmsg);
+                        label_len = cmsg->cmsg_len - CMSG_LEN(0);
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                           cmsg->cmsg_type == SO_TIMESTAMP &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
+                        tv = (struct timeval*) CMSG_DATA(cmsg);
+                else if (cmsg->cmsg_level == SOL_SOCKET &&
+                         cmsg->cmsg_type == SCM_RIGHTS) {
+                        fds = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+                }
+        }
+
+        /* And a trailing NUL, just in case */
+        s->buffer[n] = 0;
+
+        if (fd == s->syslog_fd) {
+                if (n > 0 && n_fds == 0)
+                        server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
+                else if (n_fds > 0)
+                        log_warning("Got file descriptors via syslog socket. Ignoring.");
+
+        } else if (fd == s->native_fd) {
+                if (n > 0 && n_fds == 0)
+                        server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
+                else if (n == 0 && n_fds == 1)
+                        server_process_native_file(s, fds[0], ucred, tv, label, label_len);
+                else if (n_fds > 0)
+                        log_warning("Got too many file descriptors via native socket. Ignoring.");
+
+        } else {
+                assert(fd == s->audit_fd);
+
+                if (n > 0 && n_fds == 0)
+                        server_process_audit_message(s, s->buffer, n, ucred, &sa, msghdr.msg_namelen);
+                else if (n_fds > 0)
+                        log_warning("Got file descriptors via audit socket. Ignoring.");
+        }
+
+        close_many(fds, n_fds);
+        return 0;
 }
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
@@ -1267,14 +1264,11 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 }
 
 static int setup_signals(Server *s) {
-        sigset_t mask;
         int r;
 
         assert(s);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+        assert(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)

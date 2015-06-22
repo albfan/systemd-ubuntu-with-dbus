@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="journalctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journalctl — Query the systemd journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">journalctl</code>  [OPTIONS...] [MATCHES...]</p></div></div><div class="refsect1"><a name="idm140662946320288"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>journalctl</strong></span> may be used to query the
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="journalctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journalctl — Query the systemd journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">journalctl</code>  [OPTIONS...] [MATCHES...]</p></div></div><div class="refsect1"><a name="idm47766011721424"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>journalctl</strong></span> may be used to query the
       contents of the
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
       journal as written by
@@ -71,7 +71,7 @@
       below.</p><p>When outputting to a tty, lines are colored according to
       priority: lines of level ERROR and higher are colored red; lines
       of level NOTICE and higher are highlighted; other lines are
-      displayed normally.</p></div><div class="refsect1"><a name="idm140662941347168"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-full"><span class="term"><code class="option">--no-full</code>, </span><span class="term"><code class="option">--full</code>, </span><span class="term"><code class="option">-l</code></span><a class="headerlink" title="Permalink to this term" href="#--no-full">¶</a></dt><dd><p>Ellipsize fields when they do not fit in
+      displayed normally.</p></div><div class="refsect1"><a name="idm47766010913872"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-full"><span class="term"><code class="option">--no-full</code>, </span><span class="term"><code class="option">--full</code>, </span><span class="term"><code class="option">-l</code></span><a class="headerlink" title="Permalink to this term" href="#--no-full">¶</a></dt><dd><p>Ellipsize fields when they do not fit in
           available columns.  The default is to show full fields,
           allowing them to wrap or be truncated by the pager, if one
           is used.</p><p>The old options
@@ -346,8 +346,8 @@
         <code class="filename">/var/log/journal</code>, if persistent storage is
         enabled. This call does not return until the operation is
         complete.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm140662941179072"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero failure
-    code is returned.</p></div><div class="refsect1"><a name="idm140662933007840"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm47766010745136"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero failure
+    code is returned.</p></div><div class="refsect1"><a name="idm47766001794384"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
                         <code class="option">--no-pager</code> is not given;
                         overrides <code class="varname">$PAGER</code>.  Setting
                         this to an empty string or the value
@@ -355,7 +355,7 @@
                         <code class="option">--no-pager</code>.</p></dd><dt id="$SYSTEMD_LESS"><span class="term"><code class="varname">$SYSTEMD_LESS</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LESS">¶</a></dt><dd><p>Override the default
                         options passed to
                         <span class="command"><strong>less</strong></span>
-                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm140662941177328"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Without arguments, all collected logs are shown
+                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm47766010743392"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Without arguments, all collected logs are shown
     unfiltered:</p><pre class="programlisting">journalctl</pre><p>With one match specified, all entries with a field matching
     the expression are shown:</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service</pre><p>If two different fields are matched, only entries matching
     both expressions at the same time are shown:</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097</pre><p>If two matches refer to the same field, all entries matching
@@ -364,7 +364,7 @@
     show all messages from the Avahi service process with the PID
     28097 plus all messages from the D-Bus service (from any of its
     processes):</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097 + _SYSTEMD_UNIT=dbus.service</pre><p>Show all logs generated by the D-Bus executable:</p><pre class="programlisting">journalctl /usr/bin/dbus-daemon</pre><p>Show all kernel logs from previous boot:</p><pre class="programlisting">journalctl -k -b -1</pre><p>Show a live log display from a system service
-    <code class="filename">apache.service</code>:</p><pre class="programlisting">journalctl -f -u apache</pre></div><div class="refsect1"><a name="idm140662941166304"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    <code class="filename">apache.service</code>:</p><pre class="programlisting">journalctl -f -u apache</pre></div><div class="refsect1"><a name="idm47766010732368"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
       <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,

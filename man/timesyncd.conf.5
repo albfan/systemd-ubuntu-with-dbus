@@ -1,5 +1,5 @@
 '\" t
-.TH "TIMESYNCD\&.CONF" "5" "" "systemd 220" "timesyncd.conf"
+.TH "TIMESYNCD\&.CONF" "5" "" "systemd 221" "timesyncd.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -54,8 +54,8 @@ in the configuration directory in
 .PP
 \fINTP=\fR
 .RS 4
-A space separated list of NTP servers host names or IP addresses\&. During runtime this list is combined with any per\-interface NTP servers acquired from
-\fBsystemd-networkd.service\fR(8)\&. systemd\-timesyncd will contact all configured system or per\-interface servers in turn until one is found that responds\&. This setting defaults to the empty list\&.
+A space separated list of NTP server host names or IP addresses\&. During runtime this list is combined with any per\-interface NTP servers acquired from
+\fBsystemd-networkd.service\fR(8)\&. systemd\-timesyncd will contact all configured system or per\-interface servers in turn until one is found that responds\&. This setting defaults to an empty list\&.
 .RE
 .PP
 \fIFallbackNTP=\fR

@@ -34,13 +34,14 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include "sd-event.h"
 #include "macro.h"
 #include "pty.h"
 #include "ring.h"
-#include "sd-event.h"
-#include "term-internal.h"
-#include "util.h"
+#include "signal-util.h"
 #include "utf8.h"
+#include "util.h"
+#include "term-internal.h"
 
 typedef struct Output Output;
 typedef struct Terminal Terminal;
@@ -855,7 +856,7 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
                 goto error;
         }
 
-        r = sigprocmask_many(SIG_BLOCK, SIGINT, SIGQUIT, SIGTERM, SIGWINCH, SIGCHLD, -1);
+        r = sigprocmask_many(SIG_BLOCK, NULL, SIGINT, SIGQUIT, SIGTERM, SIGWINCH, SIGCHLD, -1);
         if (r < 0) {
                 log_error_errno(r, "error: sigprocmask_many() (%d): %m", r);
                 goto error;

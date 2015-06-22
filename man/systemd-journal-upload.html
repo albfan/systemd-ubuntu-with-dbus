@@ -18,15 +18,15 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-journal-upload"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-journal-upload — Send journal messages over the network</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-journal-upload</code>  [OPTIONS...] [-u/--url=<em class="replaceable"><code>URL</code></em>] [SOURCES...]</p></div></div><div class="refsect1"><a name="idm140254410168304"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-journal-upload"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-journal-upload — Send journal messages over the network</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-journal-upload</code>  [OPTIONS...] [-u/--url=<em class="replaceable"><code>URL</code></em>] [SOURCES...]</p></div></div><div class="refsect1"><a name="idm47159419451728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
       <span class="command"><strong>systemd-journal-upload</strong></span> will upload journal
       entries to the URL specified with <code class="option">--url</code>. Unless
       limited by one of the options specified below, all journal
       entries accessible to the user the program is running as will be
       uploaded, and then the program will wait and send new entries
       as they become available.
-    </p></div><div class="refsect1"><a name="idm140254405266448"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--url=[<span class="optional">https://</span>]<em class="replaceable"><code>URL</code></em></code>, </span><span class="term"><code class="option">--url=[<span class="optional">http://</span>]<em class="replaceable"><code>URL</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>Upload to the specified
+    </p></div><div class="refsect1"><a name="idm47159420638752"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--url=[<span class="optional">https://</span>]<em class="replaceable"><code>URL</code></em></code>, </span><span class="term"><code class="option">--url=[<span class="optional">http://</span>]<em class="replaceable"><code>URL</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>Upload to the specified
         address. <em class="replaceable"><code>URL</code></em> may specify either
         just the hostname or both the protocol and
         hostname. <code class="constant">https</code> is the default.
@@ -68,8 +68,8 @@
         After an entry is successfully uploaded, update this file
         with the cursor of that entry.
         </p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140254405235920"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero
-    failure code is returned.</p></div><div class="refsect1"><a name="idm140254405234672"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm140254405234032"></a><p class="title"><b>Example 1. Setting up certificates for authentication</b></p><div class="example-contents"><p>Certificates signed by a trusted authority are used to
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm47159417598096"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero
+    failure code is returned.</p></div><div class="refsect1"><a name="idm47159417596848"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm47159417596208"></a><p class="title"><b>Example 1. Setting up certificates for authentication</b></p><div class="example-contents"><p>Certificates signed by a trusted authority are used to
       verify that the server to which messages are uploaded is
       legitimate, and vice versa, that the client is trusted.</p><p>A suitable set of certificates can be generated with
       <span class="command"><strong>openssl</strong></span>:</p><pre class="programlisting">openssl req -newkey rsa:2048 -days 3650 -x509 -nodes \
@@ -124,7 +124,7 @@ openssl ca -batch -config ca.conf -notext -in $CLIENT.csr -out $CLIENT.pem
       <code class="filename">/etc/systemd/journal-upload.conf</code>
       respectively. The default locations can be queried by using
       <span class="command"><strong>systemd-journal-remote --help</strong></span> and
-      <span class="command"><strong>systemd-journal-upload --help</strong></span>.</p></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140254405221776"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <span class="command"><strong>systemd-journal-upload --help</strong></span>.</p></div></div><br class="example-break"></div><div class="refsect1"><a name="idm47159417583952"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-journal-remote.html"><span class="citerefentry"><span class="refentrytitle">systemd-journal-remote</span>(8)</span></a>,
       <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,
       <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,

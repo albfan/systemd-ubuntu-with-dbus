@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-suspend.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-suspend.service, systemd-hibernate.service, systemd-hybrid-sleep.service, systemd-sleep — System sleep state logic</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-suspend.service</code></p><p><code class="filename">systemd-hibernate.service</code></p><p><code class="filename">systemd-hybrid-sleep.service</code></p><p><code class="filename">/usr/lib/systemd/system-sleep</code></p></div><div class="refsect1"><a name="idm139675520642496"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-suspend.service</code> is a system
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-suspend.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-suspend.service, systemd-hibernate.service, systemd-hybrid-sleep.service, systemd-sleep — System sleep state logic</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-suspend.service</code></p><p><code class="filename">systemd-hibernate.service</code></p><p><code class="filename">systemd-hybrid-sleep.service</code></p><p><code class="filename">/usr/lib/systemd/system-sleep</code></p></div><div class="refsect1"><a name="idm47028235926912"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-suspend.service</code> is a system
     service that is pulled in by <code class="filename">suspend.target</code>
     and is responsible for the actual system suspend. Similarly,
     <code class="filename">systemd-hibernate.service</code> is pulled in by
@@ -56,10 +56,10 @@
     of <code class="filename">/etc/systemd/sleep.conf</code> or a
     <code class="filename">sleep.conf.d</code> file. See
     <a href="systemd-sleep.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-sleep.conf</span>(5)</span></a>.
-    </p></div><div class="refsect1"><a name="idm139675515724560"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p><span class="command"><strong>systemd-sleep</strong></span> understands the
+    </p></div><div class="refsect1"><a name="idm47028230950272"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p><span class="command"><strong>systemd-sleep</strong></span> understands the
     following commands:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
     </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="suspend"><span class="term"><code class="option">suspend</code>, </span><span class="term"><code class="option">hibernate</code>, </span><span class="term"><code class="option">hybrid-sleep</code></span><a class="headerlink" title="Permalink to this term" href="#suspend">¶</a></dt><dd><p>Suspend, hibernate, or put the system to
-        hybrid sleep.</p></dd></dl></div></div><div class="refsect1"><a name="idm139675515718496"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        hybrid sleep.</p></dd></dl></div></div><div class="refsect1"><a name="idm47028230944208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-sleep.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-sleep.conf</span>(5)</span></a>,
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,

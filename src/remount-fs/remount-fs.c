@@ -29,6 +29,7 @@
 #include "log.h"
 #include "util.h"
 #include "path-util.h"
+#include "signal-util.h"
 #include "mount-setup.h"
 #include "exit-status.h"
 
@@ -93,6 +94,9 @@ int main(int argc, char *argv[]) {
                 if (pid == 0) {
                         const char *arguments[5];
                         /* Child */
+
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
 
                         arguments[0] = MOUNT_PATH;
                         arguments[1] = me->mnt_dir;

@@ -47,8 +47,9 @@
 #include "selinux-util.h"
 #include "dbus-socket.h"
 #include "unit.h"
-#include "socket.h"
 #include "formats-util.h"
+#include "signal-util.h"
+#include "socket.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -831,7 +832,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->keep_alive_interval) {
-                int value =  s->keep_alive_interval / USEC_PER_SEC;
+                int value = s->keep_alive_interval / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPINTVL failed: %m");
         }
@@ -1472,8 +1473,8 @@ static int socket_chown(Socket *s, pid_t *_pid) {
                 gid_t gid = GID_INVALID;
                 int ret;
 
-                default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
-                ignore_signals(SIGPIPE, -1);
+                (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
+                (void) ignore_signals(SIGPIPE, -1);
                 log_forget_fds();
 
                 if (!isempty(s->user)) {
@@ -2588,7 +2589,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
 
         /* Don't propagate state changes from the service if we are
            already down or accepting connections */
-        if ((s->state !=  SOCKET_RUNNING &&
+        if ((s->state != SOCKET_RUNNING &&
             s->state != SOCKET_LISTENING) ||
             s->accept)
                 return;

@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="bootchart.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootchart.conf, bootchart.conf.d — Boot performance analysis graphing tool configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/bootchart.conf</code></p><p><code class="filename">/etc/systemd/bootchart.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/bootchart.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/bootchart.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140054987008880"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When starting, systemd-bootchart will read the configuration
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="bootchart.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootchart.conf, bootchart.conf.d — Boot performance analysis graphing tool configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/bootchart.conf</code></p><p><code class="filename">/etc/systemd/bootchart.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/bootchart.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/bootchart.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm47319149788608"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When starting, systemd-bootchart will read the configuration
     file <code class="filename">/etc/systemd/bootchart.conf</code>, followed by
     the files in the <code class="filename">bootchart.conf.d</code>
     directories. These configuration files determine logging
@@ -49,7 +49,7 @@
     recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm140054982051968"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="Samples=500"><span class="term"><code class="varname">Samples=500</code></span><a class="headerlink" title="Permalink to this term" href="#Samples=500">¶</a></dt><dd><p>Configure the amount of samples to record in
+    configuration file.</p></div><div class="refsect1"><a name="idm47319144831920"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="Samples=500"><span class="term"><code class="varname">Samples=500</code></span><a class="headerlink" title="Permalink to this term" href="#Samples=500">¶</a></dt><dd><p>Configure the amount of samples to record in
         total before bootchart exits. Each sample will record at
         intervals defined by Frequency=.</p></dd><dt id="Frequency=25"><span class="term"><code class="varname">Frequency=25</code></span><a class="headerlink" title="Permalink to this term" href="#Frequency=25">¶</a></dt><dd><p>Configure the sample log frequency. This can
         be a fractional number, but must be larger than 0.0. Most
@@ -77,7 +77,7 @@
         the kernel random entropy pool size.</p></dd><dt id="ScaleX=100"><span class="term"><code class="varname">ScaleX=100</code></span><a class="headerlink" title="Permalink to this term" href="#ScaleX=100">¶</a></dt><dd><p>Horizontal scaling factor for all variable
         graph components.</p></dd><dt id="ScaleY=20"><span class="term"><code class="varname">ScaleY=20</code></span><a class="headerlink" title="Permalink to this term" href="#ScaleY=20">¶</a></dt><dd><p>Vertical scaling factor for all variable graph
         components.</p></dd><dt id="ControlGroup=no"><span class="term"><code class="varname">ControlGroup=no</code></span><a class="headerlink" title="Permalink to this term" href="#ControlGroup=no">¶</a></dt><dd><p>Display process control group.
-        </p></dd></dl></div></div><div class="refsect1"><a name="idm140054982031808"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        </p></dd></dl></div></div><div class="refsect1"><a name="idm47319144811760"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd-bootchart.html"><span class="citerefentry"><span class="refentrytitle">systemd-bootchart</span>(1)</span></a>,
         <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
       </p></div></div></body></html>

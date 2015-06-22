@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "import-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;
@@ -389,8 +390,8 @@ static int transfer_start(Transfer *t) {
 
                 /* Child */
 
-                reset_all_signal_handlers();
-                reset_signal_mask();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 pipefd[0] = safe_close(pipefd[0]);
@@ -598,7 +599,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         cmsg_close_all(&msghdr);
 
-        for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+        CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                            cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
@@ -1300,7 +1301,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0) {

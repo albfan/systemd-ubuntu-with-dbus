@@ -30,6 +30,7 @@
 #include "networkd-netdev.h"
 #include "networkd-link.h"
 #include "network-internal.h"
+#include "dns-domain.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
@@ -466,11 +467,16 @@ int config_parse_domains(const char *unit,
         STRV_FOREACH(domain, *domains) {
                 if (is_localhost(*domain))
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL, "'localhost' domain names may not be configured, ignoring assignment: %s", *domain);
-                else if (!hostname_is_valid(*domain)) {
-                        if (!streq(*domain, "*"))
-                                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "domain name is not valid, ignoring assignment: %s", *domain);
-                } else
-                        continue;
+                else {
+                        r = dns_name_is_valid(*domain);
+                        if (r <= 0 && !streq(*domain, "*")) {
+                                if (r < 0)
+                                        log_error_errno(r, "Failed to validate domain name: %s: %m", *domain);
+                                if (r == 0)
+                                        log_warning("Domain name is not valid, ignoring assignment: %s", *domain);
+                        } else
+                                continue;
+                }
 
                 strv_remove(*domains, *domain);
 
@@ -708,6 +714,40 @@ int config_parse_ipv6token(
         }
 
         *token = buffer.in6;
+
+        return 0;
+}
+
+int config_parse_address_family_boolean_with_kernel(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamilyBoolean *fwd = data, s;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        s = address_family_boolean_from_string(rvalue);
+        if (s < 0) {
+                if (streq(rvalue, "kernel"))
+                        s = _ADDRESS_FAMILY_BOOLEAN_INVALID;
+                else {
+                        log_syntax(unit, LOG_ERR, filename, line, s, "Failed to parse IPForwarding option, ignoring: %s", rvalue);
+                        return 0;
+                }
+        }
+
+        *fwd = s;
 
         return 0;
 }

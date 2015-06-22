@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 220" "systemd.service"
+.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 221" "systemd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -311,8 +311,14 @@ Commands to execute to stop the service started via
 above\&. Use of this setting is optional\&. After the commands configured in this option are run, all processes remaining for a service are terminated according to the
 \fIKillMode=\fR
 setting (see
-\fBsystemd.kill\fR(5))\&. If this option is not specified, the process is terminated immediately when service stop is requested\&. Specifier and environment variable substitution is supported (including
+\fBsystemd.kill\fR(5))\&. If this option is not specified, the process is terminated by sending the signal specified in
+\fIKillSignal=\fR
+when service stop is requested\&. Specifier and environment variable substitution is supported (including
 \fI$MAINPID\fR, see above)\&.
+.sp
+Note that it is usually not sufficient to specify a command for this setting that only asks the service to terminate (for example by queuing some form of termination signal for it), but does not wait for it to do so\&. Since the remaining processes of the services are killed using
+\fBSIGKILL\fR
+immediately after the command exited this would not result in a clean stop\&. The specified command should hence be a synchronous operation, not an asynchronous one\&.
 .RE
 .PP
 \fIExecStopPost=\fR

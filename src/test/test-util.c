@@ -39,6 +39,7 @@
 #include "virt.h"
 #include "process-util.h"
 #include "hostname-util.h"
+#include "signal-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -459,6 +460,11 @@ static void test_cunescape(void) {
         assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
         assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "ßßΠA"));
+        free(unescaped);
+        unescaped = NULL;
+
+        assert_se(cunescape("\\073", 0, &unescaped) >= 0);
+        assert_se(streq_ptr(unescaped, ";"));
 }
 
 static void test_foreach_word(void) {
@@ -563,24 +569,31 @@ static void test_read_hostname_config(void) {
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
         free(hostname);
+        hostname = NULL;
 
         /* with comment */
         write_string_file(path, "# comment\nfoo");
         assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         free(hostname);
+        hostname = NULL;
 
         /* with comment and extra whitespace */
         write_string_file(path, "# comment\n\n foo ");
         assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         free(hostname);
+        hostname = NULL;
 
         /* cleans up name */
         write_string_file(path, "!foo/bar.com");
         assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
         free(hostname);
+        hostname = NULL;
 
         /* no value set */
         hostname = (char*) 0x1234;
@@ -1291,6 +1304,244 @@ static void test_unquote_first_word(void) {
         assert_se(streq(t, "pi\360\237\222\251le"));
         free(t);
         assert_se(p == original + 32);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "fooo"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX) > 0);
+        assert_se(streq(t, "fooo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "fooo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
+        assert_se(streq(t, "fooo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word(&p, &t, 0) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "foo"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "foo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "foo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "fooo bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX) > 0);
+        assert_se(streq(t, "fooo bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
+        assert_se(streq(t, "fooo bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
+        assert_se(streq(t, "fooo\\ bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "\\w+@\\K[\\d.]+";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) == -EINVAL);
+        assert_se(p == original + 1);
+
+        p = original = "\\w+@\\K[\\d.]+";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
+        assert_se(streq(t, "\\w+@\\K[\\d.]+"));
+        free(t);
+        assert_se(p == original + 12);
+
+        p = original = "\\w+\\b";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
+        assert_se(streq(t, "\\w+\b"));
+        free(t);
+        assert_se(p == original + 5);
+}
+
+static void test_unquote_first_word_and_warn(void) {
+        const char *p, *original;
+        char *t;
+
+        p = original = "foobar waldo";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "foobar"));
+        free(t);
+        assert_se(p == original + 7);
+
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "waldo"));
+        free(t);
+        assert_se(p == original + 12);
+
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == 0);
+        assert_se(!t);
+        assert_se(p == original + 12);
+
+        p = original = "\"foobar\" \'waldo\'";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "foobar"));
+        free(t);
+        assert_se(p == original + 9);
+
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "waldo"));
+        free(t);
+        assert_se(p == original + 16);
+
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == 0);
+        assert_se(!t);
+        assert_se(p == original + 16);
+
+        p = original = "\"";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == -EINVAL);
+        assert_se(p == original + 1);
+
+        p = original = "\'";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == -EINVAL);
+        assert_se(p == original + 1);
+
+        p = original = "\'fooo";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\'fooo";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = " foo\\ba\\x6ar ";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "foo\ba\x6ar"));
+        free(t);
+        assert_se(p == original + 13);
+
+        p = original = " foo\\ba\\x6ar ";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "foobax6ar"));
+        free(t);
+        assert_se(p == original + 13);
+
+        p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "föo"));
+        free(t);
+        assert_se(p == original + 13);
+
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "pi\360\237\222\251le"));
+        free(t);
+        assert_se(p == original + 32);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo\\"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "foo"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\"foo\\";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "foo"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "fooo\\ bar quux";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "fooo\\ bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        p = original = "\\w+@\\K[\\d.]+";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "\\w+@\\K[\\d.]+"));
+        free(t);
+        assert_se(p == original + 12);
+
+        p = original = "\\w+\\b";
+        assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
+        assert_se(streq(t, "\\w+\b"));
+        free(t);
+        assert_se(p == original + 5);
 }
 
 static void test_unquote_many_words(void) {
@@ -1494,6 +1745,42 @@ static void test_parse_mode(void) {
         assert_se(parse_mode("0", &m) >= 0 && m == 0);
 }
 
+static void test_tempfn(void) {
+        char *ret = NULL, *p;
+
+        assert_se(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret) >= 0);
+        assert_se(streq_ptr(ret, "/foo/bar/.#waldoXXXXXX"));
+        free(ret);
+
+        assert_se(tempfn_xxxxxx("/foo/bar/waldo", "[miau]", &ret) >= 0);
+        assert_se(streq_ptr(ret, "/foo/bar/.#[miau]waldoXXXXXX"));
+        free(ret);
+
+        assert_se(tempfn_random("/foo/bar/waldo", NULL, &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/.#waldo"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+
+        assert_se(tempfn_random("/foo/bar/waldo", "[wuff]", &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/.#[wuff]waldo"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+
+        assert_se(tempfn_random_child("/foo/bar/waldo", NULL, &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/waldo/.#"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+
+        assert_se(tempfn_random_child("/foo/bar/waldo", "[kikiriki]", &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/waldo/.#[kikiriki]"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1561,6 +1848,7 @@ int main(int argc, char *argv[]) {
         test_glob_exists();
         test_execute_directory();
         test_unquote_first_word();
+        test_unquote_first_word_and_warn();
         test_unquote_many_words();
         test_parse_proc_cmdline();
         test_raw_clone();
@@ -1569,6 +1857,7 @@ int main(int argc, char *argv[]) {
         test_sparse_write();
         test_shell_maybe_quote();
         test_parse_mode();
+        test_tempfn();
 
         return 0;
 }

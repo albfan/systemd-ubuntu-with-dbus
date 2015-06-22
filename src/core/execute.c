@@ -49,14 +49,13 @@
 #include <sys/apparmor.h>
 #endif
 
+#include "sd-messages.h"
 #include "rm-rf.h"
-#include "execute.h"
 #include "strv.h"
 #include "macro.h"
 #include "capability.h"
 #include "util.h"
 #include "log.h"
-#include "sd-messages.h"
 #include "ioprio.h"
 #include "securebits.h"
 #include "namespace.h"
@@ -79,6 +78,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
@@ -87,6 +87,8 @@
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+
+#include "execute.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -769,7 +771,7 @@ static int setup_pam(
         };
 
         pam_handle_t *handle = NULL;
-        sigset_t ss, old_ss;
+        sigset_t old_ss;
         int pam_code = PAM_SUCCESS;
         int err;
         char **e = NULL;
@@ -821,10 +823,8 @@ static int setup_pam(
 
         /* Block SIGTERM, so that we know that it won't get lost in
          * the child */
-        if (sigemptyset(&ss) < 0 ||
-            sigaddset(&ss, SIGTERM) < 0 ||
-            sigprocmask(SIG_BLOCK, &ss, &old_ss) < 0)
-                goto fail;
+
+        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM, -1) >= 0);
 
         parent_pid = getpid();
 
@@ -855,6 +855,8 @@ static int setup_pam(
                 if (setresuid(uid, uid, uid) < 0)
                         log_error_errno(r, "Error: Failed to setresuid() in sd-pam: %m");
 
+                (void) ignore_signals(SIGPIPE, -1);
+
                 /* Wait until our parent died. This will only work if
                  * the above setresuid() succeeds, otherwise the kernel
                  * will not allow unprivileged parents kill their privileged
@@ -866,6 +868,11 @@ static int setup_pam(
                 /* Check if our parent process might already have
                  * died? */
                 if (getppid() == parent_pid) {
+                        sigset_t ss;
+
+                        assert_se(sigemptyset(&ss) >= 0);
+                        assert_se(sigaddset(&ss, SIGTERM) >= 0);
+
                         for (;;) {
                                 if (sigwait(&ss, &sig) < 0) {
                                         if (errno == EINTR)
@@ -898,8 +905,7 @@ static int setup_pam(
         handle = NULL;
 
         /* Unblock SIGTERM again in the parent */
-        if (sigprocmask(SIG_SETMASK, &old_ss, NULL) < 0)
-                goto fail;
+        assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
 
         /* We close the log explicitly here, since the PAM modules
          * might have opened it, but we don't want this fd around. */
@@ -1322,11 +1328,11 @@ static int exec_child(
          * others we leave untouched because we set them to
          * SIG_DFL or a valid handler initially, both of which
          * will be demoted to SIG_DFL. */
-        default_signals(SIGNALS_CRASH_HANDLER,
-                        SIGNALS_IGNORE, -1);
+        (void) default_signals(SIGNALS_CRASH_HANDLER,
+                               SIGNALS_IGNORE, -1);
 
         if (context->ignore_sigpipe)
-                ignore_signals(SIGPIPE, -1);
+                (void) ignore_signals(SIGPIPE, -1);
 
         r = reset_signal_mask();
         if (r < 0) {
@@ -1508,7 +1514,6 @@ static int exec_child(
                 }
         }
 
-#ifdef ENABLE_KDBUS
         if (params->bus_endpoint_fd >= 0 && context->bus_endpoint) {
                 uid_t ep_uid = (uid == UID_INVALID) ? 0 : uid;
 
@@ -1518,7 +1523,6 @@ static int exec_child(
                         return r;
                 }
         }
-#endif
 
         /* If delegation is enabled we'll pass ownership of the cgroup
          * (but only in systemd's own controller hierarchy!) to the

@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.network"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.network — Network configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>network</code></em>.network</code></p></div><div class="refsect1"><a name="idm140526880433728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Network setup is performed by
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd.network"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.network — Network configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>network</code></em>.network</code></p></div><div class="refsect1"><a name="idm47848087121456"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Network setup is performed by
     <a href="systemd-networkd.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd</span>(8)</span></a>.
     </p><p>Network files must have the extension
     <code class="filename">.network</code>; other extensions are ignored.
@@ -40,7 +40,7 @@
     needed; a symlink in <code class="filename">/etc</code> with the same name
     as a configuration file in <code class="filename">/usr/lib</code>, pointing
     to <code class="filename">/dev/null</code>, disables the configuration file
-    entirely.</p></div><div class="refsect1"><a name="idm140526879638752"></a><h2 id="[Match] Section Options">[Match] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMatch%5D%20Section%20Options">¶</a></h2><p>The network file contains a "<code class="literal">[Match]</code>"
+    entirely.</p></div><div class="refsect1"><a name="idm47848089763744"></a><h2 id="[Match] Section Options">[Match] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BMatch%5D%20Section%20Options">¶</a></h2><p>The network file contains a "<code class="literal">[Match]</code>"
       section, which determines if a given network file may be applied
       to a given device; and a "<code class="literal">[Network]</code>" section
       specifying how the device should be configured. The first (in
@@ -77,9 +77,9 @@
             architecture. See "<code class="literal">ConditionArchitecture=</code>" in
             <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
             for details.
-            </p></dd></dl></div></div><div class="refsect1"><a name="idm140526879609552"></a><h2 id="[Link] Section Options">[Link] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BLink%5D%20Section%20Options">¶</a></h2><p> The "<code class="literal">[Link]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The hardware address.</p></dd><dt id="MTUBytes="><span class="term"><code class="varname">MTUBytes=</code></span><a class="headerlink" title="Permalink to this term" href="#MTUBytes=">¶</a></dt><dd><p>The maximum transmission unit in bytes to set for the
+            </p></dd></dl></div></div><div class="refsect1"><a name="idm47848085065680"></a><h2 id="[Link] Section Options">[Link] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BLink%5D%20Section%20Options">¶</a></h2><p> The "<code class="literal">[Link]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The hardware address.</p></dd><dt id="MTUBytes="><span class="term"><code class="varname">MTUBytes=</code></span><a class="headerlink" title="Permalink to this term" href="#MTUBytes=">¶</a></dt><dd><p>The maximum transmission unit in bytes to set for the
           device. The usual suffixes K, M, G, are supported and are
-          understood to the base of 1024.</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879603648"></a><h2 id="[Network] Section Options">[Network] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BNetwork%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Network]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Description="><span class="term"><code class="varname">Description=</code></span><a class="headerlink" title="Permalink to this term" href="#Description=">¶</a></dt><dd><p>A description of the device. This is only used for
+          understood to the base of 1024.</p></dd></dl></div></div><div class="refsect1"><a name="idm47848085059776"></a><h2 id="[Network] Section Options">[Network] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BNetwork%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Network]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Description="><span class="term"><code class="varname">Description=</code></span><a class="headerlink" title="Permalink to this term" href="#Description=">¶</a></dt><dd><p>A description of the device. This is only used for
             presentation purposes.</p></dd><dt id="DHCP="><span class="term"><code class="varname">DHCP=</code></span><a class="headerlink" title="Permalink to this term" href="#DHCP=">¶</a></dt><dd><p>Enables DHCPv4 and/or DHCPv6 support. Accepts
             "<code class="literal">yes</code>", "<code class="literal">no</code>",
             "<code class="literal">ipv4</code>", or "<code class="literal">ipv6</code>".</p><p>Please note that by default the domain name
@@ -136,14 +136,15 @@
           the routing table. Takes either a boolean argument, or the
           values "<code class="literal">ipv4</code>" or "<code class="literal">ipv6</code>",
           which only enables IP forwarding for the specified address
-          family. This controls the
+          family, or "<code class="literal">kernel</code>", which preserves existing sysctl settings.
+          This controls the
           <code class="filename">net.ipv4.conf.&lt;interface&gt;.forwarding</code>
           and
           <code class="filename">net.ipv6.conf.&lt;interface&gt;.forwarding</code>
           sysctl options of the network interface (see <a class="ulink" href="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt" target="_top">ip-sysctl.txt</a>
           for details about sysctl options). Defaults to
-          "<code class="literal">no</code>".</p><p>Note: unless this option is turned on, no IP
-          forwarding is done on this interface, even if this is
+          "<code class="literal">no</code>".</p><p>Note: unless this option is turned on, or set to "<code class="literal">kernel</code>",
+          no IP forwarding is done on this interface, even if this is
           globally turned on in the kernel, with the
           <code class="filename">net.ipv4.ip_forward</code> and
           <code class="filename">net.ipv4.ip_forward</code> sysctl
@@ -156,7 +157,7 @@
             option may be specified more than once.</p></dd><dt id="MACVLAN="><span class="term"><code class="varname">MACVLAN=</code></span><a class="headerlink" title="Permalink to this term" href="#MACVLAN=">¶</a></dt><dd><p>The name of a MACVLAN to create on the link. This
             option may be specified more than once.</p></dd><dt id="VXLAN="><span class="term"><code class="varname">VXLAN=</code></span><a class="headerlink" title="Permalink to this term" href="#VXLAN=">¶</a></dt><dd><p>The name of a VXLAN to create on the link. This
             option may be specified more than once.</p></dd><dt id="Tunnel="><span class="term"><code class="varname">Tunnel=</code></span><a class="headerlink" title="Permalink to this term" href="#Tunnel=">¶</a></dt><dd><p>The name of a Tunnel to create on the link. This
-            option may be specified more than once.</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879542384"></a><h2 id="[Address] Section Options">[Address] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BAddress%5D%20Section%20Options">¶</a></h2><p>An "<code class="literal">[Address]</code>" section accepts the
+            option may be specified more than once.</p></dd></dl></div></div><div class="refsect1"><a name="idm47848084997232"></a><h2 id="[Address] Section Options">[Address] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BAddress%5D%20Section%20Options">¶</a></h2><p>An "<code class="literal">[Address]</code>" section accepts the
       following keys. Specify several "<code class="literal">[Address]</code>"
       sections to configure several addresses.</p><div class="variablelist"><dl class="variablelist"><dt id="Address="><span class="term"><code class="varname">Address=</code></span><a class="headerlink" title="Permalink to this term" href="#Address=">¶</a></dt><dd><p>As in the "<code class="literal">[Network]</code>" section. This
             key is mandatory.</p></dd><dt id="Peer="><span class="term"><code class="varname">Peer=</code></span><a class="headerlink" title="Permalink to this term" href="#Peer=">¶</a></dt><dd><p>The peer address in a point-to-point connection.
@@ -166,7 +167,7 @@
             <a href="http://man7.org/linux/man-pages/man3/inet_pton.3.html"><span class="citerefentry"><span class="refentrytitle">inet_pton</span>(3)</span></a>.
             This key only applies to IPv4 addresses. If it is not
             given, it is derived from the "<code class="literal">Address</code>"
-            key.</p></dd><dt id="Label="><span class="term"><code class="varname">Label=</code></span><a class="headerlink" title="Permalink to this term" href="#Label=">¶</a></dt><dd><p>An address label.</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879529392"></a><h2 id="[Route] Section Options">[Route] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BRoute%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Route]</code>" section accepts the
+            key.</p></dd><dt id="Label="><span class="term"><code class="varname">Label=</code></span><a class="headerlink" title="Permalink to this term" href="#Label=">¶</a></dt><dd><p>An address label.</p></dd></dl></div></div><div class="refsect1"><a name="idm47848084984240"></a><h2 id="[Route] Section Options">[Route] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BRoute%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Route]</code>" section accepts the
       following keys. Specify several "<code class="literal">[Route]</code>"
       sections to configure several routes.</p><div class="variablelist"><dl class="variablelist"><dt id="Gateway="><span class="term"><code class="varname">Gateway=</code></span><a class="headerlink" title="Permalink to this term" href="#Gateway=">¶</a></dt><dd><p>As in the "<code class="literal">[Network]</code>" section.</p></dd><dt id="Destination="><span class="term"><code class="varname">Destination=</code></span><a class="headerlink" title="Permalink to this term" href="#Destination=">¶</a></dt><dd><p>The destination prefix of the route. Possibly
             followed by a slash and the prefixlength. If omitted, a
@@ -174,7 +175,7 @@
             a slash and the prefixlength. If omitted, a full-length
             host route is assumed.</p></dd><dt id="Metric="><span class="term"><code class="varname">Metric=</code></span><a class="headerlink" title="Permalink to this term" href="#Metric=">¶</a></dt><dd><p>The metric of the route. An unsigned integer</p></dd><dt id="Scope="><span class="term"><code class="varname">Scope=</code></span><a class="headerlink" title="Permalink to this term" href="#Scope=">¶</a></dt><dd><p>The scope of the route. One of the values "<code class="literal">global</code>",
             "<code class="literal">link</code>" or "<code class="literal">host</code>". Defaults to
-            "<code class="literal">global</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879514496"></a><h2 id="[DHCP] Section Options">[DHCP] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BDHCP%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[DHCP]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="UseDNS="><span class="term"><code class="varname">UseDNS=</code></span><a class="headerlink" title="Permalink to this term" href="#UseDNS=">¶</a></dt><dd><p>When true (the default), the DNS servers received
+            "<code class="literal">global</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm47848084969344"></a><h2 id="[DHCP] Section Options">[DHCP] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BDHCP%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[DHCP]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="UseDNS="><span class="term"><code class="varname">UseDNS=</code></span><a class="headerlink" title="Permalink to this term" href="#UseDNS=">¶</a></dt><dd><p>When true (the default), the DNS servers received
             from the DHCP server will be used and take precedence over
             any statically configured ones.</p><p>This corresponds to the <code class="option">nameserver</code>
             option in <a href="http://man7.org/linux/man-pages/man5/resolv.conf.5.html"><span class="citerefentry"><span class="refentrytitle">resolv.conf</span>(5)</span></a>.</p></dd><dt id="UseNTP="><span class="term"><code class="varname">UseNTP=</code></span><a class="headerlink" title="Permalink to this term" href="#UseNTP=">¶</a></dt><dd><p>When true (the default), the NTP servers received
@@ -205,51 +206,51 @@
             receive packets at all before an IP address has been
             configured. On the other hand, this must not be enabled on
             networks where broadcasts are filtered out.</p></dd><dt id="RouteMetric="><span class="term"><code class="varname">RouteMetric=</code></span><a class="headerlink" title="Permalink to this term" href="#RouteMetric=">¶</a></dt><dd><p>Set the routing metric for routes specified by the
-            DHCP server.</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879484992"></a><h2 id="[Bridge] Section Options">[Bridge] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BBridge%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Bridge]</code>" section accepts the
+            DHCP server.</p></dd></dl></div></div><div class="refsect1"><a name="idm47848084939840"></a><h2 id="[Bridge] Section Options">[Bridge] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BBridge%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[Bridge]</code>" section accepts the
       following keys.</p><div class="variablelist"><dl class="variablelist"><dt id="Cost="><span class="term"><code class="varname">Cost=</code></span><a class="headerlink" title="Permalink to this term" href="#Cost=">¶</a></dt><dd><p>Each port in a bridge may have different speed. Cost
             is used to decide which link to use. Faster interfaces
-            should have lower costs</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879480752"></a><h2 id="[BridgeFDB] Section Options">[BridgeFDB] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BBridgeFDB%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[BridgeFDB]</code>" section manages the
+            should have lower costs</p></dd></dl></div></div><div class="refsect1"><a name="idm47848084935600"></a><h2 id="[BridgeFDB] Section Options">[BridgeFDB] Section Options<a class="headerlink" title="Permalink to this headline" href="#%5BBridgeFDB%5D%20Section%20Options">¶</a></h2><p>The "<code class="literal">[BridgeFDB]</code>" section manages the
       forwarding database table of a port and accepts the following
       keys. Specify several "<code class="literal">[BridgeFDB]</code>" sections to
       configure several static MAC table entries.</p><div class="variablelist"><dl class="variablelist"><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>As in the "<code class="literal">[Network]</code>" section. This
             key is mandatory.</p></dd><dt id="VLANId="><span class="term"><code class="varname">VLANId=</code></span><a class="headerlink" title="Permalink to this term" href="#VLANId=">¶</a></dt><dd><p>The VLAN Id for the new static MAC table entry. If
             omitted, no VLAN Id info is appended to the new static MAC
-            table entry.</p></dd></dl></div></div><div class="refsect1"><a name="idm140526879473408"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140526879472768"></a><p class="title"><b>Example 1. /etc/systemd/network/50-static.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+            table entry.</p></dd></dl></div></div><div class="refsect1"><a name="idm47848084928256"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm47848084927616"></a><p class="title"><b>Example 1. /etc/systemd/network/50-static.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=enp2s0
 
 [Network]
 Address=192.168.0.15/24
-Gateway=192.168.0.1</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879471280"></a><p class="title"><b>Example 2. /etc/systemd/network/80-dhcp.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+Gateway=192.168.0.1</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084926128"></a><p class="title"><b>Example 2. /etc/systemd/network/80-dhcp.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=en*
 
 [Network]
-DHCP=yes</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879469888"></a><p class="title"><b>Example 3. /etc/systemd/network/bridge-static.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+DHCP=yes</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084924736"></a><p class="title"><b>Example 3. /etc/systemd/network/bridge-static.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=bridge0
 
 [Network]
 Address=192.168.0.15/24
 Gateway=192.168.0.1
-DNS=192.168.0.1</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879468384"></a><p class="title"><b>Example 4. /etc/systemd/network/bridge-slave-interface.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+DNS=192.168.0.1</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084923232"></a><p class="title"><b>Example 4. /etc/systemd/network/bridge-slave-interface.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=enp2s0
 
 [Network]
-Bridge=bridge0</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879466992"></a><p class="title"><b>Example 5. /etc/systemd/network/ipip.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+Bridge=bridge0</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084921840"></a><p class="title"><b>Example 5. /etc/systemd/network/ipip.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=em1
 
 [Network]
-Tunnel=ipip-tun</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879465600"></a><p class="title"><b>Example 6. /etc/systemd/network/sit.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+Tunnel=ipip-tun</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084920448"></a><p class="title"><b>Example 6. /etc/systemd/network/sit.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=em1
 
 [Network]
-Tunnel=sit-tun</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879464208"></a><p class="title"><b>Example 7. /etc/systemd/network/gre.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+Tunnel=sit-tun</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084919056"></a><p class="title"><b>Example 7. /etc/systemd/network/gre.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=em1
 
 [Network]
-Tunnel=gre-tun</pre></div></div><br class="example-break"><div class="example"><a name="idm140526879462816"></a><p class="title"><b>Example 8. /etc/systemd/network/vti.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
+Tunnel=gre-tun</pre></div></div><br class="example-break"><div class="example"><a name="idm47848084917664"></a><p class="title"><b>Example 8. /etc/systemd/network/vti.network</b></p><div class="example-contents"><pre class="programlisting">[Match]
 Name=em1
 
 [Network]
-Tunnel=vti-tun</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140526879461296"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+Tunnel=vti-tun</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm47848084916144"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-networkd.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd</span>(8)</span></a>,
       <a href="systemd.link.html"><span class="citerefentry"><span class="refentrytitle">systemd.link</span>(5)</span></a>,

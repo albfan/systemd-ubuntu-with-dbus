@@ -23,15 +23,15 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
-#include <systemd/sd-login.h>
-#include "bus-util.h"
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-login.h"
 #include "macro.h"
-#include "sysview.h"
-#include "sysview-internal.h"
 #include "udev-util.h"
 #include "util.h"
+#include "bus-util.h"
+#include "sysview.h"
+#include "sysview-internal.h"
 
 static int context_raise_session_control(sysview_context *c, sysview_session *session, int error);
 
@@ -196,7 +196,7 @@ int sysview_session_new(sysview_session **out, sysview_seat *seat, const char *n
                 if (r < 0)
                         return r;
 
-                session->custom = false;;
+                session->custom = false;
         } else {
                 /*
                  * No session name was given. We assume this is an unmanaged

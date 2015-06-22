@@ -72,6 +72,7 @@
 #include "process-util.h"
 #include "terminal-util.h"
 #include "hostname-util.h"
+#include "signal-util.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -1182,7 +1183,7 @@ static int list_timers(sd_bus *bus, char **args) {
 
         for (u = unit_infos; u < unit_infos + n; u++) {
                 _cleanup_strv_free_ char **triggered = NULL;
-                dual_timestamp next = {};
+                dual_timestamp next = DUAL_TIMESTAMP_NULL;
                 usec_t m, last = 0;
 
                 if (!endswith(u->id, ".timer"))
@@ -1677,17 +1678,23 @@ static const struct bus_properties_map machine_info_property_map[] = {
         {}
 };
 
+static void machine_info_clear(struct machine_info *info) {
+        if (info) {
+                free(info->name);
+                free(info->state);
+                free(info->control_group);
+                zero(*info);
+        }
+}
+
 static void free_machines_list(struct machine_info *machine_infos, int n) {
         int i;
 
         if (!machine_infos)
                 return;
 
-        for (i = 0; i < n; i++) {
-                free(machine_infos[i].name);
-                free(machine_infos[i].state);
-                free(machine_infos[i].control_group);
-        }
+        for (i = 0; i < n; i++)
+                machine_info_clear(&machine_infos[i]);
 
         free(machine_infos);
 }
@@ -4401,7 +4408,7 @@ static int show_all(
 static int show_system_status(sd_bus *bus) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_free_ char *hn = NULL;
-        struct machine_info mi = {};
+        _cleanup_(machine_info_clear) struct machine_info mi = {};
         const char *on, *off;
         int r;
 
@@ -4447,9 +4454,6 @@ static int show_system_status(sd_bus *bus) {
 
                 show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, false, get_output_flags());
         }
-
-        free(mi.state);
-        free(mi.control_group);
 
         return 0;
 }
@@ -5098,7 +5102,7 @@ static int import_environment(sd_bus *bus, char **args) {
 static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
-#if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
+#if defined(HAVE_SYSV_COMPAT)
         unsigned f = 0;
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
 
@@ -5123,7 +5127,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
                 unsigned c = 1;
-                const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
+                const char *argv[6] = { ROOTLIBEXECDIR "/systemd-sysv-install", NULL, NULL, NULL, NULL };
                 char **k;
                 int j;
                 pid_t pid;
@@ -5149,7 +5153,10 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 break;
                 }
 
-                if (found_native)
+                /* If we have both a native unit and a SysV script,
+                 * enable/disable them both (below); for is-enabled, prefer the
+                 * native unit */
+                if (found_native && streq(verb, "is-enabled"))
                         continue;
 
                 p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
@@ -5161,15 +5168,16 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!found_sysv)
                         continue;
 
-                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", name);
+                if (found_native)
+                        log_info("Synchronizing state of %s with SysV init with %s...", name, argv[0]);
+                else
+                        log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
 
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
 
+                argv[c++] = verb;
                 argv[c++] = basename(p);
-                argv[c++] =
-                        streq(verb, "enable") ? "on" :
-                        streq(verb, "disable") ? "off" : "--level=5";
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");
@@ -5184,7 +5192,11 @@ static int enable_sysv_units(const char *verb, char **args) {
                 else if (pid == 0) {
                         /* Child */
 
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
+
                         execv(argv[0], (char**) argv);
+                        log_error("Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
                 }
 
@@ -5209,6 +5221,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 return -EINVAL;
                 } else
                         return -EPROTO;
+
+                if (found_native)
+                        continue;
 
                 /* Remove this entry, so that we don't try enabling it as native unit */
                 assert(f > 0);
@@ -5672,7 +5687,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         assert(original_path);
         assert(ret_tmp_fn);
 
-        r = tempfn_random(new_path, &t);
+        r = tempfn_random(new_path, NULL, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
 
@@ -5840,20 +5855,15 @@ static int run_editor(char **paths) {
 
         if (pid == 0) {
                 const char **args;
-                char *editor;
+                char *editor, **editor_args = NULL;
                 char **tmp_path, **original_path, *p;
-                unsigned i = 1;
+                unsigned n_editor_args = 0, i = 1;
                 size_t argc;
 
-                argc = strv_length(paths)/2 + 1;
-                args = newa(const char*, argc + 1);
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
 
-                args[0] = NULL;
-                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
-                        args[i] = *tmp_path;
-                        i++;
-                }
-                args[argc] = NULL;
+                argc = strv_length(paths)/2 + 1;
 
                 /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL
                  * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present,
@@ -5866,11 +5876,32 @@ static int run_editor(char **paths) {
                         editor = getenv("VISUAL");
 
                 if (!isempty(editor)) {
-                        args[0] = editor;
-                        execvp(editor, (char* const*) args);
+                        editor_args = strv_split(editor, WHITESPACE);
+                        if (!editor_args) {
+                                (void) log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+                        n_editor_args = strv_length(editor_args);
+                        argc += n_editor_args - 1;
+                }
+                args = newa(const char*, argc + 1);
+
+                if (n_editor_args > 0) {
+                        args[0] = editor_args[0];
+                        for (; i < n_editor_args; i++)
+                                args[i] = editor_args[i];
                 }
 
-                FOREACH_STRING(p, "nano", "vim", "vi") {
+                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
+                        args[i] = *tmp_path;
+                        i++;
+                }
+                args[i] = NULL;
+
+                if (n_editor_args > 0)
+                        execvp(args[0], (char* const*) args);
+
+                FOREACH_STRING(p, "editor", "nano", "vim", "vi") {
                         args[0] = p;
                         execvp(p, (char* const*) args);
                         /* We do not fail if the editor doesn't exist

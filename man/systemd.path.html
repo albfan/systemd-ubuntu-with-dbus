@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.path"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.path — Path unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>path</code></em>.path</code></p></div><div class="refsect1"><a name="idm140562769604496"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd.path"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.path — Path unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>path</code></em>.path</code></p></div><div class="refsect1"><a name="idm47752848163648"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     "<code class="literal">.path</code>" encodes information about a path
     monitored by systemd, for path-based activation.</p><p>This man page lists the configuration options specific to
     this unit type. See
@@ -47,7 +47,7 @@
     are terminated cleanly prior to system shutdown. Only path units
     involved with early boot or late system shutdown should disable
     this option.
-    </p></div><div class="refsect1"><a name="idm140562764691920"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Path files must include a [Path] section, which carries
+    </p></div><div class="refsect1"><a name="idm47752843252112"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Path files must include a [Path] section, which carries
     information about the path(s) it monitors. The options specific to
     the [Path] section of path units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="PathExists="><span class="term"><code class="varname">PathExists=</code>, </span><span class="term"><code class="varname">PathExistsGlob=</code>, </span><span class="term"><code class="varname">PathChanged=</code>, </span><span class="term"><code class="varname">PathModified=</code>, </span><span class="term"><code class="varname">DirectoryNotEmpty=</code></span><a class="headerlink" title="Permalink to this term" href="#PathExists=">¶</a></dt><dd><p>Defines paths to monitor for certain changes:
         <code class="varname">PathExists=</code> may be used to watch the mere
@@ -92,7 +92,7 @@
         Defaults to <code class="option">false</code>.</p></dd><dt id="DirectoryMode="><span class="term"><code class="varname">DirectoryMode=</code></span><a class="headerlink" title="Permalink to this term" href="#DirectoryMode=">¶</a></dt><dd><p>If <code class="varname">MakeDirectory=</code> is
         enabled, use the mode specified here to create the directories
         in question. Takes an access mode in octal notation. Defaults
-        to <code class="option">0755</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm140562764671648"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        to <code class="option">0755</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm47752843231936"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

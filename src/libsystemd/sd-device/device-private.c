@@ -636,10 +636,10 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
 
 static int device_update_properties_bufs(sd_device *device) {
         const char *val, *prop;
-        char **buf_strv = NULL;
-        uint8_t *buf_nulstr = NULL;
-        size_t allocated_nulstr = 0, allocated_strv = 0;
-        size_t nulstr_len = 0, strv_size = 0;
+        _cleanup_free_ char **buf_strv = NULL;
+        _cleanup_free_ uint8_t *buf_nulstr = NULL;
+        size_t allocated_nulstr = 0;
+        size_t nulstr_len = 0, num = 0, i = 0;
 
         assert(device);
 
@@ -655,20 +655,29 @@ static int device_update_properties_bufs(sd_device *device) {
                 if (!buf_nulstr)
                         return -ENOMEM;
 
-                buf_strv = GREEDY_REALLOC0(buf_strv, allocated_strv, strv_size + 2);
-                if (!buf_strv)
-                        return -ENOMEM;
-
-                buf_strv[++ strv_size] = (char *)&buf_nulstr[nulstr_len];
                 strscpyl((char *)buf_nulstr + nulstr_len, len + 1, prop, "=", val, NULL);
                 nulstr_len += len + 1;
+                ++num;
+        }
+
+        /* build buf_strv from buf_nulstr */
+        buf_strv = new0(char *, num + 1);
+        if (!buf_strv)
+                return -ENOMEM;
+
+        NULSTR_FOREACH(val, (char*) buf_nulstr) {
+                buf_strv[i] = (char *) val;
+                assert(i < num);
+                i++;
         }
 
         free(device->properties_nulstr);
-        free(device->properties_strv);
         device->properties_nulstr = buf_nulstr;
+        buf_nulstr = NULL;
         device->properties_nulstr_len = nulstr_len;
+        free(device->properties_strv);
         device->properties_strv = buf_strv;
+        buf_strv = NULL;
 
         device->properties_buf_outdated = false;
 

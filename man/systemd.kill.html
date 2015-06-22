@@ -18,13 +18,13 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.kill"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.kill — Process killing procedure
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd.kill"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.kill — Process killing procedure
     configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
     <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
     <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
     <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code>,
-    <code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code></p></div><div class="refsect1"><a name="idm139999904141408"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets, mount
+    <code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code></p></div><div class="refsect1"><a name="idm47129854889344"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets, mount
     points, swap devices and scopes share a subset of configuration
     options which define the killing procedure of processes belonging
     to the unit.</p><p>This man page lists the configuration options shared by
@@ -40,7 +40,7 @@
     for more information on the configuration file options specific to
     each unit type.</p><p>The kill procedure configuration options are configured in
     the [Service], [Socket], [Mount] or [Swap] section, depending on
-    the unit type.</p></div><div class="refsect1"><a name="idm139999899231776"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="KillMode="><span class="term"><code class="varname">KillMode=</code></span><a class="headerlink" title="Permalink to this term" href="#KillMode=">¶</a></dt><dd><p>Specifies how processes of this unit shall be
+    the unit type.</p></div><div class="refsect1"><a name="idm47129849929296"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="KillMode="><span class="term"><code class="varname">KillMode=</code></span><a class="headerlink" title="Permalink to this term" href="#KillMode=">¶</a></dt><dd><p>Specifies how processes of this unit shall be
         killed. One of
         <code class="option">control-group</code>,
         <code class="option">process</code>,
@@ -77,7 +77,10 @@
         by <code class="constant">SIGKILL</code> (see above and below). For a
         list of valid signals, see
         <a href="http://man7.org/linux/man-pages/man7/signal.7.html"><span class="citerefentry"><span class="refentrytitle">signal</span>(7)</span></a>.
-        Defaults to <code class="constant">SIGTERM</code>. </p></dd><dt id="SendSIGHUP="><span class="term"><code class="varname">SendSIGHUP=</code></span><a class="headerlink" title="Permalink to this term" href="#SendSIGHUP=">¶</a></dt><dd><p>Specifies whether to send
+        Defaults to <code class="constant">SIGTERM</code>. </p><p>Note that right after sending the signal specified in
+        this setting systemd will always send
+        <code class="constant">SIGCONT</code>, to ensure that even suspended
+        tasks can be terminated cleanly.</p></dd><dt id="SendSIGHUP="><span class="term"><code class="varname">SendSIGHUP=</code></span><a class="headerlink" title="Permalink to this term" href="#SendSIGHUP=">¶</a></dt><dd><p>Specifies whether to send
         <code class="constant">SIGHUP</code> to remaining processes immediately
         after sending the signal configured with
         <code class="varname">KillSignal=</code>. This is useful to indicate to
@@ -87,7 +90,7 @@
         <code class="constant">SIGKILL</code> to remaining processes after a
         timeout, if the normal shutdown procedure left processes of
         the service around. Takes a boolean value. Defaults to "yes".
-        </p></dd></dl></div></div><div class="refsect1"><a name="idm139999899210960"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        </p></dd></dl></div></div><div class="refsect1"><a name="idm47129849907360"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,

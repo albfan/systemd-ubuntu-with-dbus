@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "capability.h"
 #include "sd-daemon.h"
-
+#include "capability.h"
+#include "signal-util.h"
 #include "networkd.h"
 
 int main(int argc, char *argv[]) {
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto out;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0) {

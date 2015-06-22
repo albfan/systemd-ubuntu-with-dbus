@@ -18,9 +18,9 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-tmpfiles"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-tmpfiles, systemd-tmpfiles-setup.service, systemd-tmpfiles-setup-dev.service, systemd-tmpfiles-clean.service, systemd-tmpfiles-clean.timer — Creates, deletes and cleans up volatile
-    and temporary files and directories</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-tmpfiles</code>  [OPTIONS...] [<em class="replaceable"><code>CONFIGFILE</code></em>...]</p></div><p><code class="filename">systemd-tmpfiles-setup.service</code></p><p><code class="filename">systemd-tmpfiles-setup-dev.service</code></p><p><code class="filename">systemd-tmpfiles-clean.service</code></p><p><code class="filename">systemd-tmpfiles-clean.timer</code></p></div><div class="refsect1"><a name="idm140554508944144"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> creates, deletes, and
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-tmpfiles"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-tmpfiles, systemd-tmpfiles-setup.service, systemd-tmpfiles-setup-dev.service, systemd-tmpfiles-clean.service, systemd-tmpfiles-clean.timer — Creates, deletes and cleans up volatile
+    and temporary files and directories</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-tmpfiles</code>  [OPTIONS...] [<em class="replaceable"><code>CONFIGFILE</code></em>...]</p></div><p><code class="filename">systemd-tmpfiles-setup.service</code></p><p><code class="filename">systemd-tmpfiles-setup-dev.service</code></p><p><code class="filename">systemd-tmpfiles-clean.service</code></p><p><code class="filename">systemd-tmpfiles-clean.timer</code></p></div><div class="refsect1"><a name="idm47480562208528"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> creates, deletes, and
     cleans up volatile and temporary files and directories, based on
     the configuration file format and location specified in
     <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.
@@ -30,7 +30,7 @@
     If only the basename of a configuration file is specified, all
     configuration directories as specified in
     <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>
-    are searched for a matching file.</p></div><div class="refsect1"><a name="idm140554508940064"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--create"><span class="term"><code class="option">--create</code></span><a class="headerlink" title="Permalink to this term" href="#--create">¶</a></dt><dd><p>If this option is passed, all files and
+    are searched for a matching file.</p></div><div class="refsect1"><a name="idm47480562204448"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--create"><span class="term"><code class="option">--create</code></span><a class="headerlink" title="Permalink to this term" href="#--create">¶</a></dt><dd><p>If this option is passed, all files and
         directories marked with
         <code class="varname">f</code>,
         <code class="varname">F</code>,
@@ -70,14 +70,14 @@
     <code class="option">--clean</code>, and <code class="option">--remove</code> in one
     invocation. For example, during boot the following command line is
     executed to ensure that all temporary and volatile directories are
-    removed and created according to the configuration file:</p><pre class="programlisting">systemd-tmpfiles --remove --create</pre></div><div class="refsect1"><a name="idm140554508914720"></a><h2 id="Unprivileged --cleanup operation">Unprivileged --cleanup operation<a class="headerlink" title="Permalink to this headline" href="#Unprivileged%20--cleanup%20operation">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> tries to avoid changing
+    removed and created according to the configuration file:</p><pre class="programlisting">systemd-tmpfiles --remove --create</pre></div><div class="refsect1"><a name="idm47480562179104"></a><h2 id="Unprivileged --cleanup operation">Unprivileged --cleanup operation<a class="headerlink" title="Permalink to this headline" href="#Unprivileged%20--cleanup%20operation">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> tries to avoid changing
     the access and modification times on the directories it accesses,
     which requires <code class="constant">CAP_ADMIN</code> privileges. When
     running as non-root, directories which are checked for files to
     clean up will have their access time bumped, which might prevent
     their cleanup.
-    </p></div><div class="refsect1"><a name="idm140554508912368"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure code
-    otherwise.</p></div><div class="refsect1"><a name="idm140554508911216"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm47480562176752"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure code
+    otherwise.</p></div><div class="refsect1"><a name="idm47480562175600"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>
     </p></div></div></body></html>

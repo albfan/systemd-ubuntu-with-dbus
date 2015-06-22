@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_CREDS_GET_PID" "3" "" "systemd 220" "sd_bus_creds_get_pid"
+.TH "SD_BUS_CREDS_GET_PID" "3" "" "systemd 221" "sd_bus_creds_get_pid"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -100,8 +100,9 @@ These functions return information from an
 \fIsd_bus_creds\fR
 credential object\&. Credential objects may be created with
 \fBsd_bus_creds_new_from_pid\fR(3), in which case they describe the credentials of the process identified by the specified PID, with
-\fBsd_bus_get_name_creds\fR(3), in which case they describe the credentials of a bus peer identified by the specified bus name, or with
-\fBsd_bus_get_owner_creds\fR(3), in which case they describe the credentials of the creator of a bus\&.
+\fBsd_bus_get_name_creds\fR(3), in which case they describe the credentials of a bus peer identified by the specified bus name, with
+\fBsd_bus_get_owner_creds\fR(3), in which case they describe the credentials of the creator of a bus, or with
+\fBsd_bus_message_get_creds\fR(3), in which case they describe the credentials of the sender of the message\&.
 .PP
 \fBsd_bus_creds_get_pid()\fR
 will retrieve the PID (process identifier)\&. Similar,

@@ -36,9 +36,10 @@
 #include "bus-error.h"
 #include "conf-parser.h"
 #include "clean-ipc.h"
-#include "logind-user.h"
 #include "smack-util.h"
 #include "formats-util.h"
+#include "label.h"
+#include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -105,16 +106,13 @@ void user_free(User *u) {
         free(u);
 }
 
-int user_save(User *u) {
+static int user_save_internal(User *u) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(u);
         assert(u->state_file);
-
-        if (!u->started)
-                return 0;
 
         r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0);
         if (r < 0)
@@ -258,6 +256,15 @@ finish:
         return r;
 }
 
+int user_save(User *u) {
+        assert(u);
+
+        if (!u->started)
+                return 0;
+
+        return user_save_internal (u);
+}
+
 int user_load(User *u) {
         _cleanup_free_ char *display = NULL, *realtime = NULL, *monotonic = NULL;
         Session *s = NULL;
@@ -320,10 +327,10 @@ static int user_mkdir_runtime_path(User *u) {
         } else
                 p = u->runtime_path;
 
-        if (path_is_mount_point(p, false) <= 0) {
+        if (path_is_mount_point(p, 0) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
-                (void) mkdir(p, 0700);
+                (void) mkdir_label(p, 0700);
 
                 if (mac_smack_use())
                         r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
@@ -351,6 +358,10 @@ static int user_mkdir_runtime_path(User *u) {
                                 goto fail;
                         }
                 }
+
+                r = label_fix(p, false, false);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to fix label of '%s', ignoring: %m", p);
         }
 
         u->runtime_path = p;
@@ -452,6 +463,12 @@ int user_start(User *u) {
         r = user_start_slice(u);
         if (r < 0)
                 return r;
+
+        /* Save the user data so far, because pam_systemd will read the
+         * XDG_RUNTIME_DIR out of it while starting up systemd --user.
+         * We need to do user_save_internal() because we have not
+         * "officially" started yet. */
+        user_save_internal(u);
 
         /* Spawn user systemd */
         r = user_start_service(u);
@@ -619,7 +636,7 @@ int user_finalize(User *u) {
 int user_get_idle_hint(User *u, dual_timestamp *t) {
         Session *s;
         bool idle_hint = true;
-        dual_timestamp ts = { 0, 0 };
+        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
         assert(u);
 
@@ -704,7 +721,7 @@ UserState user_get_state(User *u) {
         if (u->stopping)
                 return USER_CLOSING;
 
-        if (u->slice_job || u->service_job)
+        if (!u->started || u->slice_job || u->service_job)
                 return USER_OPENING;
 
         if (u->sessions) {
@@ -738,54 +755,73 @@ int user_kill(User *u, int signo) {
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
 
+static bool elect_display_filter(Session *s) {
+        /* Return true if the session is a candidate for the user’s ‘primary
+         * session’ or ‘display’. */
+        assert(s);
+
+        return (s->class == SESSION_USER && !s->stopping);
+}
+
+static int elect_display_compare(Session *s1, Session *s2) {
+        /* Indexed by SessionType. Lower numbers mean more preferred. */
+        const int type_ranks[_SESSION_TYPE_MAX] = {
+                [SESSION_UNSPECIFIED] = 0,
+                [SESSION_TTY] = -2,
+                [SESSION_X11] = -3,
+                [SESSION_WAYLAND] = -3,
+                [SESSION_MIR] = -3,
+                [SESSION_WEB] = -1,
+        };
+
+        /* Calculate the partial order relationship between s1 and s2,
+         * returning < 0 if s1 is preferred as the user’s ‘primary session’,
+         * 0 if s1 and s2 are equally preferred or incomparable, or > 0 if s2
+         * is preferred.
+         *
+         * s1 or s2 may be NULL. */
+        if (!s1 && !s2)
+                return 0;
+
+        if ((s1 == NULL) != (s2 == NULL))
+                return (s1 == NULL) - (s2 == NULL);
+
+        if (s1->stopping != s2->stopping)
+                return s1->stopping - s2->stopping;
+
+        if ((s1->class != SESSION_USER) != (s2->class != SESSION_USER))
+                return (s1->class != SESSION_USER) - (s2->class != SESSION_USER);
+
+        if ((s1->type == _SESSION_TYPE_INVALID) != (s2->type == _SESSION_TYPE_INVALID))
+                return (s1->type == _SESSION_TYPE_INVALID) - (s2->type == _SESSION_TYPE_INVALID);
+
+        if (s1->type != s2->type)
+                return type_ranks[s1->type] - type_ranks[s2->type];
+
+        return 0;
+}
+
 void user_elect_display(User *u) {
-        Session *graphical = NULL, *text = NULL, *other = NULL, *s;
+        Session *s;
 
         assert(u);
 
         /* This elects a primary session for each user, which we call
          * the "display". We try to keep the assignment stable, but we
          * "upgrade" to better choices. */
+        log_debug("Electing new display for user %s", u->name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
-
-                if (s->class != SESSION_USER)
+                if (!elect_display_filter(s)) {
+                        log_debug("Ignoring session %s", s->id);
                         continue;
+                }
 
-                if (s->stopping)
-                        continue;
-
-                if (SESSION_TYPE_IS_GRAPHICAL(s->type))
-                        graphical = s;
-                else if (s->type == SESSION_TTY)
-                        text = s;
-                else
-                        other = s;
+                if (elect_display_compare(s, u->display) < 0) {
+                        log_debug("Choosing session %s in preference to %s", s->id, u->display ? u->display->id : "-");
+                        u->display = s;
+                }
         }
-
-        if (graphical &&
-            (!u->display ||
-             u->display->class != SESSION_USER ||
-             u->display->stopping ||
-             !SESSION_TYPE_IS_GRAPHICAL(u->display->type))) {
-                u->display = graphical;
-                return;
-        }
-
-        if (text &&
-            (!u->display ||
-             u->display->class != SESSION_USER ||
-             u->display->stopping ||
-             u->display->type != SESSION_TTY)) {
-                u->display = text;
-                return;
-        }
-
-        if (other &&
-            (!u->display ||
-             u->display->class != SESSION_USER ||
-             u->display->stopping))
-                u->display = other;
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {

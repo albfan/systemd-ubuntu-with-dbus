@@ -18,9 +18,9 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-socket-proxyd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-socket-proxyd — Bidirectionally proxy local sockets to another (possibly remote) socket.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-socket-proxyd</code>  [<em class="replaceable"><code>OPTIONS</code></em>...]  <em class="replaceable"><code>HOST</code></em>:<em class="replaceable"><code>PORT</code></em> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-socket-proxyd</code>  [<em class="replaceable"><code>OPTIONS</code></em>...]  <em class="replaceable"><code>UNIX-DOMAIN-SOCKET-PATH</code></em>
-       </p></div></div><div class="refsect1"><a name="idm139842727010640"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-socket-proxyd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-socket-proxyd — Bidirectionally proxy local sockets to another (possibly remote) socket.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-socket-proxyd</code>  [<em class="replaceable"><code>OPTIONS</code></em>...]  <em class="replaceable"><code>HOST</code></em>:<em class="replaceable"><code>PORT</code></em> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-socket-proxyd</code>  [<em class="replaceable"><code>OPTIONS</code></em>...]  <em class="replaceable"><code>UNIX-DOMAIN-SOCKET-PATH</code></em>
+       </p></div></div><div class="refsect1"><a name="idm47123875326912"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>
     <span class="command"><strong>systemd-socket-proxyd</strong></span> is a generic
     socket-activated network socket forwarder proxy daemon for IPv4,
     IPv6 and UNIX stream sockets. It may be used to bi-directionally
@@ -36,36 +36,36 @@
     are support for socket activation with
     "<code class="literal">Accept=false</code>" and an event-driven
     design that scales better with the number of
-    connections.</p></div><div class="refsect1"><a name="idm139842727005104"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139842727002096"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-    code otherwise.</p></div><div class="refsect1"><a name="idm139842727000944"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="refsect2"><a name="idm139842727000304"></a><h3 id="Simple Example">Simple Example<a class="headerlink" title="Permalink to this headline" href="#Simple%20Example">¶</a></h3><p>Use two services with a dependency and no namespace
-      isolation.</p><div class="example"><a name="idm139842726999280"></a><p class="title"><b>Example 1. proxy-to-nginx.socket</b></p><div class="example-contents"><pre class="programlisting">[Socket]
+    connections.</p></div><div class="refsect1"><a name="idm47123875321472"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm47123875318464"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm47123875317312"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="refsect2"><a name="idm47123875316672"></a><h3 id="Simple Example">Simple Example<a class="headerlink" title="Permalink to this headline" href="#Simple%20Example">¶</a></h3><p>Use two services with a dependency and no namespace
+      isolation.</p><div class="example"><a name="idm47123875315648"></a><p class="title"><b>Example 1. proxy-to-nginx.socket</b></p><div class="example-contents"><pre class="programlisting">[Socket]
 ListenStream=80
 
 [Install]
-WantedBy=sockets.target</pre></div></div><br class="example-break"><div class="example"><a name="idm139842726997776"></a><p class="title"><b>Example 2. proxy-to-nginx.service</b></p><div class="example-contents"><pre class="programlisting">[Unit]
+WantedBy=sockets.target</pre></div></div><br class="example-break"><div class="example"><a name="idm47123875314144"></a><p class="title"><b>Example 2. proxy-to-nginx.service</b></p><div class="example-contents"><pre class="programlisting">[Unit]
 Requires=nginx.service
 After=nginx.service
 
 [Service]
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
 PrivateTmp=yes
-PrivateNetwork=yes</pre></div></div><br class="example-break"><div class="example"><a name="idm139842726996240"></a><p class="title"><b>Example 3. nginx.conf</b></p><div class="example-contents"><pre class="programlisting">
+PrivateNetwork=yes</pre></div></div><br class="example-break"><div class="example"><a name="idm47123875312608"></a><p class="title"><b>Example 3. nginx.conf</b></p><div class="example-contents"><pre class="programlisting">
 [...]
 server {
     listen       unix:/tmp/nginx.sock;
     [...]
-</pre></div></div><br class="example-break"><div class="example"><a name="idm139842726994592"></a><p class="title"><b>Example 4. Enabling the proxy</b></p><div class="example-contents"><pre class="programlisting"># systemctl enable proxy-to-nginx.socket
+</pre></div></div><br class="example-break"><div class="example"><a name="idm47123875310960"></a><p class="title"><b>Example 4. Enabling the proxy</b></p><div class="example-contents"><pre class="programlisting"># systemctl enable proxy-to-nginx.socket
 # systemctl start proxy-to-nginx.socket
-$ curl http://localhost:80/</pre></div></div><br class="example-break"></div><div class="refsect2"><a name="idm139842726992976"></a><h3 id="Namespace Example">Namespace Example<a class="headerlink" title="Permalink to this headline" href="#Namespace%20Example">¶</a></h3><p>Similar as above, but runs the socket proxy and the main
+$ curl http://localhost:80/</pre></div></div><br class="example-break"></div><div class="refsect2"><a name="idm47123875309344"></a><h3 id="Namespace Example">Namespace Example<a class="headerlink" title="Permalink to this headline" href="#Namespace%20Example">¶</a></h3><p>Similar as above, but runs the socket proxy and the main
       service in the same private namespace, assuming that
       <code class="filename">nginx.service</code> has
       <code class="varname">PrivateTmp=</code> and
-      <code class="varname">PrivateNetwork=</code> set, too.</p><div class="example"><a name="idm139842726990416"></a><p class="title"><b>Example 5. proxy-to-nginx.socket</b></p><div class="example-contents"><pre class="programlisting">[Socket]
+      <code class="varname">PrivateNetwork=</code> set, too.</p><div class="example"><a name="idm47123875306784"></a><p class="title"><b>Example 5. proxy-to-nginx.socket</b></p><div class="example-contents"><pre class="programlisting">[Socket]
 ListenStream=80
 
 [Install]
-WantedBy=sockets.target</pre></div></div><br class="example-break"><div class="example"><a name="idm139842726988912"></a><p class="title"><b>Example 6. proxy-to-nginx.service</b></p><div class="example-contents"><pre class="programlisting">[Unit]
+WantedBy=sockets.target</pre></div></div><br class="example-break"><div class="example"><a name="idm47123875305280"></a><p class="title"><b>Example 6. proxy-to-nginx.service</b></p><div class="example-contents"><pre class="programlisting">[Unit]
 Requires=nginx.service
 After=nginx.service
 JoinsNamespaceOf=nginx.service
@@ -73,12 +73,12 @@ JoinsNamespaceOf=nginx.service
 [Service]
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:8080
 PrivateTmp=yes
-PrivateNetwork=yes</pre></div></div><br class="example-break"><div class="example"><a name="idm139842726987344"></a><p class="title"><b>Example 7. nginx.conf</b></p><div class="example-contents"><pre class="programlisting">[...]
+PrivateNetwork=yes</pre></div></div><br class="example-break"><div class="example"><a name="idm47123875303712"></a><p class="title"><b>Example 7. nginx.conf</b></p><div class="example-contents"><pre class="programlisting">[...]
 server {
     listen       8080;
-    [...]</pre></div></div><br class="example-break"><div class="example"><a name="idm139842726985840"></a><p class="title"><b>Example 8. Enabling the proxy</b></p><div class="example-contents"><pre class="programlisting"># systemctl enable proxy-to-nginx.socket
+    [...]</pre></div></div><br class="example-break"><div class="example"><a name="idm47123875302208"></a><p class="title"><b>Example 8. Enabling the proxy</b></p><div class="example-contents"><pre class="programlisting"># systemctl enable proxy-to-nginx.socket
 # systemctl start proxy-to-nginx.socket
-$ curl http://localhost:80/</pre></div></div><br class="example-break"></div></div><div class="refsect1"><a name="idm139842726984096"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+$ curl http://localhost:80/</pre></div></div><br class="example-break"></div></div><div class="refsect1"><a name="idm47123875300464"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>,
       <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,

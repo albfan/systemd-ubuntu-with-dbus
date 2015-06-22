@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-inhibit"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-inhibit — Execute a program with an inhibition lock taken</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-inhibit [OPTIONS...]  [COMMAND]  [ARGUMENTS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-inhibit [OPTIONS...] --list</code> </p></div></div><div class="refsect1"><a name="idm140387152908368"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-inhibit</strong></span> may be used to execute a
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-inhibit"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-inhibit — Execute a program with an inhibition lock taken</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-inhibit [OPTIONS...]  [COMMAND]  [ARGUMENTS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-inhibit [OPTIONS...] --list</code> </p></div></div><div class="refsect1"><a name="idm47568182588512"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-inhibit</strong></span> may be used to execute a
     program with a shutdown, sleep or idle inhibitor lock taken. The
     lock will be acquired before the specified command line is
     executed and released afterwards.</p><p>Inhibitor locks may be used to block or delay system sleep
@@ -27,7 +27,7 @@
     handling of the OS. This is useful to avoid system suspends while
     an optical disc is being recorded, or similar operations that
     should not be interrupted.</p><p>For more information see the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/inhibit" target="_top">Inhibitor
-    Lock Developer Documentation</a>.</p></div><div class="refsect1"><a name="idm140387152904816"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--what="><span class="term"><code class="option">--what=</code></span><a class="headerlink" title="Permalink to this term" href="#--what=">¶</a></dt><dd><p>Takes a colon-separated list of one or more
+    Lock Developer Documentation</a>.</p></div><div class="refsect1"><a name="idm47568182584816"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--what="><span class="term"><code class="option">--what=</code></span><a class="headerlink" title="Permalink to this term" href="#--what=">¶</a></dt><dd><p>Takes a colon-separated list of one or more
         operations to inhibit:
         "<code class="literal">shutdown</code>",
         "<code class="literal">sleep</code>",
@@ -58,11 +58,11 @@
         "<code class="literal">sleep</code>" and
         "<code class="literal">shutdown</code>".</p></dd><dt id="--list"><span class="term"><code class="option">--list</code></span><a class="headerlink" title="Permalink to this term" href="#--list">¶</a></dt><dd><p>Lists all active inhibition locks instead of
         acquiring one.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140387152883680"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>Returns the exit status of the executed program.</p></div><div class="refsect1"><a name="idm140387152882528"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting"># systemd-inhibit wodim foobar.iso</pre><p>This burns the ISO image
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm47568177891712"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>Returns the exit status of the executed program.</p></div><div class="refsect1"><a name="idm47568177890560"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting"># systemd-inhibit wodim foobar.iso</pre><p>This burns the ISO image
     <code class="filename">foobar.iso</code> on a CD using
     <a href="http://man7.org/linux/man-pages/man1/wodim.1.html"><span class="citerefentry"><span class="refentrytitle">wodim</span>(1)</span></a>,
     and inhibits system sleeping, shutdown and idle while
-    doing so.</p></div><div class="refsect1"><a name="idm140387152879024"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    doing so.</p></div><div class="refsect1"><a name="idm47568177887056"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="logind.conf.html"><span class="citerefentry"><span class="refentrytitle">logind.conf</span>(5)</span></a>
     </p></div></div></body></html>

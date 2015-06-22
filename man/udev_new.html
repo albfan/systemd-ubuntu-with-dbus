@@ -1,0 +1,35 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>udev_new</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="udev_new"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>udev_new, udev_ref, udev_unref — Create, acquire and release a udev context object</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;libudev.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev *<b class="fsfunc">udev_new</b>(</code></td><td><var class="pdparam">void</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev *<b class="fsfunc">udev_ref</b>(</code></td><td>struct udev *<var class="pdparam">udev</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev *<b class="fsfunc">udev_unref</b>(</code></td><td>struct udev *<var class="pdparam">udev</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm47061763469584"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">udev_new()</code> allocates a new udev context
+    object and returns a pointer to it. This object is opaque and must
+    not be accessed by the caller via different means than functions
+    provided by libudev. Initially, the reference count of the context
+    is 1. You can acquire further references, and drop gained references
+    via <code class="function">udev_ref()</code> and
+    <code class="function">udev_unref()</code>. Once the reference count hits 0,
+    the context object is destroyed and freed.</p></div><div class="refsect1"><a name="idm47061763466352"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On success, <code class="function">udev_new()</code> returns a pointer
+    to the allocated udev context. On failure, <code class="constant">NULL</code>
+    is returned. <code class="function">udev_ref()</code> returns the argument
+    that it was passed, unmodified. <code class="function">udev_unref()</code>
+    always returns <code class="constant">NULL</code>.</p></div><div class="refsect1"><a name="idm47061763462560"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+    </p></div></div></body></html>

@@ -18,12 +18,12 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="binfmt.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>binfmt.d — Configure additional binary formats for
-    executables at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/binfmt.d/*.conf</code></p><p><code class="filename">/run/binfmt.d/*.conf</code></p><p><code class="filename">/usr/lib/binfmt.d/*.conf</code></p></div><div class="refsect1"><a name="idm140691501911968"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="binfmt.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>binfmt.d — Configure additional binary formats for
+    executables at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/binfmt.d/*.conf</code></p><p><code class="filename">/run/binfmt.d/*.conf</code></p><p><code class="filename">/usr/lib/binfmt.d/*.conf</code></p></div><div class="refsect1"><a name="idm47591762666864"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
     <a href="systemd-binfmt.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-binfmt.service</span>(8)</span></a>
     reads configuration files from the above directories to register
-    in the kernel additional binary formats for executables.</p></div><div class="refsect1"><a name="idm140691501909760"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each file contains a list of binfmt_misc kernel binary
+    in the kernel additional binary formats for executables.</p></div><div class="refsect1"><a name="idm47591762664656"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each file contains a list of binfmt_misc kernel binary
     format rules. Consult <a class="ulink" href="https://www.kernel.org/doc/Documentation/binfmt_misc.txt" target="_top">binfmt_misc.txt</a>
     for more information on registration of additional binary formats
     and how to write rules.</p><p>Empty lines and lines beginning with ; and # are ignored.
@@ -48,8 +48,8 @@
     the vendor, the recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm140691496953056"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140691496952416"></a><p class="title"><b>Example 1. /etc/binfmt.d/wine.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Start WINE on Windows executables
-:DOSWin:M::MZ::/usr/bin/wine:</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140691496950896"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    configuration file.</p></div><div class="refsect1"><a name="idm47591757703696"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm47591757703056"></a><p class="title"><b>Example 1. /etc/binfmt.d/wine.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Start WINE on Windows executables
+:DOSWin:M::MZ::/usr/bin/wine:</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm47591757701536"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-binfmt.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-binfmt.service</span>(8)</span></a>,
       <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,

@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.automount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.automount — Automount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>automount</code></em>.automount</code></p></div><div class="refsect1"><a name="idm140318050542032"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd.automount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.automount — Automount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>automount</code></em>.automount</code></p></div><div class="refsect1"><a name="idm47824073318208"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
     "<code class="literal">.automount</code>" encodes information about a file
     system automount point controlled and supervised by
     systemd.</p><p>This man page lists the configuration options specific to
@@ -44,14 +44,14 @@
     <code class="filename">home-lennart.mount</code> will be activated.</p><p>Automount units may be used to implement on-demand mounting
     as well as parallelized mounting of file systems.</p><p>If an automount point is beneath another mount point in the
     file system hierarchy, a dependency between both units is created
-    automatically.</p></div><div class="refsect1"><a name="idm140318045623424"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Automount units may either be configured via unit files, or
+    automatically.</p></div><div class="refsect1"><a name="idm47824074443776"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Automount units may either be configured via unit files, or
     via <code class="filename">/etc/fstab</code> (see
     <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
     for details).</p><p>For details how systemd parses
     <code class="filename">/etc/fstab</code> see
     <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>.</p><p>If an automount point is configured in both
     <code class="filename">/etc/fstab</code> and a unit file, the configuration
-    in the latter takes precedence.</p></div><div class="refsect1"><a name="idm140318045617488"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Automount files must include an [Automount] section, which
+    in the latter takes precedence.</p></div><div class="refsect1"><a name="idm47824073903408"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Automount files must include an [Automount] section, which
     carries information about the file system automount points it
     supervises. The options specific to the [Automount] section of
     automount units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="Where="><span class="term"><code class="varname">Where=</code></span><a class="headerlink" title="Permalink to this term" href="#Where=">¶</a></dt><dd><p>Takes an absolute path of a directory of the
@@ -66,7 +66,7 @@
         idle for the specified time, systemd will attempt to unmount. Takes a
         unit-less value in seconds, or a time span value such as "5min 20s".
         Pass 0 to disable the timeout logic. The timeout is disabled by
-        default.</p></dd></dl></div></div><div class="refsect1"><a name="idm140318045610336"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        default.</p></dd></dl></div></div><div class="refsect1"><a name="idm47824073904624"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

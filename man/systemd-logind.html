@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-logind.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-logind.service, systemd-logind — Login manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-logind.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-logind</code></p></div><div class="refsect1"><a name="idm139637479813776"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-logind</strong></span> is a system service that
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-logind.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-logind.service, systemd-logind — Login manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-logind.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-logind</code></p></div><div class="refsect1"><a name="idm47556819187904"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-logind</strong></span> is a system service that
     manages user logins. It is responsible for:</p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>Keeping track of users and sessions, their
       processes and their idle state</p></li><li class="listitem"><p>Providing PolicyKit-based access for users to
       operations such as system shutdown or sleep</p></li><li class="listitem"><p>Implementing a shutdown/sleep inhibition logic
@@ -36,7 +36,7 @@
     such as users, sessions and seats.</p><p>See the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/logind" target="_top">
     logind D-Bus API Documentation</a> for information about the
     APIs <code class="filename">systemd-logind</code> provides.</p><p>For more information on the inhibition logic see the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/inhibit" target="_top">Inhibitor
-    Lock Developer Documentation</a>.</p></div><div class="refsect1"><a name="idm139637479016848"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    Lock Developer Documentation</a>.</p></div><div class="refsect1"><a name="idm47556814274064"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-user-sessions.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-user-sessions.service</span>(8)</span></a>,
       <a href="loginctl.html"><span class="citerefentry"><span class="refentrytitle">loginctl</span>(1)</span></a>,

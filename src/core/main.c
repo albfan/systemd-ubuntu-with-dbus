@@ -60,6 +60,10 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "selinux-util.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
+#include "signal-util.h"
 #include "manager.h"
 #include "dbus-manager.h"
 #include "load-fragment.h"
@@ -72,9 +76,6 @@
 #include "ima-setup.h"
 #include "smack-setup.h"
 #include "kmod-setup.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
 
 static enum {
         ACTION_RUN,
@@ -1404,9 +1405,8 @@ int main(int argc, char *argv[]) {
         }
 
         /* Reset all signal handlers. */
-        assert_se(reset_all_signal_handlers() == 0);
-
-        ignore_signals(SIGNALS_IGNORE, -1);
+        (void) reset_all_signal_handlers();
+        (void) ignore_signals(SIGNALS_IGNORE, -1);
 
         if (parse_config_file() < 0) {
                 error_message = "Failed to parse config file";
@@ -1496,7 +1496,7 @@ int main(int argc, char *argv[]) {
                 setsid();
 
         /* Move out of the way, so that we won't block unmounts */
-        assert_se(chdir("/")  == 0);
+        assert_se(chdir("/") == 0);
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
@@ -1605,14 +1605,10 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_running_as == MANAGER_USER) {
+        if (arg_running_as == MANAGER_USER)
                 /* Become reaper of our children */
-                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
+                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
                         log_warning_errno(errno, "Failed to make us a subreaper: %m");
-                        if (errno == EINVAL)
-                                log_info("Perhaps the kernel version is too old (< 3.4?)");
-                }
-        }
 
         if (arg_running_as == MANAGER_SYSTEM) {
                 bump_rlimit_nofile(&saved_rlimit_nofile);
@@ -1934,8 +1930,8 @@ finish:
 
                 /* Reenable any blocked signals, especially important
                  * if we switch from initial ramdisk to init=... */
-                reset_all_signal_handlers();
-                reset_signal_mask();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
 
                 if (switch_root_init) {
                         args[0] = switch_root_init;

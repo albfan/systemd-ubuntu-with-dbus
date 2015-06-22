@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-system.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-system.conf, system.conf.d, systemd-user.conf, user.conf.d — System and session service manager configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system.conf</code></p><p><code class="filename">/etc/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/etc/systemd/user.conf</code></p><p><code class="filename">/etc/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/user.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140196477177808"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When run as a system instance, systemd interprets the
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-system.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-system.conf, system.conf.d, systemd-user.conf, user.conf.d — System and session service manager configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system.conf</code></p><p><code class="filename">/etc/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/system.conf.d/*.conf</code></p><p><code class="filename">/etc/systemd/user.conf</code></p><p><code class="filename">/etc/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/user.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/user.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm47711077146448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When run as a system instance, systemd interprets the
     configuration file <code class="filename">system.conf</code> and the files
     in <code class="filename">system.conf.d</code> directories; when run as a
     user instance, systemd interprets the configuration file
@@ -52,7 +52,7 @@
     recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm140196477173184"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+    configuration file.</p></div><div class="refsect1"><a name="idm47711077141824"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
     "<code class="literal">[Manager]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="LogLevel="><span class="term"><code class="varname">LogLevel=</code>, </span><span class="term"><code class="varname">LogTarget=</code>, </span><span class="term"><code class="varname">LogColor=</code>, </span><span class="term"><code class="varname">LogLocation=</code>, </span><span class="term"><code class="varname">DumpCore=yes</code>, </span><span class="term"><code class="varname">CrashShell=no</code>, </span><span class="term"><code class="varname">ShowStatus=yes</code>, </span><span class="term"><code class="varname">CrashChVT=1</code>, </span><span class="term"><code class="varname">DefaultStandardOutput=journal</code>, </span><span class="term"><code class="varname">DefaultStandardError=inherit</code></span><a class="headerlink" title="Permalink to this term" href="#LogLevel=">¶</a></dt><dd><p>Configures various parameters of basic manager
         operation. These options may be overridden by the respective
         command line arguments. See
@@ -201,7 +201,7 @@
         be overridden in individual units using the corresponding
         LimitXXX= directives. Note that these resource limits are only
         defaults for units, they are not applied to PID 1
-        itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm140196477099488"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm47711077068224"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>,
         <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,

@@ -785,7 +785,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                          path_startswith(device->devpath, "/class/") ||
                          path_startswith(device->devpath, "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_debug_errno(r, "sd-device: could not set subsystem for %s: %m", device->devpath);
 
                 device->subsystem_set = true;
@@ -901,8 +901,11 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
                 if (r >= 0) {
                         r = device_set_driver(device, driver);
                         if (r < 0)
-                                return r;
-                }
+                                return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
+                } else if (r == -ENOENT)
+                        device->driver_set = true;
+                else
+                        return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
         }
 
         *ret = device->driver;
@@ -1188,6 +1191,8 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         return r;
 
                 if (major(devnum) > 0) {
+                        assert(subsystem);
+
                         /* use dev_t -- b259:131072, c254:0 */
                         r = asprintf(&id, "%c%u:%u",
                                      streq(subsystem, "block") ? 'b' : 'c',
@@ -1207,6 +1212,9 @@ int device_get_id_filename(sd_device *device, const char **ret) {
 
                         sysname = basename(device->devpath);
                         if (!sysname)
+                                return -EINVAL;
+
+                        if (!subsystem)
                                 return -EINVAL;
 
                         r = asprintf(&id, "+%s:%s", subsystem, sysname);
@@ -1262,7 +1270,7 @@ int device_read_db_aux(sd_device *device, bool force) {
         }
 
         /* devices with a database entry are initialized */
-        device->is_initialized = true;;
+        device->is_initialized = true;
 
         for (i = 0; i < db_len; i++) {
                 switch (state) {
@@ -1363,6 +1371,8 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
 }
 
 _public_ const char *sd_device_get_tag_first(sd_device *device) {
+        void *v;
+
         assert_return(device, NULL);
 
         (void) device_read_db(device);
@@ -1370,10 +1380,13 @@ _public_ const char *sd_device_get_tag_first(sd_device *device) {
         device->tags_iterator_generation = device->tags_generation;
         device->tags_iterator = ITERATOR_FIRST;
 
-        return set_iterate(device->tags, &device->tags_iterator);
+        set_iterate(device->tags, &device->tags_iterator, &v);
+        return v;
 }
 
 _public_ const char *sd_device_get_tag_next(sd_device *device) {
+        void *v;
+
         assert_return(device, NULL);
 
         (void) device_read_db(device);
@@ -1381,10 +1394,13 @@ _public_ const char *sd_device_get_tag_next(sd_device *device) {
         if (device->tags_iterator_generation != device->tags_generation)
                 return NULL;
 
-        return set_iterate(device->tags, &device->tags_iterator);
+        set_iterate(device->tags, &device->tags_iterator, &v);
+        return v;
 }
 
 _public_ const char *sd_device_get_devlink_first(sd_device *device) {
+        void *v;
+
         assert_return(device, NULL);
 
         (void) device_read_db(device);
@@ -1392,10 +1408,13 @@ _public_ const char *sd_device_get_devlink_first(sd_device *device) {
         device->devlinks_iterator_generation = device->devlinks_generation;
         device->devlinks_iterator = ITERATOR_FIRST;
 
-        return set_iterate(device->devlinks, &device->devlinks_iterator);
+        set_iterate(device->devlinks, &device->devlinks_iterator, &v);
+        return v;
 }
 
 _public_ const char *sd_device_get_devlink_next(sd_device *device) {
+        void *v;
+
         assert_return(device, NULL);
 
         (void) device_read_db(device);
@@ -1403,7 +1422,8 @@ _public_ const char *sd_device_get_devlink_next(sd_device *device) {
         if (device->devlinks_iterator_generation != device->devlinks_generation)
                 return NULL;
 
-        return set_iterate(device->devlinks, &device->devlinks_iterator);
+        set_iterate(device->devlinks, &device->devlinks_iterator, &v);
+        return v;
 }
 
 static int device_properties_prepare(sd_device *device) {
@@ -1474,7 +1494,7 @@ _public_ const char *sd_device_get_property_first(sd_device *device, const char 
         device->properties_iterator_generation = device->properties_generation;
         device->properties_iterator = ITERATOR_FIRST;
 
-        value = ordered_hashmap_iterate(device->properties, &device->properties_iterator, (const void**)&key);
+        ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void**)&value, (const void**)&key);
 
         if (_value)
                 *_value = value;
@@ -1496,7 +1516,7 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
         if (device->properties_iterator_generation != device->properties_generation)
                 return NULL;
 
-        value = ordered_hashmap_iterate(device->properties, &device->properties_iterator, (const void**)&key);
+        ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void**)&value, (const void**)&key);
 
         if (_value)
                 *_value = value;
@@ -1554,6 +1574,7 @@ static int device_sysattrs_read_all(sd_device *device) {
 }
 
 _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
+        void *v;
         int r;
 
         assert_return(device, NULL);
@@ -1568,16 +1589,20 @@ _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
 
         device->sysattrs_iterator = ITERATOR_FIRST;
 
-        return set_iterate(device->sysattrs, &device->sysattrs_iterator);
+        set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
+        return v;
 }
 
 _public_ const char *sd_device_get_sysattr_next(sd_device *device) {
+        void *v;
+
         assert_return(device, NULL);
 
         if (!device->sysattrs_read)
                 return NULL;
 
-        return set_iterate(device->sysattrs, &device->sysattrs_iterator);
+        set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
+        return v;
 }
 
 _public_ int sd_device_has_tag(sd_device *device, const char *tag) {

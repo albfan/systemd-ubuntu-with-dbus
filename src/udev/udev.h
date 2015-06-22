@@ -20,10 +20,9 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
-#include <signal.h>
 
 #include "macro.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "libudev.h"
 #include "libudev-private.h"
 #include "util.h"
@@ -44,11 +43,9 @@ struct udev_event {
         struct udev_list run_list;
         int exec_delay;
         usec_t birth_usec;
-        int fd_signal;
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
         unsigned int builtin_run;
         unsigned int builtin_ret;
-        bool sigterm;
         bool inotify_watch;
         bool inotify_watch_final;
         bool group_set;
@@ -75,8 +72,7 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
-                              struct udev_list *properties_list,
-                              const sigset_t *sigmask);
+                              struct udev_list *properties_list);
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
@@ -88,14 +84,14 @@ int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
-                     const char *cmd, char **envp, const sigset_t *sigmask,
+                     bool accept_failure,
+                     const char *cmd, char **envp,
                      char *result, size_t ressize);
 void udev_event_execute_rules(struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
                               struct udev_list *properties_list,
-                              struct udev_rules *rules,
-                              const sigset_t *sigset);
-void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec, const sigset_t *sigset);
+                              struct udev_rules *rules);
+void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
 
 /* udev-watch.c */
