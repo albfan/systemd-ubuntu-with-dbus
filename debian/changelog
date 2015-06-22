@@ -25,6 +25,7 @@ systemd (221-1) UNRELEASED; urgency=medium
     ./configure options.
   * libudev-dev.install: Drop gtk-doc files, not built by upstream any more
     and replaced with manpages.
+  * libsystemd0.symbols: Add new symbols for this release.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
