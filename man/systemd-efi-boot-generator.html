@@ -18,10 +18,10 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-efi-boot-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-efi-boot-generator — Generator for automatically mounting the
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-efi-boot-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-efi-boot-generator — Generator for automatically mounting the
     EFI System Partition used by the current boot to
-    <code class="filename">/boot</code></p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-efi-boot-generator</code></p></div><div class="refsect1"><a name="idm139820104202480"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-efi-boot-generator</code> is a
+    <code class="filename">/boot</code></p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-efi-boot-generator</code></p></div><div class="refsect1"><a name="idm47376386756928"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-efi-boot-generator</code> is a
     generator that automatically creates mount and automount units for
     the EFI System Partition (ESP), mounting it to
     <code class="filename">/boot</code>. Note that this generator will execute
@@ -33,7 +33,7 @@
     or where the <code class="filename">/boot</code> mount point is non-empty.
     Since this generator creates an automount unit, the mount will
     only be activated on-demand, when accessed.</p><p><code class="filename">systemd-efi-boot-generator</code> implements
-    <a href="systemd.generator.html"><span class="citerefentry"><span class="refentrytitle">systemd.generator</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm139820107841040"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    <a href="systemd.generator.html"><span class="citerefentry"><span class="refentrytitle">systemd.generator</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm47376381801424"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
       <a href="systemd.automount.html"><span class="citerefentry"><span class="refentrytitle">systemd.automount</span>(5)</span></a>,

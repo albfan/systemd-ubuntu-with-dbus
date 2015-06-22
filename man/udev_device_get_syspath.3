@@ -1,0 +1,106 @@
+'\" t
+.TH "UDEV_DEVICE_GET_SYSPATH" "3" "" "systemd 221" "udev_device_get_syspath"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+udev_device_get_syspath, udev_device_get_sysname, udev_device_get_sysnum, udev_device_get_devpath, udev_device_get_devnode, udev_device_get_devnum, udev_device_get_devtype, udev_device_get_subsystem, udev_device_get_driver, udev_device_get_udev, udev_device_get_parent, udev_device_get_parent_with_subsystem_devtype, udev_device_get_is_initialized, udev_device_get_action \- Query device properties
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <libudev\&.h>
+.fi
+.ft
+.HP \w'const\ char\ *udev_device_get_syspath('u
+.BI "const char *udev_device_get_syspath(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_sysname('u
+.BI "const char *udev_device_get_sysname(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_sysnum('u
+.BI "const char *udev_device_get_sysnum(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_devpath('u
+.BI "const char *udev_device_get_devpath(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_devnode('u
+.BI "const char *udev_device_get_devnode(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'dev_t\ udev_device_get_devnum('u
+.BI "dev_t udev_device_get_devnum(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_devtype('u
+.BI "const char *udev_device_get_devtype(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_subsystem('u
+.BI "const char *udev_device_get_subsystem(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_driver('u
+.BI "const char *udev_device_get_driver(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'struct\ udev\ *udev_device_get_udev('u
+.BI "struct udev *udev_device_get_udev(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'struct\ udev_device\ *udev_device_get_parent('u
+.BI "struct udev_device *udev_device_get_parent(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'struct\ udev_device\ *udev_device_get_parent_with_subsystem_devtype('u
+.BI "struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'int\ udev_device_get_is_initialized('u
+.BI "int udev_device_get_is_initialized(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_action('u
+.BI "const char *udev_device_get_action(struct\ udev_device\ *" "udev_device" ", const\ char\ *" "subsystem" ", const\ char\ *" "devtype" ");"
+.SH "RETURN VALUE"
+.PP
+On success,
+\fBudev_device_get_syspath()\fR,
+\fBudev_device_get_sysname()\fR,
+\fBudev_device_get_sysnum()\fR,
+\fBudev_device_get_devpath()\fR,
+\fBudev_device_get_devnode()\fR,
+\fBudev_device_get_devtype()\fR,
+\fBudev_device_get_subsystem()\fR,
+\fBudev_device_get_driver()\fR
+and
+\fBudev_device_get_action()\fR
+return a pointer to a constant string that describes the requested property\&. The lifetime of this string is bound to the device it was requested on\&. On failure, each function may return
+\fBNULL\fR\&.
+.PP
+On success,
+\fBudev_device_get_devnum()\fR
+returns the device type of the passed device\&. On failure, a device type with minor and major number set to
+\fB0\fR
+is returned\&.
+.PP
+\fBudev_device_get_udev()\fR
+always returns a valid pointer to the udev context that this device belongs to\&.
+.PP
+On success,
+\fBudev_device_get_parent()\fR
+and
+\fBudev_device_get_parent_with_subsystem_devtype()\fR
+return a pointer to the parent device\&. No additional reference to this device is acquired, but the child device owns a reference to such parent device\&. On failure,
+\fBNULL\fR
+is returned\&.
+.PP
+On success,
+\fBudev_device_get_is_initialized()\fR
+returns either
+\fB1\fR
+or
+\fB0\fR, depending on whether the passed device is initialized or not\&. On failure, a negative error code is returned\&.
+.SH "SEE ALSO"
+.PP
+\fBudev_new\fR(3),
+\fBudev_device_new_from_syspath\fR(3),
+\fBudev_device_has_tag\fR(3),
+\fBudev_enumerate_new\fR(3),
+\fBudev_monitor_new_from_netlink\fR(3),
+\fBudev_list_entry\fR(3),
+\fBsystemd\fR(1),

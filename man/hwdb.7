@@ -1,5 +1,5 @@
 '\" t
-.TH "HWDB" "7" "" "systemd 220" "hwdb"
+.TH "HWDB" "7" "" "systemd 221" "hwdb"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -27,14 +27,11 @@ The hardware database is a key\-value store for associating modalias\-like keys 
 .SH "HARDWARE DATABASE FILES"
 .PP
 The hwdb files are read from the files located in the system hwdb directory
-/usr/lib/udev/hwdb\&.d, the volatile runtime directory
-/run/udev/hwdb\&.d
+/usr/lib/udev/hwdb\&.d
 and the local administration directory
 /etc/udev/hwdb\&.d\&. All hwdb files are collectively sorted and processed in lexical order, regardless of the directories in which they live\&. However, files with identical filenames replace each other\&. Files in
 /etc
-have the highest priority, files in
-/run
-take precedence over files with the same name in
+have the highest priority and take precedence over files with the same name in
 /usr/lib\&. This can be used to override a system\-supplied hwdb file with a local file if needed; a symlink in
 /etc
 with the same name as a hwdb file in

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 220" "systemd.network"
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 221" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -246,7 +246,8 @@ An NTP server address\&. This option may be specified more than once\&.
 Configures IP forwarding for the network interface\&. If enabled incoming packets on the network interface will be forwarded to other interfaces according to the routing table\&. Takes either a boolean argument, or the values
 "ipv4"
 or
-"ipv6", which only enables IP forwarding for the specified address family\&. This controls the
+"ipv6", which only enables IP forwarding for the specified address family, or
+"kernel", which preserves existing sysctl settings\&. This controls the
 net\&.ipv4\&.conf\&.<interface>\&.forwarding
 and
 net\&.ipv6\&.conf\&.<interface>\&.forwarding
@@ -255,7 +256,8 @@ sysctl options of the network interface (see
 for details about sysctl options)\&. Defaults to
 "no"\&.
 .sp
-Note: unless this option is turned on, no IP forwarding is done on this interface, even if this is globally turned on in the kernel, with the
+Note: unless this option is turned on, or set to
+"kernel", no IP forwarding is done on this interface, even if this is globally turned on in the kernel, with the
 net\&.ipv4\&.ip_forward
 and
 net\&.ipv4\&.ip_forward

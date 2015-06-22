@@ -34,7 +34,7 @@ static int ipv4ll_address_lost(Link *link) {
         assert(link);
 
         link->ipv4ll_route = false;
-        link->ipv4ll_address =  false;
+        link->ipv4ll_address = false;
 
         r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
         if (r < 0)
@@ -73,14 +73,14 @@ static int ipv4ll_address_lost(Link *link) {
         return 0;
 }
 
-static int ipv4ll_route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
         assert(!link->ipv4ll_route);
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error(link, "could not set ipv4ll route: %s", strerror(-r));
                 link_enter_failed(link);
@@ -94,14 +94,14 @@ static int ipv4ll_route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
         return 1;
 }
 
-static int ipv4ll_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
         assert(!link->ipv4ll_address);
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error(link, "could not set ipv4ll address: %s", strerror(-r));
                 link_enter_failed(link);
@@ -209,7 +209,7 @@ int ipv4ll_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES));
+        assert(link->network->link_local & ADDRESS_FAMILY_IPV4);
 
         r = sd_ipv4ll_new(&link->ipv4ll);
         if (r < 0)

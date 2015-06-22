@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-fsck@.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-fsck@.service, systemd-fsck-root.service, systemd-fsck — File system checker logic</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-fsck@.service</code></p><p><code class="filename">systemd-fsck-root.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-fsck</code></p></div><div class="refsect1"><a name="idm140347755118992"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-fsck@.service</code> and
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-fsck@.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-fsck@.service, systemd-fsck-root.service, systemd-fsck — File system checker logic</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-fsck@.service</code></p><p><code class="filename">systemd-fsck-root.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-fsck</code></p></div><div class="refsect1"><a name="idm47247002622416"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-fsck@.service</code> and
     <code class="filename">systemd-fsck-root.service</code> are services
     responsible for file system checks. They are instantiated for each
     device that is configured for file system checking.
@@ -39,7 +39,7 @@
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</p><p>If a file system check fails for a service without
     <code class="option">nofail</code>, emergency mode is activated, by isolating
-    to <code class="filename">emergency.target</code>.</p></div><div class="refsect1"><a name="idm140347754087184"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-fsck</code> understands one kernel
+    to <code class="filename">emergency.target</code>.</p></div><div class="refsect1"><a name="idm47246997665088"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-fsck</code> understands one kernel
     command line parameter:</p><div class="variablelist"><dl class="variablelist"><dt id="fsck.mode="><span class="term"><code class="varname">fsck.mode=</code></span><a class="headerlink" title="Permalink to this term" href="#fsck.mode=">¶</a></dt><dd><p>One of "<code class="literal">auto</code>",
         "<code class="literal">force</code>", "<code class="literal">skip</code>". Controls
         the mode of operation. The default is "<code class="literal">auto</code>",
@@ -53,7 +53,7 @@
         and will automatically repair problems that can be safely
         fixed. "<code class="literal">yes </code>" will answer yes to all
         questions by fsck and "<code class="literal">no</code>" will answer no to
-        all questions. </p></dd></dl></div></div><div class="refsect1"><a name="idm140347754074480"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        all questions. </p></dd></dl></div></div><div class="refsect1"><a name="idm47246997652384"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man8/fsck.8.html"><span class="citerefentry"><span class="refentrytitle">fsck</span>(8)</span></a>,
       <a href="systemd-quotacheck.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-quotacheck.service</span>(8)</span></a>,

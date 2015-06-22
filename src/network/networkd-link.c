@@ -40,7 +40,7 @@ bool link_dhcp6_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
+        return link->network->dhcp & ADDRESS_FAMILY_IPV6;
 }
 
 bool link_dhcp4_enabled(Link *link) {
@@ -50,7 +50,7 @@ bool link_dhcp4_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+        return link->network->dhcp & ADDRESS_FAMILY_IPV4;
 }
 
 bool link_dhcp4_server_enabled(Link *link) {
@@ -70,7 +70,7 @@ bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+        return link->network->link_local & ADDRESS_FAMILY_IPV4;
 }
 
 bool link_ipv6ll_enabled(Link *link) {
@@ -80,7 +80,7 @@ bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
+        return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
 bool link_lldp_enabled(Link *link) {
@@ -103,7 +103,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->ip_forward, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+        return link->network->ip_forward & ADDRESS_FAMILY_IPV4;
 }
 
 static bool link_ipv6_forward_enabled(Link *link) {
@@ -113,7 +113,7 @@ static bool link_ipv6_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->ip_forward, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
+        return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
 #define FLAG_STRING(string, flag, old, new) \
@@ -121,7 +121,7 @@ static bool link_ipv6_forward_enabled(Link *link) {
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
                 : "")
 
-static int link_update_flags(Link *link, sd_rtnl_message *m) {
+static int link_update_flags(Link *link, sd_netlink_message *m) {
         unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
         uint8_t operstate;
         int r;
@@ -132,7 +132,7 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not get link flags: %m");
 
-        r = sd_rtnl_message_read_u8(m, IFLA_OPERSTATE, &operstate);
+        r = sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &operstate);
         if (r < 0)
                 /* if we got a message without operstate, take it to mean
                    the state was unchanged */
@@ -193,7 +193,7 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
         return 0;
 }
 
-static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
+static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_link_unref_ Link *link = NULL;
         uint16_t type;
         const char *ifname;
@@ -203,7 +203,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         assert(message);
         assert(ret);
 
-        r = sd_rtnl_message_get_type(message, &type);
+        r = sd_netlink_message_get_type(message, &type);
         if (r < 0)
                 return r;
         else if (type != RTM_NEWLINK)
@@ -215,7 +215,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         else if (ifindex <= 0)
                 return -EINVAL;
 
-        r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &ifname);
+        r = sd_netlink_message_read_string(message, IFLA_IFNAME, &ifname);
         if (r < 0)
                 return r;
 
@@ -232,7 +232,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (!link->ifname)
                 return -ENOMEM;
 
-        r = sd_rtnl_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
+        r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
                 log_link_debug(link, "MAC address not found for new device, continuing without");
 
@@ -497,7 +497,7 @@ void link_client_handler(Link *link) {
         return;
 }
 
-static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -511,7 +511,7 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "%-*s: could not set route: %m", IFNAMSIZ, link->ifname);
 
@@ -554,7 +554,7 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
-int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -565,14 +565,14 @@ int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
                 log_link_warning_errno(link, r, "%-*s: could not drop route: %m", IFNAMSIZ, link->ifname);
 
         return 1;
 }
 
-static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -589,7 +589,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "%-*s: could not set address: %m", IFNAMSIZ, link->ifname);
         else if (r >= 0)
@@ -682,7 +682,7 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
-int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -693,7 +693,7 @@ int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
                 log_link_warning_errno(link, r, "%-*s: could not drop address: %m", IFNAMSIZ, link->ifname);
 
@@ -715,13 +715,13 @@ static int link_set_bridge_fdb(Link *const link) {
         return r;
 }
 
-static int link_set_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         log_link_debug(link, "Set link");
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not join netdev: %m");
                 link_enter_failed(link);
@@ -749,7 +749,6 @@ static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error 
 }
 
 int link_set_hostname(Link *link, const char *hostname) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r = 0;
 
         assert(link);
@@ -764,22 +763,19 @@ int link_set_hostname(Link *link, const char *hostname) {
                 return 0;
         }
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method_async(
                         link->manager->bus,
-                        &m,
+                        NULL,
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         "org.freedesktop.hostname1",
-                        "SetHostname");
-        if (r < 0)
-                return r;
+                        "SetHostname",
+                        set_hostname_handler,
+                        link,
+                        "sb",
+                        hostname,
+                        false);
 
-        r = sd_bus_message_append(m, "sb", hostname, false);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_async(link->manager->bus, NULL, m, set_hostname_handler,
-                              link, 0);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set transient hostname: %m");
 
@@ -788,7 +784,7 @@ int link_set_hostname(Link *link, const char *hostname) {
         return 0;
 }
 
-static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -799,7 +795,7 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0)
                 log_link_warning_errno(link, r, "%-*s: could not set MTU: %m", IFNAMSIZ, link->ifname);
 
@@ -807,7 +803,7 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -820,11 +816,11 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
-        r = sd_rtnl_message_append_u32(req, IFLA_MTU, mtu);
+        r = sd_netlink_message_append_u32(req, IFLA_MTU, mtu);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append MTU: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, set_mtu_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, set_mtu_handler, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -834,7 +830,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
 }
 
 static int link_set_bridge(Link *link) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -851,21 +847,21 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set message family: %m");
 
-        r = sd_rtnl_message_open_container(req, IFLA_PROTINFO);
+        r = sd_netlink_message_open_container(req, IFLA_PROTINFO);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
 
         if(link->network->cost != 0) {
-                r = sd_rtnl_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
+                r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
         }
 
-        r = sd_rtnl_message_close_container(req);
+        r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_set_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_set_handler, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -956,7 +952,7 @@ bool link_has_carrier(Link *link) {
         return false;
 }
 
-static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -965,7 +961,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0)
                 /* we warn but don't fail the link, as it may be
                    brought up later */
@@ -975,7 +971,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 }
 
 static int link_up(Link *link) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         uint8_t ipv6ll_mode;
         int r;
 
@@ -995,45 +991,48 @@ static int link_up(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         if (link->network->mac) {
-                r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
+                r = sd_netlink_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set MAC address: %m");
         }
 
         if (link->network->mtu) {
-                r = sd_rtnl_message_append_u32(req, IFLA_MTU, link->network->mtu);
+                r = sd_netlink_message_append_u32(req, IFLA_MTU, link->network->mtu);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set MTU: %m");
         }
 
-        r = sd_rtnl_message_open_container(req, IFLA_AF_SPEC);
+        r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
 
-        r = sd_rtnl_message_open_container(req, AF_INET6);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
-
-        ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
-        r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
-
-        if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
-                r = sd_rtnl_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
+        if (socket_ipv6_is_supported()) {
+                /* if the kernel lacks ipv6 support setting IFF_UP fails if any ipv6 options are passed */
+                r = sd_netlink_message_open_container(req, AF_INET6);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_TOKEN: %m");
+                        return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
+
+                ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
+                r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
+
+                if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
+                        r = sd_netlink_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append IFLA_INET6_TOKEN: %m");
+                }
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not close AF_INET6 container: %m");
         }
 
-        r = sd_rtnl_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not close AF_INET6 container: %m");
-
-        r = sd_rtnl_message_close_container(req);
+        r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1042,7 +1041,7 @@ static int link_up(Link *link) {
         return 0;
 }
 
-static int link_down_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -1051,7 +1050,7 @@ static int link_down_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0)
                 log_link_warning_errno(link, r, "%-*s: could not bring down interface: %m", IFNAMSIZ, link->ifname);
 
@@ -1059,7 +1058,7 @@ static int link_down_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) 
 }
 
 static int link_down(Link *link) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1077,7 +1076,7 @@ static int link_down(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_down_handler, link,  0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_down_handler, link,  0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1361,7 +1360,7 @@ static int link_joined(Link *link) {
         return link_enter_set_addresses(link);
 }
 
-static int netdev_join_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
@@ -1374,7 +1373,7 @@ static int netdev_join_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "%-*s: could not join netdev: %m", IFNAMSIZ, link->ifname);
                 link_enter_failed(link);
@@ -1478,6 +1477,9 @@ static int link_set_ipv4_forward(Link *link) {
         const char *p = NULL;
         int r;
 
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+                return 0;
+
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
         r = write_string_file_no_create(p, one_zero(link_ipv4_forward_enabled(link)));
         if (r < 0)
@@ -1492,6 +1494,9 @@ static int link_set_ipv6_forward(Link *link) {
 
         /* Make this a NOP if IPv6 is not available */
         if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
@@ -1573,7 +1578,7 @@ static int link_configure(Link *link) {
         return link_enter_join_netdev(link);
 }
 
-static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
+static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                                        void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         Network *network;
@@ -1631,7 +1636,7 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
 }
 
 int link_initialized(Link *link, struct udev_device *device) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1659,7 +1664,7 @@ int link_initialized(Link *link, struct udev_device *device) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req,
+        r = sd_netlink_call_async(link->manager->rtnl, req,
                                link_initialized_and_synced, link, 0, NULL);
         if (r < 0)
                 return r;
@@ -1682,7 +1687,7 @@ static Address* link_get_equal_address(Link *link, Address *needle) {
         return NULL;
 }
 
-int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
+int link_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
         uint16_t type;
@@ -1697,15 +1702,15 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         assert(message);
         assert(m);
 
-        if (sd_rtnl_message_is_error(message)) {
-                r = sd_rtnl_message_get_errno(message);
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
                 if (r < 0)
                         log_warning_errno(r, "rtnl: failed to receive address: %m");
 
                 return 0;
         }
 
-        r = sd_rtnl_message_get_type(message, &type);
+        r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type: %m");
                 return 0;
@@ -1763,7 +1768,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
         switch (address->family) {
         case AF_INET:
-                r = sd_rtnl_message_read_in_addr(message, IFA_LOCAL, &address->in_addr.in);
+                r = sd_netlink_message_read_in_addr(message, IFA_LOCAL, &address->in_addr.in);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
                         return 0;
@@ -1772,7 +1777,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
                 break;
 
         case AF_INET6:
-                r = sd_rtnl_message_read_in6_addr(message, IFA_ADDRESS, &address->in_addr.in6);
+                r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &address->in_addr.in6);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
                         return 0;
@@ -1789,7 +1794,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
                 return 0;
         }
 
-        r = sd_rtnl_message_read_cache_info(message, IFA_CACHEINFO, &address->cinfo);
+        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &address->cinfo);
         if (r >= 0) {
                 if (address->cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
                         valid_str = "ever";
@@ -1842,7 +1847,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         return 1;
 }
 
-int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
+int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
@@ -1948,7 +1953,7 @@ int link_carrier_reset(Link *link) {
 }
 
 
-int link_update(Link *link, sd_rtnl_message *m) {
+int link_update(Link *link, sd_netlink_message *m) {
         struct ether_addr mac;
         const char *ifname;
         uint32_t mtu;
@@ -1969,7 +1974,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
                         return r;
         }
 
-        r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
+        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
                 log_link_info(link, "Renamed to %s", ifname);
 
@@ -1985,7 +1990,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
                         return r;
         }
 
-        r = sd_rtnl_message_read_u32(m, IFLA_MTU, &mtu);
+        r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
         if (r >= 0 && mtu > 0) {
                 link->mtu = mtu;
                 if (!link->original_mtu) {
@@ -2005,7 +2010,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
         /* The kernel may broadcast NEWLINK messages without the MAC address
            set, simply ignore them. */
-        r = sd_rtnl_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
+        r = sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
         if (r >= 0) {
                 if (memcmp(link->mac.ether_addr_octet, mac.ether_addr_octet,
                            ETH_ALEN)) {

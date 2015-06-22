@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-networkd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-networkd.service, systemd-networkd — Network manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-networkd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-networkd</code></p></div><div class="refsect1"><a name="idm139832697918016"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-networkd</strong></span> is a system service that
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-networkd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-networkd.service, systemd-networkd — Network manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-networkd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-networkd</code></p></div><div class="refsect1"><a name="idm47273603699056"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-networkd</strong></span> is a system service that
     manages networks. It detects and configures network devices as
     they appear, as well as creating virtual network devices.</p><p>To configure low-level link settings independently of
     networks, see
@@ -29,7 +29,7 @@
     networkd may also optionally be left in place on shutdown. This
     ensures restarting networkd does not cut the network connection,
     and, in particular, that it is safe to transition between the
-    initrd and the real root, and back.</p></div><div class="refsect1"><a name="idm139832701745424"></a><h2 id="Configuration Files">Configuration Files<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Files">¶</a></h2><p>The configuration files are read from the files located in the
+    initrd and the real root, and back.</p></div><div class="refsect1"><a name="idm47273607344544"></a><h2 id="Configuration Files">Configuration Files<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Files">¶</a></h2><p>The configuration files are read from the files located in the
     system network directory <code class="filename">/usr/lib/systemd/network</code>,
     the volatile runtime network directory
     <code class="filename">/run/systemd/network</code> and the local administration
@@ -39,7 +39,7 @@
     and virtual network devices are configured in
     <code class="filename">.netdev</code> files, see
     <a href="systemd.netdev.html"><span class="citerefentry"><span class="refentrytitle">systemd.netdev</span>(5)</span></a>.
-    </p></div><div class="refsect1"><a name="idm139832697123408"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm47273602669600"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.link.html"><span class="citerefentry"><span class="refentrytitle">systemd.link</span>(5)</span></a>,
       <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>,

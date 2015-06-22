@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="locale.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>locale.conf — Configuration file for locale settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/locale.conf</code></p></div><div class="refsect1"><a name="idm140553047869168"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/locale.conf</code> file configures
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="locale.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>locale.conf — Configuration file for locale settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/locale.conf</code></p></div><div class="refsect1"><a name="idm46942681138048"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/locale.conf</code> file configures
     system-wide locale settings. It is read at early-boot by
     <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>.</p><p>The basic file format of <code class="filename">locale.conf</code> is
     a newline-separated list of environment-like shell-compatible
@@ -52,7 +52,7 @@
     the command line. Use
     <a href="systemd-firstboot.html"><span class="citerefentry"><span class="refentrytitle">systemd-firstboot</span>(1)</span></a>
     to initialize them on mounted (but not booted) system
-    images.</p></div><div class="refsect1"><a name="idm140553046834048"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following locale settings may be set using
+    images.</p></div><div class="refsect1"><a name="idm46942676221200"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following locale settings may be set using
     <code class="filename">/etc/locale.conf</code>:
     <code class="varname">LANG=</code>,
     <code class="varname">LANGUAGE=</code>,
@@ -71,8 +71,8 @@
     Note that <code class="varname">LC_ALL</code> may not be configured in this
     file. For details about the meaning and semantics of these
     settings, refer to
-    <a href="http://man7.org/linux/man-pages/man7/locale.7.html"><span class="citerefentry"><span class="refentrytitle">locale</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140553046825360"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140553046824720"></a><p class="title"><b>Example 1. German locale with English messages</b></p><div class="example-contents"><p><code class="filename">/etc/locale.conf</code>:</p><pre class="programlisting">LANG=de_DE.UTF-8
-LC_MESSAGES=en_US.UTF-8</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140553046822320"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    <a href="http://man7.org/linux/man-pages/man7/locale.7.html"><span class="citerefentry"><span class="refentrytitle">locale</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm46942676212512"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm46942676211872"></a><p class="title"><b>Example 1. German locale with English messages</b></p><div class="example-contents"><p><code class="filename">/etc/locale.conf</code>:</p><pre class="programlisting">LANG=de_DE.UTF-8
+LC_MESSAGES=en_US.UTF-8</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm46942676209472"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="http://man7.org/linux/man-pages/man7/locale.7.html"><span class="citerefentry"><span class="refentrytitle">locale</span>(7)</span></a>,
         <a href="http://man7.org/linux/man-pages/man1/localectl.1.html"><span class="citerefentry"><span class="refentrytitle">localectl</span>(1)</span></a>,

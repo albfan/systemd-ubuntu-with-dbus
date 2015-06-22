@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="logind.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>logind.conf, logind.conf.d — Login manager configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/logind.conf</code></p><p><code class="filename">/etc/systemd/logind.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/logind.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/logind.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140576924304864"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These files configure various parameters of the systemd
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="logind.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>logind.conf, logind.conf.d — Login manager configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/logind.conf</code></p><p><code class="filename">/etc/systemd/logind.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/logind.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/logind.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm47604601717168"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These files configure various parameters of the systemd
     login manager,
     <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>.
     </p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
@@ -48,7 +48,7 @@
     recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm140576919403216"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+    configuration file.</p></div><div class="refsect1"><a name="idm47604596812848"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
     "<code class="literal">[Login]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="NAutoVTs="><span class="term"><code class="varname">NAutoVTs=</code></span><a class="headerlink" title="Permalink to this term" href="#NAutoVTs=">¶</a></dt><dd><p>Takes a positive integer. Configures how many
         virtual terminals (VTs) to allocate by default that, when
         switched to and are previously unused,
@@ -184,7 +184,7 @@
         memory and message queues, as well as POSIX shared memory and
         message queues. Note that IPC objects of the root user are
         excluded from the effect of this setting. Defaults to
-        "<code class="literal">yes</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm140576919336368"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        "<code class="literal">yes</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm47604596745808"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
         <a href="loginctl.html"><span class="citerefentry"><span class="refentrytitle">loginctl</span>(1)</span></a>,

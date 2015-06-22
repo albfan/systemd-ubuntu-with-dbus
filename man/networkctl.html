@@ -18,20 +18,20 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="networkctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>networkctl — Query the status of network links</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">networkctl</code>  [OPTIONS...]  COMMAND  [LINK...]</p></div></div><div class="refsect1"><a name="idm140301908538160"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>networkctl</strong></span> may be used to introspect the
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="networkctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>networkctl — Query the status of network links</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">networkctl</code>  [OPTIONS...]  COMMAND  [LINK...]</p></div></div><div class="refsect1"><a name="idm47009454516304"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>networkctl</strong></span> may be used to introspect the
     state of the network links as seen by
     <span class="command"><strong>systemd-networkd</strong></span>.  Please refer to
     <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
     for an introduction to the the basic concepts, functionality, and
-    configuration syntax.</p></div><div class="refsect1"><a name="idm140301908534720"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="
+    configuration syntax.</p></div><div class="refsect1"><a name="idm47009449560320"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="
           -a
           --all
         "><span class="term">
           <code class="option">-a</code>
           <code class="option">--all</code>
         </span><a class="headerlink" title="Permalink to this term" href="#%0A%20%20%20%20%20%20%20%20%20%20-a%0A%20%20%20%20%20%20%20%20%20%20--all%0A%20%20%20%20%20%20%20%20">¶</a></dt><dd><p>Show all links with <span class="command"><strong>status</strong></span>.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm140301903912448"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm47009449553648"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="
           list
         "><span class="term">
           <span class="command"><strong>list</strong></span>
@@ -66,8 +66,8 @@ IDX LINK         TYPE     OPERATIONAL SETUP
         "><span class="term">
           <span class="command"><strong>lldp</strong></span>
         </span><a class="headerlink" title="Permalink to this term" href="#%0A%20%20%20%20%20%20%20%20%20%20lldp%0A%20%20%20%20%20%20%20%20">¶</a></dt><dd><p>Show LLDP (Link Layer Discovery Protocol)
-          status.</p></dd></dl></div></div><div class="refsect1"><a name="idm140301903900560"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-    code otherwise.</p></div><div class="refsect1"><a name="idm140301903899408"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+          status.</p></dd></dl></div></div><div class="refsect1"><a name="idm47009449541760"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm47009449540608"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>,
       <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>,
       <a href="systemd.netdev.html"><span class="citerefentry"><span class="refentrytitle">systemd.netdev</span>(5)</span></a>

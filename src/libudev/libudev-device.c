@@ -178,7 +178,8 @@ _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
         if (r < 0) {
                 errno = -r;
                 return NULL;
-        }
+        } else if (!subsystem)
+                errno = ENODATA;
 
         return subsystem;
 }
@@ -870,7 +871,7 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
                 udev_list_cleanup(&udev_device->sysattrs);
 
                 FOREACH_DEVICE_SYSATTR(udev_device->device, sysattr)
-                        udev_list_entry_add(&udev_device->properties, sysattr, NULL);
+                        udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL);
 
                 udev_device->sysattrs_read = true;
         }

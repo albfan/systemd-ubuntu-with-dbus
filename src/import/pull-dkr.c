@@ -520,7 +520,7 @@ static int dkr_pull_job_on_open_disk(PullJob *j) {
         assert(!i->temp_path);
         assert(i->tar_pid <= 0);
 
-        r = tempfn_random(i->final_path, &i->temp_path);
+        r = tempfn_random(i->final_path, NULL, &i->temp_path);
         if (r < 0)
                 return log_oom();
 
@@ -864,7 +864,7 @@ static void dkr_pull_job_on_finished_v2(PullJob *j) {
                 }
 
                 e = json_variant_value(doc, "fsLayers");
-                if (!e || e->type != JSON_VARIANT_ARRAY) {
+                if (!e || e->type != JSON_VARIANT_ARRAY || e->size == 0) {
                         r = -EBADMSG;
                         goto finish;
                 }

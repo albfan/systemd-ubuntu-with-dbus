@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sd_journal_get_catalog"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_journal_get_catalog, sd_journal_get_catalog_for_message_id — Retrieve message catalog entry</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-journal.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_get_catalog</b>(</code></td><td>sd_journal *<var class="pdparam">j</var>, </td></tr><tr><td> </td><td>char **<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_get_catalog_for_message_id</b>(</code></td><td>sd_id128_t <var class="pdparam">id</var>, </td></tr><tr><td> </td><td>char **<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm139726889355376"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_journal_get_catalog()</code> retrieves a
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="sd_journal_get_catalog"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_journal_get_catalog, sd_journal_get_catalog_for_message_id — Retrieve message catalog entry</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-journal.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_get_catalog</b>(</code></td><td>sd_journal *<var class="pdparam">j</var>, </td></tr><tr><td> </td><td>char **<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_get_catalog_for_message_id</b>(</code></td><td>sd_id128_t <var class="pdparam">id</var>, </td></tr><tr><td> </td><td>char **<var class="pdparam">ret</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm47043862126320"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_journal_get_catalog()</code> retrieves a
     message catalog entry for the current journal entry. This will
     look up an entry in the message catalog by using the
     "<code class="literal">MESSAGE_ID=</code>" field of the current journal entry.
@@ -34,19 +34,19 @@
     journal context is necessary for this), and no field substitution
     is performed.</p><p>For more information about the journal message catalog
     please refer to the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/catalog" target="_top">Journal
-    Message Catalogs</a> documentation page.</p></div><div class="refsect1"><a name="idm139726890566544"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p><code class="function">sd_journal_get_catalog()</code> and
+    Message Catalogs</a> documentation page.</p></div><div class="refsect1"><a name="idm47043862120336"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p><code class="function">sd_journal_get_catalog()</code> and
     <code class="function">sd_journal_get_catalog_for_message_id()</code>
     return 0 on success or a negative errno-style error code. If no
     matching message catalog entry is found, -ENOENT is
     returned.</p><p>On successful return, <em class="parameter"><code>ret</code></em> points to a
     new string, which must be freed with
     <a href="http://man7.org/linux/man-pages/man3/free.3.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>.
-    </p></div><div class="refsect1"><a name="idm139726890619488"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_journal_get_catalog()</code> and
+    </p></div><div class="refsect1"><a name="idm47043857499168"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_journal_get_catalog()</code> and
     <code class="function">sd_journal_get_catalog_for_message_id()</code>
     interfaces are available as a shared library, which can be
     compiled and linked to with the
     <code class="constant">libsystemd</code> <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-    file.</p></div><div class="refsect1"><a name="idm139726889220416"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    file.</p></div><div class="refsect1"><a name="idm47043857495248"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.journal-fields.html"><span class="citerefentry"><span class="refentrytitle">systemd.journal-fields</span>(7)</span></a>,
       <a href="sd-journal.html"><span class="citerefentry"><span class="refentrytitle">sd-journal</span>(3)</span></a>,

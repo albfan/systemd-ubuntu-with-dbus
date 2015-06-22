@@ -18,12 +18,12 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm139885970542992"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm47042537340832"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
     <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>
     reads configuration files from the above directories to configure
     <a href="http://man7.org/linux/man-pages/man8/sysctl.8.html"><span class="citerefentry"><span class="refentrytitle">sysctl</span>(8)</span></a>
-    kernel parameters.</p></div><div class="refsect1"><a name="idm139885965639952"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of variable
+    kernel parameters.</p></div><div class="refsect1"><a name="idm47042535924096"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of variable
     assignments, separated by newlines. Empty lines and lines whose
     first non-whitespace character is "<code class="literal">#</code>" or
     "<code class="literal">;</code>" are ignored.</p><p>Note that either "<code class="literal">/</code>" or
@@ -80,19 +80,19 @@
     the vendor, the recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm139885965623264"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm139885965622624"></a><p class="title"><b>Example 1. Set kernel YP domain name</b></p><div class="example-contents"><p><code class="filename">/etc/sysctl.d/domain-name.conf</code>:
-      </p><pre class="programlisting">kernel.domainname=example.com</pre></div></div><br class="example-break"><div class="example"><a name="idm139885965620352"></a><p class="title"><b>Example 2. Disable packet filter on bridged packets (method one)</b></p><div class="example-contents"><p><code class="filename">/etc/udev/rules.d/99-bridge.rules</code>:
+    configuration file.</p></div><div class="refsect1"><a name="idm47042535120592"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm47042535119952"></a><p class="title"><b>Example 1. Set kernel YP domain name</b></p><div class="example-contents"><p><code class="filename">/etc/sysctl.d/domain-name.conf</code>:
+      </p><pre class="programlisting">kernel.domainname=example.com</pre></div></div><br class="example-break"><div class="example"><a name="idm47042535117680"></a><p class="title"><b>Example 2. Disable packet filter on bridged packets (method one)</b></p><div class="example-contents"><p><code class="filename">/etc/udev/rules.d/99-bridge.rules</code>:
       </p><pre class="programlisting">ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
 </pre><p><code class="filename">/etc/sysctl.d/bridge.conf</code>:
       </p><pre class="programlisting">net.bridge.bridge-nf-call-ip6tables = 0
 net.bridge.bridge-nf-call-iptables = 0
 net.bridge.bridge-nf-call-arptables = 0
-</pre></div></div><br class="example-break"><div class="example"><a name="idm139885965616320"></a><p class="title"><b>Example 3. Disable packet filter on bridged packets (method two)</b></p><div class="example-contents"><p><code class="filename">/etc/modules-load.d/bridge.conf</code>:
+</pre></div></div><br class="example-break"><div class="example"><a name="idm47042535113648"></a><p class="title"><b>Example 3. Disable packet filter on bridged packets (method two)</b></p><div class="example-contents"><p><code class="filename">/etc/modules-load.d/bridge.conf</code>:
       </p><pre class="programlisting">bridge</pre><p><code class="filename">/etc/sysctl.d/bridge.conf</code>:
       </p><pre class="programlisting">net.bridge.bridge-nf-call-ip6tables = 0
 net.bridge.bridge-nf-call-iptables = 0
 net.bridge.bridge-nf-call-arptables = 0
-</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139885965612288"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm47042535109616"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>,
       <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,

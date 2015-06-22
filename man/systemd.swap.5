@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SWAP" "5" "" "systemd 220" "systemd.swap"
+.TH "SYSTEMD\&.SWAP" "5" "" "systemd 221" "systemd.swap"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -111,7 +111,11 @@ for more information\&.) This option is mandatory\&.
 .PP
 \fIPriority=\fR
 .RS 4
-Swap priority to use when activating the swap device or file\&. This takes an integer\&. This setting is optional\&.
+Swap priority to use when activating the swap device or file\&. This takes an integer\&. This setting is optional and ignored when priority is set by
+\fBpri=\fR
+in the
+\fIOptions=\fR
+option\&.
 .RE
 .PP
 \fIOptions=\fR

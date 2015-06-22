@@ -1,0 +1,86 @@
+'\" t
+.TH "UDEV_DEVICE_HAS_TAG" "3" "" "systemd 221" "udev_device_has_tag"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+udev_device_has_tag, udev_device_get_devlinks_list_entry, udev_device_get_properties_list_entry, udev_device_get_tags_list_entry, udev_device_get_sysattr_list_entry, udev_device_get_property_value, udev_device_get_sysattr_value, udev_device_set_sysattr_value \- Retrieve or set device attributes
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <libudev\&.h>
+.fi
+.ft
+.HP \w'struct\ udev_list_entry\ *udev_device_get_devlinks_list_entry('u
+.BI "struct udev_list_entry *udev_device_get_devlinks_list_entry(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'struct\ udev_list_entry\ *udev_device_get_properties_list_entry('u
+.BI "struct udev_list_entry *udev_device_get_properties_list_entry(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'struct\ udev_list_entry\ *udev_device_get_tags_list_entry('u
+.BI "struct udev_list_entry *udev_device_get_tags_list_entry(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'struct\ udev_list_entry\ *udev_device_get_sysattr_list_entry('u
+.BI "struct udev_list_entry *udev_device_get_sysattr_list_entry(struct\ udev_device\ *" "udev_device" ");"
+.HP \w'const\ char\ *udev_device_get_property_value('u
+.BI "const char *udev_device_get_property_value(struct\ udev_device\ *" "udev_device" ", const\ char\ *" "key" ");"
+.HP \w'int\ udev_device_has_tag('u
+.BI "int udev_device_has_tag(struct\ udev_device\ *" "udev_device" ", const\ char\ *" "tag" ");"
+.HP \w'const\ char\ *udev_device_get_sysattr_value('u
+.BI "const char *udev_device_get_sysattr_value(struct\ udev_device\ *" "udev_device" ", const\ char\ *" "sysattr" ");"
+.HP \w'int\ udev_device_set_sysattr_value('u
+.BI "int udev_device_set_sysattr_value(struct\ udev_device\ *" "udev_device" ", const\ char\ *" "sysattr" ", const\ char\ *" "value" ");"
+.SH "RETURN VALUE"
+.PP
+On success,
+\fBudev_device_get_devlinks_list_entry()\fR,
+\fBudev_device_get_properties_list_entry()\fR,
+\fBudev_device_get_tags_list_entry()\fR
+and
+\fBudev_device_get_sysattr_list_entry()\fR
+return a pointer to the first entry of the retrieved list\&. If that list is empty, or if an error occurred,
+\fBNULL\fR
+is returned\&.
+.PP
+On success,
+\fBudev_device_get_property_value()\fR
+and
+\fBudev_device_get_sysattr_value()\fR
+return a pointer to a constant string of the requested value\&. On error,
+\fBNULL\fR
+is returned\&.
+.PP
+On success,
+\fBudev_device_set_sysattr_value()\fR
+returns an integer greater than, or equal to,
+\fB0\fR\&. On failure, a negative error code is returned\&.
+.PP
+On success,
+\fBudev_device_has_tag()\fR
+returns
+\fB1\fR
+or
+\fB0\fR, depending on whether the device has the given tag or not\&. On failure, a negative error code is returned\&.
+.SH "SEE ALSO"
+.PP
+\fBudev_new\fR(3),
+\fBudev_device_new_from_syspath\fR(3),
+\fBudev_device_get_syspath\fR(3),
+\fBudev_enumerate_new\fR(3),
+\fBudev_monitor_new_from_netlink\fR(3),
+\fBudev_list_entry\fR(3),
+\fBsystemd\fR(1),

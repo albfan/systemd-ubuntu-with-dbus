@@ -37,7 +37,7 @@
 #include "strv.h"
 #include "random-util.h"
 #include "terminal-util.h"
-
+#include "signal-util.h"
 #include "ask-password-api.h"
 
 static void backspace_chars(int ttyfd, size_t p) {
@@ -323,9 +323,9 @@ int ask_password_agent(
 
         assert(_passphrases);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
         mkdir_p_label("/run/systemd/ask-password", 0755);
 

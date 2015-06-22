@@ -18,10 +18,10 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-run"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-run — Run programs in transient scope or service or timer units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...]  <em class="replaceable"><code>COMMAND</code></em>
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-run"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-run — Run programs in transient scope or service or timer units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...]  <em class="replaceable"><code>COMMAND</code></em>
        [ARGS...]
-       </p></div><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...] [TIMER OPTIONS...] {<em class="replaceable"><code>COMMAND</code></em>} [ARGS...]</p></div></div><div class="refsect1"><a name="idm139736106395568"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-run</strong></span> may be used to create and
+       </p></div><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...] [TIMER OPTIONS...] {<em class="replaceable"><code>COMMAND</code></em>} [ARGS...]</p></div></div><div class="refsect1"><a name="idm47539465020208"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-run</strong></span> may be used to create and
     start a transient <code class="filename">.service</code> or a transient
     <code class="filename">.timer</code> or a <code class="filename">.scope</code> unit
     and run the specified <em class="replaceable"><code>COMMAND</code></em> in
@@ -47,7 +47,7 @@
     managed by the service manager similar to normal services, and
     will also show up in the output of <span class="command"><strong>systemctl
     list-units</strong></span>. Execution in this case is synchronous, and
-    execution will return only when the command finishes.</p></div><div class="refsect1"><a name="idm139736106384976"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--scope"><span class="term"><code class="option">--scope</code></span><a class="headerlink" title="Permalink to this term" href="#--scope">¶</a></dt><dd><p>Create a transient <code class="filename">.scope</code> unit instead of
+    execution will return only when the command finishes.</p></div><div class="refsect1"><a name="idm47539465009616"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--scope"><span class="term"><code class="option">--scope</code></span><a class="headerlink" title="Permalink to this term" href="#--scope">¶</a></dt><dd><p>Create a transient <code class="filename">.scope</code> unit instead of
           the default transient <code class="filename">.service</code> unit.
           </p></dd><dt id="--unit="><span class="term"><code class="option">--unit=</code></span><a class="headerlink" title="Permalink to this term" href="#--unit=">¶</a></dt><dd><p>Use this unit name instead of an automatically
         generated one.</p></dd><dt id="--property="><span class="term"><code class="option">--property=</code>, </span><span class="term"><code class="option">-p</code></span><a class="headerlink" title="Permalink to this term" href="#--property=">¶</a></dt><dd><p>Sets a unit property for the scope or service
@@ -135,8 +135,8 @@
     </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div><p>All command line arguments after the first non-option
     argument become part of the command line of the launched
     process. If a command is run as service unit, its first argument
-    needs to be an absolute binary path.</p></div><div class="refsect1"><a name="idm139736106322544"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-    code otherwise.</p></div><div class="refsect1"><a name="idm139736106321312"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>The following command will log the environment variables
+    needs to be an absolute binary path.</p></div><div class="refsect1"><a name="idm47539464947264"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm47539464946112"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>The following command will log the environment variables
     provided by systemd to services:</p><pre class="programlisting"># systemd-run env
 Running as unit run-19945.service.
 # journalctl -u run-19945.service
@@ -162,7 +162,7 @@ Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo.
 Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo...
 Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</pre><p>The following command invokes <code class="filename">/bin/bash</code>
     as a service passing its standard input, output and error to
-    the calling TTY.</p><pre class="programlisting"># systemd-run -t /bin/bash</pre></div><div class="refsect1"><a name="idm139736106312208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    the calling TTY.</p><pre class="programlisting"># systemd-run -t /bin/bash</pre></div><div class="refsect1"><a name="idm47539464937168"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

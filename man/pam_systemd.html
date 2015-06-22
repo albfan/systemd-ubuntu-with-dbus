@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="pam_systemd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>pam_systemd — Register user sessions in the systemd login manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">pam_systemd.so</code></p></div><div class="refsect1"><a name="idm140508145657520"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>pam_systemd</strong></span> registers user sessions with
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="pam_systemd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>pam_systemd — Register user sessions in the systemd login manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">pam_systemd.so</code></p></div><div class="refsect1"><a name="idm47932940513280"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>pam_systemd</strong></span> registers user sessions with
     the systemd login manager
     <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
     and hence the systemd control group hierarchy.</p><p>On login, this module ensures the following:</p><div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem"><p>If it does not exist yet, the user runtime
@@ -45,7 +45,7 @@
       the <code class="varname">$XDG_RUNTIME_DIR</code> directory and all its
       contents are removed, too.</p></li></ol></div><p>If the system was not booted up with systemd as init system,
     this module does nothing and immediately returns
-    <code class="constant">PAM_SUCCESS</code>.</p></div><div class="refsect1"><a name="idm140508140744208"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="class="><span class="term"><code class="option">class=</code></span><a class="headerlink" title="Permalink to this term" href="#class=">¶</a></dt><dd><p>Takes a string argument which sets the session
+    <code class="constant">PAM_SUCCESS</code>.</p></div><div class="refsect1"><a name="idm47932935595344"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="class="><span class="term"><code class="option">class=</code></span><a class="headerlink" title="Permalink to this term" href="#class=">¶</a></dt><dd><p>Takes a string argument which sets the session
         class. The XDG_SESSION_CLASS environmental variable takes
         precedence. One of
         "<code class="literal">user</code>",
@@ -66,7 +66,7 @@
         boolean argument. If yes or without
         the argument, the module will log
         debugging information as it
-        operates.</p></dd></dl></div></div><div class="refsect1"><a name="idm140508140730304"></a><h2 id="Module Types Provided">Module Types Provided<a class="headerlink" title="Permalink to this headline" href="#Module%20Types%20Provided">¶</a></h2><p>Only <code class="option">session</code> is provided.</p></div><div class="refsect1"><a name="idm140508140728768"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><p>The following environment variables are set for the
+        operates.</p></dd></dl></div></div><div class="refsect1"><a name="idm47932935581440"></a><h2 id="Module Types Provided">Module Types Provided<a class="headerlink" title="Permalink to this headline" href="#Module%20Types%20Provided">¶</a></h2><p>Only <code class="option">session</code> is provided.</p></div><div class="refsect1"><a name="idm47932935579904"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><p>The following environment variables are set for the
     processes of the user's session:</p><div class="variablelist"><dl class="variablelist"><dt id="$XDG_SESSION_ID"><span class="term"><code class="varname">$XDG_SESSION_ID</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_SESSION_ID">¶</a></dt><dd><p>A session identifier, suitable to be used in
         filenames. The string itself should be considered opaque,
         although often it is just the audit session ID as reported by
@@ -112,14 +112,14 @@
         for more details.</p></dd><dt id="$XDG_SEAT"><span class="term"><code class="varname">$XDG_SEAT</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_SEAT">¶</a></dt><dd><p>The seat name the session shall be registered
         for, if any.</p></dd><dt id="$XDG_VTNR"><span class="term"><code class="varname">$XDG_VTNR</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_VTNR">¶</a></dt><dd><p>The VT number the session shall be registered
         for, if any. (Only applies to seats with a VT available, such
-        as "<code class="literal">seat0</code>")</p></dd></dl></div></div><div class="refsect1"><a name="idm140508140706096"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">#%PAM-1.0
+        as "<code class="literal">seat0</code>")</p></dd></dl></div></div><div class="refsect1"><a name="idm47932935557312"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">#%PAM-1.0
 auth       required     pam_unix.so
 auth       required     pam_nologin.so
 account    required     pam_unix.so
 password   required     pam_unix.so
 session    required     pam_unix.so
 session    required     pam_loginuid.so
-session    required     pam_systemd.so</pre></div><div class="refsect1"><a name="idm140508140704416"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+session    required     pam_systemd.so</pre></div><div class="refsect1"><a name="idm47932935555632"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
       <a href="logind.conf.html"><span class="citerefentry"><span class="refentrytitle">logind.conf</span>(5)</span></a>,

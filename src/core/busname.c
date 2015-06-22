@@ -22,15 +22,16 @@
 #include <sys/mman.h>
 
 #include "special.h"
+#include "formats-util.h"
+#include "signal-util.h"
 #include "bus-kernel.h"
 #include "bus-internal.h"
 #include "bus-util.h"
-#include "service.h"
 #include "kdbus.h"
 #include "bus-policy.h"
+#include "service.h"
 #include "dbus-busname.h"
 #include "busname.h"
-#include "formats-util.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,
@@ -124,7 +125,7 @@ static int busname_arm_timer(BusName *n) {
                 return sd_event_source_set_enabled(n->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        r =  sd_event_add_time(
+        r = sd_event_add_time(
                         UNIT(n)->manager->event,
                         &n->timer_event_source,
                         CLOCK_MONOTONIC,
@@ -407,8 +408,8 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
         if (pid == 0) {
                 int ret;
 
-                default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
-                ignore_signals(SIGPIPE, -1);
+                (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
+                (void) ignore_signals(SIGPIPE, -1);
                 log_forget_fds();
 
                 r = bus_kernel_make_starter(n->starter_fd, n->name, n->activating, n->accept_fd, n->policy, n->policy_world);

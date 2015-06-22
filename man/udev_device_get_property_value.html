@@ -1,0 +1,47 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>udev_device_has_tag</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="udev_device_has_tag"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>udev_device_has_tag, udev_device_get_devlinks_list_entry, udev_device_get_properties_list_entry, udev_device_get_tags_list_entry, udev_device_get_sysattr_list_entry, udev_device_get_property_value, udev_device_get_sysattr_value, udev_device_set_sysattr_value — Retrieve or set device attributes</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;libudev.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_list_entry *<b class="fsfunc">udev_device_get_devlinks_list_entry</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_list_entry *<b class="fsfunc">udev_device_get_properties_list_entry</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_list_entry *<b class="fsfunc">udev_device_get_tags_list_entry</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_list_entry *<b class="fsfunc">udev_device_get_sysattr_list_entry</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">const char *<b class="fsfunc">udev_device_get_property_value</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">key</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">udev_device_has_tag</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">tag</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">const char *<b class="fsfunc">udev_device_get_sysattr_value</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">sysattr</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">udev_device_set_sysattr_value</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">sysattr</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">value</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm47996212417744"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On success,
+    <code class="function">udev_device_get_devlinks_list_entry()</code>,
+    <code class="function">udev_device_get_properties_list_entry()</code>,
+    <code class="function">udev_device_get_tags_list_entry()</code> and
+    <code class="function">udev_device_get_sysattr_list_entry()</code> return
+    a pointer to the first entry of the retrieved list. If that list
+    is empty, or if an error occurred, <code class="constant">NULL</code> is
+    returned.</p><p>On success,
+    <code class="function">udev_device_get_property_value()</code> and
+    <code class="function">udev_device_get_sysattr_value()</code> return a
+    pointer to a constant string of the requested value. On error,
+    <code class="constant">NULL</code> is returned.</p><p>On success,
+    <code class="function">udev_device_set_sysattr_value()</code> returns
+    an integer greater than, or equal to, <code class="constant">0</code>.
+    On failure, a negative error code is returned.</p><p>On success, <code class="function">udev_device_has_tag()</code>
+    returns <code class="constant">1</code> or <code class="constant">0</code>,
+    depending on whether the device has the given tag or not.
+    On failure, a negative error code is returned.</p></div><div class="refsect1"><a name="idm47996212408384"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="udev_new.html"><span class="citerefentry"><span class="refentrytitle">udev_new</span>(3)</span></a>,
+      <a href="udev_device_new_from_syspath.html"><span class="citerefentry"><span class="refentrytitle">udev_device_new_from_syspath</span>(3)</span></a>,
+      <a href="udev_device_get_syspath.html"><span class="citerefentry"><span class="refentrytitle">udev_device_get_syspath</span>(3)</span></a>,
+      <a href="udev_enumerate_new.html"><span class="citerefentry"><span class="refentrytitle">udev_enumerate_new</span>(3)</span></a>,
+      <a href="udev_monitor_new_from_netlink.html"><span class="citerefentry"><span class="refentrytitle">udev_monitor_new_from_netlink</span>(3)</span></a>,
+      <a href="udev_list_entry.html"><span class="citerefentry"><span class="refentrytitle">udev_list_entry</span>(3)</span></a>,
+      <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+    </p></div></div></body></html>

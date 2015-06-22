@@ -18,18 +18,18 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-hibernate-resume-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-hibernate-resume-generator — Unit generator for resume= kernel parameter</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-hibernate-resume-generator</code></p></div><div class="refsect1"><a name="idm140294882495920"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-hibernate-resume-generator</code> is a
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-hibernate-resume-generator"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-hibernate-resume-generator — Unit generator for resume= kernel parameter</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/usr/lib/systemd/system-generators/systemd-hibernate-resume-generator</code></p></div><div class="refsect1"><a name="idm47370861480160"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-hibernate-resume-generator</code> is a
     generator that instantiates
     <a href="systemd-hibernate-resume@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-hibernate-resume@.service</span>(8)</span></a>
     unit according to the value of <code class="option">resume=</code> parameter
-    specified on the kernel command line.</p></div><div class="refsect1"><a name="idm140294886137472"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-hibernate-resume-generator</code>
+    specified on the kernel command line.</p></div><div class="refsect1"><a name="idm47370862256960"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-hibernate-resume-generator</code>
     understands the following kernel command line parameters:</p><div class="variablelist"><dl class="variablelist"><dt id="resume="><span class="term"><code class="varname">resume=</code></span><a class="headerlink" title="Permalink to this term" href="#resume=">¶</a></dt><dd><p>Takes a path to the resume device. Both
         persistent block device paths like
         <code class="filename">/dev/disk/by-foo/bar</code> and
         <a href="http://man7.org/linux/man-pages/man5/fstab.5.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>-style
         specifiers like "<code class="literal">FOO=bar</code>" are
-        supported.</p></dd></dl></div></div><div class="refsect1"><a name="idm140294886130944"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        supported.</p></dd></dl></div></div><div class="refsect1"><a name="idm47370866135888"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-hibernate-resume@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-hibernate-resume@.service</span>(8)</span></a>,
       <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>

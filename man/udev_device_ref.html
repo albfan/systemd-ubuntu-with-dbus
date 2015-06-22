@@ -1,0 +1,79 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>udev_device_new_from_syspath</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="udev_device_new_from_syspath"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>udev_device_new_from_syspath, udev_device_new_from_devnum, udev_device_new_from_subsystem_sysname, udev_device_new_from_device_id, udev_device_new_from_environment, udev_device_ref, udev_device_unref — Create, acquire and release a udev device object</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;libudev.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_new_from_syspath</b>(</code></td><td>struct udev *<var class="pdparam">udev</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">syspath</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_new_from_devnum</b>(</code></td><td>struct udev *<var class="pdparam">udev</var>, </td></tr><tr><td> </td><td>char <var class="pdparam">type</var>, </td></tr><tr><td> </td><td>dev_t <var class="pdparam">devnum</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_new_from_subsystem_sysname</b>(</code></td><td>struct udev *<var class="pdparam">udev</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">subsystem</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">sysname</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_new_from_device_id</b>(</code></td><td>struct udev *<var class="pdparam">udev</var>, </td></tr><tr><td> </td><td>const char *<var class="pdparam">id</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_new_from_environment</b>(</code></td><td>struct udev *<var class="pdparam">udev</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_ref</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">struct udev_device *<b class="fsfunc">udev_device_unref</b>(</code></td><td>struct udev_device *<var class="pdparam">udev_device</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm47609277648160"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">udev_device_new_from_syspath</code>,
+    <code class="function">udev_device_new_from_devnum</code>,
+    <code class="function">udev_device_new_from_subsystem_sysname</code>,
+    <code class="function">udev_device_new_from_device_id</code>, and
+    <code class="function">udev_device_new_from_environment</code>
+    allocate a new udev device object and returns a pointer to it. This
+    object is opaque and must not be accessed by the caller via different
+    means than functions provided by libudev. Initially, the reference count
+    of the device is 1. You can acquire further references, and drop
+    gained references via <code class="function">udev_device_ref()</code> and
+    <code class="function">udev_device_unref()</code>. Once the reference count hits 0,
+    the device object is destroyed and freed.</p><p><code class="function">udev_device_new_from_syspath</code>,
+    <code class="function">udev_device_new_from_devnum</code>,
+    <code class="function">udev_device_new_from_subsystem_sysname</code>, and
+    <code class="function">udev_device_new_from_device_id</code>
+    create the device object based on information found in
+    <code class="filename">/sys</code> annotated with properties from the udev-internal
+    device database. A syspath is any subdirectory of <code class="filename">/sys</code>,
+    with the restriction that a subdirectory of <code class="filename">/sys/devices</code>
+    (or a symlink to one) represents a real device and as such must contain
+    a <code class="filename">uevent</code> file. <code class="function">udev_device_new_from_devnum</code>
+    takes a device type, which can be <code class="constant">b</code> for block devices or
+    <code class="constant">c</code> for character devices, as well as a devnum (see
+    <a href="makedev.html"><span class="citerefentry"><span class="refentrytitle">makedev</span>(3)</span></a>).
+    <code class="function">udev_device_new_from_subsystem_sysname</code> looks up devices based
+    on the provided subsystem and sysname
+    (see <a href="udev_device_get_subsystem.html"><span class="citerefentry"><span class="refentrytitle">udev_device_get_subsystem</span>(3)</span></a>
+    and
+    <a href="udev_device_get_sysname.html"><span class="citerefentry"><span class="refentrytitle">udev_device_get_sysname</span>(3)</span></a>)
+    and <code class="function">udev_device_new_from_device_id</code> looks up devices based on the provided
+    device id which is a special string in one of the following four forms:
+    </p><div class="table"><a name="idm47609277632032"></a><p class="title"><b>Table 1. Device ID strings</b></p><div class="table-contents"><table summary="Device ID strings" border="1"><colgroup><col class="example"><col class="explanation"></colgroup><thead><tr><th>Example</th><th>Explanation</th></tr></thead><tbody><tr><td><code class="varname">b8:2</code></td><td>block device major:minor</td></tr><tr><td><code class="varname">c128:1</code></td><td>char device major:minor</td></tr><tr><td><code class="varname">n3</code></td><td>network device ifindex</td></tr><tr><td><code class="varname">+sound:card29</code></td><td>kernel driver core subsystem:device name</td></tr></tbody></table></div></div><p><br class="table-break">
+    </p><p><code class="function">udev_device_new_from_environment</code>
+    creates a device from the current environment (see
+    <a href="environ.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>).
+    Each key-value pair is interpreted in the same way as if it was
+    received in an uevent (see
+    <a href="udev_monitor_receive_device.html"><span class="citerefentry"><span class="refentrytitle">udev_monitor_receive_device</span>(3)</span></a>).
+    The keys <code class="constant">DEVPATH</code>, <code class="constant">SUBSYSTEM</code>,
+    <code class="constant">ACTION</code>, and <code class="constant">SEQNUM</code> are mandatory.</p></div><div class="refsect1"><a name="idm47609277619552"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On success, <code class="function">udev_device_new_from_syspath()</code>,
+    <code class="function">udev_device_new_from_devnum()</code>,
+    <code class="function">udev_device_new_from_subsystem_sysname()</code>,
+    <code class="function">udev_device_new_from_device_id()</code> and
+    <code class="function">udev_device_new_from_environment()</code> return a
+    pointer to the allocated udev device. On failure,
+    <code class="constant">NULL</code> is returned.
+    <code class="function">udev_device_ref()</code> returns the argument
+    that it was passed, unmodified.
+    <code class="function">udev_device_unref()</code> always returns
+    <code class="constant">NULL</code>.</p></div><div class="refsect1"><a name="idm47609277613264"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="udev_new.html"><span class="citerefentry"><span class="refentrytitle">udev_new</span>(3)</span></a>,
+      <a href="udev_device_get_syspath.html"><span class="citerefentry"><span class="refentrytitle">udev_device_get_syspath</span>(3)</span></a>,
+      <a href="udev_device_has_tag.html"><span class="citerefentry"><span class="refentrytitle">udev_device_has_tag</span>(3)</span></a>,
+      <a href="udev_enumerate_new.html"><span class="citerefentry"><span class="refentrytitle">udev_enumerate_new</span>(3)</span></a>,
+      <a href="udev_monitor_new_from_netlink.html"><span class="citerefentry"><span class="refentrytitle">udev_monitor_new_from_netlink</span>(3)</span></a>,
+      <a href="udev_list_entry.html"><span class="citerefentry"><span class="refentrytitle">udev_list_entry</span>(3)</span></a>,
+      <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+    </p></div></div></body></html>

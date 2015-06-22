@@ -54,6 +54,7 @@
 #include "import-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -499,6 +500,18 @@ typedef struct MachineStatusInfo {
         unsigned n_netif;
 } MachineStatusInfo;
 
+static void machine_status_info_clear(MachineStatusInfo *info) {
+        if (info) {
+                free(info->name);
+                free(info->class);
+                free(info->service);
+                free(info->unit);
+                free(info->root_directory);
+                free(info->netif);
+                zero(*info);
+        }
+}
+
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
@@ -635,7 +648,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 {}
         };
 
-        MachineStatusInfo info = {};
+        _cleanup_(machine_status_info_clear) MachineStatusInfo info = {};
         int r;
 
         assert(verb);
@@ -656,13 +669,6 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
         *new_line = true;
 
         print_machine_status_info(bus, &info);
-
-        free(info.name);
-        free(info.class);
-        free(info.service);
-        free(info.unit);
-        free(info.root_directory);
-        free(info.netif);
 
         return r;
 }
@@ -752,6 +758,15 @@ typedef struct ImageStatusInfo {
         uint64_t limit_exclusive;
 } ImageStatusInfo;
 
+static void image_status_info_clear(ImageStatusInfo *info) {
+        if (info) {
+                free(info->name);
+                free(info->path);
+                free(info->type);
+                zero(*info);
+        }
+}
+
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char ts_absolute[FORMAT_TIMESTAMP_MAX], *s2;
@@ -822,7 +837,7 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                 {}
         };
 
-        ImageStatusInfo info = {};
+        _cleanup_(image_status_info_clear) ImageStatusInfo info = {};
         int r;
 
         assert(bus);
@@ -843,10 +858,6 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
 
         print_image_status_info(bus, &info);
 
-        free(info.name);
-        free(info.path);
-        free(info.type);
-
         return r;
 }
 
@@ -855,6 +866,15 @@ typedef struct PoolStatusInfo {
         uint64_t usage;
         uint64_t limit;
 } PoolStatusInfo;
+
+static void pool_status_info_clear(PoolStatusInfo *info) {
+        if (info) {
+                free(info->path);
+                zero(*info);
+                info->usage = -1;
+                info->limit = -1;
+        }
+}
 
 static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
         char bs[FORMAT_BYTES_MAX], *s;
@@ -880,7 +900,7 @@ static int show_pool_info(sd_bus *bus) {
                 {}
         };
 
-        PoolStatusInfo info = {
+        _cleanup_(pool_status_info_clear) PoolStatusInfo info = {
                 .usage = (uint64_t) -1,
                 .limit = (uint64_t) -1,
         };
@@ -898,7 +918,6 @@ static int show_pool_info(sd_bus *bus) {
 
         print_pool_status_info(bus, &info);
 
-        free(info.path);
         return 0;
 }
 
@@ -1200,7 +1219,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        sigprocmask_many(SIG_BLOCK, SIGWINCH, SIGTERM, SIGINT, -1);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
         log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", argv[1]);
 
@@ -1611,7 +1630,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         if (!arg_quiet)
                 log_info("Enqueued transfer job %u. Press C-c to continue download in background.", id);

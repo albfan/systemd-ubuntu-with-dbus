@@ -18,9 +18,9 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="nss-myhostname"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>nss-myhostname, libnss_myhostname.so.2 — Provide hostname resolution for the locally
-    configured system hostname.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">libnss_myhostname.so.2</code></p></div><div class="refsect1"><a name="idm140479708554384"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>nss-myhostname</strong></span> is a plugin for the GNU
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="nss-myhostname"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>nss-myhostname, libnss_myhostname.so.2 — Provide hostname resolution for the locally
+    configured system hostname.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">libnss_myhostname.so.2</code></p></div><div class="refsect1"><a name="idm47434320993696"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>nss-myhostname</strong></span> is a plugin for the GNU
     Name Service Switch (NSS) functionality of the GNU C Library
     (<span class="command"><strong>glibc</strong></span>) primarily providing hostname resolution
     for the locally configured system hostname as returned by
@@ -50,7 +50,7 @@
     last in the <code class="filename">nsswitch.conf</code> line to make sure
     that this mapping is only used as fallback, and any DNS or
     <code class="filename">/etc/hosts</code> based mapping takes
-    precedence.</p></div><div class="refsect1"><a name="idm140479703639920"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><p>Here's an example <code class="filename">/etc/nsswitch.conf</code>
+    precedence.</p></div><div class="refsect1"><a name="idm47434316074448"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><p>Here's an example <code class="filename">/etc/nsswitch.conf</code>
     file, that enables <span class="command"><strong>myhostname</strong></span> correctly:</p><pre class="programlisting">passwd:   compat
 group:    compat
 shadow:   compat
@@ -69,7 +69,7 @@ netgroup:       nis</pre><p>To test, use <span class="command"><strong>glibc</st
 ::1       RAW
 127.0.0.2       STREAM
 127.0.0.2       DGRAM
-127.0.0.2       RAW</pre><p>In this case the local hostname is <code class="varname">omega</code>.</p></div><div class="refsect1"><a name="idm140479703632848"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+127.0.0.2       RAW</pre><p>In this case the local hostname is <code class="varname">omega</code>.</p></div><div class="refsect1"><a name="idm47434316067376"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="nss-mymachines.html"><span class="citerefentry"><span class="refentrytitle">nss-mymachines</span>(8)</span></a>,
       <a href="http://man7.org/linux/man-pages/man5/nsswitch.conf.5.html"><span class="citerefentry"><span class="refentrytitle">nsswitch.conf</span>(5)</span></a>,

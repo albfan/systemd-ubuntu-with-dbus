@@ -28,9 +28,10 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "label.h"
+#include "formats-util.h"
+#include "signal-util.h"
 #include "machine-image.h"
 #include "machined.h"
-#include "formats-util.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -321,7 +322,7 @@ int main(int argc, char *argv[]) {
          * check stays in. */
         mkdir_label("/run/systemd/machines", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         m = manager_new();
         if (!m) {

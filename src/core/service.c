@@ -47,6 +47,7 @@
 #include "bus-kernel.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -567,14 +568,12 @@ static int service_add_extras(Service *s) {
                 s->notify_access = NOTIFY_MAIN;
 
         if (s->bus_name) {
-#ifdef ENABLE_KDBUS
                 const char *n;
 
                 n = strjoina(s->bus_name, ".busname");
                 r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
                 if (r < 0)
                         return r;
-#endif
 
                 r = unit_watch_bus_name(UNIT(s), s->bus_name);
                 if (r < 0)
@@ -1179,7 +1178,6 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
-#ifdef ENABLE_KDBUS
         if (s->exec_context.bus_endpoint) {
                 r = bus_kernel_create_endpoint(UNIT(s)->manager->running_as == MANAGER_SYSTEM ? "system" : "user",
                                                UNIT(s)->id, &bus_endpoint_path);
@@ -1191,7 +1189,6 @@ static int service_spawn(
                  * as the service is running. */
                 exec_params.bus_endpoint_fd = s->bus_endpoint_fd = r;
         }
-#endif
 
         exec_params.argv = argv;
         exec_params.fds = fds;
@@ -2007,6 +2004,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 unit_serialize_item_format(u, f, "main-pid", PID_FMT, s->main_pid);
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
+        unit_serialize_item(u, f, "bus-name-good", yes_no(s->bus_name_good));
 
         if (s->status_text) {
                 _cleanup_free_ char *c = NULL;
@@ -2130,6 +2128,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse main-pid-known value: %s", value);
                 else
                         s->main_pid_known = b;
+        } else if (streq(key, "bus-name-good")) {
+                int b;
+
+                b = parse_boolean(value);
+                if (b < 0)
+                        log_unit_debug(u, "Failed to parse bus-name-good value: %s", value);
+                else
+                        s->bus_name_good = b;
         } else if (streq(key, "status-text")) {
                 char *t;
 

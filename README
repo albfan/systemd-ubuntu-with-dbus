@@ -7,11 +7,11 @@ WEB SITE:
         http://www.freedesktop.org/wiki/Software/systemd
 
 GIT:
-        git://anongit.freedesktop.org/systemd/systemd
-        ssh://git.freedesktop.org/git/systemd/systemd
+        git@github.com:systemd/systemd.git
+        https://github.com/systemd/systemd.git
 
 GITWEB:
-        http://cgit.freedesktop.org/systemd/systemd
+        https://github.com/systemd/systemd
 
 MAILING LIST:
         http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -21,7 +21,7 @@ IRC:
         #systemd on irc.freenode.org
 
 BUG REPORTS:
-        https://bugs.freedesktop.org/enter_bug.cgi?product=systemd
+        https://github.com/systemd/systemd/issues
 
 AUTHOR:
         Lennart Poettering
@@ -30,8 +30,8 @@ AUTHOR:
 
 LICENSE:
         LGPLv2.1+ for all code
-        - except src/shared/MurmurHash2.c which is Public Domain
-        - except src/shared/siphash24.c which is CC0 Public Domain
+        - except src/basic/MurmurHash2.c which is Public Domain
+        - except src/basic/siphash24.c which is CC0 Public Domain
         - except src/journal/lookup3.c which is Public Domain
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
@@ -129,14 +129,13 @@ REQUIREMENTS:
         libmicrohttpd (optional)
         libpython (optional)
         libidn (optional)
-        gobject-introspection > 1.40.0 (optional)
         elfutils >= 158 (optional)
         make, gcc, and similar tools
 
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.25 required
+        util-linux >= v2.26 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
         dracut (optional)
         PolicyKit (optional)
@@ -152,7 +151,6 @@ REQUIREMENTS:
         libtool
         intltool
         gperf
-        gtkdocize (optional)
         python (optional)
         python-lxml (optional, but required to build the indices)
         sphinx (optional)
@@ -222,6 +220,17 @@ NSS:
 
                 hosts: files mymachines resolve myhostname
 
+SYSV INIT.D SCRIPTS:
+        When calling "systemctl enable/disable/is-enabled" on a unit which is a
+        SysV init.d script, it calls /usr/lib/systemd/systemd-sysv-install;
+        this needs to translate the action into the distribution specific
+        mechanism such as chkconfig or update-rc.d. Packagers need to provide
+        this script if you need this functionality (you don't if you disabled
+        SysV init support).
+
+        Please see src/systemctl/systemd-sysv-install.SKELETON for how this
+        needs to look like, and provide an implementation at the marked places.
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a
@@ -239,7 +248,7 @@ WARNINGS:
         supported anymore by the basic set of Linux OS components.
 
         systemd requires that the /run mount point exists. systemd also
-        requires that /var/run is a a symlink to /run.
+        requires that /var/run is a symlink to /run.
 
         For more information on this issue consult
         http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken

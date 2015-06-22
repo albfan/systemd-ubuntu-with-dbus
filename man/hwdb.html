@@ -18,19 +18,18 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="hwdb"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hwdb — Hardware Database</p></div><div class="refsect1"><a name="idm140323802170704"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The hardware database is a key-value store for associating modalias-like keys to
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="hwdb"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hwdb — Hardware Database</p></div><div class="refsect1"><a name="idm47530063428704"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The hardware database is a key-value store for associating modalias-like keys to
     udev-properties-like values. It is used primarily by udev to add the relevant properties
-    to matching devices, but it can also be queried directly.</p></div><div class="refsect1"><a name="idm140323802169392"></a><h2 id="Hardware Database Files">Hardware Database Files<a class="headerlink" title="Permalink to this headline" href="#Hardware%20Database%20Files">¶</a></h2><p>The hwdb files are read from the files located in the
-      system hwdb directory <code class="filename">/usr/lib/udev/hwdb.d</code>,
-      the volatile runtime directory <code class="filename">/run/udev/hwdb.d</code>
-      and the local administration directory <code class="filename">/etc/udev/hwdb.d</code>.
+    to matching devices, but it can also be queried directly.</p></div><div class="refsect1"><a name="idm47530063427392"></a><h2 id="Hardware Database Files">Hardware Database Files<a class="headerlink" title="Permalink to this headline" href="#Hardware%20Database%20Files">¶</a></h2><p>The hwdb files are read from the files located in the
+      system hwdb directory <code class="filename">/usr/lib/udev/hwdb.d</code> and
+      the local administration directory <code class="filename">/etc/udev/hwdb.d</code>.
       All hwdb files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <code class="filename">/etc</code>
-      have the highest priority, files in <code class="filename">/run</code> take precedence
-      over files with the same name in <code class="filename">/usr/lib</code>. This can be
-      used to override a system-supplied hwdb file with a local file if needed;
+      have the highest priority and take precedence over files with the same
+      name in <code class="filename">/usr/lib</code>. This can be used to override a
+      system-supplied hwdb file with a local file if needed;
       a symlink in <code class="filename">/etc</code> with the same name as a hwdb file in
       <code class="filename">/usr/lib</code>, pointing to <code class="filename">/dev/null</code>,
       disables the hwdb file entirely. hwdb files must have the extension
@@ -48,6 +47,6 @@
       and compiled to a binary database located at <code class="filename">/etc/udev/hwdb.bin</code>,
       or alternatively <code class="filename">/usr/lib/udev/hwdb.bin</code> if you want ship the compiled
       database in an immutable image.
-      During runtime only the binary database is used.</p></div><div class="refsect1"><a name="idm140323797257232"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      During runtime only the binary database is used.</p></div><div class="refsect1"><a name="idm47530058511456"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd-hwdb.html"><span class="citerefentry"><span class="refentrytitle">systemd-hwdb</span>(8)</span></a>
     </p></div></div></body></html>

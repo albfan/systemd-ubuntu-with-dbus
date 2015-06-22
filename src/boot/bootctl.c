@@ -805,7 +805,7 @@ static int remove_boot_efi(const char *esp_path) {
                         continue;
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
-                if (r < 0)
+                if (fd < 0)
                         return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
@@ -884,7 +884,7 @@ static int install_loader_config(const char *esp_path) {
         char *p;
         char line[64];
         char *machine = NULL;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL, *g = NULL;
 
         f = fopen("/etc/machine-id", "re");
         if (!f)
@@ -899,18 +899,16 @@ static int install_loader_config(const char *esp_path) {
                 if (strlen(line) == 32)
                         machine = line;
         }
-        fclose(f);
 
         if (!machine)
                 return -ESRCH;
 
         p = strjoina(esp_path, "/loader/loader.conf");
-        f = fopen(p, "wxe");
-        if (f) {
-                fprintf(f, "#timeout 3\n");
-                fprintf(f, "default %s-*\n", machine);
-                fclose(f);
-                if (ferror(f))
+        g = fopen(p, "wxe");
+        if (g) {
+                fprintf(g, "#timeout 3\n");
+                fprintf(g, "default %s-*\n", machine);
+                if (ferror(g))
                         return log_error_errno(EIO, "Failed to write \"%s\": %m", p);
         }
 
@@ -926,7 +924,7 @@ static int help(void) {
                "     --path=PATH     Path to the EFI System Partition (ESP)\n"
                "     --no-variables  Don't touch EFI variables\n"
                "\n"
-               "Comands:\n"
+               "Commands:\n"
                "     status          Show status of installed systemd-boot and EFI variables\n"
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"

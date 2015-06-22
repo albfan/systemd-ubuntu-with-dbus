@@ -429,7 +429,7 @@ static int bus_populate_creds_from_items(
                                         c->mask |= SD_BUS_CREDS_PPID;
                                 } else if (item->pids.pid == 1) {
                                         /* The structure doesn't
-                                         * really distuingish the case
+                                         * really distinguish the case
                                          * where a process has no
                                          * parent and where we don't
                                          * know it because it could
@@ -979,8 +979,10 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
         pid_t pid = 0;
         int r;
+        bool do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
 
-        if (!bus->ucred_valid && !isempty(bus->label))
+        /* Avoid allocating anything if we have no chance of returning useful data */
+        if (!bus->ucred_valid && !do_label)
                 return -ENODATA;
 
         c = bus_creds_new();
@@ -1004,7 +1006,7 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 }
         }
 
-        if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
+        if (do_label) {
                 c->label = strdup(bus->label);
                 if (!c->label)
                         return -ENOMEM;
@@ -1289,10 +1291,8 @@ int bus_add_match_internal_kernel(
                         break;
 
                 case BUS_MATCH_PATH_NAMESPACE:
-                        if (!streq(c->value_str, "/")) {
-                                bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "path-slash-prefix", c->value_str);
-                                using_bloom = true;
-                        }
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "path-slash-prefix", c->value_str);
+                        using_bloom = true;
                         break;
 
                 case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
@@ -1308,11 +1308,18 @@ int bus_add_match_internal_kernel(
                 }
 
                 case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
-                        char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
-
-                        xsprintf(buf, "arg%i-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
-                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
-                        using_bloom = true;
+                        /*
+                         * XXX: DBus spec defines arg[0..63]path= matching to be
+                         * a two-way glob. That is, if either string is a prefix
+                         * of the other, it matches.
+                         * This is really hard to realize in bloom-filters, as
+                         * we would have to create a bloom-match for each prefix
+                         * of @c->value_str. This is excessive, hence we just
+                         * ignore all those matches and accept everything from
+                         * the kernel. People should really avoid those matches.
+                         * If they're used in real-life some day, we will have
+                         * to properly support multiple-matches here.
+                         */
                         break;
                 }
 

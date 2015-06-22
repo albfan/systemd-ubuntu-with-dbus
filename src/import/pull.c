@@ -25,6 +25,7 @@
 #include "event-util.h"
 #include "verbs.h"
 #include "build.h"
+#include "signal-util.h"
 #include "machine-image.h"
 #include "import-util.h"
 #include "pull-tar.h"
@@ -108,9 +109,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = tar_pull_new(&pull, event, arg_image_root, on_tar_finished, event);
         if (r < 0)
@@ -194,9 +195,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
         if (r < 0)
@@ -244,15 +245,15 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         if (digest) {
                 reference = digest + 1;
                 name = strndupa(argv[1], digest - argv[1]);
-        }
-
-        reference = strchr(argv[1], ':');
-        if (reference) {
-                name = strndupa(argv[1], reference - argv[1]);
-                reference++;
         } else {
-                name = argv[1];
-                reference = "latest";
+                reference = strchr(argv[1], ':');
+                if (reference) {
+                        name = strndupa(argv[1], reference - argv[1]);
+                        reference++;
+                } else {
+                        name = argv[1];
+                        reference = "latest";
+                }
         }
 
         if (!dkr_name_is_valid(name)) {
@@ -302,9 +303,9 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = dkr_pull_new(&pull, event, arg_dkr_index_url, arg_image_root, on_dkr_finished, event);
         if (r < 0)
@@ -439,7 +440,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE, -1);
 
         r = pull_main(argc, argv);
 

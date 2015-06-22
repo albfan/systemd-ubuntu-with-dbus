@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="resolved.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>resolved.conf, resolved.conf.d — Network Name Resolution configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/resolved.conf</code></p><p><code class="filename">/etc/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/resolved.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm140069773969728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These configuration files control local DNS and LLMNR
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="resolved.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>resolved.conf, resolved.conf.d — Network Name Resolution configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/resolved.conf</code></p><p><code class="filename">/etc/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/run/systemd/resolved.conf.d/*.conf</code></p><p><code class="filename">/usr/lib/systemd/resolved.conf.d/*.conf</code></p></div><div class="refsect1"><a name="idm47602988574416"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>These configuration files control local DNS and LLMNR
     name resolving.</p></div><div class="refsection"><a name="main-conf"></a><h2>Configuration Directories and Precedence</h2><p>Default configuration is defined during compilation, so a
     configuration file is only needed when it is necessary to deviate
     from those defaults. By default the configuration file in
@@ -46,7 +46,7 @@
     recommended way is to place a symlink to
     <code class="filename">/dev/null</code> in the configuration directory in
     <code class="filename">/etc/</code>, with the same filename as the vendor
-    configuration file.</p></div><div class="refsect1"><a name="idm140069769013456"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A space separated list of IPv4 and IPv6
+    configuration file.</p></div><div class="refsect1"><a name="idm47602983617920"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A space separated list of IPv4 and IPv6
         addresses to be used as system DNS servers. DNS requests are
         sent to one of the listed DNS servers in parallel to any
         per-interface DNS servers acquired from
@@ -73,7 +73,7 @@
         <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
         also maintains per-interface LLMNR settings. LLMNR will be
         enabled on an interface only if the per-interface and the
-        global setting is on.</p></dd></dl></div></div><div class="refsect1"><a name="idm140069769000656"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        global setting is on.</p></dd></dl></div></div><div class="refsect1"><a name="idm47602983605120"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd-resolved.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-resolved.service</span>(8)</span></a>,
       <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>,

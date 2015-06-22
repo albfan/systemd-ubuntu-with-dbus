@@ -18,12 +18,12 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="timedatectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>timedatectl — Control the system time and date</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">timedatectl [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm140409539607472"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>timedatectl</strong></span> may be used to query and
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="timedatectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>timedatectl — Control the system time and date</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">timedatectl [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm47599435527872"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>timedatectl</strong></span> may be used to query and
     change the system clock and its settings.</p><p>Use
     <a href="systemd-firstboot.html"><span class="citerefentry"><span class="refentrytitle">systemd-firstboot</span>(1)</span></a>
     to initialize the system time zone for mounted (but not booted)
-    system images.</p></div><div class="refsect1"><a name="idm140409534650176"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user for authentication for
+    system images.</p></div><div class="refsect1"><a name="idm47599430625248"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user for authentication for
         privileged operations.</p></dd><dt id="--adjust-system-clock"><span class="term"><code class="option">--adjust-system-clock</code></span><a class="headerlink" title="Permalink to this term" href="#--adjust-system-clock">¶</a></dt><dd><p>If <span class="command"><strong>set-local-rtc</strong></span> is invoked
         and this option is passed, the system clock is synchronized
         from the RTC again, taking the new setting into account.
@@ -76,8 +76,8 @@
         <code class="filename">systemd-timesyncd.service</code> unit. Note that
         even if this command turns time synchronization off a
         different system service might still synchronize the clock
-        with the network.</p></dd></dl></div></div><div class="refsect1"><a name="idm140409534621488"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-    code otherwise.</p></div><div class="refsect1"><a name="idm140409520728816"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+        with the network.</p></dd></dl></div></div><div class="refsect1"><a name="idm47599430596560"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm47599418786976"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
                         <code class="option">--no-pager</code> is not given;
                         overrides <code class="varname">$PAGER</code>.  Setting
                         this to an empty string or the value
@@ -85,7 +85,7 @@
                         <code class="option">--no-pager</code>.</p></dd><dt id="$SYSTEMD_LESS"><span class="term"><code class="varname">$SYSTEMD_LESS</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LESS">¶</a></dt><dd><p>Override the default
                         options passed to
                         <span class="command"><strong>less</strong></span>
-                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm140409534619840"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Show current settings:
+                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm47599430594912"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Show current settings:
     </p><pre class="programlisting">$ timedatectl
       Local time: Di 2015-04-07 16:26:56 CEST
   Universal time: Di 2015-04-07 14:26:56 UTC
@@ -112,7 +112,7 @@ Password: ********
    CGroup: /system.slice/systemd-timesyncd.service
            └─595 /usr/lib/systemd/systemd-timesyncd
 ...</pre><p>
-    </p></div><div class="refsect1"><a name="idm140409534615184"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    </p></div><div class="refsect1"><a name="idm47599430590256"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man8/hwclock.8.html"><span class="citerefentry"><span class="refentrytitle">hwclock</span>(8)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/date.1.html"><span class="citerefentry"><span class="refentrytitle">date</span>(1)</span></a>,

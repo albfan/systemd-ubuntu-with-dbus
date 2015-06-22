@@ -18,10 +18,10 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
        [ARGS...]
-      ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm139933668313648"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to run a
+      ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm47960763515584"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to run a
     command or OS in a light-weight namespace container. In many ways
     it is similar to
     <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
@@ -67,7 +67,7 @@
     <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>).
     It might be necessary to add this file to the container tree
     manually if the OS of the container is too old to contain this
-    file out-of-the-box.</p></div><div class="refsect1"><a name="idm139933668289296"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the arguments
+    file out-of-the-box.</p></div><div class="refsect1"><a name="idm47960763491232"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the arguments
     are used as arguments for the init binary. Otherwise,
     <em class="replaceable"><code>COMMAND</code></em> specifies the program to launch
     in the container, and the remaining arguments are used as
@@ -169,7 +169,7 @@
         first host UID to assign to the container, the second
         parameter specifies the number of host UIDs to assign to the
         container. If the second parameter is omitted, 65536 UIDs are
-        assigned. If the first parameter is also ommitted (and hence
+        assigned. If the first parameter is also omitted (and hence
         no parameter passed at all), the first UID assigned to the
         container is read from the owner of the root directory of the
         container's directory tree. By default no user namespacing is
@@ -242,7 +242,7 @@
         container port number in the range from 1 to 65535. The
         protocol specifier and its separating colon may be omitted, in
         which case "<code class="literal">tcp</code>" is assumed. The container
-        port number and its colon may be ommitted, in which case the
+        port number and its colon may be omitted, in which case the
         same port as the host port is implied. This option is only
         supported if private networking is used, such as
         <code class="option">--network-veth</code> or
@@ -423,24 +423,24 @@
         <code class="filename">/usr</code> mounted, and are able to populate
         <code class="filename">/var</code> automatically, as
         needed.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139933668130624"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm139933668129984"></a><p class="title"><b>Example 1. Download a Fedora image and start a shell in it</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm47960763332240"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm47960763331600"></a><p class="title"><b>Example 1. Download a Fedora image and start a shell in it</b></p><div class="example-contents"><pre class="programlisting"># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
 # systemd-nspawn -M Fedora-Cloud-Base-20141203-21</pre><p>This downloads an image using
       <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>
-      and opens a shell in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668127216"></a><p class="title"><b>Example 2. Build and boot a minimal Fedora distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
+      and opens a shell in it.</p></div></div><br class="example-break"><div class="example"><a name="idm47960763328832"></a><p class="title"><b>Example 2. Build and boot a minimal Fedora distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</pre><p>This installs a minimal Fedora distribution into the
       directory <code class="filename">/srv/mycontainer/</code>
-      and then boots an OS in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668124128"></a><p class="title"><b>Example 3. Spawn a shell in a container of a minimal Debian unstable distribution</b></p><div class="example-contents"><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
+      and then boots an OS in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm47960763325744"></a><p class="title"><b>Example 3. Spawn a shell in a container of a minimal Debian unstable distribution</b></p><div class="example-contents"><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</pre><p>This installs a minimal Debian unstable distribution into
       the directory <code class="filename">~/debian-tree/</code> and then
-      spawns a shell in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668121376"></a><p class="title"><b>Example 4. Boot a minimal Arch Linux distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
+      spawns a shell in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm47960763322992"></a><p class="title"><b>Example 4. Boot a minimal Arch Linux distribution in a container</b></p><div class="example-contents"><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a minimal Arch Linux distribution into the
       directory <code class="filename">~/arch-tree/</code> and then boots an OS
-      in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668118720"></a><p class="title"><b>Example 5. Boot into an ephemeral "<code class="literal">btrfs</code>" snapshot of the host system</b></p><div class="example-contents"><pre class="programlisting"># systemd-nspawn -D / -xb</pre><p>This runs a copy of the host system in a
+      in a namespace container in it.</p></div></div><br class="example-break"><div class="example"><a name="idm47960763320336"></a><p class="title"><b>Example 5. Boot into an ephemeral "<code class="literal">btrfs</code>" snapshot of the host system</b></p><div class="example-contents"><pre class="programlisting"># systemd-nspawn -D / -xb</pre><p>This runs a copy of the host system in a
       "<code class="literal">btrfs</code>" snapshot which is removed immediately
       when the container exits. All file system changes made during
-      runtime will be lost on shutdown, hence.</p></div></div><br class="example-break"><div class="example"><a name="idm139933668115520"></a><p class="title"><b>Example 6. Run a container with SELinux sandbox security contexts</b></p><div class="example-contents"><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
-# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139933668113776"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the container is
-    returned.</p></div><div class="refsect1"><a name="idm139933668112544"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      runtime will be lost on shutdown, hence.</p></div></div><br class="example-break"><div class="example"><a name="idm47960763317136"></a><p class="title"><b>Example 6. Run a container with SELinux sandbox security contexts</b></p><div class="example-contents"><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm47960763315392"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the container is
+    returned.</p></div><div class="refsect1"><a name="idm47960763314160"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="http://man7.org/linux/man-pages/man1/chroot.1.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
       <a href="https://www.mankier.com/8/dnf"><span class="citerefentry"><span class="refentrytitle">dnf</span>(8)</span></a>,

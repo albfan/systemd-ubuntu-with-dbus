@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="os-release"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>os-release — Operating system identification</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/os-release</code></p><p><code class="filename">/usr/lib/os-release</code></p></div><div class="refsect1"><a name="idm140304311432128"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/os-release</code> and
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="os-release"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>os-release — Operating system identification</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/os-release</code></p><p><code class="filename">/usr/lib/os-release</code></p></div><div class="refsect1"><a name="idm47478989668704"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/os-release</code> and
     <code class="filename">/usr/lib/os-release</code> files contain operating
     system identification data.</p><p>The basic file format of <code class="filename">os-release</code> is
     a newline-separated list of environment-like shell-compatible
@@ -56,7 +56,7 @@
     to other files, but it is important that the file is available
     from earliest boot on, and hence must be located on the root file
     system.</p><p>For a longer rationale for <code class="filename">os-release</code>
-    please refer to the <a class="ulink" href="http://0pointer.de/blog/projects/os-release" target="_top">Announcement of <code class="filename">/etc/os-release</code></a>.</p></div><div class="refsect1"><a name="idm140304310395952"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following OS identifications parameters may be set using
+    please refer to the <a class="ulink" href="http://0pointer.de/blog/projects/os-release" target="_top">Announcement of <code class="filename">/etc/os-release</code></a>.</p></div><div class="refsect1"><a name="idm47478984700816"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following OS identifications parameters may be set using
     <code class="filename">os-release</code>:</p><div class="variablelist"><dl class="variablelist"><dt id="NAME="><span class="term"><code class="varname">NAME=</code></span><a class="headerlink" title="Permalink to this term" href="#NAME=">¶</a></dt><dd><p>A string identifying the operating system,
         without a version component, and suitable for presentation to
         the user. If not set, defaults to
@@ -190,7 +190,7 @@
     recommended to prefix new fields with an OS specific
     name in order to avoid name clashes. Applications
     reading this file must ignore unknown fields. Example:
-    "<code class="literal">DEBIAN_BTS="debbugs://bugs.debian.org/"</code>"</p></div><div class="refsect1"><a name="idm140304310341264"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">NAME=Fedora
+    "<code class="literal">DEBIAN_BTS="debbugs://bugs.debian.org/"</code>"</p></div><div class="refsect1"><a name="idm47478984645936"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">NAME=Fedora
 VERSION="17 (Beefy Miracle)"
 ID=fedora
 VERSION_ID=17
@@ -198,7 +198,7 @@ PRETTY_NAME="Fedora 17 (Beefy Miracle)"
 ANSI_COLOR="0;34"
 CPE_NAME="cpe:/o:fedoraproject:fedora:17"
 HOME_URL="https://fedoraproject.org/"
-BUG_REPORT_URL="https://bugzilla.redhat.com/"</pre></div><div class="refsect1"><a name="idm140304310339600"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+BUG_REPORT_URL="https://bugzilla.redhat.com/"</pre></div><div class="refsect1"><a name="idm47478984644272"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
         <a href="http://linux.die.net/man/1/lsb_release"><span class="citerefentry"><span class="refentrytitle">lsb_release</span>(1)</span></a>,
         <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(5)</span></a>,

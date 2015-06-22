@@ -18,15 +18,15 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd.resource-control"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.resource-control — Resource control unit settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p>
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd.resource-control"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.resource-control — Resource control unit settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p>
       <code class="filename"><em class="replaceable"><code>slice</code></em>.slice</code>,
       <code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code>,
       <code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
       <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
       <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
       <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code>
-    </p></div><div class="refsect1"><a name="idm140689310592208"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, slices, scopes,
+    </p></div><div class="refsect1"><a name="idm46952650212016"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
     processes. Internally, this relies on the Control Groups
@@ -47,7 +47,7 @@
     [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
     sections, depending on the unit type.</p><p>See the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/" target="_top">New
     Control Group Interfaces</a> for an introduction on how to make
-    use of resource control APIs from programs.</p></div><div class="refsect1"><a name="idm140689310583536"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Units of the types listed above can have settings
+    use of resource control APIs from programs.</p></div><div class="refsect1"><a name="idm46952650203344"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Units of the types listed above can have settings
     for resource control configuration:</p><div class="variablelist"><dl class="variablelist"><dt id="CPUAccounting="><span class="term"><code class="varname">CPUAccounting=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUAccounting=">¶</a></dt><dd><p>Turn on CPU usage accounting for this unit. Takes a
           boolean argument. Note that turning on CPU accounting for
           one unit might also implicitly turn it on for all units
@@ -199,7 +199,7 @@
           setting) this allows processes to create a subhierarchy
           beneath its control group path. For privileged services and
           scopes this ensures the processes will have all control
-          group controllers enabled.</p></dd></dl></div></div><div class="refsect1"><a name="idm140689310503424"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+          group controllers enabled.</p></dd></dl></div></div><div class="refsect1"><a name="idm46952650123648"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
       <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,

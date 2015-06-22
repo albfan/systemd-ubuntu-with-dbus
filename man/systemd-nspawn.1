@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 220" "systemd-nspawn"
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 221" "systemd-nspawn"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -242,7 +242,7 @@ is not used\&. Takes unit property assignments in the same format as
 .PP
 \fB\-\-private\-users=\fR
 .RS 4
-Enables user namespacing\&. If enabled the container will run with its own private set of Unix user and group ids (UIDs and GIDs)\&. Takes none, one or two colon\-separated parameters: the first parameter specifies the first host UID to assign to the container, the second parameter specifies the number of host UIDs to assign to the container\&. If the second parameter is omitted, 65536 UIDs are assigned\&. If the first parameter is also ommitted (and hence no parameter passed at all), the first UID assigned to the container is read from the owner of the root directory of the container\*(Aqs directory tree\&. By default no user namespacing is applied\&.
+Enables user namespacing\&. If enabled the container will run with its own private set of Unix user and group ids (UIDs and GIDs)\&. Takes none, one or two colon\-separated parameters: the first parameter specifies the first host UID to assign to the container, the second parameter specifies the number of host UIDs to assign to the container\&. If the second parameter is omitted, 65536 UIDs are assigned\&. If the first parameter is also omitted (and hence no parameter passed at all), the first UID assigned to the container is read from the owner of the root directory of the container\*(Aqs directory tree\&. By default no user namespacing is applied\&.
 .sp
 Note that user namespacing currently requires OS trees that are prepared for the UID shift that is being applied: UIDs and GIDs used for file ownership or in file ACL entries must be shifted to the container UID base that is used during container runtime\&.
 .sp
@@ -327,7 +327,7 @@ If private networking is enabled, maps an IP port on the host onto an IP port on
 or
 "udp"), separated by a colon from a host port number in the range 1 to 65535, separated by a colon from a container port number in the range from 1 to 65535\&. The protocol specifier and its separating colon may be omitted, in which case
 "tcp"
-is assumed\&. The container port number and its colon may be ommitted, in which case the same port as the host port is implied\&. This option is only supported if private networking is used, such as
+is assumed\&. The container port number and its colon may be omitted, in which case the same port as the host port is implied\&. This option is only supported if private networking is used, such as
 \fB\-\-network\-veth\fR
 or
 \fB\-\-network\-bridge=\fR\&.

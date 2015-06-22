@@ -18,14 +18,14 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-rfkill@.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-rfkill@.service, systemd-rfkill — Load and save the RF kill switch state at boot and shutdown</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-rfkill@.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-rfkill</code></p></div><div class="refsect1"><a name="idm140198952501200"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-rfkill@.service</code> is a service
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-rfkill@.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-rfkill@.service, systemd-rfkill — Load and save the RF kill switch state at boot and shutdown</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-rfkill@.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-rfkill</code></p></div><div class="refsect1"><a name="idm47145407779728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-rfkill@.service</code> is a service
     that restores the RF kill switch state at early boot and saves it
     at shutdown. On disk, the RF kill switch state is stored in
-    <code class="filename">/var/lib/systemd/rfkill/</code>.</p></div><div class="refsect1"><a name="idm140198952498576"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-rfkill</code> understands the
+    <code class="filename">/var/lib/systemd/rfkill/</code>.</p></div><div class="refsect1"><a name="idm47145407777104"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p><code class="filename">systemd-rfkill</code> understands the
     following kernel command line parameter:</p><div class="variablelist"><dl class="variablelist"><dt id="systemd.restore_state="><span class="term"><code class="varname">systemd.restore_state=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.restore_state=">¶</a></dt><dd><p>Takes a boolean argument. Defaults to
         "<code class="literal">1</code>". If "<code class="literal">0</code>", does not
         restore the rfkill settings on boot. However, settings will
-        still be stored on shutdown. </p></dd></dl></div></div><div class="refsect1"><a name="idm140198947540256"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+        still be stored on shutdown. </p></dd></dl></div></div><div class="refsect1"><a name="idm47145402870304"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
     </p></div></div></body></html>

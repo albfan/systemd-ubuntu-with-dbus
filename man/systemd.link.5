@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.LINK" "5" "" "systemd 220" "systemd.link"
+.TH "SYSTEMD\&.LINK" "5" "" "systemd 221" "systemd.link"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -155,7 +155,11 @@ If the hardware has a persistent MAC address, as most hardware should, and if it
 .PP
 "random"
 .RS 4
-If the kernel is using a random MAC address, nothing is done\&. Otherwise, a new address is randomly generated each time the device appears, typically at boot\&.
+If the kernel is using a random MAC address, nothing is done\&. Otherwise, a new address is randomly generated each time the device appears, typically at boot\&. Either way the random address will have the
+"unicast"
+and
+"locally administered"
+bits set\&.
 .RE
 .RE
 .PP

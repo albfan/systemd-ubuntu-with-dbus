@@ -18,8 +18,8 @@
   </style><a href="index.html">Index </a>·
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
-  <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 220</span><hr><div class="refentry"><a name="systemd-vconsole-setup.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-vconsole-setup.service, systemd-vconsole-setup — Configure the virtual console at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-vconsole-setup.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-vconsole-setup</code></p></div><div class="refsect1"><a name="idm139978833887024"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-vconsole-setup.service</code> is an
+
+  <span style="float:right">systemd 221</span><hr><div class="refentry"><a name="systemd-vconsole-setup.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-vconsole-setup.service, systemd-vconsole-setup — Configure the virtual console at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-vconsole-setup.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-vconsole-setup</code></p></div><div class="refsect1"><a name="idm47329033012320"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-vconsole-setup.service</code> is an
     early-boot service that configures the virtual console font and
     console keymap. Internally it calls
     <a href="https://www.mankier.com/1/loadkeys"><span class="citerefentry"><span class="refentrytitle">loadkeys</span>(1)</span></a>
@@ -27,13 +27,13 @@
     <a href="http://linux.die.net/man/8/setfont"><span class="citerefentry"><span class="refentrytitle">setfont</span>(8)</span></a>.</p><p>See
     <a href="vconsole.conf.html"><span class="citerefentry"><span class="refentrytitle">vconsole.conf</span>(5)</span></a>
     for information about the configuration files understood by this
-    service.</p></div><div class="refsect1"><a name="idm139978828928608"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>A few configuration parameters from
+    service.</p></div><div class="refsect1"><a name="idm47329028104800"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>A few configuration parameters from
     <code class="filename">vconsole.conf</code> may be overridden on the kernel
     command line:</p><div class="variablelist"><dl class="variablelist"><dt id="vconsole.keymap="><span class="term"><code class="varname">vconsole.keymap=</code>, </span><span class="term"><code class="varname">vconsole.keymap.toggle=</code></span><a class="headerlink" title="Permalink to this term" href="#vconsole.keymap=">¶</a></dt><dd><p>Overrides the key mapping table for the
         keyboard and the second toggle keymap.</p></dd><dt id="vconsole.font="><span class="term"><code class="varname">vconsole.font=</code>, </span><span class="term"><code class="varname">vconsole.font.map=</code>, </span><span class="term"><code class="varname">vconsole.font.unimap=</code></span><a class="headerlink" title="Permalink to this term" href="#vconsole.font=">¶</a></dt><dd><p>Configures the console font, the console map,
         and the unicode font map.</p></dd></dl></div><p>See
     <a href="vconsole.conf.html"><span class="citerefentry"><span class="refentrytitle">vconsole.conf</span>(5)</span></a>
-    for information about these settings.</p></div><div class="refsect1"><a name="idm139978828920608"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+    for information about these settings.</p></div><div class="refsect1"><a name="idm47329028096800"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="vconsole.conf.html"><span class="citerefentry"><span class="refentrytitle">vconsole.conf</span>(5)</span></a>,
       <a href="https://www.mankier.com/1/loadkeys"><span class="citerefentry"><span class="refentrytitle">loadkeys</span>(1)</span></a>,

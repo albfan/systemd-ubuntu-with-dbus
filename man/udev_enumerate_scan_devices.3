@@ -1,0 +1,67 @@
+'\" t
+.TH "UDEV_ENUMERATE_SCAN_DEVICES" "3" "" "systemd 221" "udev_enumerate_scan_devices"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+udev_enumerate_scan_devices, udev_enumerate_scan_subsystems, udev_enumerate_get_list_entry, udev_enumerate_add_syspath, udev_enumerate_get_udev \- Query or modify a udev enumerate object
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <libudev\&.h>
+.fi
+.ft
+.HP \w'int\ udev_enumerate_scan_devices('u
+.BI "int udev_enumerate_scan_devices(struct\ udev_enumerate\ *" "udev_enumerate" ");"
+.HP \w'int\ udev_enumerate_scan_subsystems('u
+.BI "int udev_enumerate_scan_subsystems(struct\ udev_enumerate\ *" "udev_enumerate" ");"
+.HP \w'struct\ udev_list_entry\ *udev_enumerate_get_list_entry('u
+.BI "struct udev_list_entry *udev_enumerate_get_list_entry(struct\ udev_enumerate\ *" "udev_enumerate" ");"
+.HP \w'int\ udev_enumerate_add_syspath('u
+.BI "int udev_enumerate_add_syspath(struct\ udev_enumerate\ *" "udev_enumerate" ", const\ char\ *" "syspath" ");"
+.HP \w'struct\ udev\ *udev_enumerate_get_udev('u
+.BI "struct udev *udev_enumerate_get_udev(struct\ udev_enumerate\ *" "udev_enumerate" ");"
+.SH "RETURN VALUE"
+.PP
+On success,
+\fBudev_enumerate_scan_devices()\fR,
+\fBudev_enumerate_scan_subsystems()\fR
+and
+\fBudev_enumerate_add_syspath()\fR
+return an integer greater than, or equal to,
+\fB0\fR\&.
+.PP
+On success,
+\fBudev_enumerate_get_list_entry()\fR
+returns a pointer to the first entry in the list of found devices\&. If the list is empty, or on failure,
+\fBNULL\fR
+is returned\&.
+.PP
+\fBudev_enumerate_get_udev()\fR
+always returns a pointer to the udev context that this enumerate object is associated with\&.
+.SH "SEE ALSO"
+.PP
+\fBudev_new\fR(3),
+\fBudev_device_new_from_syspath\fR(3),
+\fBudev_enumerate_new\fR(3),
+\fBudev_enumerate_add_match_subsystem\fR(3),
+\fBudev_monitor_new_from_netlink\fR(3),
+\fBudev_list_entry\fR(3),
+\fBsystemd\fR(1),

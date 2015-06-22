@@ -496,9 +496,10 @@ static int dir_cleanup(
                         }
 
                         if (mountpoint && S_ISREG(s.st_mode))
-                                if ((streq(dent->d_name, ".journal") && s.st_uid == 0) ||
-                                    streq(dent->d_name, "aquota.user") ||
-                                    streq(dent->d_name, "aquota.group")) {
+                                if (s.st_uid == 0 && STR_IN_SET(dent->d_name,
+                                                                ".journal",
+                                                                "aquota.user",
+                                                                "aquota.group")) {
                                         log_debug("Skipping \"%s\".", sub_path);
                                         continue;
                                 }
@@ -1465,7 +1466,7 @@ static int remove_item_instance(Item *i, const char *instance) {
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
                 log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf(instance, (i->type == RECURSIVE_REMOVE_PATH ? REMOVE_ROOT : 0) | REMOVE_PHYSICAL);
+                r = rm_rf(instance, (i->type == RECURSIVE_REMOVE_PATH ? REMOVE_ROOT|REMOVE_SUBVOLUME : 0) | REMOVE_PHYSICAL);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
 
