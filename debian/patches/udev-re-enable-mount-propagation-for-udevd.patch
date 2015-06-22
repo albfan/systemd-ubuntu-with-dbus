@@ -21,12 +21,13 @@ Closes: #762018
  1 file changed, 1 deletion(-)
 
 diff --git a/units/systemd-udevd.service.in b/units/systemd-udevd.service.in
-index 32f04d9..46b0795 100644
+index e7216d6..1e9a600 100644
 --- a/units/systemd-udevd.service.in
 +++ b/units/systemd-udevd.service.in
-@@ -21,5 +21,4 @@ Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
+@@ -21,6 +21,5 @@ Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
  Restart=always
  RestartSec=0
  ExecStart=@rootlibexecdir@/systemd-udevd
 -MountFlags=slave
  KillMode=mixed
+ WatchdogSec=1min

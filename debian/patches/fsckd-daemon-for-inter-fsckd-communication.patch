@@ -43,7 +43,7 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
 -
 ---
  Makefile-man.am                    |  12 +
- Makefile.am                        |  16 +
+ Makefile.am                        |  14 +
  man/systemd-fsckd.service.xml      | 162 +++++++++
  po/POTFILES.in                     |   1 +
  src/fsckd/fsckd.c                  | 680 +++++++++++++++++++++++++++++++++++++
@@ -51,17 +51,17 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  units/systemd-fsck@.service.in     |   3 +-
  units/systemd-fsckd.service.in     |  17 +
  units/systemd-fsckd.socket         |  15 +
- 9 files changed, 907 insertions(+), 1 deletion(-)
+ 9 files changed, 905 insertions(+), 1 deletion(-)
  create mode 100644 man/systemd-fsckd.service.xml
  create mode 100644 src/fsckd/fsckd.c
  create mode 100644 units/systemd-fsckd.service.in
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index 85579e0..d52f445 100644
+index 76c9389..0a0e513 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
-@@ -66,6 +66,7 @@ MANPAGES += \
+@@ -93,6 +93,7 @@ MANPAGES += \
  	man/systemd-efi-boot-generator.8 \
  	man/systemd-escape.1 \
  	man/systemd-fsck@.service.8 \
@@ -69,8 +69,8 @@ index 85579e0..d52f445 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -208,6 +209,8 @@ MANPAGES_ALIAS += \
- 	man/systemd-ask-password-wall.service.8 \
+@@ -328,6 +329,8 @@ MANPAGES_ALIAS += \
+ 	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
 +	man/systemd-fsckd.8 \
@@ -78,8 +78,8 @@ index 85579e0..d52f445 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -318,6 +321,8 @@ man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
- man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
+@@ -575,6 +578,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
+ man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd@.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
 +man/systemd-fsckd.8: man/systemd-fsckd.service.8
@@ -87,7 +87,7 @@ index 85579e0..d52f445 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -596,6 +601,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1154,6 +1159,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index 85579e0..d52f445 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -1808,6 +1819,7 @@ EXTRA_DIST += \
+@@ -2091,6 +2102,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,10 +109,10 @@ index 85579e0..d52f445 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 51b2dd4..6753812 100644
+index c5a7462..5cad5c7 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -400,6 +400,7 @@ rootlibexec_PROGRAMS = \
+@@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -120,7 +120,7 @@ index 51b2dd4..6753812 100644
  	systemd-machine-id-commit \
  	systemd-ac-power \
  	systemd-sysctl \
-@@ -504,6 +505,7 @@ dist_systemunit_DATA = \
+@@ -501,6 +502,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
  	units/x-.slice \
@@ -128,7 +128,7 @@ index 51b2dd4..6753812 100644
  	units/systemd-initctl.socket \
  	units/syslog.socket \
  	units/dev-hugepages.mount \
-@@ -554,6 +556,7 @@ nodist_systemunit_DATA = \
+@@ -549,6 +551,7 @@ nodist_systemunit_DATA = \
  	units/systemd-kexec.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
@@ -136,7 +136,7 @@ index 51b2dd4..6753812 100644
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -611,6 +614,7 @@ EXTRA_DIST += \
+@@ -606,6 +609,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \
@@ -144,8 +144,8 @@ index 51b2dd4..6753812 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2398,6 +2402,18 @@ systemd_fsck_LDADD = \
- 	libsystemd-shared.la
+@@ -2310,6 +2314,16 @@ systemd_fsck_LDADD = \
+ 	libshared.la
  
  # ------------------------------------------------------------------------------
 +systemd_fsckd_SOURCES = \
@@ -154,8 +154,6 @@ index 51b2dd4..6753812 100644
 +
 +systemd_fsckd_LDADD = \
 +	libsystemd-internal.la \
-+	libsystemd-label.la \
-+	libsystemd-shared.la \
 +	libudev-internal.la \
 +	$(NULL)
 +

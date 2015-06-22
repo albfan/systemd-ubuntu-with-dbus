@@ -5,18 +5,18 @@ Subject: Prefer /etc/X11/default-display-manager if present
 Add a generator to ensure /etc/X11/default-display-manager is controlling
 which display-manager is started.
 ---
- Makefile.am                                        |  11 +-
+ Makefile.am                                        |  10 +-
  src/default-display-manager-generator/Makefile     |  24 +++++
  .../default-display-manager-generator.c            | 112 +++++++++++++++++++++
- 3 files changed, 146 insertions(+), 1 deletion(-)
+ 3 files changed, 145 insertions(+), 1 deletion(-)
  create mode 100644 src/default-display-manager-generator/Makefile
  create mode 100644 src/default-display-manager-generator/default-display-manager-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 618dacb..9380118 100644
+index 625fee8..a833027 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -418,7 +418,8 @@ systemgenerator_PROGRAMS = \
+@@ -415,7 +415,8 @@ systemgenerator_PROGRAMS = \
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
@@ -26,16 +26,15 @@ index 618dacb..9380118 100644
  
  dist_bashcompletion_DATA = \
  	shell-completion/bash/busctl \
-@@ -2439,6 +2440,14 @@ systemd_delta_LDADD = \
- 	libsystemd-shared.la
+@@ -2347,6 +2348,13 @@ systemd_delta_LDADD = \
+ 	libshared.la
  
  # ------------------------------------------------------------------------------
 +systemd_default_display_manager_generator_SOURCES = \
 +    src/default-display-manager-generator/default-display-manager-generator.c
 +
 +systemd_default_display_manager_generator_LDADD = \
-+    libsystemd-label.la \
-+    libsystemd-shared.la
++    libsystemd-internal.la
 +
 +# ------------------------------------------------------------------------------
  systemd_insserv_generator_SOURCES = \

@@ -12,10 +12,10 @@ adjustments to the test suite.
  4 files changed, 38 insertions(+), 10 deletions(-)
 
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index 8db3050..6198680 100644
+index cf76aaf..392ac6b 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
-@@ -304,6 +304,11 @@
+@@ -301,6 +301,11 @@
            target unit for those mounts listed in
            <filename>/etc/fstab</filename> that have the
            <option>auto</option> mount option set.</para>
@@ -145,10 +145,10 @@ index 8022ebd..b2f8b46 100644
                                                          MAX(a*10 + b, service->sysv_start_priority);
                                          }
 diff --git a/test/sysv-generator-test.py b/test/sysv-generator-test.py
-index e74f853..0e0df7b 100644
+index af0493b..aa5c1f2 100644
 --- a/test/sysv-generator-test.py
 +++ b/test/sysv-generator-test.py
-@@ -169,7 +169,7 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -170,7 +170,7 @@ class SysvGeneratorTest(unittest.TestCase):
          # $local_fs does not need translation, don't expect any dependency
          # fields here
          self.assertEqual(set(s.options('Unit')),
@@ -157,7 +157,7 @@ index e74f853..0e0df7b 100644
  
          self.assertEqual(s.get('Service', 'Type'), 'forking')
          init_script = os.path.join(self.init_d_dir, 'foo')
-@@ -236,9 +236,9 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -237,9 +237,9 @@ class SysvGeneratorTest(unittest.TestCase):
                           ['may1.service', 'must1.service', 'must2.service', 'ne_may2.service'])
  
          # other services should not depend on each other
@@ -170,7 +170,7 @@ index e74f853..0e0df7b 100644
  
      def test_symlink_prio_deps(self):
          '''script without LSB headers use rcN.d priority'''
-@@ -268,7 +268,7 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -269,7 +269,7 @@ class SysvGeneratorTest(unittest.TestCase):
          err, results = self.run_generator()
          self.assertEqual(list(results), ['foo.service'])
          self.assertEqual(set(results['foo.service'].options('Unit')),

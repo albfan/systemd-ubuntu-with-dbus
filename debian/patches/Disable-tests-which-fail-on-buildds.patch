@@ -5,14 +5,14 @@ Subject: Disable tests which fail on buildds
 Presumably these are due to running on too old kernels, misconfigured
 /etc/hosts, and similar problems.
 ---
- Makefile.am | 7 -------
- 1 file changed, 7 deletions(-)
+ Makefile.am | 6 ------
+ 1 file changed, 6 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 9380118..1723c34 100644
+index a833027..577dc1b 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -1463,14 +1463,11 @@ tests += \
+@@ -1422,14 +1422,11 @@ tests += \
  	test-capability \
  	test-async \
  	test-ratelimit \
@@ -24,21 +24,18 @@ index 9380118..1723c34 100644
  	test-copy \
 -	test-cap-list \
 -	test-sigbus \
- 	test-verbs
+ 	test-verbs \
+ 	test-dns-domain
  
- EXTRA_DIST += \
-@@ -3173,10 +3170,8 @@ tests += \
+@@ -2999,7 +2996,6 @@ tests += \
  	test-bus-introspect \
  	test-bus-objects \
  	test-bus-error \
 -	test-bus-creds \
  	test-bus-gvariant \
  	test-event \
--	test-rtnl \
- 	test-local-addresses \
- 	test-resolve
- 
-@@ -3516,7 +3511,6 @@ test_lldp_LDADD = \
+ 	test-netlink \
+@@ -3287,7 +3283,6 @@ test_lldp_LDADD = \
  
  tests += \
  	test-dhcp-option \
@@ -46,7 +43,7 @@ index 9380118..1723c34 100644
  	test-dhcp-server \
  	test-ipv4ll \
  	test-icmp6-rs \
-@@ -5924,7 +5918,6 @@ test_network_tables_LDADD += \
+@@ -5372,7 +5367,6 @@ test_network_tables_LDADD += \
  endif
  
  tests += \

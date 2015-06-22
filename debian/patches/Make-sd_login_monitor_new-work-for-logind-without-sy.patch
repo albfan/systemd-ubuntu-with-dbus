@@ -12,7 +12,7 @@ Bug-Ubuntu: https://launchpad.net/bugs/1400203
  1 file changed, 3 insertions(+)
 
 diff --git a/src/libsystemd/sd-login/sd-login.c b/src/libsystemd/sd-login/sd-login.c
-index ed8aa09..227efd9 100644
+index e3885ec..f228aad 100644
 --- a/src/libsystemd/sd-login/sd-login.c
 +++ b/src/libsystemd/sd-login/sd-login.c
 @@ -919,10 +919,13 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {

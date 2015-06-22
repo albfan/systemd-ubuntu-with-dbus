@@ -17,18 +17,18 @@ It has the following modifications:
 
 [0] https://build.opensuse.org/package/view_file/openSUSE:Factory/systemd/insserv-generator.patch
 ---
- Makefile.am                               |   9 +
+ Makefile.am                               |   8 +
  src/insserv-generator/Makefile            |  28 +++
  src/insserv-generator/insserv-generator.c | 329 ++++++++++++++++++++++++++++++
- 3 files changed, 366 insertions(+)
+ 3 files changed, 365 insertions(+)
  create mode 100644 src/insserv-generator/Makefile
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 89d94a0..aa1edd3 100644
+index 936e4ed..6ec8a1d 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -414,6 +414,7 @@ rootlibexec_PROGRAMS += \
+@@ -411,6 +411,7 @@ rootlibexec_PROGRAMS += \
  endif
  
  systemgenerator_PROGRAMS = \
@@ -36,16 +36,15 @@ index 89d94a0..aa1edd3 100644
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
-@@ -2433,6 +2434,14 @@ systemd_delta_LDADD = \
- 	libsystemd-shared.la
+@@ -2341,6 +2342,13 @@ systemd_delta_LDADD = \
+ 	libshared.la
  
  # ------------------------------------------------------------------------------
 +systemd_insserv_generator_SOURCES = \
 +	src/insserv-generator/insserv-generator.c
 +
 +systemd_insserv_generator_LDADD = \
-+	libsystemd-label.la \
-+	libsystemd-shared.la
++	libsystemd-internal.la
 +
 +# ------------------------------------------------------------------------------
  systemd_getty_generator_SOURCES = \
