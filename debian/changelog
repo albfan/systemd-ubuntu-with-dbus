@@ -15,6 +15,9 @@ systemd (221-1) UNRELEASED; urgency=medium
   * Make it possible to skip building udeb packages via
     DEB_BUILD_OPTIONS="noudeb". This allows quicker builds for local testing
     and is benefical for derivatives that don't use d-i.
+  * Install API documentation for libudev and libsystemd in their respective
+    packages. Both libraries use man pages now, so we need to be explicit
+    about what is installed where.
 
   [ Martin Pitt ]
   * ifupdown-hotplug autopkgtest: Different cloud/desktop environments have

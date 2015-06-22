@@ -1,4 +1,5 @@
 usr/lib/*/libsystemd.so
 usr/lib/*/pkgconfig/libsystemd.pc
 usr/include/systemd/
-usr/share/man/man3/
+usr/share/man/man3/sd*
+usr/share/man/man3/SD*
