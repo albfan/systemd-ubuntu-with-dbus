@@ -47,6 +47,8 @@ systemd (225-1ubuntu1) UNRELEASED; urgency=medium
     - systemd Conflicts/Replaces/Provides systemd-services.
     - Remove obsolete systemd-logind upstart job.
     - Clean up obsolete /etc/udev/rules.d/README.
+    - systemd.postinst: Migrate mountall specific fstab options to standard
+      util-linux "nofail" option.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Aug 2015 08:08:12 +0200
 
