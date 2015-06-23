@@ -147,4 +147,20 @@ if dpkg --compare-versions "$2" lt-nl "219-8"; then
        rmdir --ignore-fail-on-non-empty /etc/systemd/system/${t}.target.wants 2> /dev/null || true
    done
 fi
+
+# migrate mountall specific fstab options to standard util-linux "nofail" option
+if dpkg --compare-versions "$2" lt "221-1" && [ -w /etc/fstab ]; then
+    if awk '{ gsub(/^nobootwait/, "nofail", $4); gsub(/,nobootwait/, ",nofail", $4); gsub(/^optional/, "nofail", $4); gsub(/,optional/, ",nofail", $4); print }' /etc/fstab > /etc/fstab.new; then
+        if cmp --quiet /etc/fstab /etc/fstab.new; then
+            rm /etc/fstab.new  # nothing to migrate
+        else
+            echo "Replacing obsolete mountall options in /etc/fstab... (backup in /etc/fstab.mountall)"
+            mv /etc/fstab /etc/fstab.mountall
+            mv /etc/fstab.new /etc/fstab
+        fi
+    else
+        echo "WARNING! Could not create /etc/fstab.new for migrating obsolete mountall options" >&2
+    fi
+fi
+
 #DEBHELPER#
