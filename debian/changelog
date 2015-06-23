@@ -32,6 +32,8 @@ systemd (221-1) UNRELEASED; urgency=medium
   * debian/rules: Fix paths in manpages as we don't currently have a merged
     /usr in Debian but have most systemd things in /lib. This replaces the
     previous huge and maintenance-intense patch.
+  * Drop Accept-mountall-specific-fstab-options.patch. Replaced with
+    systemd.postinst migration code in Ubuntu.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
