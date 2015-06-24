@@ -34,6 +34,8 @@ systemd (221-1) UNRELEASED; urgency=medium
     previous huge and maintenance-intense patch.
   * Drop Accept-mountall-specific-fstab-options.patch. Replaced with
     systemd.postinst migration code in Ubuntu.
+  * Revert overly aggressive USB autosuspend udev rules change which broke
+    various USB keyboards. (Closes: #789723)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
