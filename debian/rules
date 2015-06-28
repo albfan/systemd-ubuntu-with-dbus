@@ -237,6 +237,7 @@ override_dh_installdocs:
 	if ! dpkg-vendor --is ubuntu; then \
 		dh_installdocs -pudev -plibudev-dev --link-doc=libudev1; \
 		install -D --mode 644 debian/udev.README.Debian debian/libudev1/usr/share/doc/libudev1/README.Debian; \
+		install -D --mode 644 debian/udev.NEWS debian/libudev1/usr/share/doc/libudev1/NEWS.Debian; \
 	fi
 	dh_installdocs --remaining-packages
 

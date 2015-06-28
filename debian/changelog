@@ -39,6 +39,8 @@ systemd (221-1) UNRELEASED; urgency=medium
   * Have rc-local.service output also go to the console. /etc/rc.local often
     contains status messages which users expect to see during boot.
     (LP: #1468102)
+  * debian/rules: Install udev.NEWS into libudev1, to get along with Debian's
+    udev -> libudev1 doc dir symlinking. (Closes: #790042)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
 
