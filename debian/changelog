@@ -1,4 +1,4 @@
-systemd (221-1) UNRELEASED; urgency=medium
+systemd (221-1) unstable; urgency=medium
 
   * New upstream release 221:
     - Fix persistent storage links for Xen devices. (LP: #1467151)
@@ -42,7 +42,7 @@ systemd (221-1) UNRELEASED; urgency=medium
   * debian/rules: Install udev.NEWS into libudev1, to get along with Debian's
     udev -> libudev1 doc dir symlinking. (Closes: #790042)
 
- -- Michael Biebl <biebl@debian.org>  Thu, 18 Jun 2015 15:37:54 +0200
+ -- Martin Pitt <mpitt@debian.org>  Sun, 28 Jun 2015 12:05:36 +0200
 
 systemd (220-7) unstable; urgency=medium
 
