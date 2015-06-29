@@ -5,11 +5,11 @@ Subject: Disable tests which fail on buildds
 Presumably these are due to running on too old kernels, misconfigured
 /etc/hosts, and similar problems.
 ---
- Makefile.am | 6 ------
- 1 file changed, 6 deletions(-)
+ Makefile.am | 7 -------
+ 1 file changed, 7 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index a833027..577dc1b 100644
+index a833027..0d70bb1 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -1422,14 +1422,11 @@ tests += \
@@ -27,15 +27,18 @@ index a833027..577dc1b 100644
  	test-verbs \
  	test-dns-domain
  
-@@ -2999,7 +2996,6 @@ tests += \
+@@ -2999,10 +2996,8 @@ tests += \
  	test-bus-introspect \
  	test-bus-objects \
  	test-bus-error \
 -	test-bus-creds \
  	test-bus-gvariant \
  	test-event \
- 	test-netlink \
-@@ -3287,7 +3283,6 @@ test_lldp_LDADD = \
+-	test-netlink \
+ 	test-local-addresses \
+ 	test-resolve
+ 
+@@ -3287,7 +3282,6 @@ test_lldp_LDADD = \
  
  tests += \
  	test-dhcp-option \
@@ -43,7 +46,7 @@ index a833027..577dc1b 100644
  	test-dhcp-server \
  	test-ipv4ll \
  	test-icmp6-rs \
-@@ -5372,7 +5367,6 @@ test_network_tables_LDADD += \
+@@ -5372,7 +5366,6 @@ test_network_tables_LDADD += \
  endif
  
  tests += \
