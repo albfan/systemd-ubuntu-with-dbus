@@ -5,6 +5,8 @@ systemd (221-2) UNRELEASED; urgency=medium
     group already exists as a non-system group you get a sensible error
     message. Some broken tutorials forget the --system option.
     (Closes: #769948, LP: #1455956)
+  * systemd.postinst: Drop the --quiet from the addgroup calls as well, same
+    reason as above. (Closes: #762275)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
