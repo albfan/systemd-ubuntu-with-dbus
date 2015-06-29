@@ -1,6 +1,8 @@
 systemd (221-2) UNRELEASED; urgency=medium
 
   * Disable test-netlink during package build, fails on some buildds.
+  * udev.postinst: Don't fail if "input" group already exists as a non-system
+    group. Some broken tutorials forget the --system option. (LP: #1455956)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
