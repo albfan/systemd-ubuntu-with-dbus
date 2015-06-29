@@ -1,2 +1,3 @@
 rm_conffile /etc/init.d/udev-mtab 204-1~
 rm_conffile /etc/udev/links.conf 204-9~
+symlink_to_dir /usr/share/doc/udev libudev1 221-2~
