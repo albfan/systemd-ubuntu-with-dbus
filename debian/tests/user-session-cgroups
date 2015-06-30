@@ -1,0 +1,16 @@
+#!/bin/sh
+# Check that all user session cgroup directories are writable so that
+# unprivileged LXC user containers work
+# See core-Put-session-scopes-into-all-cgroup-controllers.patch
+
+set -e
+echo "---- cgroups for session $XDG_SESSION_ID -----"
+cat /proc/self/cgroup
+echo "----------------------------------------------"
+
+for controller in $(find /sys/fs/cgroup/ -mindepth 1 -maxdepth 1 ! -type l -! -name cgmanager ! -name systemd); do
+    echo "checking $(basename $controller)..."
+    cgpath=$(awk -F: "{if (\$2 == \"$(basename $controller)\") print \"/sys/fs/cgroup/\"\$2\$3 }" /proc/self/cgroup)
+    mkdir "$cgpath/mysubgroup"
+    rmdir "$cgpath/mysubgroup"
+done

@@ -51,6 +51,9 @@ systemd (222-1ubuntu1) UNRELEASED; urgency=medium
 
   * systemd.postinst: Migrate mountall specific fstab options to standard
     util-linux "nofail" option.
+  * Add autopkgtest for user session cgroup permissions. This covers our "Put
+    session scopes into all cgroup controllers" patch for unprivileged LXC
+    containers.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 28 Jun 2015 12:30:17 +0200
 
