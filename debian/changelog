@@ -54,6 +54,10 @@ systemd (222-1ubuntu1) UNRELEASED; urgency=medium
   * Add autopkgtest for user session cgroup permissions. This covers our "Put
     session scopes into all cgroup controllers" patch for unprivileged LXC
     containers.
+  * core-Put-session-scopes-into-all-cgroup-controllers.patch: Update
+    unit_get_cgroup_mask() to declare that user session scope units want all
+    cgroup controllers, to avoid resetting them. This re-fixes user LXC
+    containers. (LP: #1470060)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 28 Jun 2015 12:30:17 +0200
 

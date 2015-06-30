@@ -24,9 +24,9 @@ https://launchpad.net/bugs/1346734
 ---
  src/basic/cgroup-util.c | 56 ++++++++++++++++++++++++++++++++++++++++++++++++-
  src/basic/cgroup-util.h | 20 ++++++++++++------
- src/core/cgroup.c       |  4 ++++
+ src/core/cgroup.c       |  9 ++++++++
  src/core/scope.c        | 15 +++++++++++++
- 4 files changed, 88 insertions(+), 7 deletions(-)
+ 4 files changed, 93 insertions(+), 7 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
 index cb12dde..0b35bb2 100644
@@ -155,10 +155,22 @@ index fd72e9e..977e7aa 100644
  int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
  int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index c7533fe..fffd49b 100644
+index c7533fe..1a61cf9 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -957,6 +957,10 @@ int manager_setup_cgroup(Manager *m) {
+@@ -508,6 +508,11 @@ CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
+                         return _CGROUP_CONTROLLER_MASK_ALL;
+         }
+ 
++        if (u->type == UNIT_SCOPE && UNIT_ISSET(u->slice) && startswith(UNIT_DEREF(u->slice)->id, "user-")) {
++                log_unit_debug(u, "Putting user session scope into all cgroup controllers for LXC user containers");
++                return u->manager->cgroup_supported;
++        }
++
+         return cgroup_context_get_mask(c);
+ }
+ 
+@@ -957,6 +962,10 @@ int manager_setup_cgroup(Manager *m) {
  
                  /* 6.  Always enable hierarchical support if it exists... */
                  cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
