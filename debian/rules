@@ -201,6 +201,12 @@ endif
 	rm debian/systemd/usr/share/man/man8/runlevel.8
 	# files shipped by libpam-systemd
 	rm debian/systemd/usr/share/man/man8/pam_systemd.8
+	# files shipped by libnss-myhostname
+	rm debian/systemd/usr/share/man/man8/libnss_myhostname.so.2.8
+	rm debian/systemd/usr/share/man/man8/nss-myhostname.8
+	# files shipped by libnss-mymachines
+	rm debian/systemd/usr/share/man/man8/libnss_mymachines.so.2.8
+	rm debian/systemd/usr/share/man/man8/nss-mymachines.8
 	# files shipped by udev
 	rm -r debian/systemd/etc/udev/
 	rm debian/systemd/lib/systemd/system/systemd-udev*
@@ -208,12 +214,15 @@ endif
 	rm debian/systemd/lib/systemd/system/*.target.wants/systemd-udev*
 	rm debian/systemd/lib/systemd/system/*.target.wants/*hwdb*
 	rm debian/systemd/lib/systemd/systemd-udevd
+	rm debian/systemd/usr/share/man/man5/udev.conf.5
+	rm debian/systemd/usr/share/man/man7/hwdb.7
 	rm debian/systemd/usr/share/man/man7/udev.7
-	rm debian/systemd/usr/share/man/man7/*hwdb*.7
-	rm debian/systemd/usr/share/man/man8/*udev*.8
-	rm debian/systemd/usr/share/man/man8/*hwdb*.8
+	rm debian/systemd/usr/share/man/man8/systemd-hwdb*
+	rm debian/systemd/usr/share/man/man8/systemd-udevd*
+	rm debian/systemd/usr/share/man/man8/udevadm.8
+	rm debian/systemd/usr/share/zsh/vendor-completions/_udevadm
 	rm debian/systemd/usr/share/bash-completion/completions/udevadm
-	# files systemd by cryptsetup
+	# files shipped by cryptsetup
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 	rm debian/systemd/usr/share/man/man5/crypttab.5
 endif

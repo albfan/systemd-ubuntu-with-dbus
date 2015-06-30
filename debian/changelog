@@ -38,6 +38,10 @@ systemd (222-1) UNRELEASED; urgency=medium
     source package upstream and are now built from src:python-systemd. See
     http://lists.freedesktop.org/archives/systemd-devel/2015-July/033443.html
   * Remove obsolete --disable-chkconfig configure option.
+  * Move the man pages for libnss-myhostname, libnss-mymachines and udev.conf
+    from systemd into the correct package. Move the zsh completion file for
+    udevadm into the udev package as well. Add Breaks/Replaces accordingly.
+    (Closes: #790879)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 

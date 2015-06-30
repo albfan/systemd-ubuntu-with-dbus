@@ -7,11 +7,14 @@ lib/systemd/system/*.target.wants/*hwdb*
 lib/systemd/systemd-udevd
 bin/udevadm
 bin/systemd-hwdb
+usr/share/man/man5/udev.conf.5
+usr/share/man/man7/hwdb.7
 usr/share/man/man7/udev.7
-usr/share/man/man7/*hwdb*.7
-usr/share/man/man8/*udev*.8
-usr/share/man/man8/*hwdb*.8
+usr/share/man/man8/systemd-hwdb*
+usr/share/man/man8/systemd-udevd*
+usr/share/man/man8/udevadm.8
 usr/share/bash-completion/completions/udevadm
+usr/share/zsh/vendor-completions/_udevadm
 usr/share/pkgconfig/udev.pc
 ../../extra/initramfs-tools usr/share/
 ../../extra/rules/*.rules lib/udev/rules.d/
