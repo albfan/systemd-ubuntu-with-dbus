@@ -14,6 +14,10 @@ systemd (221-2) UNRELEASED; urgency=medium
     the link check, to also avoid libeatmydata. (Closes: #790546)
   * boot-and-services, display-managers autopkgtests: Install and configure
     dummy X.org driver, so that these work in headless machines/VMs.
+  * systemd-fsckd autopkgtest: Stop using/asserting on lightdm, just check
+    that default.target is active. lightdm is prone to fail in test
+    environments, and fiddling with it in two other autopkgtests is
+    sufficient.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 

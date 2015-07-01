@@ -186,12 +186,9 @@ class FsckdTest(unittest.TestCase):
             self.assertFalse(self.was_running('plymouth-start'))
 
     def assertSystemRunning(self):
-        '''Assert we started lightdm and xorg (and so, consider the system running)'''
-        out = subprocess.check_output(['ps', 'u', '-C', 'lightdm'])
-        self.assertIn(b'lightdm --session', out)
-        out = subprocess.check_output(['ps', 'u', '-C', 'Xorg'])
-        self.assertIn(b':0', out)
-        self.assertTrue(self.is_active_unit('lightdm'))
+        '''Assert that the system is running'''
+
+        self.assertTrue(self.is_active_unit('default.target'))
 
     def assertProcessKilled(self):
         '''Assert the targeted process was killed successfully'''
