@@ -27,6 +27,15 @@ class DisplayManagersTest(unittest.TestCase):
             os.remove(SYSTEMD_DEFAULT_DM_PATH)
         with suppress(FileNotFoundError):
             os.remove(DDM_CONFIG_PATH)
+
+        # allow X to start even on headless machines
+        os.makedirs('/etc/X11/xorg.conf.d/', exist_ok=True)
+        with open('/etc/X11/xorg.conf.d/dummy.conf', 'w') as f:
+            f.write('''Section "Device"
+        Identifier "test"
+        Driver "dummy"
+EndSection''')
+
         subprocess.check_call('apt-get install -y --reinstall lightdm 2>&1', shell=True)
         # prepare lightdm unit to be a mock one, just a sleeping process
         for line in fileinput.input([LIGHTDM_SYSTEMD_UNIT_PATH], inplace=True):

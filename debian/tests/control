@@ -22,7 +22,7 @@ Tests: python3
 Depends: python3-systemd
 
 Tests: boot-and-services
-Depends: systemd-sysv, lightdm, cron, network-manager, busybox-static, apparmor, python3
+Depends: systemd-sysv, xserver-xorg-video-dummy, lightdm, cron, network-manager, busybox-static, apparmor, python3
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
 
 Tests: ifupdown-hotplug
@@ -34,7 +34,7 @@ Depends: systemd-sysv, cron, network-manager, python3
 Restrictions: needs-root, isolation-machine, breaks-testbed
 
 Tests: display-managers
-Depends: systemd-sysv, lightdm, python3
+Depends: systemd-sysv, lightdm, xserver-xorg-video-dummy, python3
 Restrictions: needs-root, isolation-machine, breaks-testbed
 
 Tests: boot-smoke

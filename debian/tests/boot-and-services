@@ -428,6 +428,14 @@ def pre_boot_setup():
     finally:
         time.clock_settime(time.CLOCK_REALTIME, cur_time)
 
+    # allow X to start even on headless machines
+    os.makedirs('/etc/X11/xorg.conf.d/', exist_ok=True)
+    with open('/etc/X11/xorg.conf.d/dummy.conf', 'w') as f:
+        f.write('''Section "Device"
+        Identifier "test"
+        Driver "dummy"
+EndSection''')
+
 
 if __name__ == '__main__':
     if not os.getenv('ADT_REBOOT_MARK'):
