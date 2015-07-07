@@ -18,9 +18,6 @@ Tests: build-login
 Depends: libsystemd-dev, build-essential, pkg-config
 Restrictions: isolation-container
 
-Tests: python3
-Depends: python3-systemd
-
 Tests: boot-and-services
 Depends: systemd-sysv, xserver-xorg-video-dummy, lightdm, cron, network-manager, busybox-static, apparmor, python3
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed

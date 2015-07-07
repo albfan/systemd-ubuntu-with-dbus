@@ -36,6 +36,7 @@ CONFFLAGS = \
 	--disable-importd \
 	--disable-libiptc \
 	--disable-silent-rules \
+	--disable-python-devel \
 	--with-ntp-servers="$(DEFAULT_NTP_SERVERS)"  \
 	--with-system-uid-max=999 \
 	--with-system-gid-max=999
@@ -275,4 +276,4 @@ dh_options = -Nudev-udeb -Nlibudev1-udeb
 endif
 
 %:
-	dh $@ $(dh_options) --with autoreconf,python3 --parallel
+	dh $@ $(dh_options) --with autoreconf --parallel

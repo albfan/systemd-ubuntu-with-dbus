@@ -10,7 +10,6 @@ Uploaders: Michael Biebl <biebl@debian.org>,
 Standards-Version: 3.9.6
 Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-systemd/systemd.git
-X-Python3-Version: >= 3.1
 Homepage: http://www.freedesktop.org/wiki/Software/systemd
 Build-Depends: debhelper (>= 9),
                pkg-config,
@@ -37,7 +36,7 @@ Build-Depends: debhelper (>= 9),
                libblkid-dev (>= 2.24),
                libmount-dev (>= 2.20),
                libseccomp-dev (>= 1.0.0) [amd64 arm64 armel armhf i386 mips mipsel],
-               python3-all-dev,
+               python3,
                python3-lxml
 
 Package: systemd
@@ -338,16 +337,6 @@ Description: libudev shared library
  This library provides access to udev device information.
  .
  This is a minimal version, only for use in the installation system.
-
-Package: python3-systemd
-Section: python
-Priority: optional
-Architecture: linux-any
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         ${python3:Depends}
-Description: Python 3 bindings for systemd
- This package contains Python 3 bindings for the systemd libraries.
 
 Package: systemd-dbg
 Architecture: linux-any
