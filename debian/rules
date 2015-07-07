@@ -23,7 +23,6 @@ CONFFLAGS = \
 	--enable-split-usr \
 	--disable-qrencode \
 	--disable-microhttpd \
-	--disable-chkconfig \
 	--disable-gnutls \
 	--disable-libcurl \
 	--disable-libidn \

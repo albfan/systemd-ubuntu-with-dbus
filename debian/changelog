@@ -37,6 +37,7 @@ systemd (222-1) UNRELEASED; urgency=medium
   * Stop building the Python 3 bindings. They were split into a separate
     source package upstream and are now built from src:python-systemd. See
     http://lists.freedesktop.org/archives/systemd-devel/2015-July/033443.html
+  * Remove obsolete --disable-chkconfig configure option.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
