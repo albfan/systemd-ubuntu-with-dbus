@@ -58,10 +58,10 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index 76c9389..0a0e513 100644
+index 74a1f4c..8a97ebd 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
-@@ -93,6 +93,7 @@ MANPAGES += \
+@@ -92,6 +92,7 @@ MANPAGES += \
  	man/systemd-efi-boot-generator.8 \
  	man/systemd-escape.1 \
  	man/systemd-fsck@.service.8 \
@@ -69,7 +69,7 @@ index 76c9389..0a0e513 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -328,6 +329,8 @@ MANPAGES_ALIAS += \
+@@ -326,6 +327,8 @@ MANPAGES_ALIAS += \
  	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -78,8 +78,8 @@ index 76c9389..0a0e513 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -575,6 +578,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
- man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd@.service.8
+@@ -573,6 +576,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
+ man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
 +man/systemd-fsckd.8: man/systemd-fsckd.service.8
@@ -87,7 +87,7 @@ index 76c9389..0a0e513 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -1154,6 +1159,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1152,6 +1157,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index 76c9389..0a0e513 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -2091,6 +2102,7 @@ EXTRA_DIST += \
+@@ -2099,6 +2110,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,10 +109,10 @@ index 76c9389..0a0e513 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 87fdb8b..c76f8f4 100644
+index fcc769b..c65fec0 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
+@@ -396,6 +396,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -144,7 +144,7 @@ index 87fdb8b..c76f8f4 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2310,6 +2314,16 @@ systemd_fsck_LDADD = \
+@@ -2320,6 +2324,16 @@ systemd_fsck_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------

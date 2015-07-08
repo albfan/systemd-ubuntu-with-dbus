@@ -8,7 +8,7 @@ Bug-Debian: https://bugs.debian.org/775903
  1 file changed, 3 insertions(+)
 
 diff --git a/src/basic/util.c b/src/basic/util.c
-index 727be56..657d308 100644
+index aa912bd..7feccf7 100644
 --- a/src/basic/util.c
 +++ b/src/basic/util.c
 @@ -1328,6 +1328,9 @@ _pure_ static bool hidden_file_allow_backup(const char *filename) {

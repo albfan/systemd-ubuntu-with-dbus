@@ -1,5 +1,11 @@
-systemd (221-2) UNRELEASED; urgency=medium
+systemd (222-1) UNRELEASED; urgency=medium
 
+  * New upstream release:
+    - Fix reload killing BusName= units. (Closes: #746151)
+    - sysv-generator: detect invalid names and escape them. (Closes: #677075)
+    - Document removal of PIDFile on daemon shutdown. (Closes: #734006)
+    - Drop Revert-rules-fix-tests-for-removable-state.patch, the auto-suspend
+      rules now got dropped entirely.
   * Disable test-netlink during package build, fails on some buildds.
   * udev.postinst: Don't call addgroup with --quiet, so that if the "input"
     group already exists as a non-system group you get a sensible error

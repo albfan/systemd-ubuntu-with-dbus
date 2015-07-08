@@ -41,7 +41,7 @@ index 109f731..969bb6a 100644
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 8022ebd..b2f8b46 100644
+index 177bd85..f8862d7 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -38,6 +38,7 @@
@@ -93,7 +93,7 @@ index 8022ebd..b2f8b46 100644
                  yes_no(!s->pid_file));
  
          if (s->pid_file)
-@@ -266,16 +274,22 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -267,16 +275,22 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */
@@ -118,7 +118,7 @@ index 8022ebd..b2f8b46 100644
          };
  
          char *filename_no_sh, *e, *r;
-@@ -694,6 +708,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
+@@ -700,6 +714,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
                  if (s->has_lsb && other->has_lsb)
                          continue;
  
@@ -130,7 +130,7 @@ index 8022ebd..b2f8b46 100644
                  if (other->sysv_start_priority < s->sysv_start_priority) {
                          r = strv_extend(&s->after, other->name);
                          if (r < 0)
-@@ -855,8 +874,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
+@@ -861,8 +880,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                  }
  
                                  if (de->d_name[0] == 'S')  {
@@ -145,7 +145,7 @@ index 8022ebd..b2f8b46 100644
                                                          MAX(a*10 + b, service->sysv_start_priority);
                                          }
 diff --git a/test/sysv-generator-test.py b/test/sysv-generator-test.py
-index af0493b..aa5c1f2 100644
+index 721e53a..4f01e8c 100644
 --- a/test/sysv-generator-test.py
 +++ b/test/sysv-generator-test.py
 @@ -170,7 +170,7 @@ class SysvGeneratorTest(unittest.TestCase):
@@ -157,7 +157,7 @@ index af0493b..aa5c1f2 100644
  
          self.assertEqual(s.get('Service', 'Type'), 'forking')
          init_script = os.path.join(self.init_d_dir, 'foo')
-@@ -237,9 +237,9 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -246,9 +246,9 @@ class SysvGeneratorTest(unittest.TestCase):
                           ['may1.service', 'must1.service', 'must2.service', 'ne_may2.service'])
  
          # other services should not depend on each other
@@ -170,7 +170,7 @@ index af0493b..aa5c1f2 100644
  
      def test_symlink_prio_deps(self):
          '''script without LSB headers use rcN.d priority'''
-@@ -269,7 +269,7 @@ class SysvGeneratorTest(unittest.TestCase):
+@@ -278,7 +278,7 @@ class SysvGeneratorTest(unittest.TestCase):
          err, results = self.run_generator()
          self.assertEqual(list(results), ['foo.service'])
          self.assertEqual(set(results['foo.service'].options('Unit')),
