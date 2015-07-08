@@ -1,4 +1,4 @@
-systemd (222-1) UNRELEASED; urgency=medium
+systemd (222-1) unstable; urgency=medium
 
   [ Martin Pitt ]
   * New upstream release:
@@ -47,7 +47,7 @@ systemd (222-1) UNRELEASED; urgency=medium
     necessary.
   * Fix cleanup rule for Python byte code files.
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
+ -- Michael Biebl <biebl@debian.org>  Wed, 08 Jul 2015 18:56:07 +0200
 
 systemd (221-1) unstable; urgency=medium
 
