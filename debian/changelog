@@ -42,6 +42,9 @@ systemd (222-1) UNRELEASED; urgency=medium
     from systemd into the correct package. Move the zsh completion file for
     udevadm into the udev package as well. Add Breaks/Replaces accordingly.
     (Closes: #790879)
+  * Drop rules which remove pre-generated files before build. The upstream
+    tarball no longer ships any pre-generated files so this is no longer
+    necessary.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
