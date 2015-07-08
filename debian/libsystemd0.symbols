@@ -8,6 +8,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  LIBSYSTEMD_219@LIBSYSTEMD_219 219
  LIBSYSTEMD_220@LIBSYSTEMD_220 220
  LIBSYSTEMD_221@LIBSYSTEMD_221 221
+ LIBSYSTEMD_222@LIBSYSTEMD_222 222
  sd_booted@LIBSYSTEMD_209 0
  sd_bus_add_fallback@LIBSYSTEMD_221 221
  sd_bus_add_fallback_vtable@LIBSYSTEMD_221 221
@@ -71,6 +72,8 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_bus_emit_interfaces_added_strv@LIBSYSTEMD_221 221
  sd_bus_emit_interfaces_removed@LIBSYSTEMD_221 221
  sd_bus_emit_interfaces_removed_strv@LIBSYSTEMD_221 221
+ sd_bus_emit_object_added@LIBSYSTEMD_222 222
+ sd_bus_emit_object_removed@LIBSYSTEMD_222 222
  sd_bus_emit_properties_changed@LIBSYSTEMD_221 221
  sd_bus_emit_properties_changed_strv@LIBSYSTEMD_221 221
  sd_bus_emit_signal@LIBSYSTEMD_221 221
@@ -87,6 +90,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_bus_error_set_errnofv@LIBSYSTEMD_221 221
  sd_bus_error_setf@LIBSYSTEMD_221 221
  sd_bus_flush@LIBSYSTEMD_221 221
+ sd_bus_flush_close_unref@LIBSYSTEMD_222 222
  sd_bus_get_address@LIBSYSTEMD_221 221
  sd_bus_get_allow_interactive_authorization@LIBSYSTEMD_221 221
  sd_bus_get_bus_id@LIBSYSTEMD_221 221

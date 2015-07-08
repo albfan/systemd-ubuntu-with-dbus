@@ -8,6 +8,7 @@ systemd (222-1) UNRELEASED; urgency=medium
       rules now got dropped entirely.
   * Add Revert-VT-reuse-patches.patch: Revert a couple of logind VT reuse
     patches which alternately broke lightdm and gdm.
+  * debian/libsystemd0.symbols: Add new symbols from this release.
   * Disable test-netlink during package build, fails on some buildds.
   * udev.postinst: Don't call addgroup with --quiet, so that if the "input"
     group already exists as a non-system group you get a sensible error
