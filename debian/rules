@@ -129,7 +129,7 @@ ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 endif
 	rm -rf debian/install/
 	# remove Python byte code files
-	rm -f *.pyc
+	rm -rf tools/__pycache__/
 
 override_dh_install:
 	# remove unnecessary / unused files

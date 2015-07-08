@@ -45,6 +45,7 @@ systemd (222-1) UNRELEASED; urgency=medium
   * Drop rules which remove pre-generated files before build. The upstream
     tarball no longer ships any pre-generated files so this is no longer
     necessary.
+  * Fix cleanup rule for Python byte code files.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
