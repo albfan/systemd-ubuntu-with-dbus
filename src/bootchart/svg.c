@@ -69,15 +69,13 @@ static double esize = 0;
 static struct list_sample_data *sampledata;
 static struct list_sample_data *prev_sampledata;
 
-static void svg_header(FILE *of, struct list_sample_data *head, double graph_start) {
+static void svg_header(FILE *of, struct list_sample_data *head, double graph_start, int n_cpus) {
         double w;
         double h;
         struct list_sample_data *sampledata_last;
 
         assert(head);
 
-        sampledata = head;
-        LIST_FIND_TAIL(link, sampledata, head);
         sampledata_last = head;
         LIST_FOREACH_BEFORE(link, sampledata, head) {
                 sampledata_last = sampledata;
@@ -90,7 +88,7 @@ static void svg_header(FILE *of, struct list_sample_data *head, double graph_sta
         /* height is variable based on pss, psize, ksize */
         h = 400.0 + (arg_scale_y * 30.0) /* base graphs and title */
             + (arg_pss ? (100.0 * arg_scale_y) + (arg_scale_y * 7.0) : 0.0) /* pss estimate */
-            + psize + ksize + esize;
+            + psize + ksize + esize + (n_cpus * 15 * arg_scale_y);
 
         fprintf(of, "<?xml version=\"1.0\" standalone=\"no\"?>\n");
         fprintf(of, "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" ");
@@ -174,7 +172,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
 
                 r = read_one_line_file(filename, &model);
                 if (r < 0)
-                        log_warning("Error reading disk model for %s: %m\n", rootbdev);
+                        log_info("Error reading disk model for %s: %m\n", rootbdev);
         }
 
         /* various utsname parameters */
@@ -210,7 +208,8 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"50\">System: %s %s %s %s</text>\n",
                 uts.sysname, uts.release, uts.version, uts.machine);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"65\">CPU: %s</text>\n", cpu);
-        fprintf(of, "<text class=\"t2\" x=\"20\" y=\"80\">Disk: %s</text>\n", model);
+        if (model)
+                fprintf(of, "<text class=\"t2\" x=\"20\" y=\"80\">Disk: %s</text>\n", model);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"95\">Boot options: %s</text>\n", cmdline);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"110\">Build: %s</text>\n", build);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"125\">Log start time: %.03fs</text>\n", log_start);
@@ -1296,6 +1295,8 @@ int svg_do(FILE *of,
         double offset = 7;
         int r, c;
 
+        sampledata = head;
+        LIST_FIND_TAIL(link, sampledata, head);
         ps = ps_first;
 
         /* count initcall thread count first */
@@ -1314,7 +1315,7 @@ int svg_do(FILE *of,
         esize = (arg_entropy ? arg_scale_y * 7 : 0);
 
         /* after this, we can draw the header with proper sizing */
-        svg_header(of, head, graph_start);
+        svg_header(of, head, graph_start, arg_percpu ? n_cpus : 0);
         fprintf(of, "<rect class=\"bg\" width=\"100%%\" height=\"100%%\" />\n\n");
 
         fprintf(of, "<g transform=\"translate(10,400)\">\n");

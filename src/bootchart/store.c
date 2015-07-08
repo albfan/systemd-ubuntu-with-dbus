@@ -37,6 +37,7 @@
 #include "store.h"
 #include "bootchart.h"
 #include "cgroup-util.h"
+#include "fileio.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase
@@ -97,13 +98,14 @@ int log_sample(DIR *proc,
                int *cpus) {
 
         static int vmstat = -1;
-        static int schedstat = -1;
+        _cleanup_free_ char *buf_schedstat = NULL;
         char buf[4096];
         char key[256];
         char val[256];
         char rt[256];
         char wt[256];
         char *m;
+        int r;
         int c;
         int p;
         int mod;
@@ -115,6 +117,7 @@ int log_sample(DIR *proc,
         struct list_sample_data *sampledata;
         struct ps_sched_struct *ps_prev = NULL;
         int procfd;
+        int taskfd = -1;
 
         sampledata = *ptr;
 
@@ -155,27 +158,13 @@ vmstat_next:
                         break;
         }
 
-        if (schedstat < 0) {
-                /* overall CPU utilization */
-                schedstat = openat(procfd, "schedstat", O_RDONLY|O_CLOEXEC);
-                if (schedstat < 0)
-                        return log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
-        }
+        /* Parse "/proc/schedstat" for overall CPU utilization */
+        r = read_full_file("/proc/schedstat", &buf_schedstat, NULL);
+        if (r < 0)
+            return log_error_errno(r, "Unable to read schedstat: %m");
 
-        n = pread(schedstat, buf, sizeof(buf) - 1, 0);
-        if (n <= 0) {
-                schedstat = safe_close(schedstat);
-                if (n < 0)
-                        return -errno;
-                return -ENODATA;
-        }
-
-        buf[n] = '\0';
-
-        m = buf;
+        m = buf_schedstat;
         while (m) {
-                int r;
-
                 if (sscanf(m, "%s %*s %*s %*s %*s %*s %*s %s %s", key, rt, wt) < 3)
                         goto schedstat_next;
 
@@ -237,7 +226,6 @@ schedstat_next:
                         _cleanup_fclose_ FILE *st = NULL;
                         char t[32];
                         struct ps_struct *parent;
-                        int r;
 
                         ps->next_ps = new0(struct ps_struct, 1);
                         if (!ps->next_ps)
@@ -408,6 +396,62 @@ schedstat_next:
                 ps_prev = ps->sample;
                 ps->total = (ps->last->runtime - ps->first->runtime)
                             / 1000000000.0;
+
+                /* Take into account CPU runtime/waittime spent in non-main threads of the process
+                 * by parsing "/proc/[pid]/task/[tid]/schedstat" for all [tid] != [pid]
+                 * See https://github.com/systemd/systemd/issues/139
+                 */
+
+                /* Browse directory "/proc/[pid]/task" to know the thread ids of process [pid] */
+                snprintf(filename, sizeof(filename), PID_FMT "/task", pid);
+                taskfd = openat(procfd, filename, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                if (taskfd >= 0) {
+                        _cleanup_closedir_ DIR *taskdir = NULL;
+
+                        taskdir = fdopendir(taskfd);
+                        if (!taskdir) {
+                                safe_close(taskfd);
+                                return -errno;
+                        }
+                        FOREACH_DIRENT(ent, taskdir, break) {
+                                int tid = -1;
+                                _cleanup_close_ int tid_schedstat = -1;
+                                long long delta_rt;
+                                long long delta_wt;
+
+                                if ((ent->d_name[0] < '0') || (ent->d_name[0] > '9'))
+                                        continue;
+
+                                /* Skip main thread as it was already accounted */
+                                r = safe_atoi(ent->d_name, &tid);
+                                if (r < 0 || tid == pid)
+                                        continue;
+
+                                /* Parse "/proc/[pid]/task/[tid]/schedstat" */
+                                snprintf(filename, sizeof(filename), PID_FMT "/schedstat", tid);
+                                tid_schedstat = openat(taskfd, filename, O_RDONLY|O_CLOEXEC);
+
+                                if (tid_schedstat == -1)
+                                        continue;
+
+                                s = pread(tid_schedstat, buf, sizeof(buf) - 1, 0);
+                                if (s <= 0)
+                                        continue;
+                                buf[s] = '\0';
+
+                                if (!sscanf(buf, "%s %s %*s", rt, wt))
+                                        continue;
+
+                                r = safe_atolli(rt, &delta_rt);
+                                if (r < 0)
+                                    continue;
+                                r = safe_atolli(rt, &delta_wt);
+                                if (r < 0)
+                                    continue;
+                                ps->sample->runtime  += delta_rt;
+                                ps->sample->waittime += delta_wt;
+                        }
+                }
 
                 if (!arg_pss)
                         goto catch_rename;

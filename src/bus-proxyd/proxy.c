@@ -45,7 +45,7 @@
 #include "formats-util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
-        _cleanup_bus_close_unref_ sd_bus *b = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
         int r;
 
         r = sd_bus_new(&b);
@@ -101,7 +101,7 @@ static int proxy_create_destination(Proxy *p, const char *destination, const cha
 }
 
 static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fds) {
-        _cleanup_bus_close_unref_ sd_bus *b = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
         sd_id128_t server_id;
         int r;
 
@@ -144,6 +144,10 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         return 0;
 }
 
+/*
+ * dbus-1 clients receive NameOwnerChanged and directed signals without
+ * subscribing to them; install the matches to receive them on kdbus.
+ */
 static int proxy_prepare_matches(Proxy *p) {
         _cleanup_free_ char *match = NULL;
         const char *unique;
@@ -188,6 +192,20 @@ static int proxy_prepare_matches(Proxy *p) {
         r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for NameAcquired: %m");
+
+        free(match);
+        match = strjoin("type='signal',"
+                        "destination='",
+                        unique,
+                        "'",
+                        NULL);
+        if (!match)
+                return log_oom();
+
+        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
+        if (r < 0)
+                log_error_errno(r, "Failed to add match for directed signals: %m");
+                /* FIXME: temporarily ignore error to support older kdbus versions */
 
         return 0;
 }
@@ -238,8 +256,8 @@ Proxy *proxy_free(Proxy *p) {
         if (!p)
                 return NULL;
 
-        sd_bus_close_unrefp(&p->local_bus);
-        sd_bus_close_unrefp(&p->destination_bus);
+        sd_bus_flush_close_unref(p->local_bus);
+        sd_bus_flush_close_unref(p->destination_bus);
         set_free_free(p->owned_names);
         free(p);
 
@@ -494,7 +512,16 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 }
 
                 /* First check if we (the sender) can send to this name */
-                if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, destination_names, m->path, m->interface, m->member, true, &n)) {
+                if (sd_bus_message_is_signal(m, NULL, NULL)) {
+                        /* If we forward a signal from dbus-1 to kdbus, we have
+                         * no idea who the recipient is. Therefore, we cannot
+                         * apply any dbus-1 policies that match on receiver
+                         * credentials. We know sd-bus always sets
+                         * KDBUS_MSG_SIGNAL, so the kernel applies policies to
+                         * the message. Therefore, skip policy checks in this
+                         * case. */
+                        return 0;
+                } else if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, destination_names, m->path, m->interface, m->member, true, &n)) {
                         if (n) {
                                 /* If we made a receiver decision, then remember which
                                  * name's policy we used, and to which unique ID it
@@ -512,19 +539,8 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                                         return r;
                         }
 
-                        if (sd_bus_message_is_signal(m, NULL, NULL)) {
-                                /* If we forward a signal from dbus-1 to kdbus,
-                                 * we have no idea who the recipient is.
-                                 * Therefore, we cannot apply any dbus-1
-                                 * receiver policies that match on receiver
-                                 * credentials. We know sd-bus always sets
-                                 * KDBUS_MSG_SIGNAL, so the kernel applies
-                                 * receiver policies to the message. Therefore,
-                                 * skip policy checks in this case. */
+                        if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, owned_names, NULL, m->path, m->interface, m->member, true))
                                 return 0;
-                        } else if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, owned_names, NULL, m->path, m->interface, m->member, true)) {
-                                return 0;
-                        }
                 }
 
                 /* Return an error back to the caller */
