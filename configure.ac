@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [221],
+        [222],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -673,8 +673,14 @@ fi
 
 AC_ARG_WITH(smack-run-label,
 AS_HELP_STRING([--with-smack-run-label=STRING],
-        [run systemd --system with a specific SMACK label]),
-        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run with a smack label])],
+        [run systemd --system itself with a specific SMACK label]),
+        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run systemd itself with SMACK label])],
+        [])
+
+AC_ARG_WITH(smack-default-process-label,
+AS_HELP_STRING([--with-smack-default-process-label=STRING],
+        [default SMACK label for executed processes]),
+        [AC_DEFINE_UNQUOTED(SMACK_DEFAULT_PROCESS_LABEL, ["$withval"], [Default SMACK label for executed processes])],
         [])
 
 if test "x${have_smack}" = xyes ; then

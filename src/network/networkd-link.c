@@ -116,6 +116,16 @@ static bool link_ipv6_forward_enabled(Link *link) {
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
+static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
+
+        if (!link->network)
+                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
+
+        return link->network->ipv6_privacy_extensions;
+}
+
 #define FLAG_STRING(string, flag, old, new) \
         (((old ^ new) & flag) \
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
@@ -1360,8 +1370,7 @@ static int link_joined(Link *link) {
         return link_enter_set_addresses(link);
 }
 
-static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                               void *userdata) {
+static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -1474,21 +1483,62 @@ static int link_enter_join_netdev(Link *link) {
 }
 
 static int link_set_ipv4_forward(Link *link) {
-        const char *p = NULL;
+        const char *p = NULL, *v;
         int r;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
 
         if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
-        r = write_string_file_no_create(p, one_zero(link_ipv4_forward_enabled(link)));
-        if (r < 0)
+        v = one_zero(link_ipv4_forward_enabled(link));
+
+        r = write_string_file_no_create(p, v);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, v) > 0)
+                        return 0;
+
                 log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
+        }
 
         return 0;
 }
 
 static int link_set_ipv6_forward(Link *link) {
+        const char *p = NULL, *v = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
+        v = one_zero(link_ipv6_forward_enabled(link));
+
+        r = write_string_file_no_create(p, v);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, v) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
+        }
+
+        return 0;
+}
+
+static int link_set_ipv6_privacy_extensions(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        IPv6PrivacyExtensions s;
         const char *p = NULL;
         int r;
 
@@ -1496,13 +1546,21 @@ static int link_set_ipv6_forward(Link *link) {
         if (!socket_ipv6_is_supported())
                 return 0;
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+        s = link_ipv6_privacy_extensions(link);
+        if (s == _IPV6_PRIVACY_EXTENSIONS_INVALID)
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
-        r = write_string_file_no_create(p, one_zero(link_ipv6_forward_enabled(link)));
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
+        xsprintf(buf, "%u", link->network->ipv6_privacy_extensions);
+
+        r = write_string_file_no_create(p, buf);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, buf) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
+        }
 
         return 0;
 }
@@ -1523,6 +1581,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_forward(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_privacy_extensions(link);
         if (r < 0)
                 return r;
 

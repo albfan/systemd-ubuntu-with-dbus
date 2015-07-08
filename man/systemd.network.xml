@@ -376,8 +376,9 @@
          <para>Note: unless this option is turned on, or set to <literal>kernel</literal>,
           no IP forwarding is done on this interface, even if this is
           globally turned on in the kernel, with the
-          <filename>net.ipv4.ip_forward</filename> and
-          <filename>net.ipv4.ip_forward</filename> sysctl
+          <filename>net.ipv4.ip_forward</filename>,
+          <filename>net.ipv4.conf.all.forwarding</filename>, and
+          <filename>net.ipv6.conf.all.forwarding</filename> sysctl
           options.</para>
           </listitem>
         </varlistentry>
@@ -388,6 +389,23 @@
           interface will be appear as coming from the local host.
           Takes a boolean argument. Implies
           <varname>IPForward=ipv4</varname>. Defaults to
+          <literal>no</literal>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6PrivacyExtensions=</varname></term>
+          <listitem><para>Configures use of stateless temporary
+          addresses that change over time (see <ulink
+          url="https://tools.ietf.org/html/rfc4941">RFC 4941</ulink>,
+          Privacy Extensions for Stateless Address Autoconfiguration
+          in IPv6). Takes a boolean or the special values
+          <literal>prefer-public</literal> and
+          <literal>kernel</literal>. When true enables the privacy
+          extensions and prefers temporary addresses over public
+          addresses. When <literal>prefer-public</literal> enables the
+          privacy extensions, but prefers public addresses over
+          temporary addresses. When false, the privacy extensions
+          remain disabled. When <literal>kernel</literal> the kernel's
+          default setting will be left in place.  Defaults to
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>

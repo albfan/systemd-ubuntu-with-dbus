@@ -69,13 +69,37 @@ int bus_send_queued_message(Manager *m) {
 }
 
 static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        const char *cgroup, *me;
         Manager *m = userdata;
-        const char *cgroup;
+        uid_t sender_uid;
+        sd_bus *bus;
         int r;
 
         assert(message);
         assert(m);
 
+        /* ignore recursive events sent by us on the system/user bus */
+        bus = sd_bus_message_get_bus(message);
+        if (!sd_bus_is_server(bus)) {
+                r = sd_bus_get_unique_name(bus, &me);
+                if (r < 0)
+                        return r;
+
+                if (streq_ptr(sd_bus_message_get_sender(message), me))
+                        return 0;
+        }
+
+        /* only accept org.freedesktop.systemd1.Agent from UID=0 */
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &sender_uid);
+        if (r < 0 || sender_uid != 0)
+                return 0;
+
+        /* parse 'cgroup-empty' notification */
         r = sd_bus_message_read(message, "s", &cgroup);
         if (r < 0) {
                 bus_log_parse_error(r);
@@ -84,19 +108,15 @@ static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus
 
         manager_notify_cgroup_empty(m, cgroup);
 
-        /* only forward to system bus if running as system instance */
-        if (m->running_as != MANAGER_SYSTEM || !m->system_bus)
-                return 0;
+        /* if running as system-instance, forward under our name */
+        if (m->running_as == MANAGER_SYSTEM && m->system_bus) {
+                r = sd_bus_message_rewind(message, 1);
+                if (r >= 0)
+                        r = sd_bus_send(m->system_bus, message, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to forward Released message: %m");
+        }
 
-        r = sd_bus_message_rewind(message, 1);
-        if (r < 0)
-                goto exit;
-
-        r = sd_bus_send(m->system_bus, message, NULL);
-
-exit:
-        if (r < 0)
-                log_warning_errno(r, "Failed to forward Released message: %m");
         return 0;
 }
 

@@ -220,7 +220,7 @@ static int remove_marked_symlinks_fd(
                             instance_whitelist &&
                             !strv_contains(instance_whitelist, de->d_name)) {
 
-                                _cleanup_free_ char *w;
+                                _cleanup_free_ char *w = NULL;
 
                                 /* OK, the file is not listed directly
                                  * in the whitelist, so let's check if
@@ -2263,7 +2263,7 @@ int unit_file_get_list(
                 }
         }
 
-        return r;
+        return 0;
 }
 
 static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {

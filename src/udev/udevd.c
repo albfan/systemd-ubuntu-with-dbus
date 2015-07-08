@@ -327,6 +327,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         struct udev *udev = event->udev;
         _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
+        int r = 0;
 
         /* listen for new events */
         worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
@@ -334,7 +335,9 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 return;
         /* allow the main daemon netlink address to send devices to the worker */
         udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
-        udev_monitor_enable_receiving(worker_monitor);
+        r = udev_monitor_enable_receiving(worker_monitor);
+        if (r < 0)
+                log_error_errno(r, "worker: could not enable receiving of device: %m");
 
         pid = fork();
         switch (pid) {
@@ -346,7 +349,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 struct epoll_event ep_signal = { .events = EPOLLIN };
                 struct epoll_event ep_monitor = { .events = EPOLLIN };
                 sigset_t mask;
-                int r = 0;
 
                 /* take initial device from queue */
                 dev = event->dev;
@@ -528,7 +530,6 @@ out:
         default:
         {
                 struct worker *worker;
-                int r;
 
                 r = worker_new(&worker, manager, worker_monitor, pid);
                 if (r < 0)
@@ -1607,8 +1608,42 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        int r;
+
+        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
+        if (r < 0) {
+                r = log_error_errno(r, "failed to allocate manager object: %m");
+                goto exit;
+        }
+
+        r = udev_rules_apply_static_dev_perms(manager->rules);
+        if (r < 0)
+                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
+
+        (void) sd_notify(false,
+                         "READY=1\n"
+                         "STATUS=Processing...");
+
+        r = sd_event_loop(manager->event);
+        if (r < 0) {
+                log_error_errno(r, "event loop failed: %m");
+                goto exit;
+        }
+
+        sd_event_get_exit_code(manager->event, &r);
+
+exit:
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
+        if (manager)
+                udev_ctrl_cleanup(manager->ctrl);
+        return r;
+}
+
+int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
         int r, fd_ctrl, fd_uevent;
 
@@ -1624,8 +1659,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
 
-        if (arg_debug)
+        if (arg_debug) {
+                log_set_target(LOG_TARGET_CONSOLE);
                 log_set_max_level(LOG_DEBUG);
+        }
 
         if (getuid() != 0) {
                 r = log_error_errno(EPERM, "root privileges required");
@@ -1672,8 +1709,12 @@ int main(int argc, char *argv[]) {
                    we only do this on systemd systems, and only if we are directly spawned
                    by PID1. otherwise we are not guaranteed to have a dedicated cgroup */
                 r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
-                if (r < 0)
-                        log_warning_errno(r, "failed to get cgroup: %m");
+                if (r < 0) {
+                        if (r == -ENOENT)
+                                log_debug_errno(r, "did not find dedicated cgroup: %m");
+                        else
+                                log_warning_errno(r, "failed to get cgroup: %m");
+                }
         }
 
         r = listen_fds(&fd_ctrl, &fd_uevent);
@@ -1709,35 +1750,9 @@ int main(int argc, char *argv[]) {
                 write_string_file("/proc/self/oom_score_adj", "-1000");
         }
 
-        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
-        if (r < 0) {
-                r = log_error_errno(r, "failed to allocate manager object: %m");
-                goto exit;
-        }
-
-        r = udev_rules_apply_static_dev_perms(manager->rules);
-        if (r < 0)
-                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
-
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing...");
-
-        r = sd_event_loop(manager->event);
-        if (r < 0) {
-                log_error_errno(r, "event loop failed: %m");
-                goto exit;
-        }
-
-        sd_event_get_exit_code(manager->event, &r);
+        r = run(fd_ctrl, fd_uevent, cgroup);
 
 exit:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
-        if (manager)
-                udev_ctrl_cleanup(manager->ctrl);
         mac_selinux_finish();
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

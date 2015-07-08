@@ -389,26 +389,44 @@ static int spawn_exec(struct udev_event *event,
                       const char *cmd, char *const argv[], char **envp,
                       int fd_stdout, int fd_stderr) {
         _cleanup_close_ int fd = -1;
+        int r;
 
         /* discard child output or connect to pipe */
         fd = open("/dev/null", O_RDWR);
         if (fd >= 0) {
-                dup2(fd, STDIN_FILENO);
-                if (fd_stdout < 0)
-                        dup2(fd, STDOUT_FILENO);
-                if (fd_stderr < 0)
-                        dup2(fd, STDERR_FILENO);
+                r = dup2(fd, STDIN_FILENO);
+                if (r < 0)
+                        log_warning_errno(errno, "redirecting stdin failed: %m");
+
+                if (fd_stdout < 0) {
+                        r = dup2(fd, STDOUT_FILENO);
+                        if (r < 0)
+                                log_warning_errno(errno, "redirecting stdout failed: %m");
+                }
+
+                if (fd_stderr < 0) {
+                        r = dup2(fd, STDERR_FILENO);
+                        if (r < 0)
+                                log_warning_errno(errno, "redirecting stderr failed: %m");
+                }
         } else
-                log_error_errno(errno, "open /dev/null failed: %m");
+                log_warning_errno(errno, "open /dev/null failed: %m");
 
         /* connect pipes to std{out,err} */
         if (fd_stdout >= 0) {
-                dup2(fd_stdout, STDOUT_FILENO);
-                safe_close(fd_stdout);
+                r = dup2(fd_stdout, STDOUT_FILENO);
+                if (r < 0)
+                        log_warning_errno(errno, "redirecting stdout failed: %m");
+
+                fd_stdout = safe_close(fd_stdout);
         }
+
         if (fd_stderr >= 0) {
-                dup2(fd_stderr, STDERR_FILENO);
-                safe_close(fd_stderr);
+                r = dup2(fd_stderr, STDERR_FILENO);
+                if (r < 0)
+                        log_warning_errno(errno, "redirecting stdout failed: %m");
+
+                fd_stderr = safe_close(fd_stderr);
         }
 
         /* terminate child in case parent goes away */
@@ -703,18 +721,12 @@ int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
                      bool accept_failure,
-                     const char *cmd, char **envp,
+                     const char *cmd,
                      char *result, size_t ressize) {
         int outpipe[2] = {-1, -1};
         int errpipe[2] = {-1, -1};
         pid_t pid;
-        char arg[UTIL_PATH_SIZE];
-        char *argv[128];
-        char program[UTIL_PATH_SIZE];
         int err = 0;
-
-        strscpy(arg, sizeof(arg), cmd);
-        udev_build_argv(event->udev, arg, NULL, argv);
 
         /* pipes from child to parent */
         if (result != NULL || log_get_max_level() >= LOG_INFO) {
@@ -732,15 +744,14 @@ int udev_event_spawn(struct udev_event *event,
                 }
         }
 
-        /* allow programs in /usr/lib/udev/ to be called without the path */
-        if (argv[0][0] != '/') {
-                strscpyl(program, sizeof(program), UDEVLIBEXECDIR "/", argv[0], NULL);
-                argv[0] = program;
-        }
-
         pid = fork();
         switch(pid) {
         case 0:
+        {
+                char arg[UTIL_PATH_SIZE];
+                char *argv[128];
+                char program[UTIL_PATH_SIZE];
+
                 /* child closes parent's ends of pipes */
                 if (outpipe[READ_END] >= 0) {
                         close(outpipe[READ_END]);
@@ -751,12 +762,22 @@ int udev_event_spawn(struct udev_event *event,
                         errpipe[READ_END] = -1;
                 }
 
+                strscpy(arg, sizeof(arg), cmd);
+                udev_build_argv(event->udev, arg, NULL, argv);
+
+                /* allow programs in /usr/lib/udev/ to be called without the path */
+                if (argv[0][0] != '/') {
+                        strscpyl(program, sizeof(program), UDEVLIBEXECDIR "/", argv[0], NULL);
+                        argv[0] = program;
+                }
+
                 log_debug("starting '%s'", cmd);
 
-                spawn_exec(event, cmd, argv, envp,
+                spawn_exec(event, cmd, argv, udev_device_get_properties_envp(event->dev),
                            outpipe[WRITE_END], errpipe[WRITE_END]);
 
-                _exit(2 );
+                _exit(2);
+        }
         case -1:
                 log_error_errno(errno, "fork of '%s' failed: %m", cmd);
                 err = -1;
@@ -916,26 +937,21 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
         struct udev_list_entry *list_entry;
 
         udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
+                char command[UTIL_PATH_SIZE];
                 const char *cmd = udev_list_entry_get_name(list_entry);
                 enum udev_builtin_cmd builtin_cmd = udev_list_entry_get_num(list_entry);
 
-                if (builtin_cmd < UDEV_BUILTIN_MAX) {
-                        char command[UTIL_PATH_SIZE];
+                udev_event_apply_format(event, cmd, command, sizeof(command));
 
-                        udev_event_apply_format(event, cmd, command, sizeof(command));
+                if (builtin_cmd < UDEV_BUILTIN_MAX)
                         udev_builtin_run(event->dev, builtin_cmd, command, false);
-                } else {
-                        char program[UTIL_PATH_SIZE];
-                        char **envp;
-
+                else {
                         if (event->exec_delay > 0) {
-                                log_debug("delay execution of '%s'", program);
+                                log_debug("delay execution of '%s'", command);
                                 sleep(event->exec_delay);
                         }
 
-                        udev_event_apply_format(event, cmd, program, sizeof(program));
-                        envp = udev_device_get_properties_envp(event->dev);
-                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, program, envp, NULL, 0);
+                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, command, NULL, 0);
                 }
         }
 }
