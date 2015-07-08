@@ -6,6 +6,8 @@ systemd (222-1) UNRELEASED; urgency=medium
     - Document removal of PIDFile on daemon shutdown. (Closes: #734006)
     - Drop Revert-rules-fix-tests-for-removable-state.patch, the auto-suspend
       rules now got dropped entirely.
+  * Add Revert-VT-reuse-patches.patch: Revert a couple of logind VT reuse
+    patches which alternately broke lightdm and gdm.
   * Disable test-netlink during package build, fails on some buildds.
   * udev.postinst: Don't call addgroup with --quiet, so that if the "input"
     group already exists as a non-system group you get a sensible error

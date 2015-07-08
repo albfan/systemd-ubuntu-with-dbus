@@ -1,0 +1,146 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 8 Jul 2015 07:22:50 +0200
+Subject: Revert VT reuse patches
+
+This reverts commits b80120c4, 586cd0, and 0204c4b. The latter caused a
+regression in lightdm (https://launchpad.net/bugs/1472259 and
+http://lists.freedesktop.org/archives/systemd-devel/2015-July/033464.html), the
+two former fix that but break gdm 3.14
+(https://github.com/systemd/systemd/issues/513), so revert them all until this
+gets fixed properly.
+---
+ src/libsystemd/sd-bus/bus-common-errors.h |  1 -
+ src/login/logind-core.c                   |  4 +--
+ src/login/logind-dbus.c                   | 56 +++++++++++++++++++++----------
+ src/login/pam_systemd.c                   | 10 ++----
+ 4 files changed, 43 insertions(+), 28 deletions(-)
+
+diff --git a/src/libsystemd/sd-bus/bus-common-errors.h b/src/libsystemd/sd-bus/bus-common-errors.h
+index 0dbfbdd..b17b62a 100644
+--- a/src/libsystemd/sd-bus/bus-common-errors.h
++++ b/src/libsystemd/sd-bus/bus-common-errors.h
+@@ -58,7 +58,6 @@
+ #define BUS_ERROR_DEVICE_NOT_TAKEN "org.freedesktop.login1.DeviceNotTaken"
+ #define BUS_ERROR_OPERATION_IN_PROGRESS "org.freedesktop.login1.OperationInProgress"
+ #define BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED "org.freedesktop.login1.SleepVerbNotSupported"
+-#define BUS_ERROR_SESSION_BUSY "org.freedesktop.login1.SessionBusy"
+ 
+ #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
+ 
+diff --git a/src/login/logind-core.c b/src/login/logind-core.c
+index 72be99e..28dc2b6 100644
+--- a/src/login/logind-core.c
++++ b/src/login/logind-core.c
+@@ -318,6 +318,7 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
+         int r;
+ 
+         assert(m);
++        assert(session);
+ 
+         if (pid < 1)
+                 return -EINVAL;
+@@ -330,8 +331,7 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
+         if (!s)
+                 return 0;
+ 
+-        if (session)
+-                *session = s;
++        *session = s;
+         return 1;
+ }
+ 
+diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
+index 82654ee..640ae92 100644
+--- a/src/login/logind-dbus.c
++++ b/src/login/logind-dbus.c
+@@ -689,23 +689,45 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
+                         return r;
+         }
+ 
+-        r = manager_get_session_by_pid(m, leader, NULL);
+-        if (r > 0)
+-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session");
+-
+-        /*
+-         * Old gdm and lightdm start the user-session on the same VT as
+-         * the greeter session. But they destroy the greeter session
+-         * after the user-session and want the user-session to take
+-         * over the VT. We need to support this for
+-         * backwards-compatibility, so make sure we allow new sessions
+-         * on a VT that a greeter is running on.
+-         */
+-        if (vtnr > 0 &&
+-            vtnr < m->seat0->position_count &&
+-            m->seat0->positions[vtnr] &&
+-            m->seat0->positions[vtnr]->class != SESSION_GREETER)
+-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already occupied by a session");
++        manager_get_session_by_pid(m, leader, &session);
++        if (session) {
++                _cleanup_free_ char *path = NULL;
++                _cleanup_close_ int fifo_fd = -1;
++
++                /* Session already exists, client is probably
++                 * something like "su" which changes uid but is still
++                 * the same session */
++
++                fifo_fd = session_create_fifo(session);
++                if (fifo_fd < 0)
++                        return fifo_fd;
++
++                path = session_bus_path(session);
++                if (!path)
++                        return -ENOMEM;
++
++                log_debug("Sending reply about an existing session: "
++                          "id=%s object_path=%s uid=%u runtime_path=%s "
++                          "session_fd=%d seat=%s vtnr=%u",
++                          session->id,
++                          path,
++                          (uint32_t) session->user->uid,
++                          session->user->runtime_path,
++                          fifo_fd,
++                          session->seat ? session->seat->id : "",
++                          (uint32_t) session->vtnr);
++
++                return sd_bus_reply_method_return(
++                                message, "soshusub",
++                                session->id,
++                                path,
++                                session->user->runtime_path,
++                                fifo_fd,
++                                (uint32_t) session->user->uid,
++                                session->seat ? session->seat->id : "",
++                                (uint32_t) session->vtnr,
++                                true);
++        }
+ 
+         audit_session_from_pid(leader, &audit_id);
+         if (audit_id > 0) {
+diff --git a/src/login/pam_systemd.c b/src/login/pam_systemd.c
+index 3bd6118..c42fbfb 100644
+--- a/src/login/pam_systemd.c
++++ b/src/login/pam_systemd.c
+@@ -31,7 +31,6 @@
+ #include <security/pam_ext.h>
+ #include <security/pam_misc.h>
+ 
+-#include "bus-common-errors.h"
+ #include "util.h"
+ #include "audit.h"
+ #include "macro.h"
+@@ -396,13 +395,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
+                                remote_host,
+                                0);
+         if (r < 0) {
+-                if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
+-                        pam_syslog(handle, LOG_DEBUG, "Cannot create session: %s", bus_error_message(&error, r));
+-                        return PAM_SUCCESS;
+-                } else {
+-                        pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
+-                        return PAM_SYSTEM_ERR;
+-                }
++                pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
++                return PAM_SYSTEM_ERR;
+         }
+ 
+         r = sd_bus_message_read(reply,
