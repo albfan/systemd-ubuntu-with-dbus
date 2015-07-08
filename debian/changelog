@@ -29,6 +29,8 @@ systemd (222-1) UNRELEASED; urgency=medium
     sufficient.
   * debian/watch: Adjust to new upstream release model of only providing the
     github tag tarballs.
+  * Drop dsl-modem.agent. It hasn't been maintained/tested for many years, few
+    if any people actually use this, and this doesn't belong into udev.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
