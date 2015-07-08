@@ -18,6 +18,8 @@ systemd (221-2) UNRELEASED; urgency=medium
     that default.target is active. lightdm is prone to fail in test
     environments, and fiddling with it in two other autopkgtests is
     sufficient.
+  * debian/watch: Adjust to new upstream release model of only providing the
+    github tag tarballs.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Jun 2015 07:42:50 +0200
 
