@@ -1,4 +1,4 @@
-systemd (222-1ubuntu1) UNRELEASED; urgency=medium
+systemd (222-1ubuntu1) wily; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Hack to support system-image read-only /etc, and modify files in
@@ -59,7 +59,7 @@ systemd (222-1ubuntu1) UNRELEASED; urgency=medium
     cgroup controllers, to avoid resetting them. This re-fixes user LXC
     containers. (LP: #1470060)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 28 Jun 2015 12:30:17 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 09 Jul 2015 06:54:41 +0200
 
 systemd (222-1) unstable; urgency=medium
 
