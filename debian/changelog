@@ -19,6 +19,10 @@ systemd (222-3) UNRELEASED; urgency=medium
   [ Julian Wollrath ]
   * Copy all .link interface naming definitions to initramfs. (Closes: #793374)
 
+  [ Felipe Sateler ]
+  * nss-my*.postinst: configure at the end of the hosts line, not before
+    files. (Closes: #789006)
+
  -- Michael Biebl <biebl@debian.org>  Tue, 21 Jul 2015 22:24:51 +0200
 
 systemd (222-2) unstable; urgency=medium

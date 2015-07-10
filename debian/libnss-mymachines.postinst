@@ -15,17 +15,16 @@ insert_nss_entry() {
     fi
     perl -i -pe '
         sub insert {
+            my $line = shift;
             # this also splits on tab
-            my @bits=split(" ", shift);
+            my @bits=split(" ", $line);
             # do not break configuration if the "hosts" line already references
             # mymachines
             if (grep { $_ eq "mymachines"} @bits) {
-                return join " ", @bits;
+                return $line;
             }
-            # change "files" into "files mymachines"
-            return join " ", map {
-                $_ eq "files" ? ("$_","mymachines") : $_
-            } @bits;
+            # add mymachines at the end
+            return $line . " mymachines";
         }
         s/^(hosts:\s+)(.*)/$1.insert($2)/e;
     ' /etc/nsswitch.conf
