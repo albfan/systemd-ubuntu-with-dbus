@@ -1,3 +1,11 @@
+systemd (222-2) UNRELEASED; urgency=medium
+
+  [ Adam Conrad ]
+  * debian/udev-udeb.install: Install new bits for net.ifnames (LP: #1473542)
+  * debian/extra/initramfs-tools/hooks/udev: Do the same for initramfs-tools.
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 11 Jul 2015 11:55:49 +0200
+
 systemd (222-1) unstable; urgency=medium
 
   [ Martin Pitt ]
