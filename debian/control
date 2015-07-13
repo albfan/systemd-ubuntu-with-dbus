@@ -43,7 +43,7 @@ Package: systemd
 Architecture: linux-any
 Multi-Arch: foreign
 Section: admin
-Priority: optional
+Priority: important
 Recommends: libpam-systemd,
             dbus
 Suggests: systemd-ui
@@ -81,7 +81,7 @@ Package: systemd-sysv
 Architecture: linux-any
 Multi-Arch: foreign
 Section: admin
-Priority: extra
+Priority: important
 Conflicts: sysvinit-core,
            upstart
 Replaces: sysvinit (<< 2.88dsf-44~),

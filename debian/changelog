@@ -10,6 +10,10 @@ systemd (222-2) UNRELEASED; urgency=medium
   * Add "networkd" autopkgtest. Covers basic DHCP on IPv4 and IPv4+6 on a veth
     device.
 
+  [ Michael Biebl ]
+  * Bump package priorities of systemd and systemd-sysv to important to match
+    what has been used in the Debian archive since Jessie.
+
  -- Martin Pitt <mpitt@debian.org>  Sat, 11 Jul 2015 11:55:49 +0200
 
 systemd (222-1) unstable; urgency=medium
