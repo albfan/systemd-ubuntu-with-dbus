@@ -14,6 +14,10 @@ Tests: unit-config
 Depends: systemd, python3
 Restrictions: needs-root, allow-stderr
 
+Tests: networkd
+Depends: systemd-sysv, python3, dnsmasq-base
+Restrictions: needs-root, isolation-container
+
 Tests: build-login
 Depends: libsystemd-dev, build-essential, pkg-config
 Restrictions: isolation-container

@@ -7,6 +7,8 @@ systemd (222-2) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * emergency.service: Wait for plymouth to shut down. Fixes invisible
     emergency shell with plymouth running endlessly. (LP: #1471258)
+  * Add "networkd" autopkgtest. Covers basic DHCP on IPv4 and IPv4+6 on a veth
+    device.
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 11 Jul 2015 11:55:49 +0200
 
