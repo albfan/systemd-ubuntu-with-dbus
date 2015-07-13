@@ -43,7 +43,7 @@ done
 
 mkdir -p $DESTDIR/lib/udev/rules.d/
 for rules in 50-firmware.rules 50-udev-default.rules 60-persistent-storage.rules \
-	75-net-description.rules 80-net-setup-link.rules \
+	70-persistent-net.rules  75-net-description.rules 80-net-setup-link.rules \
 	61-persistent-storage-android.rules 80-drivers.rules; do
   if   [ -e /etc/udev/rules.d/$rules ]; then
     cp -p /etc/udev/rules.d/$rules $DESTDIR/lib/udev/rules.d/
