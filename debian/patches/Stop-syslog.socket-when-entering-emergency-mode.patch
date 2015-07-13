@@ -18,7 +18,7 @@ Closes: #755581
  1 file changed, 1 insertion(+)
 
 diff --git a/units/emergency.service.in b/units/emergency.service.in
-index 52b9b1c..adab39e 100644
+index 8dc3cbd..5f7f5e7 100644
 --- a/units/emergency.service.in
 +++ b/units/emergency.service.in
 @@ -11,6 +11,7 @@ Documentation=man:sulogin(8)
