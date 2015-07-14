@@ -238,36 +238,6 @@ Description: systemd utility library (transitional package)
  name. That way, packages can be rebuilt against the new libsystemd library
  without requiring changes to existing configure scripts.
 
-Package: libsystemd-journal-dev
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
-Description: systemd journal utility library (transitional package)
- The libsystemd-journal library provides an interface for the
- systemd journal service.
- .
- This is a compatibility package which provides a .pc file for the old library
- name. That way, packages can be rebuilt against the new libsystemd library
- without requiring changes to existing configure scripts.
-
-Package: libsystemd-id128-dev
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
-Description: systemd 128 bit ID utility library (transitional package)
- The libsystemd-id128 library provides utility functions for generating
- 128 bit IDs.
- .
- This is a compatibility package which provides a .pc file for the old library
- name. That way, packages can be rebuilt against the new libsystemd library
- without requiring changes to existing configure scripts.
-
 Package: udev
 Section: admin
 Priority: important
