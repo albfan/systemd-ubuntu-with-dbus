@@ -1,4 +1,4 @@
-systemd (222-2) UNRELEASED; urgency=medium
+systemd (222-2) unstable; urgency=medium
 
   [ Adam Conrad ]
   * debian/udev-udeb.install: Install new bits for net.ifnames (LP: #1473542)
@@ -21,7 +21,7 @@ systemd (222-2) UNRELEASED; urgency=medium
     reverse dependencies left and we want to avoid new packages picking up
     a build dependency on those obsolete transitional packages.
 
- -- Martin Pitt <mpitt@debian.org>  Sat, 11 Jul 2015 11:55:49 +0200
+ -- Michael Biebl <biebl@debian.org>  Wed, 15 Jul 2015 23:51:15 +0200
 
 systemd (222-1) unstable; urgency=medium
 
