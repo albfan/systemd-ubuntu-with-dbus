@@ -13,6 +13,10 @@ systemd (222-2) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * Bump package priorities of systemd and systemd-sysv to important to match
     what has been used in the Debian archive since Jessie.
+  * Drop scsi_wait_scan hack from the udev initramfs-tools script. This Linux
+    kernel module has been broken since 2.6.30 and as a result was removed in
+    3.5. The Debian Jessie kernel no longer ships this module.
+    (Closes: #752775)
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 11 Jul 2015 11:55:49 +0200
 

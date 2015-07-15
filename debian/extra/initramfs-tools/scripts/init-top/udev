@@ -26,10 +26,5 @@ SYSTEMD_LOG_LEVEL=$log_level /lib/systemd/systemd-udevd --daemon --resolve-names
 udevadm trigger --action=add
 udevadm settle || true
 
-if [ -d /sys/bus/scsi ]; then
-	modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
-	udevadm settle || true
-fi
-
 # Leave udev running to process events that come in out-of-band (like USB
 # connections)
