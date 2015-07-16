@@ -97,8 +97,8 @@ fi
 systemd-machine-id-setup
 
 # Setup system users and groups
-addgroup --system systemd-journal
-addgroup --system systemd-journal-remote
+getent group systemd-journal >/dev/null || addgroup --system systemd-journal
+getent group systemd-journal-remote >/dev/null || addgroup --system systemd-journal-remote
 
 adduser --quiet --system --group --no-create-home --home /run/systemd \
     --gecos "systemd Time Synchronization" systemd-timesync
