@@ -14,6 +14,9 @@ systemd (222-3) UNRELEASED; urgency=medium
     This avoids blocking network.target on boot with unavailable hotplug
     interfaces in /etc/network/interfaces. (Closes: #790669, LP: #1425376)
 
+  [ Julian Wollrath ]
+  * Copy all .link interface naming definitions to initramfs. (Closes: #793374)
+
  -- Michael Biebl <biebl@debian.org>  Tue, 21 Jul 2015 22:24:51 +0200
 
 systemd (222-2) unstable; urgency=medium
