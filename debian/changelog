@@ -1,9 +1,14 @@
 systemd (222-3) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * udev: Remove obsolete rm_conffile/mv_conffile functions from udev.preinst.
     The udev package is using dpkg-maintscripts-helper now to remove obsolete
     conffiles.
   * systemd: Remove obsolete conffile clean up from pre-wheezy.
+
+  [ Martin Pitt ]
+  * Enable GNU EFI support and add gnu-efi build dep. This enables/ships the
+    systemd EFI boot loader. (Closes: #787720)
 
  -- Michael Biebl <biebl@debian.org>  Tue, 21 Jul 2015 22:24:51 +0200
 
