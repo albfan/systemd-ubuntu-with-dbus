@@ -64,7 +64,7 @@ class TestNetworkd(unittest.TestCase):
             subprocess.check_call(['ip', 'link', 'del', 'dev', self.if_router])
             self.if_router = None
         if self.dnsmasq:
-            self.dnsmasq.terminate()
+            self.dnsmasq.kill()
             self.dnsmasq.wait()
             self.dnsmasq = None
 
