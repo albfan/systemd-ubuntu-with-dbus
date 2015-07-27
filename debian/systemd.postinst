@@ -116,7 +116,7 @@ _update_catalog
 setcap cap_dac_override,cap_sys_ptrace=ep /usr/bin/systemd-detect-virt || true
 
 # Re-run systemctl enable for any service that was enabled when preinst was run.
-if dpkg --compare-versions "$2" ge "204"; then
+if dpkg --compare-versions "$2" ge "204" && [ -e /run/systemd/was-enabled ]; then
     while read UNIT ; do
         # 220-6 stopped shipping tmp.mount, transition it on machines which had
         # it enabled

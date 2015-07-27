@@ -13,6 +13,8 @@ systemd (222-3) UNRELEASED; urgency=medium
   * ifup@.service: Drop "oneshot" to run ifup in the background during boot.
     This avoids blocking network.target on boot with unavailable hotplug
     interfaces in /etc/network/interfaces. (Closes: #790669, LP: #1425376)
+  * systemd.postinst: Avoid confusing error message about
+    /run/systemd/was-enabled not existing on reconfiguring.
 
   [ Julian Wollrath ]
   * Copy all .link interface naming definitions to initramfs. (Closes: #793374)
