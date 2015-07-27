@@ -9,7 +9,6 @@ DefaultDependencies=no
 IgnoreOnIsolate=yes
 
 [Service]
-Type=oneshot
 ExecStart=/sbin/ifup --allow=hotplug %I
 ExecStartPost=/sbin/ifquery --state %I
 ExecStop=/sbin/ifdown %I
