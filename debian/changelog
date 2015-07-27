@@ -8,7 +8,7 @@ systemd (222-3) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
   * Enable GNU EFI support and add gnu-efi build dep. This enables/ships the
-    systemd EFI boot loader. (Closes: #787720)
+    systemd EFI boot loader. (Closes: #787720, LP: #1472283)
   * networkd autopkgtest: More robust/forceful killing of dnsmasq.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 21 Jul 2015 22:24:51 +0200
