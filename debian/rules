@@ -50,7 +50,6 @@ CONFFLAGS_deb = \
 	--enable-compat-libs \
 	--enable-hwdb \
 	--enable-efi \
-	--enable-gnuefi \
 	PYTHON=python3
 
 CONFFLAGS_udeb = \
