@@ -15,6 +15,7 @@ systemd (222-3) UNRELEASED; urgency=medium
     interfaces in /etc/network/interfaces. (Closes: #790669, LP: #1425376)
   * systemd.postinst: Avoid confusing error message about
     /run/systemd/was-enabled not existing on reconfiguring.
+  * debian/extra/initramfs-tools/hooks/udev: Drop some redundant code.
 
   [ Julian Wollrath ]
   * Copy all .link interface naming definitions to initramfs. (Closes: #793374)
