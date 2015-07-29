@@ -16,8 +16,3 @@ mkdir -p /dev/pts
 mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 
 udevadm settle || true
-
-if [ -d /sys/bus/scsi ]; then
-    modprobe -q scsi_wait_scan && modprobe -r scsi_wait_scan || true
-    udevadm settle || true
-fi

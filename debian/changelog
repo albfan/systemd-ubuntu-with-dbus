@@ -16,6 +16,7 @@ systemd (223-1) UNRELEASED; urgency=medium
     The udev package is using dpkg-maintscripts-helper now to remove obsolete
     conffiles.
   * systemd: Remove obsolete conffile clean up from pre-wheezy.
+  * udev-udeb: Remove scsi_wait_scan hack from the start-udev script as well.
 
   [ Martin Pitt ]
   * Enable GNU EFI support and add gnu-efi build dep. This enables/ships the
