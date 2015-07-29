@@ -401,7 +401,6 @@ static int service_add_fd_store_set(Service *s, FDSet *fds) {
                 r = service_add_fd_store(s, fd);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
-
                 if (r > 0) {
                         log_unit_debug(UNIT(s), "Added fd to fd store.");
                         fd = -1;
@@ -576,8 +575,10 @@ static int service_add_extras(Service *s) {
                         return r;
 
                 r = unit_watch_bus_name(UNIT(s), s->bus_name);
+                if (r == -EEXIST)
+                        return log_unit_error_errno(UNIT(s), r, "Two services allocated for the same bus name %s, refusing operation.", s->bus_name);
                 if (r < 0)
-                        return r;
+                        return log_unit_error_errno(UNIT(s), r, "Cannot watch bus name %s: %m", s->bus_name);
         }
 
         if (UNIT(s)->default_dependencies) {
@@ -1974,7 +1975,7 @@ static int service_reload(Unit *u) {
         assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
 
         service_enter_reload(s);
-        return 0;
+        return 1;
 }
 
 _pure_ static bool service_can_reload(Unit *u) {
@@ -3229,13 +3230,10 @@ const UnitVTable service_vtable = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Started %s.",
                         [JOB_FAILED]     = "Failed to start %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
-                        [JOB_TIMEOUT]    = "Timed out starting %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Stopped %s.",
                         [JOB_FAILED]     = "Stopped (with error) %s.",
-                        [JOB_TIMEOUT]    = "Timed out stopping %s.",
                 },
         },
 };

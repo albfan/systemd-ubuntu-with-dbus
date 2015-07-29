@@ -240,6 +240,10 @@ char octchar(int x) _const_;
 int unoctchar(char c) _const_;
 char decchar(int x) _const_;
 int undecchar(char c) _const_;
+char base32hexchar(int x) _const_;
+int unbase32hexchar(char c) _const_;
+char base64char(int x) _const_;
+int unbase64char(char c) _const_;
 
 char *cescape(const char *s);
 size_t cescape_char(char c, char *buf);
@@ -614,7 +618,13 @@ static inline void *mempset(void *s, int c, size_t n) {
 }
 
 char *hexmem(const void *p, size_t l);
-void *unhexmem(const char *p, size_t l);
+int unhexmem(const char *p, size_t l, void **mem, size_t *len);
+
+char *base32hexmem(const void *p, size_t l, bool padding);
+int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *len);
+
+char *base64mem(const void *p, size_t l);
+int unbase64mem(const char *p, size_t l, void **mem, size_t *len);
 
 char *strextend(char **x, ...) _sentinel_;
 char *strrep(const char *s, unsigned n);

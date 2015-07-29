@@ -1702,7 +1702,7 @@ static int setup_boot_id(const char *dest) {
 
         id128_format_as_uuid(rnd, as_uuid);
 
-        r = write_string_file(from, as_uuid);
+        r = write_string_file(from, as_uuid, WRITE_STRING_FILE_CREATE);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
@@ -1785,15 +1785,13 @@ static int setup_pts(const char *dest) {
 #ifdef HAVE_SELINUX
         if (arg_selinux_apifs_context)
                 (void) asprintf(&options,
-                                "newinstance,ptmxmode=0666,mode=620,uid=" UID_FMT ",gid=" GID_FMT ",context=\"%s\"",
-                                arg_uid_shift,
+                                "newinstance,ptmxmode=0666,mode=620,gid=" GID_FMT ",context=\"%s\"",
                                 arg_uid_shift + TTY_GID,
                                 arg_selinux_apifs_context);
         else
 #endif
                 (void) asprintf(&options,
-                                "newinstance,ptmxmode=0666,mode=620,uid=" UID_FMT ",gid=" GID_FMT,
-                                arg_uid_shift,
+                                "newinstance,ptmxmode=0666,mode=620,gid=" GID_FMT,
                                 arg_uid_shift + TTY_GID);
 
         if (!options)
@@ -2507,7 +2505,7 @@ static int reset_audit_loginuid(void) {
         if (streq(p, "4294967295"))
                 return 0;
 
-        r = write_string_file("/proc/self/loginuid", "4294967295");
+        r = write_string_file("/proc/self/loginuid", "4294967295", 0);
         if (r < 0) {
                 log_error_errno(r,
                                 "Failed to reset audit login UID. This probably means that your kernel is too\n"
@@ -4447,13 +4445,13 @@ static int setup_uid_map(pid_t pid) {
 
         xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
         xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, arg_uid_shift, arg_uid_range);
-        r = write_string_file(uid_map, line);
+        r = write_string_file(uid_map, line, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to write UID map: %m");
 
         /* We always assign the same UID and GID ranges */
         xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
-        r = write_string_file(uid_map, line);
+        r = write_string_file(uid_map, line, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
 

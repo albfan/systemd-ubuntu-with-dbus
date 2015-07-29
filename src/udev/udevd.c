@@ -398,7 +398,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                 /* reset OOM score, we only protect the main daemon */
-                write_string_file("/proc/self/oom_score_adj", "0");
+                write_string_file("/proc/self/oom_score_adj", "0", 0);
 
                 for (;;) {
                         struct udev_event *udev_event;
@@ -1091,7 +1091,7 @@ static int synthesize_change(struct udev_device *dev) {
                  */
                 log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
                 strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-                write_string_file(filename, "change");
+                write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
@@ -1106,7 +1106,7 @@ static int synthesize_change(struct udev_device *dev) {
                         log_debug("device %s closed, synthesising partition '%s' 'change'",
                                   udev_device_get_devnode(dev), udev_device_get_devnode(d));
                         strscpyl(filename, sizeof(filename), udev_device_get_syspath(d), "/uevent", NULL);
-                        write_string_file(filename, "change");
+                        write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
                 }
 
                 return 0;
@@ -1114,7 +1114,7 @@ static int synthesize_change(struct udev_device *dev) {
 
         log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
         strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-        write_string_file(filename, "change");
+        write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
         return 0;
 }
@@ -1358,6 +1358,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
  *   udev.event-timeout=<number of seconds>    seconds to wait before terminating an event
  */
 static int parse_proc_cmdline_item(const char *key, const char *value) {
+        const char *full_key = key;
         int r;
 
         assert(key);
@@ -1377,25 +1378,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 int prio;
 
                 prio = util_log_priority(value);
+                if (prio < 0)
+                        goto invalid;
                 log_set_max_level(prio);
         } else if (streq(key, "children-max")) {
                 r = safe_atou(value, &arg_children_max);
                 if (r < 0)
-                        log_warning("invalid udev.children-max ignored: %s", value);
+                        goto invalid;
         } else if (streq(key, "exec-delay")) {
                 r = safe_atoi(value, &arg_exec_delay);
                 if (r < 0)
-                        log_warning("invalid udev.exec-delay ignored: %s", value);
+                        goto invalid;
         } else if (streq(key, "event-timeout")) {
                 r = safe_atou64(value, &arg_event_timeout_usec);
                 if (r < 0)
-                        log_warning("invalid udev.event-timeout ignored: %s", value);
-                else {
-                        arg_event_timeout_usec *= USEC_PER_SEC;
-                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-                }
+                        goto invalid;
+                arg_event_timeout_usec *= USEC_PER_SEC;
+                arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
         }
 
+        return 0;
+invalid:
+        log_warning("invalid %s ignored: %s", full_key, value);
         return 0;
 }
 
@@ -1432,7 +1436,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "c:de:DtN:hV", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "c:de:Dt:N:hV", options, NULL)) >= 0) {
                 int r;
 
                 switch (c) {
@@ -1747,7 +1751,7 @@ int main(int argc, char *argv[]) {
 
                 setsid();
 
-                write_string_file("/proc/self/oom_score_adj", "-1000");
+                write_string_file("/proc/self/oom_score_adj", "-1000", 0);
         }
 
         r = run(fd_ctrl, fd_uevent, cgroup);

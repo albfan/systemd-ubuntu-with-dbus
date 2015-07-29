@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [222],
+        [223],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -38,6 +38,11 @@ AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-di
 AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
+
+AC_CHECK_TOOLS([AR], [gcc-ar ar], [:])
+AC_CHECK_TOOLS([NM], [gcc-nm nm], [:])
+AC_CHECK_TOOLS([RANLIB], [gcc-ranlib ranlib], [:])
+
 LT_PREREQ(2.2)
 LT_INIT([disable-static])
 
@@ -196,7 +201,7 @@ AS_CASE([$CC], [*clang*],
 
 AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
-               -flto -ffat-lto-objects])],
+               -flto])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
@@ -238,7 +243,7 @@ AC_CHECK_SIZEOF(rlim_t,,[
 ])
 
 # ------------------------------------------------------------------------------
-# we use python to build the man page index, and for systemd-python
+# we use python to build the man page index
 have_python=no
 AC_ARG_WITH([python],
         [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
@@ -260,30 +265,7 @@ AS_IF([test "$have_python" != "yes"], [
       AS_IF([test "$with_python" != "no"],
             [AC_MSG_WARN([*** python support not found, some documentation cannot be built])])
 ])
-
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
-AS_IF([test "x$PYTHON_BINARY" = "x"],
-      [AS_IF([test "x$have_python" = "xyes"],
-             [PYTHON_BINARY="$(which "$PYTHON")"],
-             [PYTHON_BINARY=/usr/bin/python])])
-AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
-
-AS_IF([test "x$have_python" != "xyes" -a "x$enable_python_devel" = "xyes"],
-      [AC_MSG_ERROR([*** python-devel support requires --with-python])])
-
-have_python_devel=no
-AC_ARG_ENABLE(python_devel, AS_HELP_STRING([--disable-python-devel], [Do not build python modules]))
-AS_IF([test "x$have_python" = "xyes" -a "x$enable_python_devel" != "xno"], [
-      PKG_CHECK_MODULES([PYTHON_DEVEL], [python-${PYTHON_VERSION}],
-            [have_python_devel=yes],
-            [PKG_CHECK_MODULES([PYTHON_DEVEL], [python],
-                  [have_python_devel=yes],
-                  [have_python_devel=no])])
-      AS_IF([test "x$have_python_devel" = xno -a "x$enable_python_devel" = xyes],
-            [AC_MSG_ERROR([*** python-devel support requested but libraries not found])])
-      AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
-])
-AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
 # ------------------------------------------------------------------------------
 
@@ -322,9 +304,10 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_BOND_AD_INFO,
                 IFLA_VLAN_PROTOCOL,
                 IFLA_VXLAN_REMCSUM_NOPARTIAL,
-                IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+                IFLA_IPTUN_ENCAP_DPORT,
+                IFLA_GRE_ENCAP_DPORT,
                 IFLA_BRIDGE_VLAN_INFO,
-                IFLA_BRPORT_UNICAST_FLOOD,
+                IFLA_BRPORT_LEARNING_SYNC,
                 NDA_IFINDEX,
                 IFA_FLAGS],
 [], [], [[
@@ -1032,7 +1015,8 @@ AC_ARG_WITH(ntp-servers,
         AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
                 [Space-separated list of default NTP servers]),
         [NTP_SERVERS="$withval"],
-        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
+        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"
+        AC_MSG_WARN([*** Using Google NTP servers. Please do not ship OSes or devices with these default settings. See DISTRO_PORTING for details!])])
 
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)
@@ -1185,27 +1169,6 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
         AC_SUBST([EFI_INC_DIR])
 ])
 AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
-
-# ------------------------------------------------------------------------------
-AC_ARG_WITH(unifont,
-        AS_HELP_STRING([--with-unifont=PATH],
-                [Path to unifont.hex]),
-        [UNIFONT="$withval"],
-        [UNIFONT="/usr/share/unifont/unifont.hex"])
-AC_SUBST(UNIFONT)
-
-have_terminal=no
-have_unifont=no
-AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
-if test "x$enable_terminal" = "xyes"; then
-        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.5 libdrm >= 2.4], [have_terminal=yes])
-        AC_CHECK_FILE($UNIFONT, [have_unifont=yes])
-        AS_IF([test "x$have_terminal" != xyes -o "x$have_unifont" != "xyes" -a "x$enable_terminal" = xyes],
-              [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
-              [test "x$have_terminal" = xyes -a "x$have_unifont" = "xyes"],
-              [AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])])
-fi
-AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes" -a "x$have_unifont" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_kdbus=no
@@ -1563,10 +1526,8 @@ AC_MSG_RESULT([
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         hwdb:                    ${enable_hwdb}
-        terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
-        Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
         test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
@@ -1587,7 +1548,6 @@ AC_MSG_RESULT([
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Build Python:            ${PYTHON}
-        Installation Python:     ${PYTHON_BINARY}
         sphinx binary:           ${SPHINX_BUILD}
         PAM modules dir:         ${with_pamlibdir}
         PAM configuration dir:   ${with_pamconfdir}
@@ -1608,6 +1568,4 @@ AC_MSG_RESULT([
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}
         LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
-        PYTHON_CFLAGS:           ${PYTHON_DEVEL_CFLAGS}
-        PYTHON_LIBS:             ${PYTHON_DEVEL_LIBS}
 ])

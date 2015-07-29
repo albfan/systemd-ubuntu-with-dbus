@@ -133,6 +133,7 @@ struct Network {
         AddressFamilyBoolean dhcp;
         DCHPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
+        char *hostname;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
@@ -149,6 +150,11 @@ struct Network {
 
         bool dhcp_server;
 
+        bool use_bpdu;
+        bool hairpin;
+        bool fast_leave;
+        bool allow_port_to_be_root;
+        bool unicast_flood;
         unsigned cost;
 
         AddressFamilyBoolean ip_forward;
@@ -319,28 +325,6 @@ int config_parse_tunnel(const char *unit,
                         void *data,
                         void *userdata);
 
-int config_parse_tunnel_address(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata);
-
-int config_parse_vxlan_group_address(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata);
-
 extern const sd_bus_vtable network_vtable[];
 
 int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
@@ -473,3 +457,7 @@ const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 int config_parse_ipv6_privacy_extensions(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+
+/* Hostname */
+int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

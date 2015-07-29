@@ -107,6 +107,10 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
 
+        network->use_bpdu = true;
+        network->allow_port_to_be_root = true;
+        network->unicast_flood = true;
+
         network->llmnr = LLMNR_SUPPORT_YES;
 
         network->link_local = ADDRESS_FAMILY_IPV6;
@@ -207,6 +211,7 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        free(network->hostname);
 
         free(network->mac);
 
@@ -423,6 +428,7 @@ int config_parse_netdev(const char *unit,
                 break;
         case NETDEV_KIND_VLAN:
         case NETDEV_KIND_MACVLAN:
+        case NETDEV_KIND_MACVTAP:
         case NETDEV_KIND_IPVLAN:
         case NETDEV_KIND_VXLAN:
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
@@ -806,6 +812,41 @@ int config_parse_ipv6_privacy_extensions(
 
                 *ipv6_privacy_extensions = s;
         }
+
+        return 0;
+}
+
+int config_parse_hostname(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        char **hostname = data;
+        char *hn = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = config_parse_string(unit, filename, line, section, section_line,
+                                lvalue, ltype, rvalue, &hn, userdata);
+        if (r < 0)
+                return r;
+
+        if (!hostname_is_valid(hn)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "hostname is not valid, ignoring assignment: %s", rvalue);
+
+                free(hn);
+                return 0;
+        }
+
+        *hostname = hn;
 
         return 0;
 }

@@ -38,6 +38,7 @@
 #include "resolved-conf.h"
 #include "resolved-bus.h"
 #include "resolved-manager.h"
+#include "resolved-llmnr.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
@@ -393,66 +394,6 @@ static int manager_watch_hostname(Manager *m) {
         return 0;
 }
 
-static void manager_llmnr_stop(Manager *m) {
-        assert(m);
-
-        m->llmnr_ipv4_udp_event_source = sd_event_source_unref(m->llmnr_ipv4_udp_event_source);
-        m->llmnr_ipv4_udp_fd = safe_close(m->llmnr_ipv4_udp_fd);
-
-        m->llmnr_ipv6_udp_event_source = sd_event_source_unref(m->llmnr_ipv6_udp_event_source);
-        m->llmnr_ipv6_udp_fd = safe_close(m->llmnr_ipv6_udp_fd);
-
-        m->llmnr_ipv4_tcp_event_source = sd_event_source_unref(m->llmnr_ipv4_tcp_event_source);
-        m->llmnr_ipv4_tcp_fd = safe_close(m->llmnr_ipv4_tcp_fd);
-
-        m->llmnr_ipv6_tcp_event_source = sd_event_source_unref(m->llmnr_ipv6_tcp_event_source);
-        m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
-}
-
-static int manager_llmnr_start(Manager *m) {
-        int r;
-
-        assert(m);
-
-        if (m->llmnr_support == SUPPORT_NO)
-                return 0;
-
-        r = manager_llmnr_ipv4_udp_fd(m);
-        if (r == -EADDRINUSE)
-                goto eaddrinuse;
-        if (r < 0)
-                return r;
-
-        r = manager_llmnr_ipv4_tcp_fd(m);
-        if (r == -EADDRINUSE)
-                goto eaddrinuse;
-        if (r < 0)
-                return r;
-
-        if (socket_ipv6_is_supported()) {
-                r = manager_llmnr_ipv6_udp_fd(m);
-                if (r == -EADDRINUSE)
-                        goto eaddrinuse;
-                if (r < 0)
-                        return r;
-
-                r = manager_llmnr_ipv6_tcp_fd(m);
-                if (r == -EADDRINUSE)
-                        goto eaddrinuse;
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-
-eaddrinuse:
-        log_warning("There appears to be another LLMNR responder running. Turning off LLMNR support.");
-        m->llmnr_support = SUPPORT_NO;
-        manager_llmnr_stop(m);
-
-        return 0;
-}
-
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -463,7 +404,6 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        m->dns_ipv4_fd = m->dns_ipv6_fd = -1;
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
         m->hostname_fd = -1;
@@ -544,11 +484,6 @@ Manager *manager_free(Manager *m) {
 
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
-
-        sd_event_source_unref(m->dns_ipv4_event_source);
-        sd_event_source_unref(m->dns_ipv6_event_source);
-        safe_close(m->dns_ipv4_fd);
-        safe_close(m->dns_ipv6_fd);
 
         manager_llmnr_stop(m);
 
@@ -662,8 +597,10 @@ int manager_read_resolv_conf(Manager *m) {
         }
 
         LIST_FOREACH_SAFE(servers, s, nx, m->dns_servers)
-                if (s->marked)
-                        dns_server_free(s);
+                if (s->marked) {
+                        LIST_REMOVE(servers, m->dns_servers, s);
+                        dns_server_unref(s);
+                }
 
         /* Whenever /etc/resolv.conf changes, start using the first
          * DNS server of it. This is useful to deal with broken
@@ -678,8 +615,12 @@ int manager_read_resolv_conf(Manager *m) {
         return 0;
 
 clear:
-        while (m->dns_servers)
-                dns_server_free(m->dns_servers);
+        while (m->dns_servers) {
+                s = m->dns_servers;
+
+                LIST_REMOVE(servers, m->dns_servers, s);
+                dns_server_unref(s);
+        }
 
         return r;
 }
@@ -971,98 +912,17 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (p->ifindex == LOOPBACK_IFINDEX)
                 p->ifindex = 0;
 
-        /* If we don't know the interface index still, we look for the
-         * first local interface with a matching address. Yuck! */
-        if (p->ifindex <= 0)
-                p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
+        if (protocol != DNS_PROTOCOL_DNS) {
+                /* If we don't know the interface index still, we look for the
+                 * first local interface with a matching address. Yuck! */
+                if (p->ifindex <= 0)
+                        p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
+        }
 
         *ret = p;
         p = NULL;
 
         return 1;
-}
-
-static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsTransaction *t = NULL;
-        Manager *m = userdata;
-        int r;
-
-        r = manager_recv(m, fd, DNS_PROTOCOL_DNS, &p);
-        if (r <= 0)
-                return r;
-
-        if (dns_packet_validate_reply(p) > 0) {
-                t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-                if (!t)
-                        return 0;
-
-                dns_transaction_process_reply(t, p);
-
-        } else
-                log_debug("Invalid DNS packet.");
-
-        return 0;
-}
-
-int manager_dns_ipv4_fd(Manager *m) {
-        const int one = 1;
-        int r;
-
-        assert(m);
-
-        if (m->dns_ipv4_fd >= 0)
-                return m->dns_ipv4_fd;
-
-        m->dns_ipv4_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->dns_ipv4_fd < 0)
-                return -errno;
-
-        r = setsockopt(m->dns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->dns_ipv4_event_source, m->dns_ipv4_fd, EPOLLIN, on_dns_packet, m);
-        if (r < 0)
-                goto fail;
-
-        return m->dns_ipv4_fd;
-
-fail:
-        m->dns_ipv4_fd = safe_close(m->dns_ipv4_fd);
-        return r;
-}
-
-int manager_dns_ipv6_fd(Manager *m) {
-        const int one = 1;
-        int r;
-
-        assert(m);
-
-        if (m->dns_ipv6_fd >= 0)
-                return m->dns_ipv6_fd;
-
-        m->dns_ipv6_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->dns_ipv6_fd < 0)
-                return -errno;
-
-        r = setsockopt(m->dns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->dns_ipv6_event_source, m->dns_ipv6_fd, EPOLLIN, on_dns_packet, m);
-        if (r < 0)
-                goto fail;
-
-        return m->dns_ipv6_fd;
-
-fail:
-        m->dns_ipv6_fd = safe_close(m->dns_ipv6_fd);
-        return r;
 }
 
 static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
@@ -1087,6 +947,42 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
                 if (r == 0)
                         return -ETIMEDOUT;
         }
+}
+
+static int write_loop(int fd, void *message, size_t length) {
+        int r;
+
+        assert(fd >= 0);
+        assert(message);
+
+        for (;;) {
+                if (write(fd, message, length) >= 0)
+                        return 0;
+
+                if (errno == EINTR)
+                        continue;
+
+                if (errno != EAGAIN)
+                        return -errno;
+
+                r = fd_wait_for_event(fd, POLLOUT, SEND_TIMEOUT_USEC);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
+        }
+}
+
+int manager_write(Manager *m, int fd, DnsPacket *p) {
+        int r;
+
+        log_debug("Sending %s packet with id %u", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
+
+        r = write_loop(fd, DNS_PACKET_DATA(p), p->size);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int manager_ipv4_send(Manager *m, int fd, int ifindex, const struct in_addr *addr, uint16_t port, DnsPacket *p) {
@@ -1316,393 +1212,6 @@ uint32_t manager_find_mtu(Manager *m) {
         return mtu;
 }
 
-static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsTransaction *t = NULL;
-        Manager *m = userdata;
-        DnsScope *scope;
-        int r;
-
-        r = manager_recv(m, fd, DNS_PROTOCOL_LLMNR, &p);
-        if (r <= 0)
-                return r;
-
-        scope = manager_find_scope(m, p);
-        if (!scope) {
-                log_warning("Got LLMNR UDP packet on unknown scope. Ignoring.");
-                return 0;
-        }
-
-        if (dns_packet_validate_reply(p) > 0) {
-                log_debug("Got reply packet for id %u", DNS_PACKET_ID(p));
-
-                dns_scope_check_conflicts(scope, p);
-
-                t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-                if (t)
-                        dns_transaction_process_reply(t, p);
-
-        } else if (dns_packet_validate_query(p) > 0)  {
-                log_debug("Got query packet for id %u", DNS_PACKET_ID(p));
-
-                dns_scope_process_query(scope, NULL, p);
-        } else
-                log_debug("Invalid LLMNR UDP packet.");
-
-        return 0;
-}
-
-int manager_llmnr_ipv4_udp_fd(Manager *m) {
-        union sockaddr_union sa = {
-                .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(5355),
-        };
-        static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255;
-        int r;
-
-        assert(m);
-
-        if (m->llmnr_ipv4_udp_fd >= 0)
-                return m->llmnr_ipv4_udp_fd;
-
-        m->llmnr_ipv4_udp_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->llmnr_ipv4_udp_fd < 0)
-                return -errno;
-
-        /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_udp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        /* Disable Don't-Fragment bit in the IP header */
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = bind(m->llmnr_ipv4_udp_fd, &sa.sa, sizeof(sa.in));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->llmnr_ipv4_udp_event_source, m->llmnr_ipv4_udp_fd, EPOLLIN, on_llmnr_packet, m);
-        if (r < 0)
-                goto fail;
-
-        return m->llmnr_ipv4_udp_fd;
-
-fail:
-        m->llmnr_ipv4_udp_fd = safe_close(m->llmnr_ipv4_udp_fd);
-        return r;
-}
-
-int manager_llmnr_ipv6_udp_fd(Manager *m) {
-        union sockaddr_union sa = {
-                .in6.sin6_family = AF_INET6,
-                .in6.sin6_port = htobe16(5355),
-        };
-        static const int one = 1, ttl = 255;
-        int r;
-
-        assert(m);
-
-        if (m->llmnr_ipv6_udp_fd >= 0)
-                return m->llmnr_ipv6_udp_fd;
-
-        m->llmnr_ipv6_udp_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->llmnr_ipv6_udp_fd < 0)
-                return -errno;
-
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_udp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = bind(m->llmnr_ipv6_udp_fd, &sa.sa, sizeof(sa.in6));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->llmnr_ipv6_udp_event_source, m->llmnr_ipv6_udp_fd, EPOLLIN, on_llmnr_packet, m);
-        if (r < 0)  {
-                r = -errno;
-                goto fail;
-        }
-
-        return m->llmnr_ipv6_udp_fd;
-
-fail:
-        m->llmnr_ipv6_udp_fd = safe_close(m->llmnr_ipv6_udp_fd);
-        return r;
-}
-
-static int on_llmnr_stream_packet(DnsStream *s) {
-        DnsScope *scope;
-
-        assert(s);
-
-        scope = manager_find_scope(s->manager, s->read_packet);
-        if (!scope) {
-                log_warning("Got LLMNR TCP packet on unknown scope. Ignroing.");
-                return 0;
-        }
-
-        if (dns_packet_validate_query(s->read_packet) > 0) {
-                log_debug("Got query packet for id %u", DNS_PACKET_ID(s->read_packet));
-
-                dns_scope_process_query(scope, s, s->read_packet);
-
-                /* If no reply packet was set, we free the stream */
-                if (s->write_packet)
-                        return 0;
-        } else
-                log_debug("Invalid LLMNR TCP packet.");
-
-        dns_stream_free(s);
-        return 0;
-}
-
-static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        DnsStream *stream;
-        Manager *m = userdata;
-        int cfd, r;
-
-        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (cfd < 0) {
-                if (errno == EAGAIN || errno == EINTR)
-                        return 0;
-
-                return -errno;
-        }
-
-        r = dns_stream_new(m, &stream, DNS_PROTOCOL_LLMNR, cfd);
-        if (r < 0) {
-                safe_close(cfd);
-                return r;
-        }
-
-        stream->on_packet = on_llmnr_stream_packet;
-        return 0;
-}
-
-int manager_llmnr_ipv4_tcp_fd(Manager *m) {
-        union sockaddr_union sa = {
-                .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(5355),
-        };
-        static const int one = 1, pmtu = IP_PMTUDISC_DONT;
-        int r;
-
-        assert(m);
-
-        if (m->llmnr_ipv4_tcp_fd >= 0)
-                return m->llmnr_ipv4_tcp_fd;
-
-        m->llmnr_ipv4_tcp_fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->llmnr_ipv4_tcp_fd < 0)
-                return -errno;
-
-        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        /* Disable Don't-Fragment bit in the IP header */
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = bind(m->llmnr_ipv4_tcp_fd, &sa.sa, sizeof(sa.in));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = listen(m->llmnr_ipv4_tcp_fd, SOMAXCONN);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->llmnr_ipv4_tcp_event_source, m->llmnr_ipv4_tcp_fd, EPOLLIN, on_llmnr_stream, m);
-        if (r < 0)
-                goto fail;
-
-        return m->llmnr_ipv4_tcp_fd;
-
-fail:
-        m->llmnr_ipv4_tcp_fd = safe_close(m->llmnr_ipv4_tcp_fd);
-        return r;
-}
-
-int manager_llmnr_ipv6_tcp_fd(Manager *m) {
-        union sockaddr_union sa = {
-                .in6.sin6_family = AF_INET6,
-                .in6.sin6_port = htobe16(5355),
-        };
-        static const int one = 1;
-        int r;
-
-        assert(m);
-
-        if (m->llmnr_ipv6_tcp_fd >= 0)
-                return m->llmnr_ipv6_tcp_fd;
-
-        m->llmnr_ipv6_tcp_fd = socket(AF_INET6, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->llmnr_ipv6_tcp_fd < 0)
-                return -errno;
-
-        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = bind(m->llmnr_ipv6_tcp_fd, &sa.sa, sizeof(sa.in6));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = listen(m->llmnr_ipv6_tcp_fd, SOMAXCONN);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->llmnr_ipv6_tcp_event_source, m->llmnr_ipv6_tcp_fd, EPOLLIN, on_llmnr_stream, m);
-        if (r < 0)  {
-                r = -errno;
-                goto fail;
-        }
-
-        return m->llmnr_ipv6_tcp_fd;
-
-fail:
-        m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
-        return r;
-}
-
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr) {
         LinkAddress *a;
 
@@ -1827,15 +1336,25 @@ void manager_verify_all(Manager *m) {
 }
 
 void manager_flush_dns_servers(Manager *m, DnsServerType t) {
+        DnsServer *s;
+
         assert(m);
 
         if (t == DNS_SERVER_SYSTEM)
-                while (m->dns_servers)
-                        dns_server_free(m->dns_servers);
+                while (m->dns_servers) {
+                        s = m->dns_servers;
+
+                        LIST_REMOVE(servers, m->dns_servers, s);
+                        dns_server_unref(s);
+                }
 
         if (t == DNS_SERVER_FALLBACK)
-                while (m->fallback_dns_servers)
-                        dns_server_free(m->fallback_dns_servers);
+                while (m->fallback_dns_servers) {
+                        s = m->fallback_dns_servers;
+
+                        LIST_REMOVE(servers, m->fallback_dns_servers, s);
+                        dns_server_unref(s);
+                }
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {

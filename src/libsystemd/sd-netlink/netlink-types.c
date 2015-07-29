@@ -196,27 +196,37 @@ static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_6RD_RELAY_PREFIX]    = { .type = NETLINK_TYPE_U32 },
         [IFLA_IPTUN_6RD_PREFIXLEN]       = { .type = NETLINK_TYPE_U16 },
         [IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_FLAGS]         = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_SPORT]         = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_DPORT]         = { .type = NETLINK_TYPE_U16 },
 };
 
 static  const NLType rtnl_link_info_data_ipgre_types[IFLA_GRE_MAX + 1] = {
-        [IFLA_GRE_LINK]     = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_IFLAGS]   = { .type = NETLINK_TYPE_U16 },
-        [IFLA_GRE_OFLAGS]   = { .type = NETLINK_TYPE_U16 },
-        [IFLA_GRE_IKEY]     = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_OKEY]     = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_LOCAL]    = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFLA_GRE_REMOTE]   = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFLA_GRE_TTL]      = { .type = NETLINK_TYPE_U8 },
-        [IFLA_GRE_TOS]      = { .type = NETLINK_TYPE_U8 },
-        [IFLA_GRE_PMTUDISC] = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_LINK]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_IFLAGS]       = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_OFLAGS]       = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_IKEY]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_OKEY]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GRE_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GRE_TTL]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_TOS]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_PMTUDISC]     = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_FLOWINFO]     = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_FLAGS]        = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_ENCAP_TYPE]   = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_ENCAP_FLAGS]  = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_ENCAP_SPORT]  = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_ENCAP_DPORT]  = { .type = NETLINK_TYPE_U16 },
 };
 
 static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
         [IFLA_VTI_LINK]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_VTI_IKEY]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_VTI_OKEY]         = { .type = NETLINK_TYPE_U32 },
-        [IFLA_VTI_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR  },
-        [IFLA_VTI_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR  },
+        [IFLA_VTI_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_VTI_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR },
 };
 
 static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
@@ -227,7 +237,7 @@ static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_FLAGS]               = { .type = NETLINK_TYPE_U32 },
         [IFLA_IPTUN_PROTO]               = { .type = NETLINK_TYPE_U8 },
         [IFLA_IPTUN_ENCAP_LIMIT]         = { .type = NETLINK_TYPE_U8 },
-        [IFLA_IPTUN_FLOWINFO]            = { .type = NETLINK_TYPE_U32},
+        [IFLA_IPTUN_FLOWINFO]            = { .type = NETLINK_TYPE_U32 },
 };
 
 /* these strings must match the .kind entries in the kernel */
@@ -238,6 +248,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
         [NL_UNION_LINK_INFO_DATA_DUMMY] = "dummy",
         [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
+        [NL_UNION_LINK_INFO_DATA_MACVTAP] = "macvtap",
         [NL_UNION_LINK_INFO_DATA_IPVLAN] = "ipvlan",
         [NL_UNION_LINK_INFO_DATA_VXLAN] = "vxlan",
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
@@ -263,6 +274,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
         [NL_UNION_LINK_INFO_DATA_VETH] =        { .count = ELEMENTSOF(rtnl_link_info_data_veth_types),
                                                   .types = rtnl_link_info_data_veth_types },
         [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
+                                                  .types = rtnl_link_info_data_macvlan_types },
+        [NL_UNION_LINK_INFO_DATA_MACVTAP] =     { .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
                                                   .types = rtnl_link_info_data_macvlan_types },
         [NL_UNION_LINK_INFO_DATA_IPVLAN] =      { .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
                                                   .types = rtnl_link_info_data_ipvlan_types },
@@ -319,8 +332,11 @@ static const struct NLType rtnl_prot_info_bridge_port_types[IFLA_BRPORT_MAX + 1]
         [IFLA_BRPORT_MODE]              = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_GUARD]             = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_PROTECT]           = { .type = NETLINK_TYPE_U8 },
+        [IFLA_BRPORT_FAST_LEAVE]        = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_LEARNING]          = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_UNICAST_FLOOD]     = { .type = NETLINK_TYPE_U8 },
+        [IFLA_BRPORT_PROXYARP]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_BRPORT_LEARNING_SYNC]     = { .type = NETLINK_TYPE_U8 },
 };
 
 static const NLTypeSystem rtnl_prot_info_type_systems[AF_MAX] = {
@@ -362,9 +378,9 @@ static const NLTypeSystem rtnl_af_spec_type_system = {
 };
 
 static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
-        [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR, },
-        [IFLA_BROADCAST]        = { .type = NETLINK_TYPE_ETHER_ADDR, },
-        [IFLA_IFNAME]           = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1, },
+        [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_BROADCAST]        = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_IFNAME]           = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
         [IFLA_MTU]              = { .type = NETLINK_TYPE_U32 },
         [IFLA_LINK]             = { .type = NETLINK_TYPE_U32 },
 /*

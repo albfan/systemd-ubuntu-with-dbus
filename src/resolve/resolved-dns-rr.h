@@ -23,6 +23,7 @@
 
 #include <netinet/in.h>
 
+#include "bitmap.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "dns-type.h"
@@ -52,7 +53,7 @@ struct DnsResourceRecord {
         union {
                 struct {
                         void *data;
-                        uint16_t size;
+                        size_t size;
                 } generic;
 
                 struct {
@@ -109,10 +110,19 @@ struct DnsResourceRecord {
                 } loc;
 
                 struct {
+                        uint16_t key_tag;
+                        uint8_t algorithm;
+                        uint8_t digest_type;
+                        void *digest;
+                        size_t digest_size;
+                } ds;
+
+                /* https://tools.ietf.org/html/rfc4255#section-3.1 */
+                struct {
                         uint8_t algorithm;
                         uint8_t fptype;
-                        void *key;
-                        size_t key_size;
+                        void *fingerprint;
+                        size_t fingerprint_size;
                 } sshfp;
 
                 /* http://tools.ietf.org/html/rfc4034#section-2.1 */
@@ -137,6 +147,22 @@ struct DnsResourceRecord {
                         void *signature;
                         size_t signature_size;
                 } rrsig;
+
+                struct {
+                        char *next_domain_name;
+                        Bitmap *types;
+                } nsec;
+
+                struct {
+                        uint8_t algorithm;
+                        uint8_t flags;
+                        uint16_t iterations;
+                        void *salt;
+                        size_t salt_size;
+                        void *next_hashed_name;
+                        size_t next_hashed_name_size;
+                        Bitmap *types;
+                } nsec3;
         };
 };
 
