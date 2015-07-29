@@ -9,7 +9,6 @@ DefaultDependencies=no
 IgnoreOnIsolate=yes
 
 [Service]
-ExecStart=/sbin/ifup --allow=hotplug %I
-ExecStartPost=/sbin/ifquery --state %I
+ExecStart=/bin/sh -ec 'ifup --allow=hotplug %I; ifquery --state %I'
 ExecStop=/sbin/ifdown %I
 RemainAfterExit=true
