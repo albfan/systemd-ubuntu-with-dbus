@@ -30,6 +30,8 @@ systemd (223-1) UNRELEASED; urgency=medium
   * debian/extra/initramfs-tools/hooks/udev: Drop some redundant code.
   * Fix networkd-wait-online -i to properly wait for the given interfaces
     only.
+  * Drop debian/extra/base-installer.d/05udev: We use net.ifnames by default
+    now, thus we don't need to copy 70-persistent-*.rules any more.
 
   [ Julian Wollrath ]
   * Copy all .link interface naming definitions to initramfs. (Closes: #793374)
