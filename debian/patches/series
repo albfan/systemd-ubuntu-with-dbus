@@ -1,6 +1,8 @@
 ## Cherry-picked from upstream
 
 ## Debian specific patches
+networkd-wait-online-only-consider-interfaces-given-.patch
+networkd-wait-online-fix-race.patch
 Add-back-support-for-Debian-specific-config-files.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
