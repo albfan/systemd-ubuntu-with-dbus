@@ -55,17 +55,12 @@ static int property_get_id(
                 sd_bus_error *error) {
 
         Machine *m = userdata;
-        int r;
 
         assert(bus);
         assert(reply);
         assert(m);
 
-        r = sd_bus_message_append_array(reply, 'y', &m->id, 16);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append_array(reply, 'y', &m->id, 16);
 }
 
 static int property_get_state(
@@ -104,7 +99,6 @@ static int property_get_netif(
                 sd_bus_error *error) {
 
         Machine *m = userdata;
-        int r;
 
         assert(bus);
         assert(reply);
@@ -112,11 +106,7 @@ static int property_get_netif(
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
-        r = sd_bus_message_append_array(reply, 'i', m->netif, m->n_netif * sizeof(int));
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append_array(reply, 'i', m->netif, m->n_netif * sizeof(int));
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);

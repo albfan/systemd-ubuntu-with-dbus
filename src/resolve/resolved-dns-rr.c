@@ -171,19 +171,19 @@ const struct hash_ops dns_resource_key_hash_ops = {
 };
 
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
-        char cbuf[DECIMAL_STR_MAX(uint16_t)], tbuf[DECIMAL_STR_MAX(uint16_t)];
+        char cbuf[strlen("CLASS") + DECIMAL_STR_MAX(uint16_t)], tbuf[strlen("TYPE") + DECIMAL_STR_MAX(uint16_t)];
         const char *c, *t;
         char *s;
 
         c = dns_class_to_string(key->class);
         if (!c) {
-                sprintf(cbuf, "%i", key->class);
+                sprintf(cbuf, "CLASS%u", key->class);
                 c = cbuf;
         }
 
         t = dns_type_to_string(key->type);
         if (!t){
-                sprintf(tbuf, "%i", key->type);
+                sprintf(tbuf, "TYPE%u", key->type);
                 t = tbuf;
         }
 
@@ -271,8 +271,12 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->mx.exchange);
                         break;
 
+                case DNS_TYPE_DS:
+                        free(rr->ds.digest);
+                        break;
+
                 case DNS_TYPE_SSHFP:
-                        free(rr->sshfp.key);
+                        free(rr->sshfp.fingerprint);
                         break;
 
                 case DNS_TYPE_DNSKEY:
@@ -282,6 +286,17 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 case DNS_TYPE_RRSIG:
                         free(rr->rrsig.signer);
                         free(rr->rrsig.signature);
+                        break;
+
+                case DNS_TYPE_NSEC:
+                        free(rr->nsec.next_domain_name);
+                        bitmap_free(rr->nsec.types);
+                        break;
+
+                case DNS_TYPE_NSEC3:
+                        free(rr->nsec3.next_hashed_name);
+                        free(rr->nsec3.salt);
+                        bitmap_free(rr->nsec3.types);
                         break;
 
                 case DNS_TYPE_LOC:
@@ -409,11 +424,18 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->loc.longitude == b->loc.longitude &&
                        a->loc.altitude == b->loc.altitude;
 
+        case DNS_TYPE_DS:
+                return a->ds.key_tag == b->ds.key_tag &&
+                       a->ds.algorithm == b->ds.algorithm &&
+                       a->ds.digest_type == b->ds.digest_type &&
+                       a->ds.digest_size == b->ds.digest_size &&
+                       memcmp(a->ds.digest, b->ds.digest, a->ds.digest_size) == 0;
+
         case DNS_TYPE_SSHFP:
                 return a->sshfp.algorithm == b->sshfp.algorithm &&
                        a->sshfp.fptype == b->sshfp.fptype &&
-                       a->sshfp.key_size == b->sshfp.key_size &&
-                       memcmp(a->sshfp.key, b->sshfp.key, a->sshfp.key_size) == 0;
+                       a->sshfp.fingerprint_size == b->sshfp.fingerprint_size &&
+                       memcmp(a->sshfp.fingerprint, b->sshfp.fingerprint, a->sshfp.fingerprint_size) == 0;
 
         case DNS_TYPE_DNSKEY:
                 return a->dnskey.zone_key_flag == b->dnskey.zone_key_flag &&
@@ -436,6 +458,19 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                         return false;
 
                 return dns_name_equal(a->rrsig.signer, b->rrsig.signer);
+
+        case DNS_TYPE_NSEC:
+                return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) &&
+                       bitmap_equal(a->nsec.types, b->nsec.types);
+
+        case DNS_TYPE_NSEC3:
+                return a->nsec3.algorithm == b->nsec3.algorithm &&
+                    a->nsec3.flags == b->nsec3.flags &&
+                    a->nsec3.iterations == b->nsec3.iterations &&
+                    a->nsec3.salt_size == b->nsec3.salt_size &&
+                    memcmp(a->nsec3.salt, b->nsec3.salt, a->nsec3.salt_size) == 0 &&
+                    memcmp(a->nsec3.next_hashed_name, b->nsec3.next_hashed_name, a->nsec3.next_hashed_name_size) == 0 &&
+                    bitmap_equal(a->nsec3.types, b->nsec3.types);
 
         default:
                 return a->generic.size == b->generic.size &&
@@ -472,6 +507,53 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
                 return NULL;
 
         return s;
+}
+
+static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
+        struct tm tm;
+
+        assert(buf);
+        assert(l > strlen("YYYYMMDDHHmmSS"));
+
+        if (!gmtime_r(&sec, &tm))
+                return -EINVAL;
+
+        if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) <= 0)
+                return -EINVAL;
+
+        return 0;
+}
+
+static char *format_types(Bitmap *types) {
+        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free_ char *str = NULL;
+        Iterator i;
+        unsigned type;
+        int r;
+
+        BITMAP_FOREACH(type, types, i) {
+                if (dns_type_to_string(type)) {
+                        r = strv_extend(&strv, dns_type_to_string(type));
+                        if (r < 0)
+                                return NULL;
+                } else {
+                        char *t;
+
+                        r = asprintf(&t, "TYPE%u", type);
+                        if (r < 0)
+                                return NULL;
+
+                        r = strv_consume(&strv, t);
+                        if (r < 0)
+                                return NULL;
+                }
+        }
+
+        str = strv_join(strv, " ");
+        if (!str)
+                return NULL;
+
+        return strjoin("( ", str, " )", NULL);
 }
 
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
@@ -589,8 +671,23 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
 
+        case DNS_TYPE_DS:
+                t = hexmem(rr->ds.digest, rr->ds.digest_size);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %u %u %u %s",
+                             k,
+                             rr->ds.key_tag,
+                             rr->ds.algorithm,
+                             rr->ds.digest_type,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+
         case DNS_TYPE_SSHFP:
-                t = hexmem(rr->sshfp.key, rr->sshfp.key_size);
+                t = hexmem(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
                 if (!t)
                         return -ENOMEM;
 
@@ -608,7 +705,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 alg = dnssec_algorithm_to_string(rr->dnskey.algorithm);
 
-                t = hexmem(rr->dnskey.key, rr->dnskey.key_size);
+                t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
                 if (!t)
                         return -ENOMEM;
 
@@ -625,18 +722,27 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
         case DNS_TYPE_RRSIG: {
                 const char *type, *alg;
+                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
                 alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
 
-                t = hexmem(rr->rrsig.signature, rr->rrsig.signature_size);
+                t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
                 if (!t)
                         return -ENOMEM;
+
+                r = format_timestamp_dns(expiration, sizeof(expiration), rr->rrsig.expiration);
+                if (r < 0)
+                        return r;
+
+                r = format_timestamp_dns(inception, sizeof(inception), rr->rrsig.inception);
+                if (r < 0)
+                        return r;
 
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %u %u %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %s %s %u %s %s",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -644,8 +750,8 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->rrsig.algorithm,
                              rr->rrsig.labels,
                              rr->rrsig.original_ttl,
-                             rr->rrsig.expiration,
-                             rr->rrsig.inception,
+                             expiration,
+                             inception,
                              rr->rrsig.key_tag,
                              rr->rrsig.signer,
                              t);
@@ -654,13 +760,57 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 break;
         }
 
+        case DNS_TYPE_NSEC:
+                t = format_types(rr->nsec.types);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %s %s",
+                             k,
+                             rr->nsec.next_domain_name,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+
+        case DNS_TYPE_NSEC3: {
+                _cleanup_free_ char *salt = NULL, *hash = NULL;
+
+                if (rr->nsec3.salt_size > 0) {
+                        salt = hexmem(rr->nsec3.salt, rr->nsec3.salt_size);
+                        if (!salt)
+                                return -ENOMEM;
+                }
+
+                hash = base32hexmem(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, false);
+                if (!hash)
+                        return -ENOMEM;
+
+                t = format_types(rr->nsec3.types);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %"PRIu8" %"PRIu8" %"PRIu16" %s %s %s",
+                             k,
+                             rr->nsec3.algorithm,
+                             rr->nsec3.flags,
+                             rr->nsec3.iterations,
+                             rr->nsec3.salt_size > 0 ? salt : "-",
+                             hash,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+
+                break;
+        }
+
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
                 if (!t)
                         return -ENOMEM;
 
-                s = strjoin(k, " ", t, NULL);
-                if (!s)
+                r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.size, t);
+                if (r < 0)
                         return -ENOMEM;
                 break;
         }
@@ -690,7 +840,7 @@ int dns_class_from_string(const char *s, uint16_t *class) {
         if (strcaseeq(s, "IN"))
                 *class = DNS_CLASS_IN;
         else if (strcaseeq(s, "ANY"))
-                *class = DNS_TYPE_ANY;
+                *class = DNS_CLASS_ANY;
         else
                 return -EINVAL;
 

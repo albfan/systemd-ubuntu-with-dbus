@@ -846,9 +846,6 @@ static int link_set_bridge(Link *link) {
         assert(link);
         assert(link->network);
 
-        if(link->network->cost == 0)
-                return 0;
-
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
@@ -860,6 +857,26 @@ static int link_set_bridge(Link *link) {
         r = sd_netlink_message_open_container(req, IFLA_PROTINFO);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, !link->network->use_bpdu);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MODE, link->network->hairpin);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MODE attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, !link->network->allow_port_to_be_root);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->unicast_flood);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
 
         if(link->network->cost != 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
@@ -1495,7 +1512,7 @@ static int link_set_ipv4_forward(Link *link) {
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
         v = one_zero(link_ipv4_forward_enabled(link));
 
-        r = write_string_file_no_create(p, v);
+        r = write_string_file(p, v, 0);
         if (r < 0) {
                 /* If the right value is set anyway, don't complain */
                 if (verify_one_line_file(p, v) > 0)
@@ -1524,7 +1541,7 @@ static int link_set_ipv6_forward(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
         v = one_zero(link_ipv6_forward_enabled(link));
 
-        r = write_string_file_no_create(p, v);
+        r = write_string_file(p, v, 0);
         if (r < 0) {
                 /* If the right value is set anyway, don't complain */
                 if (verify_one_line_file(p, v) > 0)
@@ -1553,7 +1570,7 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
         xsprintf(buf, "%u", link->network->ipv6_privacy_extensions);
 
-        r = write_string_file_no_create(p, buf);
+        r = write_string_file(p, buf, 0);
         if (r < 0) {
                 /* If the right value is set anyway, don't complain */
                 if (verify_one_line_file(p, buf) > 0)

@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include <netinet/udp.h>
+#include <netinet/ip.h>
 
 #include "macro.h"
 #include "sparse-endian.h"
@@ -53,6 +55,7 @@ struct DnsPacketHeader {
 };
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
+#define UDP_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
 
 /* The various DNS protocols deviate in how large a packet can grow,
    but the TCP transport has a 16bit size field, hence that appears to
@@ -99,10 +102,18 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 #define DNS_PACKET_ID(p) DNS_PACKET_HEADER(p)->id
 #define DNS_PACKET_QR(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 15) & 1)
 #define DNS_PACKET_OPCODE(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 11) & 15)
-#define DNS_PACKET_RCODE(p) (be16toh(DNS_PACKET_HEADER(p)->flags) & 15)
+#define DNS_PACKET_AA(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 10) & 1)
 #define DNS_PACKET_TC(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 9) & 1)
-#define DNS_PACKET_C(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 10) & 1)
-#define DNS_PACKET_T(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 8) & 1)
+#define DNS_PACKET_RD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 8) & 1)
+#define DNS_PACKET_RA(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 7) & 1)
+#define DNS_PACKET_AD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 5) & 1)
+#define DNS_PACKET_CD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 4) & 1)
+#define DNS_PACKET_RCODE(p) (be16toh(DNS_PACKET_HEADER(p)->flags) & 15)
+
+/* LLMNR defines some bits differently */
+#define DNS_PACKET_LLMNR_C(p) DNS_PACKET_AA(p)
+#define DNS_PACKET_LLMNR_T(p) DNS_PACKET_RD(p)
+
 #define DNS_PACKET_QDCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->qdcount)
 #define DNS_PACKET_ANCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->ancount)
 #define DNS_PACKET_NSCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->nscount)
@@ -212,6 +223,8 @@ enum {
         DNSSEC_ALGORITHM_DSA,
         DNSSEC_ALGORITHM_ECC,
         DNSSEC_ALGORITHM_RSASHA1,
+        DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
         DNSSEC_ALGORITHM_INDIRECT = 252,
         DNSSEC_ALGORITHM_PRIVATEDNS,
         DNSSEC_ALGORITHM_PRIVATEOID,

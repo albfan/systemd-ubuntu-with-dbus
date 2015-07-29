@@ -28,6 +28,7 @@
 #include "random-util.h"
 #include "hostname-util.h"
 #include "dns-domain.h"
+#include "resolved-llmnr.h"
 #include "resolved-dns-scope.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
@@ -124,17 +125,17 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
-int dns_scope_emit(DnsScope *s, DnsPacket *p) {
+int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
         uint16_t port;
         uint32_t mtu;
-        int fd;
 
         assert(s);
         assert(p);
         assert(p->protocol == s->protocol);
+        assert((s->protocol == DNS_PROTOCOL_DNS) != (fd < 0));
 
         if (s->link) {
                 mtu = s->link->mtu;
@@ -143,33 +144,18 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                 mtu = manager_find_mtu(s->manager);
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
-                DnsServer *srv;
-
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
-
-                srv = dns_scope_get_dns_server(s);
-                if (!srv)
-                        return -ESRCH;
-
-                family = srv->family;
-                addr = srv->address;
-                port = 53;
 
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
-                if (p->size > mtu)
+                if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
-                if (family == AF_INET)
-                        fd = manager_dns_ipv4_fd(s->manager);
-                else if (family == AF_INET6)
-                        fd = manager_dns_ipv6_fd(s->manager);
-                else
-                        return -EAFNOSUPPORT;
-                if (fd < 0)
-                        return fd;
+                r = manager_write(s->manager, fd, p);
+                if (r < 0)
+                        return r;
 
         } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
@@ -180,7 +166,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                         return -EBUSY;
 
                 family = s->family;
-                port = 5355;
+                port = LLMNR_PORT;
 
                 if (family == AF_INET) {
                         addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;
@@ -192,17 +178,18 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                         return -EAFNOSUPPORT;
                 if (fd < 0)
                         return fd;
+
+                r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
+                if (r < 0)
+                        return r;
         } else
                 return -EAFNOSUPPORT;
-
-        r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
-        if (r < 0)
-                return r;
 
         return 1;
 }
 
-int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port) {
+static int dns_scope_socket(DnsScope *s, int type, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
+        DnsServer *srv = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {};
         socklen_t salen;
@@ -213,8 +200,6 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         assert((family == AF_UNSPEC) == !address);
 
         if (family == AF_UNSPEC) {
-                DnsServer *srv;
-
                 srv = dns_scope_get_dns_server(s);
                 if (!srv)
                         return -ESRCH;
@@ -247,13 +232,15 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
                         return -EAFNOSUPPORT;
         }
 
-        fd = socket(sa.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(sa.sa.sa_family, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-        if (r < 0)
-                return -errno;
+        if (type == SOCK_STREAM) {
+                r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+                if (r < 0)
+                        return -errno;
+        }
 
         if (s->link) {
                 uint32_t ifindex = htobe32(s->link->ifindex);
@@ -287,10 +274,21 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         if (r < 0 && errno != EINPROGRESS)
                 return -errno;
 
+        if (server)
+                *server = srv;
+
         ret = fd;
         fd = -1;
 
         return ret;
+}
+
+int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server) {
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, 53, server);
+}
+
+int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
+        return dns_scope_socket(s, SOCK_STREAM, family, address, port, server);
 }
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
@@ -313,6 +311,11 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                 return DNS_SCOPE_NO;
 
         if (is_localhost(domain))
+                return DNS_SCOPE_NO;
+
+        /* Never resolve any loopback IP address via DNS, LLMNR or mDNS */
+        if (dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
+            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
@@ -413,19 +416,6 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                 return -EAFNOSUPPORT;
 
         return 0;
-}
-
-int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union *address) {
-        assert(s);
-        assert(address);
-
-        if (s->protocol != DNS_PROTOCOL_DNS)
-                return 1;
-
-        if (s->link)
-                return !!link_find_dns_server(s->link,  family, address);
-        else
-                return !!manager_find_dns_server(s->manager, family, address);
 }
 
 static int dns_scope_make_reply_packet(
@@ -546,7 +536,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        if (DNS_PACKET_C(p)) {
+        if (DNS_PACKET_LLMNR_C(p)) {
                 /* Somebody notified us about a possible conflict */
                 dns_scope_verify_conflicts(s, p);
                 return;
@@ -695,7 +685,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, p);
+                r = dns_scope_emit(scope, -1, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }
@@ -760,10 +750,10 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
         if (DNS_PACKET_RRCOUNT(p) <= 0)
                 return;
 
-        if (DNS_PACKET_C(p) != 0)
+        if (DNS_PACKET_LLMNR_C(p) != 0)
                 return;
 
-        if (DNS_PACKET_T(p) != 0)
+        if (DNS_PACKET_LLMNR_T(p) != 0)
                 return;
 
         if (manager_our_packet(scope->manager, p))

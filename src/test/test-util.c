@@ -390,6 +390,39 @@ static void test_unhexchar(void) {
         assert_se(unhexchar('0') == 0x0);
 }
 
+static void test_base32hexchar(void) {
+        assert_se(base32hexchar(0) == '0');
+        assert_se(base32hexchar(9) == '9');
+        assert_se(base32hexchar(10) == 'A');
+        assert_se(base32hexchar(31) == 'V');
+}
+
+static void test_unbase32hexchar(void) {
+        assert_se(unbase32hexchar('0') == 0);
+        assert_se(unbase32hexchar('9') == 9);
+        assert_se(unbase32hexchar('A') == 10);
+        assert_se(unbase32hexchar('V') == 31);
+        assert_se(unbase32hexchar('=') == -EINVAL);
+}
+
+static void test_base64char(void) {
+        assert_se(base64char(0) == 'A');
+        assert_se(base64char(26) == 'a');
+        assert_se(base64char(63) == '/');
+}
+
+static void test_unbase64char(void) {
+        assert_se(unbase64char('A') == 0);
+        assert_se(unbase64char('Z') == 25);
+        assert_se(unbase64char('a') == 26);
+        assert_se(unbase64char('z') == 51);
+        assert_se(unbase64char('0') == 52);
+        assert_se(unbase64char('9') == 61);
+        assert_se(unbase64char('+') == 62);
+        assert_se(unbase64char('/') == 63);
+        assert_se(unbase64char('=') == -EINVAL);
+}
+
 static void test_octchar(void) {
         assert_se(octchar(00) == '0');
         assert_se(octchar(07) == '7');
@@ -408,6 +441,264 @@ static void test_decchar(void) {
 static void test_undecchar(void) {
         assert_se(undecchar('0') == 0);
         assert_se(undecchar('9') == 9);
+}
+
+static void test_unhexmem(void) {
+        const char *hex = "efa214921";
+        const char *hex_invalid = "efa214921o";
+        _cleanup_free_ char *hex2 = NULL;
+        _cleanup_free_ void *mem = NULL;
+        size_t len;
+
+        assert_se(unhexmem(hex, strlen(hex), &mem, &len) == 0);
+        assert_se(unhexmem(hex, strlen(hex) + 1, &mem, &len) == -EINVAL);
+        assert_se(unhexmem(hex_invalid, strlen(hex_invalid), &mem, &len) == -EINVAL);
+
+        assert_se((hex2 = hexmem(mem, len)));
+
+        free(mem);
+
+        assert_se(memcmp(hex, hex2, strlen(hex)) == 0);
+
+        free(hex2);
+
+        assert_se(unhexmem(hex, strlen(hex) - 1, &mem, &len) == 0);
+        assert_se((hex2 = hexmem(mem, len)));
+        assert_se(memcmp(hex, hex2, strlen(hex) - 1) == 0);
+}
+
+/* https://tools.ietf.org/html/rfc4648#section-10 */
+static void test_base32hexmem(void) {
+        char *b32;
+
+        b32 = base32hexmem("", strlen(""), true);
+        assert_se(b32);
+        assert_se(streq(b32, ""));
+        free(b32);
+
+        b32 = base32hexmem("f", strlen("f"), true);
+        assert_se(b32);
+        assert_se(streq(b32, "CO======"));
+        free(b32);
+
+        b32 = base32hexmem("fo", strlen("fo"), true);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNG===="));
+        free(b32);
+
+        b32 = base32hexmem("foo", strlen("foo"), true);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMU==="));
+        free(b32);
+
+        b32 = base32hexmem("foob", strlen("foob"), true);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMUOG="));
+        free(b32);
+
+        b32 = base32hexmem("fooba", strlen("fooba"), true);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMUOJ1"));
+        free(b32);
+
+        b32 = base32hexmem("foobar", strlen("foobar"), true);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMUOJ1E8======"));
+        free(b32);
+
+        b32 = base32hexmem("", strlen(""), false);
+        assert_se(b32);
+        assert_se(streq(b32, ""));
+        free(b32);
+
+        b32 = base32hexmem("f", strlen("f"), false);
+        assert_se(b32);
+        assert_se(streq(b32, "CO"));
+        free(b32);
+
+        b32 = base32hexmem("fo", strlen("fo"), false);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNG"));
+        free(b32);
+
+        b32 = base32hexmem("foo", strlen("foo"), false);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMU"));
+        free(b32);
+
+        b32 = base32hexmem("foob", strlen("foob"), false);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMUOG"));
+        free(b32);
+
+        b32 = base32hexmem("fooba", strlen("fooba"), false);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMUOJ1"));
+        free(b32);
+
+        b32 = base32hexmem("foobar", strlen("foobar"), false);
+        assert_se(b32);
+        assert_se(streq(b32, "CPNMUOJ1E8"));
+        free(b32);
+}
+
+static void test_unbase32hexmem(void) {
+        void *mem;
+        size_t len;
+
+        assert_se(unbase32hexmem("", strlen(""), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), ""));
+        free(mem);
+
+        assert_se(unbase32hexmem("CO======", strlen("CO======"), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "f"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNG====", strlen("CPNG===="), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fo"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMU===", strlen("CPNMU==="), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foo"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOG=", strlen("CPNMUOG="), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foob"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fooba"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOJ1E8======", strlen("CPNMUOJ1E8======"), true, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foobar"));
+        free(mem);
+
+        assert_se(unbase32hexmem("A", strlen("A"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("A=======", strlen("A======="), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAA=====", strlen("AAA====="), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAAAA==", strlen("AAAAAA=="), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AB======", strlen("AB======"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAB====", strlen("AAAB===="), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAAB===", strlen("AAAAB==="), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAAAAB=", strlen("AAAAAAB="), true, &mem, &len) == -EINVAL);
+
+        assert_se(unbase32hexmem("", strlen(""), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), ""));
+        free(mem);
+
+        assert_se(unbase32hexmem("CO", strlen("CO"), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "f"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNG", strlen("CPNG"), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fo"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMU", strlen("CPNMU"), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foo"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOG", strlen("CPNMUOG"), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foob"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOJ1", strlen("CPNMUOJ1"), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fooba"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOJ1E8", strlen("CPNMUOJ1E8"), false, &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foobar"));
+        free(mem);
+
+        assert_se(unbase32hexmem("CPNMUOG=", strlen("CPNMUOG="), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPNMUOJ1E8======", strlen("CPNMUOJ1E8======"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("A", strlen("A"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("A", strlen("A"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAA", strlen("AAA"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAAAA", strlen("AAAAAA"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AB", strlen("AB"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAB", strlen("AAAB"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAAB", strlen("AAAAB"), false, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("AAAAAAB", strlen("AAAAAAB"), false, &mem, &len) == -EINVAL);
+}
+
+/* https://tools.ietf.org/html/rfc4648#section-10 */
+static void test_base64mem(void) {
+        char *b64;
+
+        b64 = base64mem("", strlen(""));
+        assert_se(b64);
+        assert_se(streq(b64, ""));
+        free(b64);
+
+        b64 = base64mem("f", strlen("f"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zg=="));
+        free(b64);
+
+        b64 = base64mem("fo", strlen("fo"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm8="));
+        free(b64);
+
+        b64 = base64mem("foo", strlen("foo"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9v"));
+        free(b64);
+
+        b64 = base64mem("foob", strlen("foob"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9vYg=="));
+        free(b64);
+
+        b64 = base64mem("fooba", strlen("fooba"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9vYmE="));
+        free(b64);
+
+        b64 = base64mem("foobar", strlen("foobar"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9vYmFy"));
+        free(b64);
+}
+
+static void test_unbase64mem(void) {
+        void *mem;
+        size_t len;
+
+        assert_se(unbase64mem("", strlen(""), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), ""));
+        free(mem);
+
+        assert_se(unbase64mem("Zg==", strlen("Zg=="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "f"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm8=", strlen("Zm8="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fo"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9v", strlen("Zm9v"), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foo"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9vYg==", strlen("Zm9vYg=="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foob"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9vYmE=", strlen("Zm9vYmE="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fooba"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9vYmFy", strlen("Zm9vYmFy"), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foobar"));
+        free(mem);
+
+        assert_se(unbase64mem("A", strlen("A"), &mem, &len) == -EINVAL);
+        assert_se(unbase64mem("A====", strlen("A===="), &mem, &len) == -EINVAL);
+        assert_se(unbase64mem("AAB==", strlen("AAB=="), &mem, &len) == -EINVAL);
+        assert_se(unbase64mem("AAAB=", strlen("AAAB="), &mem, &len) == -EINVAL);
 }
 
 static void test_cescape(void) {
@@ -565,14 +856,14 @@ static void test_read_hostname_config(void) {
         close(fd);
 
         /* simple hostname */
-        write_string_file(path, "foo");
+        write_string_file(path, "foo", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
         free(hostname);
         hostname = NULL;
 
         /* with comment */
-        write_string_file(path, "# comment\nfoo");
+        write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
@@ -580,7 +871,7 @@ static void test_read_hostname_config(void) {
         hostname = NULL;
 
         /* with comment and extra whitespace */
-        write_string_file(path, "# comment\n\n foo ");
+        write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
@@ -588,7 +879,7 @@ static void test_read_hostname_config(void) {
         hostname = NULL;
 
         /* cleans up name */
-        write_string_file(path, "!foo/bar.com");
+        write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
@@ -597,7 +888,7 @@ static void test_read_hostname_config(void) {
 
         /* no value set */
         hostname = (char*) 0x1234;
-        write_string_file(path, "# nothing here\n");
+        write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == -ENOENT);
         assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
 
@@ -1191,11 +1482,11 @@ static void test_execute_directory(void) {
         masked = strjoina(template_lo, "/masked");
         mask = strjoina(template_hi, "/masked");
 
-        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works") == 0);
-        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2") == 0);
-        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
-        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0") == 0);
-        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
+        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(symlink("/dev/null", mask) == 0);
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
@@ -1396,6 +1687,17 @@ static void test_unquote_first_word(void) {
         p = original = "\\w+\\b";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
         assert_se(streq(t, "\\w+\b"));
+        free(t);
+        assert_se(p == original + 5);
+
+        p = original = "-N ''";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "-N"));
+        free(t);
+        assert_se(p == original + 3);
+
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, ""));
         free(t);
         assert_se(p == original + 5);
 }
@@ -1804,10 +2106,19 @@ int main(int argc, char *argv[]) {
         test_in_charset();
         test_hexchar();
         test_unhexchar();
+        test_base32hexchar();
+        test_unbase32hexchar();
+        test_base64char();
+        test_unbase64char();
         test_octchar();
         test_unoctchar();
         test_decchar();
         test_undecchar();
+        test_unhexmem();
+        test_base32hexmem();
+        test_unbase32hexmem();
+        test_base64mem();
+        test_unbase64mem();
         test_cescape();
         test_cunescape();
         test_foreach_word();

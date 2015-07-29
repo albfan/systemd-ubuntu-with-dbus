@@ -80,11 +80,9 @@
     <filename>/run</filename> take precedence over files with the same
     name in <filename>/usr/lib</filename>. This can be used to
     override a system-supplied configuration file with a local file if
-    needed; a symlink in <filename>/etc</filename> with the same name
-    as a configuration file in <filename>/usr/lib</filename>, pointing
-    to <filename>/dev/null</filename>, disables the configuration file
-    entirely.</para>
-
+    needed. As a special case, an empty file (file size 0) or symlink
+    with the same name pointing to <filename>/dev/null</filename>,
+    disable the configuration file entirely (it is "masked").</para>
   </refsect1>
 
   <refsect1>
@@ -136,6 +134,9 @@
 
           <row><entry><varname>macvlan</varname></entry>
           <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
+
+          <row><entry><varname>macvtap</varname></entry>
+          <entry>A macvtap device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
 
           <row><entry><varname>sit</varname></entry>
           <entry>An IPv6 over IPv4 tunnel.</entry></row>
@@ -318,6 +319,15 @@
 
   </refsect1>
 
+    <refsect1>
+    <title>[MACVTAP] Section Options</title>
+
+    <para>The <literal>[MACVTAP]</literal> section applies for
+    netdevs of kind <literal>macvtap</literal> and accepts the
+    same key as <literal>[MACVLAN].</literal> </para>
+
+    </refsect1>
+
   <refsect1>
     <title>[IPVLAN] Section Options</title>
 
@@ -491,6 +501,31 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>IPv6FlowLabel=</varname></term>
+        <listitem>
+          <para>Configures The 20-bit Flow Label (see <ulink url="https://tools.ietf.org/html/rfc6437">
+          RFC 6437</ulink>) field in the IPv6 header (see <ulink url="https://tools.ietf.org/html/rfc2460">
+          RFC 2460</ulink>), is used by a node to label packets of a flow.
+          It's only used for IPv6 Tunnels.
+          A Flow Label of zero is used to indicate packets that have
+          not been labeled. Takes following values.
+          When <literal>inherit</literal> it uses the original flowlabel,
+          or can be configured to any value between 0 to 0xFFFFF.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>CopyDSCP=</varname></term>
+        <listitem>
+          <para>A boolean. When true, the Differentiated Service Code
+          Point (DSCP) field will be copied to the inner header from
+          outer header during the decapsulation of an IPv6 tunnel
+          packet. DSCP is a field in an IP packet that enables different
+          levels of service to be assigned to network traffic.
+          Defaults to <literal>no</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
           <para>An <literal>ip6tnl</literal> tunnels can have three
@@ -559,6 +594,16 @@
         packets should be prepended with four extra bytes (two flag
         bytes and two protocol bytes). If disabled it indicates that
         the packets will be pure IP packets. Defaults to
+        <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VNetHeader=</varname></term>
+        <listitem><para>Takes a boolean argument. Configures
+        IFF_VNET_HDR flag for a tap device. It allows sending
+        and receiving larger Generic Segmentation Offload (GSO)
+        packets. This may increase throughput significantly.
+        Defaults to
         <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
@@ -644,7 +689,7 @@
         <listitem>
           <para>Specifies the frequency that Media Independent
           Interface link monitoring will occur. A value of zero
-          disables MII link monitoring. This values is rounded down to
+          disables MII link monitoring. This value is rounded down to
           the nearest millisecond. The default value is 0.</para>
         </listitem>
       </varlistentry>
@@ -788,7 +833,7 @@
         <listitem>
           <para> Specify the number of packets to transmit through a slave before
             moving to the next one. When set to 0 then a slave is chosen at
-            random.The valid range is (0 - 65535). Defaults to 1. This option
+            random. The valid range is (0 - 65535). Defaults to 1. This option
             has effect only in balance-rr mode.
           </para>
         </listitem>

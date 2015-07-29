@@ -31,6 +31,7 @@ Network.Bridge,                config_parse_netdev,                            0
 Network.Bond,                  config_parse_netdev,                            0,                             offsetof(Network, bond)
 Network.VLAN,                  config_parse_netdev,                            0,                             0
 Network.MACVLAN,               config_parse_netdev,                            0,                             0
+Network.MACVTAP,               config_parse_netdev,                            0,                             0
 Network.IPVLAN,                config_parse_netdev,                            0,                             0
 Network.VXLAN,                 config_parse_netdev,                            0,                             0
 Network.Tunnel,                config_parse_tunnel,                            0,                             0
@@ -67,11 +68,17 @@ DHCP.UseHostname,              config_parse_bool,                              0
 DHCP.UseDomains,               config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
 DHCP.UseRoutes,                config_parse_bool,                              0,                             offsetof(Network, dhcp_routes)
 DHCP.SendHostname,             config_parse_bool,                              0,                             offsetof(Network, dhcp_sendhost)
+DHCP.Hostname,                 config_parse_hostname,                          0,                             offsetof(Network, hostname)
 DHCP.RequestBroadcast,         config_parse_bool,                              0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,       config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,    config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.RouteMetric,              config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
 Bridge.Cost,                   config_parse_unsigned,                          0,                             offsetof(Network, cost)
+Bridge.UseBPDU,                config_parse_bool,                              0,                             offsetof(Network, use_bpdu)
+Bridge.HairPin,                config_parse_bool,                              0,                             offsetof(Network, hairpin)
+Bridge.FastLeave,              config_parse_bool,                              0,                             offsetof(Network, fast_leave)
+Bridge.AllowPortToBeRoot,      config_parse_bool,                              0,                             offsetof(Network, allow_port_to_be_root)
+Bridge.UnicastFlood,           config_parse_bool,                              0,                             offsetof(Network, unicast_flood)
 BridgeFDB.MACAddress,          config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,              config_parse_fdb_vlan_id,                       0,                             0
 /* backwards compatibility: do not add new entries to this section */

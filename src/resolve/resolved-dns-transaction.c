@@ -21,6 +21,7 @@
 
 #include "af-list.h"
 
+#include "resolved-llmnr.h"
 #include "resolved-dns-transaction.h"
 #include "random-util.h"
 
@@ -38,6 +39,10 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
+        sd_event_source_unref(t->dns_event_source);
+        safe_close(t->dns_fd);
+
+        dns_server_unref(t->server);
         dns_stream_free(t->stream);
 
         if (t->scope) {
@@ -86,6 +91,8 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
         t = new0(DnsTransaction, 1);
         if (!t)
                 return -ENOMEM;
+
+        t->dns_fd = -1;
 
         t->question = dns_question_ref(q);
 
@@ -236,6 +243,7 @@ static int on_stream_complete(DnsStream *s, int error) {
 }
 
 static int dns_transaction_open_tcp(DnsTransaction *t) {
+        DnsServer *server = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -245,12 +253,12 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 return 0;
 
         if (t->scope->protocol == DNS_PROTOCOL_DNS)
-                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53);
+                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
         else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
 
                 /* When we already received a query to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
+                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -264,7 +272,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (r == 0)
                                 return -EINVAL;
 
-                        fd = dns_scope_tcp_socket(t->scope, family, &address, 5355);
+                        fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
                 }
         } else
                 return -EAFNOSUPPORT;
@@ -284,6 +292,9 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 return r;
         }
 
+
+        dns_server_unref(t->server);
+        t->server = dns_server_ref(server);
         t->received = dns_packet_unref(t->received);
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
@@ -295,6 +306,16 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 t->stream->ifindex = t->scope->link->ifindex;
 
         return 0;
+}
+
+static void dns_transaction_next_dns_server(DnsTransaction *t) {
+        assert(t);
+
+        t->server = dns_server_unref(t->server);
+        t->dns_event_source = sd_event_source_unref(t->dns_event_source);
+        t->dns_fd = safe_close(t->dns_fd);
+
+        dns_scope_next_dns_server(t->scope);
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
@@ -323,23 +344,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 /* Tentative packets are not full responses but still
                  * useful for identifying uniqueness conflicts during
                  * probing. */
-                if (DNS_PACKET_T(p)) {
+                if (DNS_PACKET_LLMNR_T(p)) {
                         dns_transaction_tentative(t, p);
                         return;
                 }
-        }
-
-        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
-
-                /* For DNS we are fine with accepting packets on any
-                 * interface, but the source IP address must be one of
-                 * a valid DNS server */
-
-                if (!dns_scope_good_dns_server(t->scope, p->family, &p->sender))
-                        return;
-
-                if (p->sender_port != 53)
-                        return;
         }
 
         if (t->received != p) {
@@ -378,7 +386,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         }
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
-                        dns_scope_next_dns_server(t->scope);
+                        dns_transaction_next_dns_server(t);
 
                         r = dns_transaction_go(t);
                         if (r < 0) {
@@ -397,6 +405,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
+        /* Only consider responses with equivalent query section to the request */
+        r = dns_question_is_equal(p->question, t->question);
+        if (r <= 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return;
+        }
+
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
         dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
 
@@ -404,6 +419,56 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
         else
                 dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
+}
+
+static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *t = userdata;
+        int r;
+
+        assert(t);
+        assert(t->scope);
+
+        r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
+        if (r <= 0)
+                return r;
+
+        if (dns_packet_validate_reply(p) > 0 &&
+            DNS_PACKET_ID(p) == t->id) {
+                dns_transaction_process_reply(t, p);
+        } else
+                log_debug("Invalid DNS packet.");
+
+        return 0;
+}
+
+static int dns_transaction_emit(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        if (t->scope->protocol == DNS_PROTOCOL_DNS && !t->server) {
+                DnsServer *server = NULL;
+                _cleanup_close_ int fd = -1;
+
+                fd = dns_scope_udp_dns_socket(t->scope, &server);
+                if (fd < 0)
+                        return fd;
+
+                r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, fd, EPOLLIN, on_dns_packet, t);
+                if (r < 0)
+                        return r;
+
+                t->dns_fd = fd;
+                fd = -1;
+                t->server = dns_server_ref(server);
+        }
+
+        r = dns_scope_emit(t->scope, t->dns_fd, t->sent);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
@@ -414,7 +479,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(t);
 
         /* Timeout reached? Try again, with a new server */
-        dns_scope_next_dns_server(t->scope);
+        dns_transaction_next_dns_server(t);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -571,7 +636,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = dns_transaction_open_tcp(t);
         } else {
                 /* Try via UDP, and if that fails due to large size try via TCP */
-                r = dns_scope_emit(t->scope, t->sent);
+                r = dns_transaction_emit(t);
                 if (r == -EMSGSIZE)
                         r = dns_transaction_open_tcp(t);
         }
@@ -579,15 +644,14 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                 return 0;
-        }
-        if (r < 0) {
+        } else if (r < 0) {
                 if (t->scope->protocol != DNS_PROTOCOL_DNS) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                         return 0;
                 }
 
                 /* Couldn't send? Try immediately again, with a new server */
-                dns_scope_next_dns_server(t->scope);
+                dns_transaction_next_dns_server(t);
 
                 return dns_transaction_go(t);
         }
