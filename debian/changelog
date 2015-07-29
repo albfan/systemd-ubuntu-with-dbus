@@ -1,4 +1,4 @@
-systemd (223-1) UNRELEASED; urgency=medium
+systemd (223-1) unstable; urgency=medium
 
   * New upstream release:
     - Fix systemd-bootchart crash. (Closes: #792403)
@@ -43,7 +43,7 @@ systemd (223-1) UNRELEASED; urgency=medium
   * nss-my*.postinst: configure at the end of the hosts line, not before
     files. (Closes: #789006)
 
- -- Michael Biebl <biebl@debian.org>  Tue, 21 Jul 2015 22:24:51 +0200
+ -- Martin Pitt <mpitt@debian.org>  Thu, 30 Jul 2015 00:02:26 +0200
 
 systemd (222-2) unstable; urgency=medium
 
