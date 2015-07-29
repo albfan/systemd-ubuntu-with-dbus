@@ -9,6 +9,7 @@ systemd (223-1) UNRELEASED; urgency=medium
       (Closes: #791897)
     - Don't frequently wake up on disabled TimeoutIdleSec=, in particular in
       automount timers. (LP: #1470845)
+    - tmpfiles: Don't delete lost+found/. (Closes: #788193)
 
   [ Michael Biebl ]
   * udev: Remove obsolete rm_conffile/mv_conffile functions from udev.preinst.
