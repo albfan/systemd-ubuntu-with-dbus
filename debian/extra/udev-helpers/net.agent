@@ -117,6 +117,3 @@ else
     exec > /dev/null 2> /dev/null
     do_everything &
 fi
-
-exit 0
-
