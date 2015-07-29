@@ -32,6 +32,8 @@ systemd (223-1) UNRELEASED; urgency=medium
     only.
   * Drop debian/extra/base-installer.d/05udev: We use net.ifnames by default
     now, thus we don't need to copy 70-persistent-*.rules any more.
+  * debian/extra/start-udev: Run d-i's udevd with "notice" log level, just
+    like we did in the initramfs in 219-10.
 
   [ Julian Wollrath ]
   * Copy all .link interface naming definitions to initramfs. (Closes: #793374)

@@ -8,7 +8,7 @@ if ! grep -E -q "^[^[:space:]]+ /dev devtmpfs" /proc/mounts; then
     mount -n -o mode=0755 -t devtmpfs devtmpfs /dev
 fi
 
-/lib/systemd/systemd-udevd --daemon --resolve-names=never
+SYSTEMD_LOG_LEVEL=notice /lib/systemd/systemd-udevd --daemon --resolve-names=never
 
 udevadm trigger --action=add
 
