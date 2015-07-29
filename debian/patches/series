@@ -1,6 +1,4 @@
 ## Cherry-picked from upstream
-units-emergency.service-wait-for-plymouth-to-shut-do.patch
-Revert-VT-reuse-patches.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

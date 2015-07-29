@@ -1,4 +1,14 @@
-systemd (222-3) UNRELEASED; urgency=medium
+systemd (223-1) UNRELEASED; urgency=medium
+
+  * New upstream release:
+    - Fix systemd-bootchart crash. (Closes: #792403)
+    - Trim list of files in /usr/share/doc/systemd/. (Closes: #791839)
+    - Fix "Invalid argument" failure with some  journal files.
+      (Closes: #792090)
+    - tmpfiles: Don't recursively descend into journal directories in /var.
+      (Closes: #791897)
+    - Don't frequently wake up on disabled TimeoutIdleSec=, in particular in
+      automount timers. (LP: #1470845)
 
   [ Michael Biebl ]
   * udev: Remove obsolete rm_conffile/mv_conffile functions from udev.preinst.

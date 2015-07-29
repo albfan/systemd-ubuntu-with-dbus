@@ -28,7 +28,7 @@ index cf76aaf..392ac6b 100644
        </varlistentry>
        <varlistentry>
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
-index 109f731..969bb6a 100644
+index 2a3ba47..5dc0ee3 100644
 --- a/src/insserv-generator/insserv-generator.c
 +++ b/src/insserv-generator/insserv-generator.c
 @@ -62,7 +62,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char

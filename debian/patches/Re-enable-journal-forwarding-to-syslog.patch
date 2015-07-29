@@ -30,10 +30,10 @@ index d6fe45d..fcde6d5 100644
          <literal>systemd.journald.forward_to_syslog=</literal>,
          <literal>systemd.journald.forward_to_kmsg=</literal>,
 diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
-index 46358e1..df8134e 100644
+index 28b1472..3dad790 100644
 --- a/src/journal/journald-server.c
 +++ b/src/journal/journald-server.c
-@@ -1465,6 +1465,7 @@ int server_init(Server *s) {
+@@ -1467,6 +1467,7 @@ int server_init(Server *s) {
          s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
          s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
  
