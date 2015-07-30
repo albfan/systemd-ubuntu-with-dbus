@@ -25,7 +25,10 @@ cp -p /etc/udev/udev.conf $DESTDIR/etc/udev/
 
 # copy .link files containing interface naming definitions
 mkdir -p $DESTDIR/lib/systemd/network/
-find /lib/systemd/network /etc/systemd/network -name '*.link' -execdir cp -pt $DESTDIR/lib/systemd/network/ '{}' +
+find /lib/systemd/network -name '*.link' -execdir cp -pt $DESTDIR/lib/systemd/network/ '{}' +
+if [ -d /etc/systemd/network ]; then
+  find /etc/systemd/network -name '*.link' -execdir cp -pt $DESTDIR/lib/systemd/network/ '{}' +
+fi
 
 mkdir -p $DESTDIR/lib/udev/rules.d/
 for rules in 50-firmware.rules 50-udev-default.rules 60-persistent-storage.rules \
