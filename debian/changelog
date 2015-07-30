@@ -1,11 +1,11 @@
-systemd (223-2) UNRELEASED; urgency=medium
+systemd (223-2) unstable; urgency=medium
 
   * Don't enable gnu-efi on ARM. It FTBFSes and cannot really be tested now as
     there is no available hardware.
   * debian/extra/initramfs-tools/hooks/udev: Don't fail if
     /etc/systemd/network/ does not exist. (Closes: #794050)
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 30 Jul 2015 08:18:54 +0200
+ -- Martin Pitt <mpitt@debian.org>  Thu, 30 Jul 2015 08:25:51 +0200
 
 systemd (223-1) unstable; urgency=medium
 
