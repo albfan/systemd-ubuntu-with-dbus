@@ -27,12 +27,14 @@ class ServicesTest(unittest.TestCase):
         out = subprocess.check_output(['systemctl', '--failed', '--no-legend'],
                                       universal_newlines=True)
         failed = out.splitlines()
-        # FIXME: ignore /etc/modules failure as stuff that we put there by
-        # default often fails
+        # ignore /etc/modules failure as stuff that we put there by default
+        # often fails
         failed = [f for f in failed if 'systemd-modules-load' not in f]
         # apparmor fails if not enabled in the kernel
         if not os.path.exists('/sys/kernel/security/apparmor'):
             failed = [f for f in failed if 'apparmor.service' not in f]
+        # ignore thermald as it doesn't start in most virtual envs
+        failed = [f for f in failed if 'thermald' not in f]
         self.assertEqual(failed, [])
 
     def test_lightdm(self):
