@@ -261,8 +261,17 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
 }
 
 Proxy *proxy_free(Proxy *p) {
+        ProxyActivation *activation;
+
         if (!p)
                 return NULL;
+
+        while ((activation = p->activations)) {
+                LIST_REMOVE(activations_by_proxy, p->activations, activation);
+                sd_bus_message_unref(activation->request);
+                sd_bus_slot_unref(activation->slot);
+                free(activation);
+        }
 
         sd_bus_flush_close_unref(p->local_bus);
         sd_bus_flush_close_unref(p->destination_bus);
@@ -643,6 +652,10 @@ static int process_hello(Proxy *p, sd_bus_message *m) {
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
         if (r < 0)
                 return log_error_errno(r, "Failed to append sender to NameAcquired message: %m");
+
+        r = sd_bus_message_set_destination(n, p->destination_bus->unique_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set destination for NameAcquired message: %m");
 
         r = bus_seal_synthetic_message(p->local_bus, n);
         if (r < 0)
