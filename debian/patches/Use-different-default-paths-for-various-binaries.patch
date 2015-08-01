@@ -12,7 +12,7 @@ paths.  Closes: #721347
  1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index a16ca63..a0cc229 100644
+index f1ce9ff..57e2272 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -92,18 +92,18 @@ AC_PROG_CC_C99

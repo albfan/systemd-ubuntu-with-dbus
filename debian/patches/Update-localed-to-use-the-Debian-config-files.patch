@@ -8,11 +8,11 @@ configuration and use /etc/default/keyboard instead of
 
 Patch courtesy of Steve Langasek.
 ---
- src/locale/localed.c | 204 ++++++++++++++++++++++++++++-----------------------
- 1 file changed, 112 insertions(+), 92 deletions(-)
+ src/locale/localed.c | 202 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 106 insertions(+), 96 deletions(-)
 
 diff --git a/src/locale/localed.c b/src/locale/localed.c
-index 8875654..030cb17 100644
+index e8a8f17d..030cb17 100644
 --- a/src/locale/localed.c
 +++ b/src/locale/localed.c
 @@ -167,6 +167,24 @@ static int locale_read_data(Context *c) {
@@ -145,7 +145,7 @@ index 8875654..030cb17 100644
          if (r < 0)
                  return r;
  
-@@ -434,57 +410,101 @@ static int vconsole_write_data(Context *c) {
+@@ -434,65 +410,99 @@ static int vconsole_write_data(Context *c) {
  }
  
  static int x11_write_data(Context *c) {
@@ -201,13 +201,21 @@ index 8875654..030cb17 100644
 +                u = strv_env_set(l, t);
 +                free(t);
 +                strv_free(l);
-+
+ 
+-        fchmod(fileno(f), 0644);
 +                if (!u)
 +                        return -ENOMEM;
-+
+ 
+-        fputs("# Read and parsed by systemd-localed. It's probably wise not to edit this file\n"
+-              "# manually too freely.\n"
+-              "Section \"InputClass\"\n"
+-              "        Identifier \"system-keyboard\"\n"
+-              "        MatchIsKeyboard \"on\"\n", f);
 +                l = u;
 +        }
-+
+ 
+-        if (!isempty(c->x11_layout))
+-                fprintf(f, "        Option \"XkbLayout\" \"%s\"\n", c->x11_layout);
 +        if (isempty(c->x11_variant)) {
 +                l = strv_env_unset(l, "XKBVARIANT");
 +        } else {
@@ -215,23 +223,23 @@ index 8875654..030cb17 100644
 +                        strv_free(l);
 +                        return -ENOMEM;
 +                }
-+
+ 
+-        if (!isempty(c->x11_model))
+-                fprintf(f, "        Option \"XkbModel\" \"%s\"\n", c->x11_model);
 +                u = strv_env_set(l, t);
 +                free(t);
 +                strv_free(l);
-+
+ 
+-        if (!isempty(c->x11_variant))
+-                fprintf(f, "        Option \"XkbVariant\" \"%s\"\n", c->x11_variant);
 +                if (!u)
 +                        return -ENOMEM;
  
--        fchmod(fileno(f), 0644);
+-        if (!isempty(c->x11_options))
+-                fprintf(f, "        Option \"XkbOptions\" \"%s\"\n", c->x11_options);
 +                l = u;
 +        }
- 
--        fputs("# Read and parsed by systemd-localed. It's probably wise not to edit this file\n"
--              "# manually too freely.\n"
--              "Section \"InputClass\"\n"
--              "        Identifier \"system-keyboard\"\n"
--              "        MatchIsKeyboard \"on\"\n", f);
++
 +        if (isempty(c->x11_options)) {
 +                l = strv_env_unset(l, "XKBOPTIONS");
 +        } else {
@@ -240,45 +248,39 @@ index 8875654..030cb17 100644
 +                        return -ENOMEM;
 +                }
  
--        if (!isempty(c->x11_layout))
--                fprintf(f, "        Option \"XkbLayout\" \"%s\"\n", c->x11_layout);
+-        fputs("EndSection\n", f);
 +                u = strv_env_set(l, t);
 +                free(t);
 +                strv_free(l);
  
--        if (!isempty(c->x11_model))
--                fprintf(f, "        Option \"XkbModel\" \"%s\"\n", c->x11_model);
+-        r = fflush_and_check(f);
+-        if (r < 0)
+-                goto fail;
 +                if (!u)
 +                        return -ENOMEM;
  
--        if (!isempty(c->x11_variant))
--                fprintf(f, "        Option \"XkbVariant\" \"%s\"\n", c->x11_variant);
+-        if (rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
+-                r = -errno;
+-                goto fail;
 +                l = u;
-+        }
+         }
  
--        if (!isempty(c->x11_options))
--                fprintf(f, "        Option \"XkbOptions\" \"%s\"\n", c->x11_options);
+-        return 0;
 +        if (strv_isempty(l)) {
 +                strv_free(l);
- 
--        fputs("EndSection\n", f);
--        fflush(f);
++
 +                if (unlink("/etc/default/keyboard") < 0)
 +                        return errno == ENOENT ? 0 : -errno;
  
--        if (ferror(f) || rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
--                r = -errno;
--                unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
--                unlink(temp_path);
--                return r;
--        } else
-                 return 0;
+-fail:
+-        (void) unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
++                return 0;
 +        }
-+
+ 
+-        if (temp_path)
+-                (void) unlink(temp_path);
 +        r = write_env_file("/etc/default/keyboard", l);
 +        strv_free(l);
-+
-+        return r;
- }
  
- static int vconsole_reload(sd_bus *bus) {
+         return r;
+ }

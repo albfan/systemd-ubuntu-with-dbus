@@ -1,7 +1,4 @@
 ## Cherry-picked from upstream
-networkd-wait-online-only-consider-interfaces-given-.patch
-networkd-wait-online-fix-race.patch
-networkd-fix-size-of-networkd-binary.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

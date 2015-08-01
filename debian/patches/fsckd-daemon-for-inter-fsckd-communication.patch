@@ -58,18 +58,18 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index 218a299..c621d14 100644
+index c0cebaa..002facb 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
-@@ -94,6 +94,7 @@ MANPAGES += \
- 	man/systemd-efi-boot-generator.8 \
+@@ -93,6 +93,7 @@ MANPAGES += \
+ 	man/systemd-detect-virt.1 \
  	man/systemd-escape.1 \
  	man/systemd-fsck@.service.8 \
 +	man/systemd-fsckd.service.8 \
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -367,6 +368,8 @@ MANPAGES_ALIAS += \
+@@ -366,6 +367,8 @@ MANPAGES_ALIAS += \
  	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -78,7 +78,7 @@ index 218a299..c621d14 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -653,6 +656,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
+@@ -652,6 +655,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
  man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
@@ -87,7 +87,7 @@ index 218a299..c621d14 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -1349,6 +1354,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1348,6 +1353,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index 218a299..c621d14 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -2308,6 +2319,7 @@ EXTRA_DIST += \
+@@ -2306,6 +2317,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,7 +109,7 @@ index 218a299..c621d14 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 4c59f3a..3c113dc 100644
+index feae358..c0eb2d6 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -395,6 +395,7 @@ rootlibexec_PROGRAMS = \

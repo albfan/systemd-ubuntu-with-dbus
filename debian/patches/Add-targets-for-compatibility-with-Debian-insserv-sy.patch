@@ -10,7 +10,7 @@ Subject: Add targets for compatibility with Debian insserv system facilities
  create mode 100644 units/mail-transport-agent.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 29038ea..28c720d 100644
+index 024aecd..389d8c4 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -566,6 +566,11 @@ nodist_systemunit_DATA += \

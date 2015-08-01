@@ -1,5 +1,6 @@
-systemd (223-3) UNRELEASED; urgency=medium
+systemd (224-1) UNRELEASED; urgency=medium
 
+  * New upstream release.
   * boot-and-services autopkgtest: Ignore thermald. Since 1.4.3-2 it starts by
     default, but fails in most virtual envs.
 
