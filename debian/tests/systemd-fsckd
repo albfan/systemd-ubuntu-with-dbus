@@ -251,6 +251,9 @@ def getAllTests(unitTestClass):
 # we append the previous global return code (0 or 1) to it.
 # Example: ADT_REBOOT_MARK=test_foo:0
 if __name__ == '__main__':
+    if os.path.exists('/run/initramfs/fsck-root'):
+        print('SKIP: root file system is being checked by initramfs already')
+        sys.exit(0)
 
     all_tests = getAllTests(FsckdTest)
     reboot_marker = os.getenv('ADT_REBOOT_MARK')

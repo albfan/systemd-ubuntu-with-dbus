@@ -1,3 +1,10 @@
+systemd (224-2) UNRELEASED; urgency=medium
+
+  * Skip systemd-fsckd autopkgtest if /run/initramfs/fsck-root exists, i. e.
+    the initramfs already ran fsck.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 04 Aug 2015 15:20:19 +0200
+
 systemd (224-1) unstable; urgency=medium
 
   * New upstream release.
