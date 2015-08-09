@@ -2,6 +2,7 @@ systemd (224-2) UNRELEASED; urgency=medium
 
   * Skip systemd-fsckd autopkgtest if /run/initramfs/fsck-root exists, i. e.
     the initramfs already ran fsck.
+  * Fix broken ACL in tmpfiles.d/systemd.conf. (LP: #1480552)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 04 Aug 2015 15:20:19 +0200
 

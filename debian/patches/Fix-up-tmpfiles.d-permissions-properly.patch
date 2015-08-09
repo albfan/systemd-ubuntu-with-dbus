@@ -48,7 +48,7 @@ index d9d51af..82ee2e2 100644
  m4_ifdef(`HAVE_ACL',``
 -a+ /var/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x
 -a+ /var/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
-+a+ /var/log/journal/%m - - - - d:group:adm:r-x,d
++a+ /var/log/journal/%m - - - - d:group:adm:r-x
 +a+ /var/log/journal/%m - - - - group:adm:r-x
  '')m4_dnl
  
