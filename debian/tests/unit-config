@@ -7,6 +7,7 @@ import unittest
 import subprocess
 import os
 import sys
+import tempfile
 from glob import glob
 
 
@@ -286,6 +287,18 @@ echo hello
         # disabled the sysv script
         l = glob('/etc/rc2.d/S??test_enable')
         self.assertEqual(l, [])
+
+    def test_unit_link(self):
+        '''systemctl link'''
+
+        with tempfile.NamedTemporaryFile(suffix='.service') as f:
+            f.write(b'[Unit]\n')
+            f.flush()
+            subprocess.check_call(['systemctl', 'link', f.name])
+
+            l = os.path.join('/etc/systemd/system', os.path.basename(f.name))
+            self.assertEqual(os.readlink(l), f.name)
+            os.unlink(l)
 
 
 if __name__ == '__main__':
