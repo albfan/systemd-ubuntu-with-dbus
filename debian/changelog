@@ -4,6 +4,7 @@ systemd (224-2) UNRELEASED; urgency=medium
     the initramfs already ran fsck.
   * Fix broken ACL in tmpfiles.d/systemd.conf. (Closes: #794645, LP: #1480552)
   * Add debian/tests/unit-config: Test "systemctl link"; reproduces LP#1480310.
+  * Add a hack to unbreak "systemctl link". (LP: #1480310)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 04 Aug 2015 15:20:19 +0200
 
