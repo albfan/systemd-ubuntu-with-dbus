@@ -1,6 +1,6 @@
 # On Hyper-V and Xen Virtual Machines we want to add memory and cpus as soon as they appear
 ATTR{[dmi/id]sys_vendor}=="Microsoft Corporation", ATTR{[dmi/id]product_name}=="Virtual Machine", GOTO="vm_hotadd_apply"
-ATTR{[dmi/id]sys_vendor}=="Xen", Machine", GOTO="vm_hotadd_apply"
+ATTR{[dmi/id]sys_vendor}=="Xen", GOTO="vm_hotadd_apply"
 GOTO="vm_hotadd_end"
 
 LABEL="vm_hotadd_apply"
