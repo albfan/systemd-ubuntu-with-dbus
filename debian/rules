@@ -12,6 +12,10 @@ else
     DEFAULT_NTP_SERVERS = 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
 endif
 
+ifeq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
+export DEB_BUILD_PROFILES += "noudeb"
+endif
+
 CONFFLAGS = \
 	--with-rootprefix= \
 	--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
@@ -89,14 +93,14 @@ CONFFLAGS_udeb = \
 override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build-deb \
 		-- $(CONFFLAGS) $(CONFFLAGS_deb)
-ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_configure --builddirectory=build-udeb \
 		-- $(CONFFLAGS) $(CONFFLAGS_udeb)
 endif
 
 override_dh_auto_build:
 	dh_auto_build --builddirectory=build-deb
-ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_build --builddirectory=build-udeb
 endif
 	# generate POT file for translators
@@ -105,7 +109,7 @@ endif
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build-deb \
 		--destdir=debian/install/deb
-ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_install --builddirectory=build-udeb \
 		--destdir=debian/install/udeb
 endif
@@ -125,7 +129,7 @@ endif
 
 override_dh_auto_clean:
 	dh_auto_clean --builddirectory=build-deb
-ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_clean --builddirectory=build-udeb
 endif
 	rm -rf debian/install/
@@ -161,7 +165,7 @@ override_dh_install:
 	rm -f debian/install/*/lib/*/libsystemd-*.so.*
 	# remove symlinks enabling default-on services
 	rm -rf debian/install/*/etc/systemd/system/*.target.wants/
-ifeq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 endif
 	# still needs to mature a bit, and packaging
@@ -274,7 +278,7 @@ ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 		if [ ! -e /etc/machine-id ]; then echo "/etc/machine-id missing, ignoring test failures"; else exit 1; fi; )
 endif
 
-ifneq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
+ifneq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 dh_options = -Nudev-udeb -Nlibudev1-udeb
 endif
 

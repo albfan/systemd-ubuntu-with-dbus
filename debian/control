@@ -289,6 +289,7 @@ Description: libudev development files
  use libudev.
 
 Package: udev-udeb
+Build-Profiles: <!noudeb>
 XC-Package-Type: udeb
 Section: debian-installer
 Priority: optional
@@ -303,6 +304,7 @@ Description: /dev/ and hotplug management daemon
  This is a minimal version, only for use in the installation system.
 
 Package: libudev1-udeb
+Build-Profiles: <!noudeb>
 Package-Type: udeb
 Section: debian-installer
 Priority: optional
