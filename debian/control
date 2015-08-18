@@ -37,8 +37,8 @@ Build-Depends: debhelper (>= 9),
                libblkid-dev (>= 2.24),
                libmount-dev (>= 2.20),
                libseccomp-dev (>= 1.0.0) [amd64 arm64 armel armhf i386 mips mipsel],
-               python3,
-               python3-lxml
+               python3:native,
+               python3-lxml:native
 
 Package: systemd
 Architecture: linux-any
