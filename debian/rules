@@ -44,17 +44,17 @@ CONFFLAGS = \
 	--with-system-uid-max=999 \
 	--with-system-gid-max=999
 
-ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
-CONFFLAGS += --enable-libcryptsetup
-endif
-
 CONFFLAGS_deb = \
 	--enable-selinux \
-	--enable-apparmor \
 	--enable-compat-libs \
 	--enable-hwdb \
 	--enable-efi \
 	PYTHON=python3
+
+ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
+CONFFLAGS_deb += --enable-libcryptsetup \
+                 --enable-libapparmor
+endif
 
 CONFFLAGS_udeb = \
 	--disable-libcryptsetup \
