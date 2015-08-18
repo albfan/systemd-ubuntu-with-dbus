@@ -13,7 +13,7 @@ else
 endif
 
 ifeq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
-export DEB_BUILD_PROFILES += "noudeb"
+export DEB_BUILD_PROFILES += " noudeb"
 endif
 
 CONFFLAGS = \
