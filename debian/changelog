@@ -12,6 +12,11 @@ systemd (224-2) UNRELEASED; urgency=medium
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.
 
+  [ Michael Biebl ]
+  * Drop default-display-manager-generator. All major desktops now use a
+    display manager which support the new scheme and setup the
+    /etc/systemd/system/display-manager.service symlink correctly.
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 04 Aug 2015 15:20:19 +0200
 
 systemd (224-1) unstable; urgency=medium
