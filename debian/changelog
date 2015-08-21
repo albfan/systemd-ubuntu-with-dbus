@@ -8,6 +8,7 @@ systemd (224-2) UNRELEASED; urgency=medium
   * Add a hack to unbreak "systemctl link". (LP: #1480310)
   * debian/extra/rules-ubuntu/40-hyperv-hotadd.rules: Also apply to Xen, and
     rename to 40-vm-hotadd.rules.
+  * Fix networkd crash. (Closes: #796358)
 
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.

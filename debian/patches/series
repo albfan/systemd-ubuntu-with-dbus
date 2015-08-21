@@ -1,4 +1,5 @@
 ## Cherry-picked from upstream
+networkd-fix-neworkd-crash.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
