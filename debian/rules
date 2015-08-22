@@ -12,7 +12,7 @@ else
     DEFAULT_NTP_SERVERS = 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
 endif
 
-ifeq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
+ifneq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
 export DEB_BUILD_PROFILES += " noudeb"
 endif
 
