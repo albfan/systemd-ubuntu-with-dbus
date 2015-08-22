@@ -52,7 +52,7 @@ CONFFLAGS_deb = \
 
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 CONFFLAGS_deb += --enable-libcryptsetup \
-                 --enable-libapparmor
+                 --enable-apparmor
 endif
 
 CONFFLAGS_udeb = \
