@@ -13,6 +13,8 @@ systemd (224-2) UNRELEASED; urgency=medium
     shipped by systemd-* or udev, instead of an explicit list.
   * Bump "mount" dependency to >= 2.26, to ensure "swapon -o" availability.
     (Closes: #796389)
+  * Install /lib/systemd/network/* into udev instead of systemd, as it's
+    really udev which is evaluating these.
 
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.

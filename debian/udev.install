@@ -1,5 +1,6 @@
 etc/udev/
 lib/udev/*
+lib/systemd/network
 lib/systemd/system/systemd-udev*
 lib/systemd/system/systemd-hwdb*
 lib/systemd/system/*.target.wants/systemd-udev*

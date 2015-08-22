@@ -257,9 +257,9 @@ Breaks: consolekit (<< 0.4.6-1),
         kmod (<< 14),
         plymouth (<< 0.9.0-7),
         bash-completion (<< 1:2.1),
-        systemd (<< 222-1)
+        systemd (<< 224-2)
 Replaces: bash-completion (<< 1:2.1),
-          systemd (<< 222-1)
+          systemd (<< 224-2)
 Description: /dev/ and hotplug management daemon
  udev is a daemon which dynamically creates and removes device nodes from
  /dev/, handles hotplug events and loads drivers at boot time.
