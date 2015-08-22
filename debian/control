@@ -32,6 +32,9 @@ Build-Depends: debhelper (>= 9),
                libselinux1-dev (>= 2.1.9),
                libacl1-dev,
                liblzma-dev,
+               libbz2-dev,
+               zlib1g-dev | libz-dev,
+               libcurl4-gnutls-dev | libcurl-dev,
                libgcrypt11-dev,
                libkmod-dev (>= 15),
                libblkid-dev (>= 2.24),
@@ -47,7 +50,8 @@ Section: admin
 Priority: important
 Recommends: libpam-systemd,
             dbus
-Suggests: systemd-ui
+Suggests: systemd-ui,
+          systemd-container
 Pre-Depends: ${shlibs:Pre-Depends},
              ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
@@ -105,6 +109,32 @@ Description: system and service manager - SysV links
  This package provides the manual pages and links needed for systemd
  to replace sysvinit. Installing systemd-sysv will overwrite /sbin/init with a
  link to systemd.
+
+Package: systemd-container
+Architecture: linux-any
+Multi-Arch: foreign
+Section: admin
+Priority: optional
+Conflicts: systemd (<< 224-2)
+Replaces: systemd (<< 224-2)
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         systemd,
+Description: systemd container/nspawn tools
+ systemd is a system and service manager for Linux. It provides aggressive
+ parallelization capabilities, uses socket and D-Bus activation for starting
+ services, offers on-demand starting of daemons, keeps track of processes
+ using Linux control groups, supports snapshotting and restoring of the system
+ state, maintains mount and automount points and implements an elaborate
+ transactional dependency-based service control logic.
+ .
+ systemd is compatible with SysV and LSB init scripts and can work as a
+ drop-in replacement for sysvinit.
+ .
+ This package provides systemd's tools for nspawn and container/VM management:
+  * systemd-nspawn
+  * systemd-machined and machinectl
+  * systemd-importd
 
 Package: libpam-systemd
 Architecture: linux-any

@@ -28,7 +28,6 @@ CONFFLAGS = \
 	--disable-qrencode \
 	--disable-microhttpd \
 	--disable-gnutls \
-	--disable-libcurl \
 	--disable-libidn \
 	--disable-elfutils \
 	--disable-vconsole \
@@ -36,7 +35,6 @@ CONFFLAGS = \
 	--disable-firstboot \
 	--disable-coredump \
 	--disable-xkbcommon \
-	--disable-importd \
 	--disable-libiptc \
 	--disable-silent-rules \
 	--with-ntp-servers="$(DEFAULT_NTP_SERVERS)"  \
@@ -48,6 +46,8 @@ CONFFLAGS_deb = \
 	--enable-compat-libs \
 	--enable-hwdb \
 	--enable-efi \
+	--enable-libcurl \
+	--enable-importd \
 	PYTHON=python3
 
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
@@ -71,6 +71,8 @@ CONFFLAGS_udeb = \
 	--disable-backlight \
 	--disable-logind \
 	--disable-machined \
+	--disable-libcurl \
+	--disable-importd \
 	--disable-hostnamed \
 	--disable-timedated \
 	--disable-networkd \
