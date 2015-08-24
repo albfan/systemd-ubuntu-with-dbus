@@ -19,6 +19,9 @@ systemd (224-2) UNRELEASED; urgency=medium
     importd. Add new libbz2-dev, zlib1g-dev, and libcurl-dev build deps.
     (LP: #1448900)
   * Move transitional libgcrypt11-dev build dep to libgcrypt20-dev.
+  * debian/rules: Limit check for libraries in /usr to systemd and udev
+    packages, as other packages like systemd-containers can (and do) link to
+    /usr.
 
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.

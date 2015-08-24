@@ -114,15 +114,6 @@ ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_install --builddirectory=build-udeb \
 		--destdir=debian/install/udeb
 endif
-ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
-	echo "Checking that executables don't link to libraries in /usr..."
-	set -e; for e in debian/install/deb/lib/systemd/systemd*; do \
-	    echo " $$e"; \
-	    OUT=`env -u LD_PRELOAD ldd $$e`; if echo "$$OUT" | grep -q /usr; then \
-	        echo "ERROR: $$e links to /usr"; echo "$$OUT"; exit 1; \
-	    fi; \
-	done
-endif
 	# fix paths in manpages; manually check the remaining /usr occurrences
 	# occasionally, with filtering out paths which are known to be in /usr:
 	# grep -r /usr debian/install/deb/usr/share/man/|egrep -v '/usr/local|os.*release|factory|zoneinfo|tmpfiles|kernel|foo|machines|sysctl|dbus|include|binfmt'
@@ -216,6 +207,16 @@ endif
 		install --mode=644 debian/extra/systemd-vconsole-setup.service debian/systemd/lib/systemd/system/; \
 		install --mode=644 debian/extra/rules-ubuntu/*.rules debian/udev/lib/udev/rules.d/; \
 	fi
+
+ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
+	echo "Checking that executables don't link to libraries in /usr..."
+	set -e; for e in debian/systemd/lib/systemd/systemd* debian/udev/lib/systemd/systemd*; do \
+	    echo " $$e"; \
+	    OUT=`env -u LD_PRELOAD ldd $$e` || continue; if echo "$$OUT" | grep -q /usr; then \
+	        echo "ERROR: $$e links to /usr"; echo "$$OUT"; exit 1; \
+	    fi; \
+	done
+endif
 
 override_dh_installinit:
 	dh_installinit --no-start
