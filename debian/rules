@@ -178,7 +178,7 @@ endif
 	dh_install --remaining-packages --sourcedir=debian/install/deb --fail-missing
 
 	# Make sure the runlevel services are known by systemd so their targets
-	# get launches. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
+	# get launched. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
 	for t in poweroff rescue multi-user graphical reboot; do \
 		mkdir -p debian/systemd/lib/systemd/system/$${t}.target.wants;\
 		ln -s ../systemd-update-utmp-runlevel.service \
@@ -226,7 +226,7 @@ override_dh_installinit:
 	dh_installinit --name=udev-fallback-graphics --noscripts
 
 # The SysV compat tools (which are symlinks to systemctl) are
-# quasi-essential, so add its dependencies to Pre-Depends
+# quasi-essential, so add their dependencies to Pre-Depends
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=753589
 override_dh_shlibdeps:
 	dh_shlibdeps -psystemd -- -dPre-Depends -edebian/systemd/bin/systemctl -dDepends
