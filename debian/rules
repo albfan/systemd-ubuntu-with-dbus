@@ -1,7 +1,7 @@
 #! /usr/bin/make -f
 
-#export DH_VERBOSE=1
-#export DEB_BUILD_OPTIONS="nostrip"
+#export DH_VERBOSE = 1
+#export DEB_BUILD_OPTIONS = nostrip
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 VERSION = $(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/.*: //p')
@@ -13,7 +13,7 @@ else
 endif
 
 ifneq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
-export DEB_BUILD_PROFILES += " noudeb"
+export DEB_BUILD_PROFILES += noudeb
 endif
 
 CONFFLAGS = \
