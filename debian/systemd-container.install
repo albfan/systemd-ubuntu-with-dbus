@@ -8,6 +8,7 @@ lib/systemd/systemd-import*
 lib/systemd/systemd-pull
 lib/systemd/system/systemd-nspawn@.service
 lib/systemd/system/systemd-importd.service
+lib/systemd/system/systemd-machined.service
 lib/systemd/system/org.freedesktop.import1.busname
 lib/systemd/system/org.freedesktop.machine1.busname
 lib/systemd/system/var-lib-machines.mount
