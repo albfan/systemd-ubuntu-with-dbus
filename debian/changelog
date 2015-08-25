@@ -11,6 +11,10 @@ systemd (225-1) UNRELEASED; urgency=medium
   [ Felipe Sateler ]
   * Move conffile from systemd to systemd-container package (Closes: #797048)
 
+  [ Michael Biebl ]
+  * Drop unnecessary Conflicts/Replaces from systemd-journal-remote.
+    None of the files in this package were previously shipped by systemd.
+
  -- Martin Pitt <mpitt@debian.org>  Wed, 26 Aug 2015 10:33:42 +0200
 
 systemd (224-2) unstable; urgency=medium
