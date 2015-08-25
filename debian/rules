@@ -26,7 +26,6 @@ CONFFLAGS = \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
 	--disable-qrencode \
-	--disable-gnutls \
 	--disable-libidn \
 	--disable-elfutils \
 	--disable-vconsole \
@@ -54,7 +53,8 @@ CONFFLAGS_deb += \
 	--enable-apparmor \
 	--enable-libcurl \
 	--enable-importd \
-	--enable-microhttpd
+	--enable-microhttpd \
+	--enable-gnutls
 else
 CONFFLAGS_deb += \
 	--disable-audit \
@@ -62,7 +62,8 @@ CONFFLAGS_deb += \
 	--disable-apparmor \
 	--disable-libcurl \
 	--disable-importd \
-	--disable-microhttpd
+	--disable-microhttpd \
+	--disable-gnutls
 endif
 
 CONFFLAGS_udeb = \
@@ -84,6 +85,7 @@ CONFFLAGS_udeb = \
 	--disable-libcurl \
 	--disable-importd \
 	--disable-microhttpd \
+	--disable-gnutls \
 	--disable-hostnamed \
 	--disable-timedated \
 	--disable-networkd \
