@@ -53,6 +53,8 @@ CONFFLAGS_deb += --enable-libcryptsetup \
                  --enable-libcurl \
                  --enable-importd \
                  --enable-microhttpd
+else
+CONFFLAGS_deb += --disable-audit
 endif
 
 CONFFLAGS_udeb = \

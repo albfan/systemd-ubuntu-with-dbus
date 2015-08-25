@@ -28,6 +28,8 @@ systemd (224-2) UNRELEASED; urgency=medium
     default-display-manager-generator.
   * boot-and-services autopkgtest: Add systemd-container test dependency for
     the nspawn tests.
+  * Don't enable audit support when building with "stage1" profile, to avoid
+    circular build dep.
 
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.
