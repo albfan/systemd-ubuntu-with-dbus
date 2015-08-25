@@ -49,7 +49,7 @@ CONFFLAGS_deb = \
 
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 CONFFLAGS_deb += --enable-libcryptsetup \
-                 --enable-apparmor
+                 --enable-apparmor \
                  --enable-libcurl \
                  --enable-importd \
                  --enable-microhttpd
