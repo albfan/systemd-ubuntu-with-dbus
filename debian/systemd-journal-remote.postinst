@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if ! getent passwd systemd-journal-gateway >/dev/null; then
+    adduser --disabled-password  --quiet --system \
+        --home /run/systemd/gatewayd --no-create-home \
+        --gecos "Systemd Journal Gateway daemon" \
+        --group systemd-journal-gateway
+fi
+
+#DEBHELPER#
