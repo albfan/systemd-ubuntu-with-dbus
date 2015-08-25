@@ -22,6 +22,8 @@ systemd (224-2) UNRELEASED; urgency=medium
   * debian/rules: Limit check for libraries in /usr to systemd and udev
     packages, as other packages like systemd-containers can (and do) link to
     /usr.
+  * Build-depend on dpkg-dev (>= 1.17.14) and bump debhelper version for build
+    profiles support.
 
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.
