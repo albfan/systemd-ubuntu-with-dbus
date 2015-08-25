@@ -24,6 +24,8 @@ systemd (224-2) UNRELEASED; urgency=medium
     /usr.
   * Build-depend on dpkg-dev (>= 1.17.14) and bump debhelper version for build
     profiles support.
+  * Drop "display-managers" autopkgtest, obsolete with dropped
+    default-display-manager-generator.
 
   [ Helmut Grohne ]
   * Improve support for cross-building and bootstrapping.

@@ -34,10 +34,6 @@ Tests: cmdline-upstart-boot
 Depends: systemd-sysv, cron, network-manager, python3
 Restrictions: needs-root, isolation-machine, breaks-testbed
 
-Tests: display-managers
-Depends: systemd-sysv, lightdm, xserver-xorg-video-dummy, python3
-Restrictions: needs-root, isolation-machine, breaks-testbed
-
 Tests: boot-smoke
 Depends: systemd-sysv, network-manager, policykit-1, lightdm
 Restrictions: needs-recommends, needs-root, isolation-container, allow-stderr
