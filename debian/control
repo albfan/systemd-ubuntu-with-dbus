@@ -32,10 +32,10 @@ Build-Depends: debhelper (>= 9),
                libselinux1-dev (>= 2.1.9),
                libacl1-dev,
                liblzma-dev,
-               libbz2-dev,
-               zlib1g-dev | libz-dev,
-               libcurl4-gnutls-dev | libcurl-dev,
-               libmicrohttpd-dev,
+               libbz2-dev <!stage1>,
+               zlib1g-dev <!stage1> | libz-dev <!stage1>,
+               libcurl4-gnutls-dev <!stage1> | libcurl-dev <!stage1>,
+               libmicrohttpd-dev <!stage1>,
                libgcrypt20-dev,
                libkmod-dev (>= 15),
                libblkid-dev (>= 2.24),
@@ -112,6 +112,7 @@ Description: system and service manager - SysV links
  link to systemd.
 
 Package: systemd-container
+Build-Profiles: <!stage1>
 Architecture: linux-any
 Multi-Arch: foreign
 Section: admin
@@ -138,6 +139,7 @@ Description: systemd container/nspawn tools
   * systemd-importd
 
 Package: systemd-journal-remote
+Build-Profiles: <!stage1>
 Architecture: linux-any
 Multi-Arch: foreign
 Section: admin

@@ -45,14 +45,14 @@ CONFFLAGS_deb = \
 	--enable-compat-libs \
 	--enable-hwdb \
 	--enable-efi \
-	--enable-libcurl \
-	--enable-importd \
-	--enable-microhttpd \
 	PYTHON=python3
 
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 CONFFLAGS_deb += --enable-libcryptsetup \
                  --enable-apparmor
+                 --enable-libcurl \
+                 --enable-importd \
+                 --enable-microhttpd
 endif
 
 CONFFLAGS_udeb = \
