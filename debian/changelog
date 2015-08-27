@@ -2,6 +2,7 @@ systemd (224-3) UNRELEASED; urgency=medium
 
   * Add better fix for "systemctl link/enable" breakage with full paths.
     (LP: #1480310)
+  * debian/rules: Add missing $(dh_options) in overridden debhelper targets.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 26 Aug 2015 10:33:42 +0200
 
