@@ -16,6 +16,9 @@ ifneq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
 export DEB_BUILD_PROFILES += noudeb
 endif
 
+# blocked by MIR LP #1488341 and wily FF
+export DH_OPTIONS += -Nsystemd-journal-remote
+
 CONFFLAGS = \
 	--with-rootprefix= \
 	--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
@@ -53,7 +56,7 @@ CONFFLAGS_deb += \
 	--enable-apparmor \
 	--enable-libcurl \
 	--enable-importd \
-	--enable-microhttpd \
+	--disable-microhttpd \
 	--enable-gnutls
 else
 CONFFLAGS_deb += \
@@ -170,6 +173,10 @@ override_dh_install:
 	rm -f debian/install/*/lib/*/libsystemd-*.so.*
 	# remove symlinks enabling default-on services
 	rm -rf debian/install/*/etc/systemd/system/*.target.wants/
+	# blocked by MIR/FF in Ubuntu
+	rm -rf debian/install/*/lib/systemd/systemd-journal-upload
+	rm -rf debian/install/*/lib/systemd/system/systemd-journal-upload*
+	rm -rf debian/install/*/etc/systemd/journal-upload.conf
 ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 endif
