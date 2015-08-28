@@ -248,7 +248,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                       address_drop(address, link, &link_address_drop_handler);
+                        address_drop(address, link, &link_address_drop_handler);
                 }
         }
 
@@ -365,7 +365,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
 
         sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_configured = false;
-        link->dhcp_lease = lease;
+        link->dhcp_lease = sd_dhcp_lease_ref(lease);
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0) {
@@ -454,7 +454,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                            "PREFIXLEN=%u", prefixlen,
                            NULL);
 
-        link->dhcp_lease = lease;
+        link->dhcp_lease = sd_dhcp_lease_ref(lease);
 
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;
@@ -468,7 +468,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_hostname) {
-                const char *hostname;
+                const char *hostname = NULL;
 
                 if (!link->network->hostname)
                         r = sd_dhcp_lease_get_hostname(lease, &hostname);
@@ -620,8 +620,8 @@ int dhcp4_configure(Link *link) {
                         return r;
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
-                        if (r < 0)
-                                return r;
+                if (r < 0)
+                        return r;
         }
 
         if (link->network->dhcp_sendhost) {

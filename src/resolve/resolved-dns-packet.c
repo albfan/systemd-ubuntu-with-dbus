@@ -388,13 +388,20 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start
         return 0;
 }
 
-int dns_packet_append_name(DnsPacket *p, const char *name,
-                           bool allow_compression, size_t *start) {
+int dns_packet_append_name(
+                DnsPacket *p,
+                const char *name,
+                bool allow_compression,
+                size_t *start) {
+
         size_t saved_size;
         int r;
 
         assert(p);
         assert(name);
+
+        if (p->refuse_compression)
+                allow_compression = false;
 
         saved_size = p->size;
 
@@ -1053,8 +1060,12 @@ fail:
         return r;
 }
 
-int dns_packet_read_name(DnsPacket *p, char **_ret,
-                         bool allow_compression, size_t *start) {
+int dns_packet_read_name(
+                DnsPacket *p,
+                char **_ret,
+                bool allow_compression,
+                size_t *start) {
+
         size_t saved_rindex, after_rindex = 0, jump_barrier;
         _cleanup_free_ char *ret = NULL;
         size_t n = 0, allocated = 0;
@@ -1063,6 +1074,9 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
 
         assert(p);
         assert(_ret);
+
+        if (p->refuse_compression)
+                allow_compression = false;
 
         saved_rindex = p->rindex;
         jump_barrier = p->rindex;
@@ -1712,7 +1726,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
+                r = dns_packet_read_type_windows(p, &rr->nsec3.types, offset + rdlength - p->rindex, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -1795,7 +1809,7 @@ int dns_packet_extract(DnsPacket *p) {
                         if (r < 0)
                                 goto finish;
 
-                        r = dns_answer_add(answer, rr);
+                        r = dns_answer_add(answer, rr, p->ifindex);
                         if (r < 0)
                                 goto finish;
                 }

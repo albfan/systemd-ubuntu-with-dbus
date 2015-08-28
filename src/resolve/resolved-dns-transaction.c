@@ -24,6 +24,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-dns-transaction.h"
 #include "random-util.h"
+#include "dns-domain.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;
@@ -34,23 +35,24 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         sd_event_source_unref(t->timeout_event_source);
 
-        dns_question_unref(t->question);
         dns_packet_unref(t->sent);
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
-        sd_event_source_unref(t->dns_event_source);
-        safe_close(t->dns_fd);
+        sd_event_source_unref(t->dns_udp_event_source);
+        safe_close(t->dns_udp_fd);
 
         dns_server_unref(t->server);
         dns_stream_free(t->stream);
 
         if (t->scope) {
-                LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
+                hashmap_remove(t->scope->transactions, t->key);
 
                 if (t->id != 0)
                         hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
         }
+
+        dns_resource_key_unref(t->key);
 
         while ((q = set_steal_first(t->queries)))
                 set_remove(q->transactions, t);
@@ -76,15 +78,19 @@ void dns_transaction_gc(DnsTransaction *t) {
                 dns_transaction_free(t);
 }
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
         _cleanup_(dns_transaction_freep) DnsTransaction *t = NULL;
         int r;
 
         assert(ret);
         assert(s);
-        assert(q);
+        assert(key);
 
         r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_allocated(&s->transactions, &dns_resource_key_hash_ops);
         if (r < 0)
                 return r;
 
@@ -92,10 +98,10 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
         if (!t)
                 return -ENOMEM;
 
-        t->dns_fd = -1;
+        t->dns_udp_fd = -1;
+        t->key = dns_resource_key_ref(key);
 
-        t->question = dns_question_ref(q);
-
+        /* Find a fresh, unused transaction id */
         do
                 random_bytes(&t->id, sizeof(t->id));
         while (t->id == 0 ||
@@ -107,7 +113,12 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
                 return r;
         }
 
-        LIST_PREPEND(transactions_by_scope, s->transactions, t);
+        r = hashmap_put(s->transactions, t->key, t);
+        if (r < 0) {
+                hashmap_remove(s->manager->dns_transactions, UINT_TO_PTR(t->id));
+                return r;
+        }
+
         t->scope = s;
 
         if (ret)
@@ -174,9 +185,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         assert(t);
         assert(!IN_SET(state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
-
-        if (!IN_SET(t->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING))
-                return;
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -252,11 +260,13 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         if (t->stream)
                 return 0;
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS)
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
                 fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
-        else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                break;
 
-                /* When we already received a query to this (but it was truncated), send to its sender address */
+        case DNS_PROTOCOL_LLMNR:
+                /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
                         fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
                 else {
@@ -266,16 +276,23 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         /* Otherwise, try to talk to the owner of a
                          * the IP address, in case this is a reverse
                          * PTR lookup */
-                        r = dns_question_extract_reverse_address(t->question, &family, &address);
+
+                        r = dns_name_address(DNS_RESOURCE_KEY_NAME(t->key), &family, &address);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 return -EINVAL;
+                        if (family != t->scope->family)
+                                return -ESRCH;
 
                         fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
                 }
-        } else
+
+                break;
+
+        default:
                 return -EAFNOSUPPORT;
+        }
 
         if (fd < 0)
                 return fd;
@@ -291,7 +308,6 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 t->stream = dns_stream_free(t->stream);
                 return r;
         }
-
 
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);
@@ -312,24 +328,28 @@ static void dns_transaction_next_dns_server(DnsTransaction *t) {
         assert(t);
 
         t->server = dns_server_unref(t->server);
-        t->dns_event_source = sd_event_source_unref(t->dns_event_source);
-        t->dns_fd = safe_close(t->dns_fd);
+        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+        t->dns_udp_fd = safe_close(t->dns_udp_fd);
 
         dns_scope_next_dns_server(t->scope);
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
+        usec_t ts;
         int r;
 
         assert(t);
         assert(p);
         assert(t->state == DNS_TRANSACTION_PENDING);
+        assert(t->scope);
+        assert(t->scope->manager);
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_LLMNR:
                 assert(t->scope->link);
 
                 /* For LLMNR we will not accept any packets from other
@@ -348,6 +368,14 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_transaction_tentative(t, p);
                         return;
                 }
+
+                break;
+
+        case DNS_PROTOCOL_DNS:
+                break;
+
+        default:
+                assert_not_reached("Invalid DNS protocol.");
         }
 
         if (t->received != p) {
@@ -367,6 +395,24 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
                 }
+        }
+
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
+                assert(t->server);
+
+                dns_server_packet_received(t->server, ts - t->start_usec);
+
+                break;
+        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_MDNS:
+                dns_scope_packet_received(t->scope, ts - t->start_usec);
+
+                break;
+        default:
+                break;
         }
 
         if (DNS_PACKET_TC(p)) {
@@ -406,8 +452,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         /* Only consider responses with equivalent query section to the request */
-        r = dns_question_is_equal(p->question, t->question);
-        if (r <= 0) {
+        if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
@@ -434,9 +479,9 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return r;
 
         if (dns_packet_validate_reply(p) > 0 &&
-            DNS_PACKET_ID(p) == t->id) {
+            DNS_PACKET_ID(p) == t->id)
                 dns_transaction_process_reply(t, p);
-        } else
+        else
                 log_debug("Invalid DNS packet.");
 
         return 0;
@@ -455,16 +500,16 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, fd, EPOLLIN, on_dns_packet, t);
+                r = sd_event_add_io(t->scope->manager->event, &t->dns_udp_event_source, fd, EPOLLIN, on_dns_packet, t);
                 if (r < 0)
                         return r;
 
-                t->dns_fd = fd;
+                t->dns_udp_fd = fd;
                 fd = -1;
                 t->server = dns_server_ref(server);
         }
 
-        r = dns_scope_emit(t->scope, t->dns_fd, t->sent);
+        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->sent);
         if (r < 0)
                 return r;
 
@@ -481,6 +526,12 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         /* Timeout reached? Try again, with a new server */
         dns_transaction_next_dns_server(t);
 
+        /* ... and possibly increased timeout */
+        if (t->server)
+                dns_server_packet_lost(t->server, usec - t->start_usec);
+        else
+                dns_scope_packet_lost(t->scope, usec - t->start_usec);
+
         r = dns_transaction_go(t);
         if (r < 0)
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -490,7 +541,6 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
 static int dns_transaction_make_packet(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        unsigned n, added = 0;
         int r;
 
         assert(t);
@@ -502,24 +552,17 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
-        for (n = 0; n < t->question->n_keys; n++) {
-                r = dns_scope_good_key(t->scope, t->question->keys[n]);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                r = dns_packet_append_key(p, t->question->keys[n], NULL);
-                if (r < 0)
-                        return r;
-
-                added++;
-        }
-
-        if (added <= 0)
+        r = dns_scope_good_key(t->scope, t->key);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EDOM;
 
-        DNS_PACKET_HEADER(p)->qdcount = htobe16(added);
+        r = dns_packet_append_key(p, t->key, NULL);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->id = t->id;
 
         t->sent = p;
@@ -528,8 +571,26 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         return 0;
 }
 
+static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
+        assert(t);
+        assert(t->scope);
+
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
+                assert(t->server);
+
+                return t->server->resend_timeout;
+        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_MDNS:
+                return t->scope->resend_timeout;
+        default:
+                assert_not_reached("Invalid DNS protocol.");
+        }
+}
+
 int dns_transaction_go(DnsTransaction *t) {
         bool had_stream;
+        usec_t ts;
         int r;
 
         assert(t);
@@ -555,7 +616,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
 
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
         t->n_attempts++;
+        t->start_usec = ts;
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
@@ -572,11 +636,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                r = dns_cache_lookup(&t->scope->cache, t->question, &t->cached_rcode, &t->cached);
+                r = dns_cache_lookup(&t->scope->cache, t->key, &t->cached_rcode, &t->cached);
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        log_debug("Cache hit!");
                         if (t->cached_rcode == DNS_RCODE_SUCCESS)
                                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         else
@@ -600,7 +663,7 @@ int dns_transaction_go(DnsTransaction *t) {
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                now(clock_boottime_or_monotonic()) + jitter,
+                                ts + jitter,
                                 LLMNR_JITTER_INTERVAL_USEC,
                                 on_transaction_timeout, t);
                 if (r < 0)
@@ -612,8 +675,6 @@ int dns_transaction_go(DnsTransaction *t) {
                 log_debug("Delaying LLMNR transaction for " USEC_FMT "us.", jitter);
                 return 0;
         }
-
-        log_debug("Cache miss!");
 
         /* Otherwise, we need to ask the network */
         r = dns_transaction_make_packet(t);
@@ -628,8 +689,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 return r;
 
         if (t->scope->protocol == DNS_PROTOCOL_LLMNR &&
-            (dns_question_endswith(t->question, "in-addr.arpa") > 0 ||
-             dns_question_endswith(t->question, "ip6.arpa") > 0)) {
+            (dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), "in-addr.arpa") > 0 ||
+             dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), "ip6.arpa") > 0)) {
 
                 /* RFC 4795, Section 2.4. says reverse lookups shall
                  * always be made via TCP on LLMNR */
@@ -660,7 +721,7 @@ int dns_transaction_go(DnsTransaction *t) {
                         t->scope->manager->event,
                         &t->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + TRANSACTION_TIMEOUT_USEC(t->scope->protocol), 0,
+                        ts + transaction_get_resend_timeout(t), 0,
                         on_transaction_timeout, t);
         if (r < 0)
                 return r;

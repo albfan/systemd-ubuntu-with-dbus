@@ -51,8 +51,8 @@ static int apply_all(Hashmap *sysctl_options) {
 
                 k = sysctl_write(property, value);
                 if (k < 0) {
-                        log_full_errno(k == -ENOENT ? LOG_DEBUG : LOG_WARNING, k,
-                                       "Failed to write '%s' to '%s': %m", value, property);
+                        log_full_errno(k == -ENOENT ? LOG_INFO : LOG_WARNING, k,
+                                       "Couldn't write '%s' to '%s', ignoring: %m", value, property);
 
                         if (r == 0 && k != -ENOENT)
                                 r = k;

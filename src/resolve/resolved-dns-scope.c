@@ -34,6 +34,10 @@
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000
 
+/* After how much time to repeat LLMNR requests, see RFC 4795 Section 7 */
+#define MULTICAST_RESEND_TIMEOUT_MIN_USEC (100 * USEC_PER_MSEC)
+#define MULTICAST_RESEND_TIMEOUT_MAX_USEC (1 * USEC_PER_SEC)
+
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
         DnsScope *s;
 
@@ -48,6 +52,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         s->link = l;
         s->protocol = protocol;
         s->family = family;
+        s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
@@ -73,8 +78,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_scope_llmnr_membership(s, false);
 
-        while ((t = s->transactions)) {
-
+        while ((t = hashmap_steal_first(s->transactions))) {
                 /* Abort the transaction, but make sure it is not
                  * freed while we still look at it */
 
@@ -84,6 +88,8 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
                 dns_transaction_free(t);
         }
+
+        hashmap_free(s->transactions);
 
         while ((rr = ordered_hashmap_steal_first(s->conflict_queue)))
                 dns_resource_record_unref(rr);
@@ -125,6 +131,23 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
+void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
+        assert(s);
+
+        if (rtt > s->max_rtt) {
+                s->max_rtt = rtt;
+                s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2),
+                                        MULTICAST_RESEND_TIMEOUT_MAX_USEC);
+        }
+}
+
+void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
+        assert(s);
+
+        if (s->resend_timeout <= usec)
+                s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
+}
+
 int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
@@ -143,7 +166,8 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
         } else
                 mtu = manager_find_mtu(s->manager);
 
-        if (s->protocol == DNS_PROTOCOL_DNS) {
+        switch (s->protocol) {
+        case DNS_PROTOCOL_DNS:
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
@@ -157,8 +181,9 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 if (r < 0)
                         return r;
 
-        } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
+                break;
 
+        case DNS_PROTOCOL_LLMNR:
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
@@ -182,8 +207,12 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
                 if (r < 0)
                         return r;
-        } else
+
+                break;
+
+        default:
                 return -EAFNOSUPPORT;
+        }
 
         return 1;
 }
@@ -303,50 +332,53 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family) & flags) == 0)
                 return DNS_SCOPE_NO;
 
+        if (dns_name_root(domain) != 0)
+                return DNS_SCOPE_NO;
+
+        /* Never resolve any loopback hostname or IP address via DNS,
+         * LLMNR or mDNS. Instead, always rely on synthesized RRs for
+         * these. */
+        if (is_localhost(domain) ||
+            dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
+            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+                return DNS_SCOPE_NO;
+
         STRV_FOREACH(i, s->domains)
                 if (dns_name_endswith(domain, *i) > 0)
                         return DNS_SCOPE_YES;
 
-        if (dns_name_root(domain) != 0)
-                return DNS_SCOPE_NO;
-
-        if (is_localhost(domain))
-                return DNS_SCOPE_NO;
-
-        /* Never resolve any loopback IP address via DNS, LLMNR or mDNS */
-        if (dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
-            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
-                return DNS_SCOPE_NO;
-
-        if (s->protocol == DNS_PROTOCOL_DNS) {
+        switch (s->protocol) {
+        case DNS_PROTOCOL_DNS:
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0 &&
                     dns_name_single_label(domain) == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
-        if (s->protocol == DNS_PROTOCOL_MDNS) {
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0 ||
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") > 0 ||
-                    (dns_name_endswith(domain, "local") > 0 && dns_name_equal(domain, "local") == 0))
+        case DNS_PROTOCOL_MDNS:
+                if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
+                    (dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
+                     dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
+                     manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
-        if (s->protocol == DNS_PROTOCOL_LLMNR) {
-                if (dns_name_endswith(domain, "in-addr.arpa") > 0 ||
-                    dns_name_endswith(domain, "ip6.arpa") > 0 ||
-                    (dns_name_single_label(domain) > 0 &&
-                     dns_name_equal(domain, "gateway") <= 0))  /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
+        case DNS_PROTOCOL_LLMNR:
+                if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
+                    (dns_name_single_label(domain) > 0 && /* only resolve single label names via LLMNR */
+                     !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
+                     manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
-        assert_not_reached("Unknown scope protocol");
+        default:
+                assert_not_reached("Unknown scope protocol");
+        }
 }
 
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
@@ -468,7 +500,7 @@ static int dns_scope_make_reply_packet(
 
         if (answer) {
                 for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, answer->rrs[i], NULL);
+                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -478,7 +510,7 @@ static int dns_scope_make_reply_packet(
 
         if (soa) {
                 for (i = 0; i < soa->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, soa->rrs[i], NULL);
+                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -503,7 +535,7 @@ static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
                         dns_zone_verify_conflicts(&s->zone, p->question->keys[n]);
         if (p->answer)
                 for (n = 0; n < p->answer->n_rrs; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->answer->rrs[n]->key);
+                        dns_zone_verify_conflicts(&s->zone, p->answer->items[n].rr->key);
 }
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
@@ -592,30 +624,26 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 }
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok) {
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok) {
         DnsTransaction *t;
 
         assert(scope);
-        assert(question);
+        assert(key);
 
-        /* Try to find an ongoing transaction that is a equal or a
-         * superset of the specified question */
+        /* Try to find an ongoing transaction that is a equal to the
+         * specified question */
+        t = hashmap_get(scope->transactions, key);
+        if (!t)
+                return NULL;
 
-        LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
+        /* Refuse reusing transactions that completed based on cached
+         * data instead of a real packet, if that's requested. */
+        if (!cache_ok &&
+            IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
+            !t->received)
+                return NULL;
 
-                /* Refuse reusing transactions that completed based on
-                 * cached data instead of a real packet, if that's
-                 * requested. */
-                if (!cache_ok &&
-                    IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
-                    !t->received)
-                        continue;
-
-                if (dns_question_is_superset(t->question, question) > 0)
-                        return t;
-        }
-
-        return NULL;
+        return t;
 }
 
 static int dns_scope_make_conflict_packet(
@@ -771,16 +799,48 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
                 /* Check for conflicts against the local zone. If we
                  * found one, we won't check any further */
-                r = dns_zone_check_conflicts(&scope->zone, p->answer->rrs[i]);
+                r = dns_zone_check_conflicts(&scope->zone, p->answer->items[i].rr);
                 if (r != 0)
                         continue;
 
                 /* Check for conflicts against the local cache. If so,
                  * send out an advisory query, to inform everybody */
-                r = dns_cache_check_conflicts(&scope->cache, p->answer->rrs[i], p->family, &p->sender);
+                r = dns_cache_check_conflicts(&scope->cache, p->answer->items[i].rr, p->family, &p->sender);
                 if (r <= 0)
                         continue;
 
-                dns_scope_notify_conflict(scope, p->answer->rrs[i]);
+                dns_scope_notify_conflict(scope, p->answer->items[i].rr);
+        }
+}
+
+void dns_scope_dump(DnsScope *s, FILE *f) {
+        assert(s);
+
+        if (!f)
+                f = stdout;
+
+        fputs("[Scope protocol=", f);
+        fputs(dns_protocol_to_string(s->protocol), f);
+
+        if (s->link) {
+                fputs(" interface=", f);
+                fputs(s->link->name, f);
+        }
+
+        if (s->family != AF_UNSPEC) {
+                fputs(" family=", f);
+                fputs(af_to_name(s->family), f);
+        }
+
+        fputs("]\n", f);
+
+        if (!dns_zone_is_empty(&s->zone)) {
+                fputs("ZONE:\n", f);
+                dns_zone_dump(&s->zone, f);
+        }
+
+        if (!dns_cache_is_empty(&s->cache)) {
+                fputs("CACHE:\n", f);
+                dns_cache_dump(&s->cache, f);
         }
 }

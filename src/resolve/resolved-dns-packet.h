@@ -86,6 +86,7 @@ struct DnsPacket {
         uint32_t ttl;
 
         bool extracted;
+        bool refuse_compression;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
@@ -120,15 +121,15 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 #define DNS_PACKET_ARCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->arcount)
 
 #define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode) \
-        (((uint16_t) !!qr << 15) |  \
-         ((uint16_t) (opcode & 15) << 11) | \
-         ((uint16_t) !!aa << 10) | \
-         ((uint16_t) !!tc << 9) | \
-         ((uint16_t) !!rd << 8) | \
-         ((uint16_t) !!ra << 7) | \
-         ((uint16_t) !!ad << 5) | \
-         ((uint16_t) !!cd << 4) | \
-         ((uint16_t) (rcode & 15)))
+        (((uint16_t) !!(qr) << 15) |                                    \
+         ((uint16_t) ((opcode) & 15) << 11) |                           \
+         ((uint16_t) !!(aa) << 10) |                /* on LLMNR: c */   \
+         ((uint16_t) !!(tc) << 9) |                                     \
+         ((uint16_t) !!(rd) << 8) |                 /* on LLMNR: t */   \
+         ((uint16_t) !!(ra) << 7) |                                     \
+         ((uint16_t) !!(ad) << 5) |                                     \
+         ((uint16_t) !!(cd) << 4) |                                     \
+         ((uint16_t) ((rcode) & 15)))
 
 static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
         return
@@ -238,11 +239,16 @@ static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family) 
 
         /* Converts a protocol + family into a flags field as used in queries */
 
-        if (protocol == DNS_PROTOCOL_DNS)
+        switch (protocol) {
+        case DNS_PROTOCOL_DNS:
                 return SD_RESOLVED_DNS;
 
-        if (protocol == DNS_PROTOCOL_LLMNR)
+        case DNS_PROTOCOL_LLMNR:
                 return family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4;
+
+        default:
+                break;
+        }
 
         return 0;
 }

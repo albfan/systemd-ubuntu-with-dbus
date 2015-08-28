@@ -1785,7 +1785,7 @@ int main(int argc, char *argv[]) {
                 case MANAGER_REEXECUTE:
 
                         if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0) {
-                                error_message = "Failed to prepare for reexection";
+                                error_message = "Failed to prepare for reexecution";
                                 goto finish;
                         }
 
@@ -1801,7 +1801,7 @@ int main(int argc, char *argv[]) {
 
                         if (!switch_root_init)
                                 if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0) {
-                                        error_message = "Failed to prepare for reexection";
+                                        error_message = "Failed to prepare for reexecution";
                                         goto finish;
                                 }
 
@@ -1844,13 +1844,11 @@ finish:
                 arg_default_rlimit[j] = NULL;
         }
 
-        free(arg_default_unit);
-        arg_default_unit = NULL;
+        arg_default_unit = mfree(arg_default_unit);
 
         free_join_controllers();
 
-        strv_free(arg_default_environment);
-        arg_default_environment = NULL;
+        arg_default_environment = strv_free(arg_default_environment);
 
         set_free(arg_syscall_archs);
         arg_syscall_archs = NULL;

@@ -76,10 +76,7 @@ static Manager *manager_new(void) {
         m->user_units = hashmap_new(&string_hash_ops);
         m->session_units = hashmap_new(&string_hash_ops);
 
-        m->busnames = set_new(&string_hash_ops);
-
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
-            !m->user_units || !m->session_units)
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 goto fail;
 
         m->kill_exclude_users = strv_new("root", NULL);
@@ -141,8 +138,6 @@ static void manager_free(Manager *m) {
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
 
-        set_free_free(m->busnames);
-
         sd_event_source_unref(m->idle_action_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
         sd_event_source_unref(m->scheduled_shutdown_timeout_source);
@@ -158,17 +153,12 @@ static void manager_free(Manager *m) {
 
         safe_close(m->console_active_fd);
 
-        if (m->udev_seat_monitor)
-                udev_monitor_unref(m->udev_seat_monitor);
-        if (m->udev_device_monitor)
-                udev_monitor_unref(m->udev_device_monitor);
-        if (m->udev_vcsa_monitor)
-                udev_monitor_unref(m->udev_vcsa_monitor);
-        if (m->udev_button_monitor)
-                udev_monitor_unref(m->udev_button_monitor);
+        udev_monitor_unref(m->udev_seat_monitor);
+        udev_monitor_unref(m->udev_device_monitor);
+        udev_monitor_unref(m->udev_vcsa_monitor);
+        udev_monitor_unref(m->udev_button_monitor);
 
-        if (m->udev)
-                udev_unref(m->udev);
+        udev_unref(m->udev);
 
         if (m->unlink_nologin)
                 (void) unlink("/run/nologin");
@@ -629,17 +619,6 @@ static int manager_connect_bus(Manager *m) {
         r = sd_bus_add_match(m->bus,
                              NULL,
                              "type='signal',"
-                             "sender='org.freedesktop.DBus',"
-                             "interface='org.freedesktop.DBus',"
-                             "member='NameOwnerChanged',"
-                             "path='/org/freedesktop/DBus'",
-                             match_name_owner_changed, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add match for NameOwnerChanged: %m");
-
-        r = sd_bus_add_match(m->bus,
-                             NULL,
-                             "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"
                              "member='JobRemoved',"
@@ -923,8 +902,8 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                     session_get_state(session) != SESSION_CLOSING)
                         session_stop(session, false);
 
-                /* Normally, this should make the session busy again,
-                 * if it doesn't then let's get rid of it
+                /* Normally, this should make the session referenced
+                 * again, if it doesn't then let's get rid of it
                  * immediately */
                 if (!session_check_gc(session, drop_not_started)) {
                         session_finalize(session);
@@ -1186,8 +1165,7 @@ finish:
                   "STOPPING=1\n"
                   "STATUS=Shutting down...");
 
-        if (m)
-                manager_free(m);
+        manager_free(m);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

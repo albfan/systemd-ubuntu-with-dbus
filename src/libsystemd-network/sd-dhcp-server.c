@@ -67,7 +67,7 @@ int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address,
 }
 
 bool sd_dhcp_server_is_running(sd_dhcp_server *server) {
-        assert_return(server, -EINVAL);
+        assert_return(server, false);
 
         return !!server->receive_message;
 }
@@ -796,8 +796,12 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         r = sd_event_now(server->event,
                                          clock_boottime_or_monotonic(),
                                          &time_now);
-                        if (r < 0)
-                                time_now = now(clock_boottime_or_monotonic());
+                        if (r < 0) {
+                                if (!existing_lease)
+                                        dhcp_lease_free(lease);
+                                return r;
+                        }
+
                         lease->expiration = req->lifetime * USEC_PER_SEC + time_now;
 
                         r = server_send_ack(server, req, address);

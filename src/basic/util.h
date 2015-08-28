@@ -71,6 +71,7 @@ size_t page_size(void) _pure_;
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
 bool streq_ptr(const char *a, const char *b) _pure_;
+int strcmp_ptr(const char *a, const char *b) _pure_;
 
 #define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 
@@ -83,6 +84,11 @@ bool streq_ptr(const char *a, const char *b) _pure_;
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
 #define malloc0(n) (calloc((n), 1))
+
+static inline void *mfree(void *memory) {
+        free(memory);
+        return NULL;
+}
 
 static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";
@@ -387,8 +393,6 @@ void execute_directories(const char* const* directories, usec_t timeout, char *a
 bool nulstr_contains(const char*nulstr, const char *needle);
 
 bool plymouth_running(void);
-
-bool machine_name_is_valid(const char *s) _pure_;
 
 char* strshorten(char *s, size_t l);
 
@@ -797,8 +801,8 @@ int get_proc_cmdline_key(const char *parameter, char **value);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd);
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd);
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
@@ -848,15 +852,22 @@ int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 int is_device_node(const char *path);
 
-typedef enum UnquoteFlags {
-        UNQUOTE_RELAX           = 1,
-        UNQUOTE_CUNESCAPE       = 2,
-        UNQUOTE_CUNESCAPE_RELAX = 4,
-} UnquoteFlags;
+typedef enum ExtractFlags {
+        EXTRACT_RELAX           = 1,
+        EXTRACT_CUNESCAPE       = 2,
+        EXTRACT_CUNESCAPE_RELAX = 4,
+        EXTRACT_QUOTES          = 8,
+        EXTRACT_DONT_COALESCE_SEPARATORS = 16,
+} ExtractFlags;
 
-int unquote_first_word(const char **p, char **ret, UnquoteFlags flags);
-int unquote_first_word_and_warn(const char **p, char **ret, UnquoteFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
-int unquote_many_words(const char **p, UnquoteFlags flags, ...) _sentinel_;
+int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags);
+int extract_first_word_and_warn(const char **p, char **ret, const char *separators, ExtractFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
+int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) _sentinel_;
+
+static inline void free_and_replace(char **s, char *v) {
+        free(*s);
+        *s = v;
+}
 
 int free_and_strdup(char **p, const char *s);
 
@@ -906,6 +917,7 @@ void cmsg_close_all(struct msghdr *mh);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 
+char *shell_escape(const char *s, const char *bad);
 char *shell_maybe_quote(const char *s);
 
 int parse_mode(const char *s, mode_t *ret);
@@ -913,3 +925,6 @@ int parse_mode(const char *s, mode_t *ret);
 int mount_move_root(const char *path);
 
 int reset_uid_gid(void);
+
+int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
+int fgetxattr_malloc(int fd, const char *name, char **value);

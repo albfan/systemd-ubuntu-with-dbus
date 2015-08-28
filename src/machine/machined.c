@@ -30,6 +30,7 @@
 #include "label.h"
 #include "formats-util.h"
 #include "signal-util.h"
+#include "hostname-util.h"
 #include "machine-image.h"
 #include "machined.h"
 
@@ -89,12 +90,55 @@ void manager_free(Manager *m) {
         free(m);
 }
 
+static int manager_add_host_machine(Manager *m) {
+        _cleanup_free_ char *rd = NULL, *unit = NULL;
+        sd_id128_t mid;
+        Machine *t;
+        int r;
+
+        if (m->host_machine)
+                return 0;
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine ID: %m");
+
+        rd = strdup("/");
+        if (!rd)
+                return log_oom();
+
+        unit = strdup("-.slice");
+        if (!unit)
+                return log_oom();
+
+        t = machine_new(m, MACHINE_HOST, ".host");
+        if (!t)
+                return log_oom();
+
+        t->leader = 1;
+        t->id = mid;
+
+        t->root_directory = rd;
+        t->unit = unit;
+        rd = unit = NULL;
+
+        dual_timestamp_from_boottime_or_monotonic(&t->timestamp, 0);
+
+        m->host_machine = t;
+
+        return 0;
+}
+
 int manager_enumerate_machines(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
         assert(m);
+
+        r = manager_add_host_machine(m);
+        if (r < 0)
+                return r;
 
         /* Read in machine data stored on disk */
         d = opendir("/run/systemd/machines");
@@ -117,11 +161,12 @@ int manager_enumerate_machines(Manager *m) {
                 if (startswith(de->d_name, "unit:"))
                         continue;
 
+                if (!machine_name_is_valid(de->d_name))
+                        continue;
+
                 k = manager_add_machine(m, de->d_name, &machine);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name);
-
-                        r = k;
+                        r = log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name);
                         continue;
                 }
 
@@ -247,8 +292,16 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->machine_gc_queue, machine);
                 machine->in_gc_queue = false;
 
-                if (!machine_check_gc(machine, drop_not_started)) {
+                /* First, if we are not closing yet, initiate stopping */
+                if (!machine_check_gc(machine, drop_not_started) &&
+                    machine_get_state(machine) != MACHINE_CLOSING)
                         machine_stop(machine);
+
+                /* Now, the stop stop probably made this referenced
+                 * again, but if it didn't, then it's time to let it
+                 * go entirely. */
+                if (!machine_check_gc(machine, drop_not_started)) {
+                        machine_finalize(machine);
                         machine_free(machine);
                 }
         }
@@ -347,8 +400,7 @@ int main(int argc, char *argv[]) {
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid());
 
 finish:
-        if (m)
-                manager_free(m);
+        manager_free(m);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

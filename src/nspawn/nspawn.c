@@ -309,8 +309,7 @@ static void custom_mount_free_all(void) {
                 strv_free(m->lower);
         }
 
-        free(arg_custom_mounts);
-        arg_custom_mounts = NULL;
+        arg_custom_mounts = mfree(arg_custom_mounts);
         arg_n_custom_mounts = 0;
 }
 
@@ -560,10 +559,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        if (isempty(optarg)) {
-                                free(arg_machine);
-                                arg_machine = NULL;
-                        } else {
+                        if (isempty(optarg))
+                                arg_machine = mfree(arg_machine);
+                        else {
                                 if (!machine_name_is_valid(optarg)) {
                                         log_error("Invalid machine name: %s", optarg);
                                         return -EINVAL;
@@ -657,17 +655,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BIND:
                 case ARG_BIND_RO: {
+                        const char *current = optarg;
                         _cleanup_free_ char *source = NULL, *destination = NULL;
                         CustomMount *m;
-                        char *e;
 
-                        e = strchr(optarg, ':');
-                        if (e) {
-                                source = strndup(optarg, e - optarg);
-                                destination = strdup(e + 1);
-                        } else {
-                                source = strdup(optarg);
-                                destination = strdup(optarg);
+                        r = extract_many_words(&current, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+                        switch (r) {
+                        case 1:
+                                destination = strdup(source);
+                        case 2:
+                                break;
+                        case -ENOMEM:
+                                return log_oom();
+                        default:
+                                log_error("Invalid bind mount specification: %s", optarg);
+                                return -EINVAL;
                         }
 
                         if (!source || !destination)
@@ -692,18 +694,21 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TMPFS: {
+                        const char *current = optarg;
                         _cleanup_free_ char *path = NULL, *opts = NULL;
                         CustomMount *m;
-                        char *e;
 
-                        e = strchr(optarg, ':');
-                        if (e) {
-                                path = strndup(optarg, e - optarg);
-                                opts = strdup(e + 1);
-                        } else {
-                                path = strdup(optarg);
-                                opts = strdup("mode=0755");
+                        r = extract_first_word(&current, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        else if (r < 0) {
+                                log_error("Invalid tmpfs specification: %s", optarg);
+                                return r;
                         }
+                        if (r)
+                                opts = strdup(current);
+                        else
+                                opts = strdup("mode=0755");
 
                         if (!path || !opts)
                                 return log_oom();
@@ -733,9 +738,13 @@ static int parse_argv(int argc, char *argv[]) {
                         unsigned n = 0;
                         char **i;
 
-                        lower = strv_split(optarg, ":");
-                        if (!lower)
+                        r = strv_split_extract(&lower, optarg, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r == -ENOMEM)
                                 return log_oom();
+                        else if (r < 0) {
+                                log_error("Invalid overlay specification: %s", optarg);
+                                return r;
+                        }
 
                         STRV_FOREACH(i, lower) {
                                 if (!path_is_absolute(*i)) {
@@ -1229,6 +1238,21 @@ static int mount_tmpfs(const char *dest, CustomMount *m) {
         return 0;
 }
 
+static char *joined_and_escaped_lower_dirs(char * const *lower) {
+        _cleanup_strv_free_ char **sv = NULL;
+
+        sv = strv_copy(lower);
+        if (!sv)
+                return NULL;
+
+        strv_reverse(sv);
+
+        if (!strv_shell_escape(sv, ",:"))
+                return NULL;
+
+        return strv_join(sv, ":");
+}
+
 static int mount_overlay(const char *dest, CustomMount *m) {
         _cleanup_free_ char *lower = NULL;
         const char *where, *options;
@@ -1245,19 +1269,32 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
         (void) mkdir_p_label(m->source, 0755);
 
-        strv_reverse(m->lower);
-        lower = strv_join(m->lower, ":");
-        strv_reverse(m->lower);
+        lower = joined_and_escaped_lower_dirs(m->lower);
         if (!lower)
                 return log_oom();
 
-        if (m->read_only)
-                options = strjoina("lowerdir=", m->source, ":", lower);
-        else {
+        if (m->read_only) {
+                _cleanup_free_ char *escaped_source = NULL;
+
+                escaped_source = shell_escape(m->source, ",:");
+                if (!escaped_source)
+                        return log_oom();
+
+                options = strjoina("lowerdir=", escaped_source, ":", lower);
+        } else {
+                _cleanup_free_ char *escaped_source = NULL, *escaped_work_dir = NULL;
+
                 assert(m->work_dir);
                 (void) mkdir_label(m->work_dir, 0700);
 
-                options = strjoina("lowerdir=", lower, ",upperdir=", m->source, ",workdir=", m->work_dir);
+                escaped_source = shell_escape(m->source, ",:");
+                if (!escaped_source)
+                        return log_oom();
+                escaped_work_dir = shell_escape(m->work_dir, ",:");
+                if (!escaped_work_dir)
+                        return log_oom();
+
+                options = strjoina("lowerdir=", lower, ",upperdir=", escaped_source, ",workdir=", escaped_work_dir);
         }
 
         if (mount("overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options) < 0)
@@ -3965,6 +4002,17 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 static int determine_names(void) {
         int r;
 
+        if (arg_template && !arg_directory && arg_machine) {
+
+                /* If --template= was specified then we should not
+                 * search for a machine, but instead create a new one
+                 * in /var/lib/machine. */
+
+                arg_directory = strjoin("/var/lib/machines/", arg_machine, NULL);
+                if (!arg_directory)
+                        return log_oom();
+        }
+
         if (!arg_image && !arg_directory) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
@@ -4004,7 +4052,7 @@ static int determine_names(void) {
                 if (!arg_machine)
                         return log_oom();
 
-                hostname_cleanup(arg_machine, false);
+                hostname_cleanup(arg_machine);
                 if (!machine_name_is_valid(arg_machine)) {
                         log_error("Failed to determine machine name automatically, please use -M.");
                         return -EINVAL;
