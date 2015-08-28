@@ -39,6 +39,7 @@ typedef enum MachineState {
 typedef enum MachineClass {
         MACHINE_CONTAINER,
         MACHINE_VM,
+        MACHINE_HOST,
         _MACHINE_CLASS_MAX,
         _MACHINE_CLASS_INVALID = -1
 } MachineClass;
@@ -67,7 +68,6 @@ struct Machine {
         char *name;
         sd_id128_t id;
 
-        MachineState state;
         MachineClass class;
 
         char *state_file;
@@ -83,6 +83,7 @@ struct Machine {
 
         bool in_gc_queue:1;
         bool started:1;
+        bool stopping:1;
 
         sd_bus_message *create_message;
 
@@ -95,12 +96,13 @@ struct Machine {
         unsigned n_operations;
 };
 
-Machine* machine_new(Manager *manager, const char *name);
+Machine* machine_new(Manager *manager, MachineClass class, const char *name);
 void machine_free(Machine *m);
 bool machine_check_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);
 int machine_stop(Machine *m);
+int machine_finalize(Machine *m);
 int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
@@ -119,3 +121,5 @@ MachineState machine_state_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+int machine_openpt(Machine *m, int flags);

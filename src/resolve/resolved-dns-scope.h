@@ -57,13 +57,19 @@ struct DnsScope {
 
         RateLimit ratelimit;
 
-        LIST_HEAD(DnsTransaction, transactions);
+        usec_t resend_timeout;
+        usec_t max_rtt;
+
+        Hashmap *transactions;
 
         LIST_FIELDS(DnsScope, scopes);
 };
 
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
 DnsScope* dns_scope_free(DnsScope *s);
+
+void dns_scope_packet_received(DnsScope *s, usec_t rtt);
+void dns_scope_packet_lost(DnsScope *s, usec_t usec);
 
 int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p);
 int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
@@ -79,7 +85,9 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b);
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok);
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok);
 
 int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr);
 void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p);
+
+void dns_scope_dump(DnsScope *s, FILE *f);

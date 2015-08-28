@@ -656,7 +656,6 @@ int session_stop(Session *s, bool force) {
 }
 
 int session_finalize(Session *s) {
-        int r = 0;
         SessionDevice *sd;
 
         assert(s);
@@ -682,7 +681,7 @@ int session_finalize(Session *s) {
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
 
-        unlink(s->state_file);
+        (void) unlink(s->state_file);
         session_add_to_gc_queue(s);
         user_add_to_gc_queue(s->user);
 
@@ -702,7 +701,7 @@ int session_finalize(Session *s) {
         user_save(s->user);
         user_send_changed(s->user, "Sessions", "Display", NULL);
 
-        return r;
+        return 0;
 }
 
 static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {
@@ -987,7 +986,7 @@ static int session_open_vt(Session *s) {
                 return s->vtfd;
 
         sprintf(path, "/dev/tty%u", s->vtnr);
-        s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        s->vtfd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (s->vtfd < 0)
                 return log_error_errno(errno, "cannot open VT %s of session %s: %m", path, s->id);
 
@@ -1051,7 +1050,18 @@ void session_restore_vt(Session *s) {
         int vt, kb = K_XLATE;
         struct vt_mode mode = { 0 };
 
+        /* We need to get a fresh handle to the virtual terminal,
+         * since the old file-descriptor is potentially in a hung-up
+         * state after the controlling process exited; we do a
+         * little dance to avoid having the terminal be available
+         * for reuse before we've cleaned it up.
+         */
+        int old_fd = s->vtfd;
+        s->vtfd = -1;
+
         vt = session_open_vt(s);
+        safe_close(old_fd);
+
         if (vt < 0)
                 return;
 
@@ -1120,7 +1130,18 @@ static void session_release_controller(Session *s, bool notify) {
                 session_device_free(sd);
 
         s->controller = NULL;
-        manager_drop_busname(s->manager, name);
+        s->track = sd_bus_track_unref(s->track);
+}
+
+static int on_bus_track(sd_bus_track *track, void *userdata) {
+        Session *s = userdata;
+
+        assert(track);
+        assert(s);
+
+        session_drop_controller(s);
+
+        return 0;
 }
 
 int session_set_controller(Session *s, const char *sender, bool force) {
@@ -1139,8 +1160,13 @@ int session_set_controller(Session *s, const char *sender, bool force) {
         if (!name)
                 return -ENOMEM;
 
-        r = manager_watch_busname(s->manager, name);
-        if (r)
+        s->track = sd_bus_track_unref(s->track);
+        r = sd_bus_track_new(s->manager->bus, &s->track, on_bus_track, s);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_track_add_name(s->track, name);
+        if (r < 0)
                 return r;
 
         /* When setting a session controller, we forcibly mute the VT and set
@@ -1153,7 +1179,7 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * or reset the VT in case it crashed/exited, too. */
         r = session_prepare_vt(s);
         if (r < 0) {
-                manager_drop_busname(s->manager, name);
+                s->track = sd_bus_track_unref(s->track);
                 return r;
         }
 
@@ -1171,6 +1197,7 @@ void session_drop_controller(Session *s) {
         if (!s->controller)
                 return;
 
+        s->track = sd_bus_track_unref(s->track);
         session_release_controller(s, false);
         session_save(s);
         session_restore_vt(s);

@@ -552,7 +552,7 @@ int config_parse_exec(
 
                 semicolon = false;
 
-                r = unquote_first_word_and_warn(&p, &firstword, UNQUOTE_CUNESCAPE, unit, filename, line, rvalue);
+                r = extract_first_word_and_warn(&p, &firstword, WHITESPACE, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                 if (r <= 0)
                         return 0;
 
@@ -614,7 +614,7 @@ int config_parse_exec(
 
                 path_kill_slashes(path);
 
-                for (;;) {
+                while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL;
 
                         /* Check explicitly for an unquoted semicolon as
@@ -627,7 +627,7 @@ int config_parse_exec(
                         }
 
                         /* Check for \; explicitly, to not confuse it with \\;
-                         * or "\;" or "\\;" etc.  unquote_first_word would
+                         * or "\;" or "\\;" etc.  extract_first_word would
                          * return the same for all of those.  */
                         if (p[0] == '\\' && p[1] == ';' && (!p[2] || strchr(WHITESPACE, p[2]))) {
                                 p += 2;
@@ -642,7 +642,7 @@ int config_parse_exec(
                                 continue;
                         }
 
-                        r = unquote_first_word_and_warn(&p, &word, UNQUOTE_CUNESCAPE, unit, filename, line, rvalue);
+                        r = extract_first_word_and_warn(&p, &word, WHITESPACE, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                         if (r == 0)
                                 break;
                         else if (r < 0)
@@ -1141,6 +1141,8 @@ int config_parse_sysv_priority(const char *unit,
         return 0;
 }
 #endif
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
@@ -1986,7 +1988,7 @@ int config_parse_environ(const char *unit,
                 return log_oom();
 
         FOREACH_WORD_QUOTED(word, l, k, state) {
-                _cleanup_free_ char *n;
+                _cleanup_free_ char *n = NULL;
                 char **x;
 
                 r = cunescape_length(word, l, 0, &n);
@@ -3508,9 +3510,7 @@ static int load_from_path(Unit *u, const char *path) {
 
                 r = open_follow(&filename, &f, symlink_names, &id);
                 if (r < 0) {
-                        free(filename);
-                        filename = NULL;
-
+                        filename = mfree(filename);
                         if (r != -ENOENT)
                                 return r;
                 }
@@ -3534,9 +3534,7 @@ static int load_from_path(Unit *u, const char *path) {
                                 r = open_follow(&filename, &f, symlink_names, &id);
 
                         if (r < 0) {
-                                free(filename);
-                                filename = NULL;
-
+                                filename = mfree(filename);
                                 if (r != -ENOENT)
                                         return r;
 

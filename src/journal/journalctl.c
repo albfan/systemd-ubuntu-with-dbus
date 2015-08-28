@@ -1259,8 +1259,7 @@ static int add_units(sd_journal *j) {
                 }
         }
 
-        strv_free(patterns);
-        patterns = NULL;
+        patterns = strv_free(patterns);
 
         STRV_FOREACH(i, arg_user_units) {
                 _cleanup_free_ char *u = NULL;
@@ -1527,7 +1526,7 @@ static int setup_keys(void) {
                 hn = gethostname_malloc();
 
                 if (hn) {
-                        hostname_cleanup(hn, false);
+                        hostname_cleanup(hn);
                         fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
                 } else
                         fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
@@ -2067,8 +2066,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
         if (r == 0) {
-                printf("-- No entries --\n");
-                goto finish;
+                if (arg_follow)
+                        need_seek = true;
+                else {
+                        printf("-- No entries --\n");
+                        goto finish;
+                }
         }
 
         if (!arg_follow)

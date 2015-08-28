@@ -95,14 +95,19 @@ void dns_cache_flush(DnsCache *c) {
         c->by_expiry = prioq_free(c->by_expiry);
 }
 
-static void dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
+static bool dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
         DnsCacheItem *i;
+        bool exist = false;
 
         assert(c);
         assert(key);
 
-        while ((i = hashmap_get(c->by_key, key)))
+        while ((i = hashmap_get(c->by_key, key))) {
                 dns_cache_item_remove_and_free(c, i);
+                exist = true;
+        }
+
+        return exist;
 }
 
 static void dns_cache_make_space(DnsCache *c, unsigned add) {
@@ -152,7 +157,7 @@ void dns_cache_prune(DnsCache *c) {
                         break;
 
                 if (t <= 0)
-                        t = now(CLOCK_BOOTTIME);
+                        t = now(clock_boottime_or_monotonic());
 
                 if (i->until > t)
                         break;
@@ -263,6 +268,7 @@ static int dns_cache_put_positive(
                 const union in_addr_union *owner_address) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
+        _cleanup_free_ char *key_str = NULL;
         DnsCacheItem *existing;
         int r;
 
@@ -272,7 +278,14 @@ static int dns_cache_put_positive(
 
         /* New TTL is 0? Delete the entry... */
         if (rr->ttl <= 0) {
-                dns_cache_remove(c, rr->key);
+                if (dns_cache_remove(c, rr->key)) {
+                        r = dns_resource_key_to_string(rr->key, &key_str);
+                        if (r < 0)
+                                return r;
+
+                        log_debug("Removed zero TTL entry from cache: %s", key_str);
+                }
+
                 return 0;
         }
 
@@ -311,6 +324,12 @@ static int dns_cache_put_positive(
         if (r < 0)
                 return r;
 
+        r = dns_resource_key_to_string(i->key, &key_str);
+        if (r < 0)
+                return r;
+
+        log_debug("Added cache entry for %s", key_str);
+
         i = NULL;
         return 0;
 }
@@ -325,6 +344,7 @@ static int dns_cache_put_negative(
                 const union in_addr_union *owner_address) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
+        _cleanup_free_ char *key_str = NULL;
         int r;
 
         assert(c);
@@ -337,8 +357,15 @@ static int dns_cache_put_negative(
                 return 0;
         if (key->type == DNS_TYPE_ANY)
                 return 0;
-        if (soa_ttl <= 0)
+        if (soa_ttl <= 0) {
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
+
+                log_debug("Ignored negative cache entry with zero SOA TTL: %s", key_str);
+
                 return 0;
+        }
 
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
@@ -364,6 +391,12 @@ static int dns_cache_put_negative(
         if (r < 0)
                 return r;
 
+        r = dns_resource_key_to_string(i->key, &key_str);
+        if (r < 0)
+                return r;
+
+        log_debug("Added %s cache entry for %s", i->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", key_str);
+
         i = NULL;
         return 0;
 }
@@ -378,22 +411,23 @@ int dns_cache_put(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
-        unsigned i;
+        unsigned cache_keys, i;
         int r;
 
         assert(c);
-        assert(q);
 
-        /* First, delete all matching old RRs, so that we only keep
-         * complete by_key in place. */
-        for (i = 0; i < q->n_keys; i++)
-                dns_cache_remove(c, q->keys[i]);
+        if (q) {
+                /* First, if we were passed a question, delete all matching old RRs,
+                 * so that we only keep complete by_key in place. */
+                for (i = 0; i < q->n_keys; i++)
+                        dns_cache_remove(c, q->keys[i]);
+        }
 
         if (!answer)
                 return 0;
 
         for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->rrs[i]->key);
+                dns_cache_remove(c, answer->items[i].rr->key);
 
         /* We only care for positive replies and NXDOMAINs, on all
          * other replies we will simply flush the respective entries,
@@ -402,18 +436,26 @@ int dns_cache_put(
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
 
+        cache_keys = answer->n_rrs;
+
+        if (q)
+                cache_keys += q->n_keys;
+
         /* Make some space for our new entries */
-        dns_cache_make_space(c, answer->n_rrs + q->n_keys);
+        dns_cache_make_space(c, cache_keys);
 
         if (timestamp <= 0)
-                timestamp = now(CLOCK_BOOTTIME);
+                timestamp = now(clock_boottime_or_monotonic());
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                r = dns_cache_put_positive(c, answer->rrs[i], timestamp, owner_family, owner_address);
+                r = dns_cache_put_positive(c, answer->items[i].rr, timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
+
+        if (!q)
+                return 0;
 
         /* Third, add in negative entries for all keys with no RR */
         for (i = 0; i < q->n_keys; i++) {
@@ -424,6 +466,10 @@ int dns_cache_put(
                         goto fail;
                 if (r > 0)
                         continue;
+
+                /* See https://tools.ietf.org/html/rfc2308, which
+                 * say that a matching SOA record in the packet
+                 * is used to to enable negative caching. */
 
                 r = dns_answer_find_soa(answer, q->keys[i], &soa);
                 if (r < 0)
@@ -442,57 +488,76 @@ fail:
         /* Adding all RRs failed. Let's clean up what we already
          * added, just in case */
 
-        for (i = 0; i < q->n_keys; i++)
-                dns_cache_remove(c, q->keys[i]);
+        if (q) {
+                for (i = 0; i < q->n_keys; i++)
+                        dns_cache_remove(c, q->keys[i]);
+        }
+
         for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->rrs[i]->key);
+                dns_cache_remove(c, answer->items[i].rr->key);
 
         return r;
 }
 
-int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
+int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        unsigned i, n = 0;
+        unsigned n = 0;
         int r;
         bool nxdomain = false;
+        _cleanup_free_ char *key_str = NULL;
+        DnsCacheItem *j, *first;
 
         assert(c);
-        assert(q);
+        assert(key);
         assert(rcode);
         assert(ret);
 
-        if (q->n_keys <= 0) {
+        if (key->type == DNS_TYPE_ANY ||
+            key->class == DNS_CLASS_ANY) {
+
+                /* If we have ANY lookups we simply refresh */
+
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
+
+                log_debug("Ignoring cache for ANY lookup: %s", key_str);
+
                 *ret = NULL;
-                *rcode = 0;
+                *rcode = DNS_RCODE_SUCCESS;
                 return 0;
         }
 
-        for (i = 0; i < q->n_keys; i++) {
-                DnsCacheItem *j;
+        first = hashmap_get(c->by_key, key);
+        if (!first) {
+                /* If one question cannot be answered we need to refresh */
 
-                if (q->keys[i]->type == DNS_TYPE_ANY ||
-                    q->keys[i]->class == DNS_CLASS_ANY) {
-                        /* If we have ANY lookups we simply refresh */
-                        *ret = NULL;
-                        *rcode = 0;
-                        return 0;
-                }
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
 
-                j = hashmap_get(c->by_key, q->keys[i]);
-                if (!j) {
-                        /* If one question cannot be answered we need to refresh */
-                        *ret = NULL;
-                        *rcode = 0;
-                        return 0;
-                }
+                log_debug("Cache miss for %s", key_str);
 
-                LIST_FOREACH(by_key, j, j) {
-                        if (j->rr)
-                                n++;
-                        else if (j->type == DNS_CACHE_NXDOMAIN)
-                                nxdomain = true;
-                }
+                *ret = NULL;
+                *rcode = DNS_RCODE_SUCCESS;
+                return 0;
         }
+
+        LIST_FOREACH(by_key, j, first) {
+                if (j->rr)
+                        n++;
+                else if (j->type == DNS_CACHE_NXDOMAIN)
+                        nxdomain = true;
+        }
+
+        r = dns_resource_key_to_string(key, &key_str);
+        if (r < 0)
+                return r;
+
+        log_debug("%s cache hit for %s",
+                  nxdomain ? "NXDOMAIN" :
+                     n > 0 ? "Positive" : "NODATA",
+                  key_str);
 
         if (n <= 0) {
                 *ret = NULL;
@@ -504,17 +569,13 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
         if (!answer)
                 return -ENOMEM;
 
-        for (i = 0; i < q->n_keys; i++) {
-                DnsCacheItem *j;
+        LIST_FOREACH(by_key, j, first) {
+                if (!j->rr)
+                        continue;
 
-                j = hashmap_get(c->by_key, q->keys[i]);
-                LIST_FOREACH(by_key, j, j) {
-                        if (j->rr) {
-                                r = dns_answer_add(answer, j->rr);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
+                r = dns_answer_add(answer, j->rr, 0);
+                if (r < 0)
+                        return r;
         }
 
         *ret = answer;
@@ -558,4 +619,55 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
 
         /* There's a conflict */
         return 1;
+}
+
+void dns_cache_dump(DnsCache *cache, FILE *f) {
+        Iterator iterator;
+        DnsCacheItem *i;
+        int r;
+
+        if (!cache)
+                return;
+
+        if (!f)
+                f = stdout;
+
+        HASHMAP_FOREACH(i, cache->by_key, iterator) {
+                DnsCacheItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        _cleanup_free_ char *t = NULL;
+
+                        fputc('\t', f);
+
+                        if (j->rr) {
+                                r = dns_resource_record_to_string(j->rr, &t);
+                                if (r < 0) {
+                                        log_oom();
+                                        continue;
+                                }
+
+                                fputs(t, f);
+                                fputc('\n', f);
+                        } else {
+                                r = dns_resource_key_to_string(j->key, &t);
+                                if (r < 0) {
+                                        log_oom();
+                                        continue;
+                                }
+
+                                fputs(t, f);
+                                fputs(" -- ", f);
+                                fputs(j->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", f);
+                                fputc('\n', f);
+                        }
+                }
+        }
+}
+
+bool dns_cache_is_empty(DnsCache *cache) {
+        if (!cache)
+                return true;
+
+        return hashmap_isempty(cache->by_key);
 }

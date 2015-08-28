@@ -386,12 +386,13 @@ static int prompt_hostname(void) {
                         break;
                 }
 
-                if (!hostname_is_valid(h)) {
+                if (!hostname_is_valid(h, true)) {
                         log_error("Specified hostname invalid.");
                         continue;
                 }
 
-                arg_hostname = h;
+                /* Get rid of the trailing dot that we allow, but don't want to see */
+                arg_hostname = hostname_cleanup(h);
                 h = NULL;
                 break;
         }
@@ -715,10 +716,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         path_kill_slashes(arg_root);
 
-                        if (path_equal(arg_root, "/")) {
-                                free(arg_root);
-                                arg_root = NULL;
-                        }
+                        if (path_equal(arg_root, "/"))
+                                arg_root = mfree(arg_root);
 
                         break;
 
@@ -765,8 +764,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_PASSWORD_FILE:
-                        free(arg_root_password);
-                        arg_root_password  = NULL;
+                        arg_root_password = mfree(arg_root_password);
 
                         r = read_one_line_file(optarg, &arg_root_password);
                         if (r < 0)
@@ -775,11 +773,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg)) {
+                        if (!hostname_is_valid(optarg, true)) {
                                 log_error("Host name %s is not valid.", optarg);
                                 return -EINVAL;
                         }
 
+                        hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
                         if (r < 0)
                                 return log_oom();

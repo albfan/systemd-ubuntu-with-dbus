@@ -34,6 +34,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 /* up to three lines (each up to 100 characters),
    or 300 characters, whichever is less */
@@ -575,7 +576,6 @@ void json_escape(
         assert(p);
 
         if (!(flags & OUTPUT_SHOW_ALL) && l >= JSON_THRESHOLD)
-
                 fputs("null", f);
 
         else if (!utf8_is_printable(p, l)) {
@@ -605,8 +605,8 @@ void json_escape(
                                 fputc(*p, f);
                         } else if (*p == '\n')
                                 fputs("\\n", f);
-                        else if (*p < ' ')
-                                fprintf(f, "\\u%04x", *p);
+                        else if ((uint8_t) *p < ' ')
+                                fprintf(f, "\\u%04x", (uint8_t) *p);
                         else
                                 fputc(*p, f);
 
@@ -1141,7 +1141,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, NULL, &rootfd);
         if (r < 0)
                 return r;
 
@@ -1157,7 +1157,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, -1, -1, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

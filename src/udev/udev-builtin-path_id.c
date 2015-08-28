@@ -117,8 +117,7 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
 
         format_lun_number(parent, &lun);
         path_prepend(path, "fc-%s-%s", port, lun);
-        if (lun)
-                free(lun);
+        free(lun);
 out:
         udev_device_unref(fcdev);
         return parent;
@@ -156,8 +155,7 @@ static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent,
 
         format_lun_number(parent, &lun);
         path_prepend(path, "sas-%s-%s", sas_address, lun);
-        if (lun)
-                free(lun);
+        free(lun);
 out:
         udev_device_unref(sasdev);
         return parent;
@@ -251,8 +249,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
         else
                  path_prepend(path, "sas-phy%s-%s", phy_id, lun);
 
-        if (lun)
-                free(lun);
+        free(lun);
 out:
         udev_device_unref(target_sasdev);
         udev_device_unref(expander_sasdev);
@@ -313,8 +310,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 
         format_lun_number(parent, &lun);
         path_prepend(path, "ip-%s:%s-iscsi-%s-%s", addr, port, target, lun);
-        if (lun)
-                free(lun);
+        free(lun);
 out:
         udev_device_unref(sessiondev);
         udev_device_unref(conndev);
@@ -674,20 +670,16 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
          * might produce conflicting IDs if the parent does not provide a
          * unique and predictable name.
          */
-        if (!supported_parent) {
-                free(path);
-                path = NULL;
-        }
+        if (!supported_parent)
+                path = mfree(path);
 
         /*
          * Do not return block devices without a well-known transport. Some
          * devices do not expose their buses and do not provide a unique
          * and predictable name that way.
          */
-        if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport) {
-                free(path);
-                path = NULL;
-        }
+        if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport)
+                path = mfree(path);
 
 out:
         if (path != NULL) {

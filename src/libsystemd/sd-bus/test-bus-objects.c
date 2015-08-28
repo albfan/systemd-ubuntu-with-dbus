@@ -115,13 +115,14 @@ static int set_handler(sd_bus *bus, const char *path, const char *interface, con
 
 static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *s = NULL;
+        const char *x;
         int r;
 
         assert_se(asprintf(&s, "object %p, path %s", userdata, path) >= 0);
         r = sd_bus_message_append(reply, "s", s);
         assert_se(r >= 0);
 
-        assert_se(startswith(path, "/value/") != NULL || strcmp(path, "/value") == 0);
+        assert_se(x = startswith(path, "/value/"));
 
         assert_se(PTR_TO_UINT(userdata) == 30);
 
@@ -217,6 +218,7 @@ static const sd_bus_vtable vtable2[] = {
         SD_BUS_PROPERTY("Value2", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("Value3", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Value4", "s", value_handler, 10, 0),
+        SD_BUS_PROPERTY("AnExplicitProperty", "s", NULL, offsetof(struct context, something), SD_BUS_VTABLE_PROPERTY_EXPLICIT|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_VTABLE_END
 };
 

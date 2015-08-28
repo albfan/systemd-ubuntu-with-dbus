@@ -103,8 +103,7 @@ static void request_meta_free(
         if (!m)
                 return;
 
-        if (m->journal)
-                sd_journal_close(m->journal);
+        sd_journal_close(m->journal);
 
         if (m->tmp)
                 fclose(m->tmp);
@@ -797,7 +796,7 @@ static int request_handler_machine(
                      "\"cutoff_to_realtime\" : \"%"PRIu64"\" }\n",
                      SD_ID128_FORMAT_VAL(mid),
                      SD_ID128_FORMAT_VAL(bid),
-                     hostname_cleanup(hostname, false),
+                     hostname_cleanup(hostname),
                      os_name ? os_name : "Linux",
                      v ? v : "bare",
                      usage,

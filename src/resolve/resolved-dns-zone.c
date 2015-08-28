@@ -166,7 +166,6 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
 
 static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         DnsTransaction *t;
         int r;
 
@@ -179,17 +178,9 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (!key)
                 return -ENOMEM;
 
-        question = dns_question_new(1);
-        if (!question)
-                return -ENOMEM;
-
-        r = dns_question_add(question, key);
-        if (r < 0)
-                return r;
-
-        t = dns_scope_find_transaction(i->scope, question, false);
+        t = dns_scope_find_transaction(i->scope, key, false);
         if (!t) {
-                r = dns_transaction_new(&t, i->scope, question);
+                r = dns_transaction_new(&t, i->scope, key);
                 if (r < 0)
                         return r;
         }
@@ -217,7 +208,6 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         }
 
         dns_zone_item_ready(i);
-
         return 0;
 
 gc:
@@ -422,7 +412,7 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                                 if (k < 0)
                                         return k;
                                 if (k > 0) {
-                                        r = dns_answer_add(answer, j->rr);
+                                        r = dns_answer_add(answer, j->rr, 0);
                                         if (r < 0)
                                                 return r;
 
@@ -448,7 +438,7 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                                 if (j->state != DNS_ZONE_ITEM_PROBING)
                                         tentative = false;
 
-                                r = dns_answer_add(answer, j->rr);
+                                r = dns_answer_add(answer, j->rr, 0);
                                 if (r < 0)
                                         return r;
                         }
@@ -505,7 +495,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
         /* Maybe change the hostname */
-        if (dns_name_equal(i->scope->manager->hostname, DNS_RESOURCE_KEY_NAME(i->rr->key)) > 0)
+        if (manager_is_own_hostname(i->scope->manager, DNS_RESOURCE_KEY_NAME(i->rr->key)) > 0)
                 manager_next_hostname(i->scope->manager);
 }
 
@@ -645,4 +635,41 @@ void dns_zone_verify_all(DnsZone *zone) {
                 LIST_FOREACH(by_key, j, i)
                         dns_zone_item_verify(j);
         }
+}
+
+void dns_zone_dump(DnsZone *zone, FILE *f) {
+        Iterator iterator;
+        DnsZoneItem *i;
+        int r;
+
+        if (!zone)
+                return;
+
+        if (!f)
+                f = stdout;
+
+        HASHMAP_FOREACH(i, zone->by_key, iterator) {
+                DnsZoneItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        _cleanup_free_ char *t = NULL;
+
+                        r = dns_resource_record_to_string(j->rr, &t);
+                        if (r < 0) {
+                                log_oom();
+                                continue;
+                        }
+
+                        fputc('\t', f);
+                        fputs(t, f);
+                        fputc('\n', f);
+                }
+        }
+}
+
+bool dns_zone_is_empty(DnsZone *zone) {
+        if (!zone)
+                return true;
+
+        return hashmap_isempty(zone->by_key);
 }

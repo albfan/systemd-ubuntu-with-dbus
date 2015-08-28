@@ -592,8 +592,7 @@ static int dkr_pull_pull_layer_v2(DkrPull *i) {
 
                 i->current_ancestry++;
 
-                free(path);
-                path = NULL;
+                path = mfree(path);
         }
 
         log_info("Pulling layer %s...", layer);
@@ -652,8 +651,7 @@ static int dkr_pull_pull_layer(DkrPull *i) {
 
                 i->current_ancestry++;
 
-                free(path);
-                path = NULL;
+                path = mfree(path);
         }
 
         log_info("Pulling layer %s...", layer);
@@ -721,7 +719,7 @@ static int dkr_pull_job_on_header(PullJob *j, const char *header, size_t sz)  {
                         return log_oom();
 
                 STRV_FOREACH(k, l) {
-                        if (!hostname_is_valid(*k)) {
+                        if (!hostname_is_valid(*k, false)) {
                                 log_error("Registry hostname is not valid.");
                                 strv_free(l);
                                 return -EBADMSG;

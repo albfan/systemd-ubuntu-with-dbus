@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [224],
+        [225],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -1016,7 +1016,9 @@ AC_ARG_WITH(ntp-servers,
                 [Space-separated list of default NTP servers]),
         [NTP_SERVERS="$withval"],
         [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"
-        AC_MSG_WARN([*** Using Google NTP servers. Please do not ship OSes or devices with these default settings. See DISTRO_PORTING for details!])])
+        AC_MSG_WARN([*** Using Google NTP servers.
+                        Do not ship OSes or devices with these default settings.
+                        See DISTRO_PORTING for details!])])
 
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)
@@ -1340,11 +1342,13 @@ AC_ARG_WITH([bashcompletiondir],
         ] , [
                 with_bashcompletiondir=${datadir}/bash-completion/completions
         ])])
+AM_CONDITIONAL(ENABLE_BASH_COMPLETION, [test "$with_bashcompletiondir" != "no"])
 AX_NORMALIZE_PATH([with_bashcompletiondir])
 
 AC_ARG_WITH([zshcompletiondir],
         AS_HELP_STRING([--with-zshcompletiondir=DIR], [Zsh completions directory]),
         [], [with_zshcompletiondir=${datadir}/zsh/site-functions])
+AM_CONDITIONAL(ENABLE_ZSH_COMPLETION, [test "$with_zshcompletiondir" != "no"])
 AX_NORMALIZE_PATH([with_zshcompletiondir])
 
 AC_ARG_WITH([rootprefix],
