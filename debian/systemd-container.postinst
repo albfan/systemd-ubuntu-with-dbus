@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+machine_policy=/etc/dbus-1/system.d/org.freedesktop.machine1.conf
+if [ "$1" = configure ] && [ -z "$2" ] && [ -f ${machine_policy}.dpkg-bak ] ; then
+    md5sum="$(md5sum ${machine_policy} | sed -e 's/ .*//')"
+    old_md5sum="$(dpkg-query -W -f='${Conffiles}' systemd-container | \
+                        sed -n -e "\' ${machine_policy} ' { s/ obsolete$//; s/.* //; p }")"
+    # On new installs, if the policy file was preserved on systemd upgrade
+    # by dpkg-maintscript helper, copy it back if the new file has not been modified yet
+    if [ "$md5sum" = "$old_md5sum" ] ; then
+        mv ${machine_policy}.dpkg-bak ${machine_policy}
+    fi
+fi
+
+#DEBHELPER#

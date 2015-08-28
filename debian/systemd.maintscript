@@ -2,3 +2,4 @@ rm_conffile /etc/bash_completion.d/systemctl-bash-completion.sh 204-1~ systemd
 rm_conffile /etc/bash_completion.d/systemd-bash-completion.sh 204-1~ systemd
 mv_conffile /etc/systemd/systemd-logind.conf /etc/systemd/logind.conf 204-1~ systemd
 mv_conffile /etc/systemd/systemd-journald.conf /etc/systemd/journald.conf 204-1~ systemd
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.machine1.conf 224-2~ systemd
