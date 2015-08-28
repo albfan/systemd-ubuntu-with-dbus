@@ -1,9 +1,13 @@
 systemd (225-1) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * New upstream release.
   * Add better fix for "systemctl link/enable" breakage with full paths.
     (LP: #1480310)
   * debian/rules: Add missing $(dh_options) in overridden debhelper targets.
+
+  [ Felipe Sateler ]
+  * Move conffile from systemd to systemd-container package (Closes: #797048)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 26 Aug 2015 10:33:42 +0200
 
