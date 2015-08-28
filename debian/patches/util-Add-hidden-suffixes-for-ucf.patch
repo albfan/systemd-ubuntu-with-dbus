@@ -8,10 +8,10 @@ Bug-Debian: https://bugs.debian.org/775903
  1 file changed, 3 insertions(+)
 
 diff --git a/src/basic/util.c b/src/basic/util.c
-index 1c15fbc..2dd5597 100644
+index f752595..198edca 100644
 --- a/src/basic/util.c
 +++ b/src/basic/util.c
-@@ -1869,6 +1869,9 @@ _pure_ static bool hidden_file_allow_backup(const char *filename) {
+@@ -1875,6 +1875,9 @@ _pure_ static bool hidden_file_allow_backup(const char *filename) {
                  endswith(filename, ".dpkg-bak") ||
                  endswith(filename, ".dpkg-backup") ||
                  endswith(filename, ".dpkg-remove") ||

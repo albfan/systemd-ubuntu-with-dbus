@@ -9,7 +9,7 @@ Closes: #726466
  1 file changed, 6 insertions(+)
 
 diff --git a/src/login/logind-core.c b/src/login/logind-core.c
-index 96a20e2..72be99e 100644
+index 6c05c11..8c9051b 100644
 --- a/src/login/logind-core.c
 +++ b/src/login/logind-core.c
 @@ -32,6 +32,7 @@
@@ -20,7 +20,7 @@ index 96a20e2..72be99e 100644
  
  int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
          Device *d;
-@@ -449,6 +450,11 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
+@@ -411,6 +412,11 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
              vtnr != m->reserve_vt)
                  return 0;
  

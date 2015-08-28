@@ -12,10 +12,10 @@ Patch courtesy of Steve Langasek.
  1 file changed, 106 insertions(+), 96 deletions(-)
 
 diff --git a/src/locale/localed.c b/src/locale/localed.c
-index e8a8f17d..030cb17 100644
+index e9489f0..007e717 100644
 --- a/src/locale/localed.c
 +++ b/src/locale/localed.c
-@@ -167,6 +167,24 @@ static int locale_read_data(Context *c) {
+@@ -162,6 +162,24 @@ static int locale_read_data(Context *c) {
                             "LC_IDENTIFICATION", &c->locale[LOCALE_LC_IDENTIFICATION],
                             NULL);
  
@@ -40,7 +40,7 @@ index e8a8f17d..030cb17 100644
          if (r == -ENOENT) {
                  int p;
  
-@@ -204,64 +222,17 @@ static int vconsole_read_data(Context *c) {
+@@ -199,64 +217,17 @@ static int vconsole_read_data(Context *c) {
  }
  
  static int x11_read_data(Context *c) {
@@ -67,7 +67,7 @@ index e8a8f17d..030cb17 100644
 -                if (in_section && first_word(l, "Option")) {
 -                        _cleanup_strv_free_ char **a = NULL;
 -
--                        r = strv_split_quoted(&a, l, 0);
+-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_QUOTES);
 -                        if (r < 0)
 -                                return r;
 -
@@ -90,7 +90,7 @@ index e8a8f17d..030cb17 100644
 -                } else if (!in_section && first_word(l, "Section")) {
 -                        _cleanup_strv_free_ char **a = NULL;
 -
--                        r = strv_split_quoted(&a, l, 0);
+-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_QUOTES);
 -                        if (r < 0)
 -                                return -ENOMEM;
 -
@@ -112,7 +112,7 @@ index e8a8f17d..030cb17 100644
  }
  
  static int context_read_data(Context *c) {
-@@ -277,10 +248,15 @@ static int context_read_data(Context *c) {
+@@ -272,10 +243,15 @@ static int context_read_data(Context *c) {
  static int locale_write_data(Context *c, char ***settings) {
          int r, p;
          _cleanup_strv_free_ char **l = NULL;
@@ -129,7 +129,7 @@ index e8a8f17d..030cb17 100644
          if (r < 0 && r != -ENOENT)
                  return r;
  
-@@ -307,13 +283,13 @@ static int locale_write_data(Context *c, char ***settings) {
+@@ -302,13 +278,13 @@ static int locale_write_data(Context *c, char ***settings) {
          }
  
          if (strv_isempty(l)) {
@@ -145,7 +145,7 @@ index e8a8f17d..030cb17 100644
          if (r < 0)
                  return r;
  
-@@ -434,65 +410,99 @@ static int vconsole_write_data(Context *c) {
+@@ -429,65 +405,99 @@ static int vconsole_write_data(Context *c) {
  }
  
  static int x11_write_data(Context *c) {

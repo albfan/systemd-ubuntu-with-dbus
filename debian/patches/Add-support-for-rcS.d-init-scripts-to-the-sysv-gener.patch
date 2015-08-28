@@ -12,10 +12,10 @@ adjustments to the test suite.
  4 files changed, 38 insertions(+), 10 deletions(-)
 
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index cf76aaf..392ac6b 100644
+index e4700d9..8214b63 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
-@@ -301,6 +301,11 @@
+@@ -314,6 +314,11 @@
            target unit for those mounts listed in
            <filename>/etc/fstab</filename> that have the
            <option>auto</option> mount option set.</para>

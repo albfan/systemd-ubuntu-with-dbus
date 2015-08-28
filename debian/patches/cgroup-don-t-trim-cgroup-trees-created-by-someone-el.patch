@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/777601
  2 files changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
-index 34a3060..1442885 100644
+index 6b3162a..8b49701 100644
 --- a/src/basic/cgroup-util.c
 +++ b/src/basic/cgroup-util.c
-@@ -1747,8 +1747,6 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
+@@ -1744,8 +1744,6 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
          NULSTR_FOREACH(n, mask_names) {
                  if (mask & bit)
                          cg_create(n, path);

@@ -1,6 +1,4 @@
 ## Cherry-picked from upstream
-networkd-fix-neworkd-crash.patch
-selinux-fix-regression-of-systemctl-subcommands-when.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
