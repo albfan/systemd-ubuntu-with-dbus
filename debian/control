@@ -184,7 +184,7 @@ Multi-Arch: same
 Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
+         libsystemd-dev (= ${binary:Version})
 Description: systemd login utility library (transitional package)
  The libsystemd-login library provides an interface for the
  systemd-logind service which is used to track user sessions and seats.
@@ -214,7 +214,7 @@ Multi-Arch: same
 Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
+         libsystemd-dev (= ${binary:Version})
 Description: systemd utility library (transitional package)
  The sd-daemon library provides a reference implementation of various
  APIs for new-style daemons, as implemented by the systemd init system.
@@ -244,7 +244,7 @@ Multi-Arch: same
 Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
+         libsystemd-dev (= ${binary:Version})
 Description: systemd journal utility library (transitional package)
  The libsystemd-journal library provides an interface for the
  systemd journal service.
@@ -274,7 +274,7 @@ Multi-Arch: same
 Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
+         libsystemd-dev (= ${binary:Version})
 Description: systemd 128 bit ID utility library (transitional package)
  The libsystemd-id128 library provides utility functions for generating
  128 bit IDs.
