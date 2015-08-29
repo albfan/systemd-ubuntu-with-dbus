@@ -3,7 +3,7 @@ systemd (215-17+deb8u2) stable; urgency=medium
   * Disable default DNS servers in systemd-resolved. In v215 they are always
     added to resolv.conf as fallback entries even when DNS servers were
     acquired from systemd-networkd. (Closes: #787731)
-  * Use strictly versioned dependendency on libsystemd-dev for the
+  * Use strictly versioned dependency on libsystemd-dev for the
     transitional dev packages. The .pc files of the compat libraries declare
     a strictly versioned dependency on libsystemd.pc, so reflect that in the
     package dependencies as well. (Closes: #794290)
