@@ -48,13 +48,21 @@ CONFFLAGS_deb = \
 	PYTHON=python3
 
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
-CONFFLAGS_deb += --enable-libcryptsetup \
-                 --enable-apparmor \
-                 --enable-libcurl \
-                 --enable-importd \
-                 --enable-microhttpd
+CONFFLAGS_deb += \
+	--enable-audit \
+	--enable-libcryptsetup \
+	--enable-apparmor \
+	--enable-libcurl \
+	--enable-importd \
+	--enable-microhttpd
 else
-CONFFLAGS_deb += --disable-audit
+CONFFLAGS_deb += \
+	--disable-audit \
+	--disable-libcryptsetup \
+	--disable-apparmor \
+	--disable-libcurl \
+	--disable-importd \
+	--disable-microhttpd
 endif
 
 CONFFLAGS_udeb = \

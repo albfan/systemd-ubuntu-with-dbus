@@ -16,6 +16,10 @@ systemd (225-1) UNRELEASED; urgency=medium
     None of the files in this package were previously shipped by systemd.
   * Create system users for systemd-journal-{gateway,remote,upload} when
     installing the systemd-journal-remote package.
+  * Explicitly turn off the features we don't want in a stage1 build.
+    Otherwise ./configure might enable them automatically if the build
+    dependencies are installed and "dh_install --fail-missing" will then fail
+    due to uninstalled files.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 26 Aug 2015 10:33:42 +0200
 
