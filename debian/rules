@@ -179,7 +179,7 @@ endif
 	# fix location of NSS modules
 	cd debian/install/deb/; for f in usr/lib/*/libnss_*; do mv $$f $${f#usr/}; done
 
-	dh_install $(dh_options) --remaining-packages --sourcedir=debian/install/deb --fail-missing
+	dh_install --remaining-packages --sourcedir=debian/install/deb --fail-missing
 
 	# Make sure the runlevel services are known by systemd so their targets
 	# get launched. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
@@ -258,7 +258,7 @@ override_dh_autoreconf:
 	dh_autoreconf debian/rules -- autoreconf
 
 override_dh_strip:
-	dh_strip $(dh_options) --dbg-package=systemd-dbg
+	dh_strip --dbg-package=systemd-dbg
 
 # tests require /etc/machine-id to be present
 override_dh_auto_test:
@@ -270,9 +270,5 @@ ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 		if [ ! -e /etc/machine-id ]; then echo "/etc/machine-id missing, ignoring test failures"; else exit 1; fi; )
 endif
 
-ifneq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
-dh_options = -Nudev-udeb -Nlibudev1-udeb
-endif
-
 %:
-	dh $@ $(dh_options) --with autoreconf --parallel
+	dh $@ --with autoreconf --parallel

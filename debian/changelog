@@ -22,6 +22,8 @@ systemd (225-1) UNRELEASED; urgency=medium
     due to uninstalled files.
   * Enable GnuTLS support as systemd-journal-remote makes sense mostly with
     encryption enabled.
+  * Rely on build profiles to determine which packages should be skipped
+    during build and no longer specify that manually.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 26 Aug 2015 10:33:42 +0200
 
