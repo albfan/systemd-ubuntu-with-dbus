@@ -24,6 +24,11 @@ systemd (225-1) UNRELEASED; urgency=medium
     encryption enabled.
   * Rely on build profiles to determine which packages should be skipped
     during build and no longer specify that manually.
+  * Drop our patch which removes rc-local-generator.
+    rc-local.service acts as an ordering barrier even if its condition is
+    false, because conditions are evaluated when the service is about to be
+    started, not when it is enqueued. We don't want this ordering barrier on
+    systems that don't need/use /etc/rc.local.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 26 Aug 2015 10:33:42 +0200
 
