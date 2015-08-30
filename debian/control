@@ -161,8 +161,7 @@ Description: tools for sending and receiving remote journal logs
  systemd is compatible with SysV and LSB init scripts and can work as a
  drop-in replacement for sysvinit.
  .
- This package provides systemd's tools for sending and receiving remote journal
- logs:
+ This package provides tools for sending and receiving remote journal logs:
   * systemd-journal-remote
   * systemd-journal-upload
   * systemd-journal-gatewayd
