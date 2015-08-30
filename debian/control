@@ -123,7 +123,7 @@ Conflicts: systemd (<< 224-2)
 Replaces: systemd (<< 224-2)
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         systemd,
+         systemd
 Description: systemd container/nspawn tools
  systemd is a system and service manager for Linux. It provides aggressive
  parallelization capabilities, uses socket and D-Bus activation for starting
@@ -149,7 +149,7 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd,
-         adduser,
+         adduser
 Description: tools for sending and receiving remote journal logs
  systemd is a system and service manager for Linux. It provides aggressive
  parallelization capabilities, uses socket and D-Bus activation for starting
