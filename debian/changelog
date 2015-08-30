@@ -2,6 +2,8 @@ systemd (225-1) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
   * New upstream release.
+    - Fixes FTBFS on alpha. (Closes: #792551)
+    - Fixes machined state tracking logic. (Closes: #788269)
   * Add better fix for "systemctl link/enable" breakage with full paths.
     (LP: #1480310)
   * debian/rules: Add missing $(dh_options) in overridden debhelper targets.
