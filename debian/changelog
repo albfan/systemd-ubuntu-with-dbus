@@ -1,6 +1,7 @@
 systemd (225-2) UNRELEASED; urgency=medium
 
   * Enable libseccomp support for mips64, mips64el, and x32. (Closes: #797403)
+  * debian/tests/networkd: Add hotplug tests.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 

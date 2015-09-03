@@ -10,8 +10,8 @@ import subprocess
 
 class TestNetworkd(unittest.TestCase):
     def setUp(self):
-        self.iface = None
-        self.if_router = None
+        self.iface = 'test_eth42'
+        self.if_router = 'router_eth42'
         self.dnsmasq = None
         self.workdir_obj = tempfile.TemporaryDirectory()
         self.workdir = self.workdir_obj.name
@@ -31,8 +31,6 @@ class TestNetworkd(unittest.TestCase):
         '''Create test interface with DHCP server behind it'''
 
         # add veth pair
-        self.iface = 'test_eth42'
-        self.if_router = 'router_eth42'
         subprocess.check_call(['ip', 'link', 'add', 'name', self.iface, 'type',
                                'veth', 'peer', 'name', self.if_router])
 
@@ -68,14 +66,22 @@ class TestNetworkd(unittest.TestCase):
             self.dnsmasq.wait()
             self.dnsmasq = None
 
-    def do_coldplug_test(self, ipv6=False):
-        self.create_iface(ipv6=ipv6)
+    def do_test(self, coldplug=True, ipv6=False):
         with open(self.config, 'w') as f:
             f.write('''[Match]
 Name=%s
 [Network]
 DHCP=yes''' % self.iface)
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+        if coldplug:
+            # create interface first, then start networkd
+            self.create_iface(ipv6=ipv6)
+            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        else:
+            # start networkd first, then create interface
+            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+            self.create_iface(ipv6=ipv6)
+
         subprocess.check_call(['/lib/systemd/systemd-networkd-wait-online',
                                '--interface', self.iface, '--timeout=10'])
 
@@ -128,10 +134,16 @@ DHCP=yes''' % self.iface)
             raise
 
     def test_coldplug_dhcp_ip4(self):
-        self.do_coldplug_test(False)
+        self.do_test(coldplug=True, ipv6=False)
 
     def test_coldplug_dhcp_ip6(self):
-        self.do_coldplug_test(True)
+        self.do_test(coldplug=True, ipv6=True)
+
+    def test_hotplug_dhcp_ip4(self):
+        self.do_test(coldplug=False, ipv6=False)
+
+    def test_hotplug_dhcp_ip6(self):
+        self.do_test(coldplug=False, ipv6=True)
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
