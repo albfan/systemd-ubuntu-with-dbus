@@ -1,0 +1,51 @@
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Date: Thu, 27 Aug 2015 10:39:38 -0500
+Subject: cg_migrate_everywhere: set ignore_self to true
+
+Pid 1 is migrating itself when doing cg_migrate_everywhere.  This
+particularly becomes a problem when running under cgmanager, where
+it is no longer allowed to return itself to the parent cgroup later.
+The result is that, for instance, after starting cgproxy inside a
+systemd-based container, /proc/1/cgroup shows:
+
+12:name=systemd:/user/1000.user/1.session/lxc/w3
+5:devices:/user/1000.user/1.session/lxc/w3/system.slice/cgproxy.service
+
+This was introduced by commit 4ad4900, which iiuc changed the behavior
+from ignoring self to not ignoring self.  I believe this was an
+inadvertent change, so propose un-doing it.
+
+With this patch, everything appears to function as normal, and pid 1
+stays in
+
+12:name=systemd:/user/1000.user/1.session/lxc/w3
+5:devices:/user/1000.user/1.session/lxc/w3
+
+Signed-off-by: Serge Hallyn <serge.hallyn@ubuntu.com>
+Forwarded: https://github.com/systemd/systemd/pull/1056
+---
+ src/basic/cgroup-util.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
+index 8b49701..63d54fa 100644
+--- a/src/basic/cgroup-util.c
++++ b/src/basic/cgroup-util.c
+@@ -1803,7 +1803,7 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
+         int r;
+ 
+         if (!path_equal(from, to))  {
+-                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, false, true);
++                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, true, true);
+                 if (r < 0)
+                         return r;
+         }
+@@ -1818,7 +1818,7 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
+                         if (!p)
+                                 p = to;
+ 
+-                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, p, false, false);
++                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, p, true, false);
+                 }
+ 
+                 bit <<= 1;
