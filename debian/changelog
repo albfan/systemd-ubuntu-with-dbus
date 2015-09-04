@@ -23,6 +23,10 @@ systemd (225-2) UNRELEASED; urgency=medium
     accompanying rules for determining $PRIMARY_DEVICE_FOR_DISPLAY.
   * debian/control: Remove some boilerplate from the long descriptions, to
     more easily get to the point what a specific package actually does.
+  * debian/README.Debian: As systemd is the default init now, replace the
+    documentation how to switch to systemd with how to switch back
+    (temporarily or permanently) to SysV init. Also move that paragraph to the
+    bottom as it's now less important.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 

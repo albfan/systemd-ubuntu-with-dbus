@@ -1,15 +1,3 @@
-systemd for Debian
-==================
-
-systemd can be installed alongside sysvinit and will not change the
-behaviour of the system out of the box.  This is intentional.  To test
-systemd, add:
-
-init=/bin/systemd
-
-to the kernel command line and then rebooting, or install the
-systemd-sysv package.
-
 Enabling persistent logging in journald
 =======================================
 
@@ -46,3 +34,14 @@ see what's currently being run, or "systemctl" to find units which are not in
 the expected state (e. g. "failed" for boot or still "active" during shutdown),
 and then get more detailled information with "systemctl status -l foo.service"
 to get a service "foo"'s status and recent logging.
+
+Going back to SysV init
+=======================
+If you need to switch back to SysV init for one boot, install the "sysvinit"
+package and add "init=/lib/sysvinit/init" to the kernel command line. If want
+to switch back permanently, install the "sysvinit-core" package; This will
+provide a SysV /sbin/init and thus remove the "systemd-sysv" package. Then you
+can boot with systemd with the "init=/bin/systemd" kernel command line option.
+
+Please do not try to uninstall the "systemd" package itself, parts of it
+(mostly logind) are needed for desktop environments.
