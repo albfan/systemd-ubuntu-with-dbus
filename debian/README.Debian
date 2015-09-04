@@ -71,6 +71,10 @@ options and examples.
 You need to make sure that interfaces handled by networkd are not handled by
 ifupdown (/etc/network/interfaces) and NetworkManager.
 
+Interfaces brought up/down will run hooks in /etc/network/if-up.d/ and
+if-post-down.d/ (like NetworkManager). if-pre-up.d/ and if-down.d/ hooks are
+(deliberately) *not* being called.
+
 ATTENTION: networkd does not currently work together with "resolvconf".
 Integrating with it is planned, but until then, if you want to use a dynamic
 /etc/resolv.conf you need to use systemd-resolved:
