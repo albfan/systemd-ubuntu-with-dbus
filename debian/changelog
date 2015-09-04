@@ -30,6 +30,7 @@ systemd (225-2) UNRELEASED; urgency=medium
   * debian/README.Debian: Add a hint why you may want to enable persistant
     journal, and suggest to uninstall system-log-daemon to avoid duplicate
     logging.
+  * debian/README.Debian: Add documentation about networkd integration.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 

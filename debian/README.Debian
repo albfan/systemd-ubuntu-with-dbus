@@ -41,6 +41,43 @@ the expected state (e. g. "failed" for boot or still "active" during shutdown),
 and then get more detailled information with "systemctl status -l foo.service"
 to get a service "foo"'s status and recent logging.
 
+Enable and use networkd
+=======================
+networkd is a small and lean service to configure network interfaces, designed
+mostly for server use cases in a world with hotplugged and virtualized
+networking. Its configuration is similar in spirit and abstraction level to
+ifupdown, but you don't need any extra packages to configure bridges, bonds,
+vlan etc. It is not very suitable for managing WLANs yet; NetworkManager is
+still much more appropriate for such Desktop use cases.
+
+networkd is not enabled by default; run
+
+  systemctl enable systemd-networkd
+
+if you want to use it. After that you need to create some *.network
+configuration files. In the simplest case you just want to run DHCP on all
+available Ethernet interfaces:
+
+--- /etc/systemd/network/all-eth.network ---
+[Match]
+Name=e*
+[Network]
+DHCP=yes
+
+This will match on both the kernel "ethN" as well as the predictable interface
+names "en*". Please see man systemd.network(5) for all available configuration
+options and examples.
+
+You need to make sure that interfaces handled by networkd are not handled by
+ifupdown (/etc/network/interfaces) and NetworkManager.
+
+ATTENTION: networkd does not currently work together with "resolvconf".
+Integrating with it is planned, but until then, if you want to use a dynamic
+/etc/resolv.conf you need to use systemd-resolved:
+
+  systemctl enable systemd-resolved
+  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+
 Going back to SysV init
 =======================
 If you need to switch back to SysV init for one boot, install the "sysvinit"
