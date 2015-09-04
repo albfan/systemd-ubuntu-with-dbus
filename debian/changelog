@@ -27,7 +27,7 @@ systemd (225-2) UNRELEASED; urgency=medium
     documentation how to switch to systemd with how to switch back
     (temporarily or permanently) to SysV init. Also move that paragraph to the
     bottom as it's now less important.
-  * debian/README.Debian: Add a hint why you may want to enable persistant
+  * debian/README.Debian: Add a hint why you may want to enable persistent
     journal, and suggest to uninstall system-log-daemon to avoid duplicate
     logging.
   * debian/README.Debian: Add documentation about networkd integration.
