@@ -1,7 +1,11 @@
 systemd (227-4) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * debian/rules: Configure with --as-needed to avoid unnecessary binary
     dependencies.
+
+  [ Felipe Sateler ]
+  * Enable elfutils support for getting stack traces for systemd-coredump.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 12 Nov 2015 17:25:12 +0100
 

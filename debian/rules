@@ -28,7 +28,6 @@ CONFFLAGS = \
 	--disable-compat-libs \
 	--disable-qrencode \
 	--disable-libidn \
-	--disable-elfutils \
 	--disable-vconsole \
 	--disable-sysusers \
 	--disable-firstboot \
@@ -50,6 +49,7 @@ CONFFLAGS_deb += \
 	--enable-audit \
 	--enable-libcryptsetup \
 	--enable-coredump \
+	--enable-elfutils \
 	--enable-apparmor \
 	--enable-libcurl \
 	--enable-importd \
@@ -60,6 +60,7 @@ CONFFLAGS_deb += \
 	--disable-audit \
 	--disable-libcryptsetup \
 	--disable-coredump \
+	--disable-elfutils \
 	--disable-apparmor \
 	--disable-libcurl \
 	--disable-importd \
@@ -70,6 +71,7 @@ endif
 CONFFLAGS_udeb = \
 	--disable-libcryptsetup \
 	--disable-coredump \
+	--disable-elfutils \
 	--disable-pam \
 	--disable-audit \
 	--disable-selinux \
