@@ -34,6 +34,7 @@ systemd (227-3) UNRELEASED; urgency=medium
 
   [ Felipe Sateler ]
   * Add libnss-resolve package. (Closes: #798905)
+  * Add systemd-coredump package. (Closes: #744964)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 

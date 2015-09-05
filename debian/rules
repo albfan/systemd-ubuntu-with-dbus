@@ -32,7 +32,6 @@ CONFFLAGS = \
 	--disable-vconsole \
 	--disable-sysusers \
 	--disable-firstboot \
-	--disable-coredump \
 	--disable-xkbcommon \
 	--disable-libiptc \
 	--disable-silent-rules \
@@ -50,6 +49,7 @@ ifeq (, $(filter stage1, $(DEB_BUILD_PROFILES)))
 CONFFLAGS_deb += \
 	--enable-audit \
 	--enable-libcryptsetup \
+	--enable-coredump \
 	--enable-apparmor \
 	--enable-libcurl \
 	--enable-importd \
@@ -59,6 +59,7 @@ else
 CONFFLAGS_deb += \
 	--disable-audit \
 	--disable-libcryptsetup \
+	--disable-coredump \
 	--disable-apparmor \
 	--disable-libcurl \
 	--disable-importd \
@@ -68,6 +69,7 @@ endif
 
 CONFFLAGS_udeb = \
 	--disable-libcryptsetup \
+	--disable-coredump \
 	--disable-pam \
 	--disable-audit \
 	--disable-selinux \

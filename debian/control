@@ -145,6 +145,20 @@ Description: tools for sending and receiving remote journal logs
   * systemd-journal-upload
   * systemd-journal-gatewayd
 
+Package: systemd-coredump
+Build-Profiles: <!stage1>
+Architecture: linux-any
+Multi-Arch: foreign
+Section: admin
+Priority: optional
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         systemd
+Description: tools for storing and retrieving coredumps
+ This package provides systemd tools for storing and retrieving coredumps:
+  * systemd-coredump
+  * coredumpctl
+
 Package: libpam-systemd
 Architecture: linux-any
 Multi-Arch: same
