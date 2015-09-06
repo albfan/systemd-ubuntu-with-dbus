@@ -1,5 +1,6 @@
 systemd (226-1) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * New upstream release:
     - Fix scheduled shutdown to not shut down immediately. (Closes: #797763)
     - Fix description of CPE_NAME in os-release(5). (Closes: #797768)
@@ -46,6 +47,10 @@ systemd (226-1) UNRELEASED; urgency=medium
   * systemd-networkd-dispatcher: Also pass on the DNS server list to if-up.d/
     as $IF_DNS_NAMESERVERS, so that resolvconf or similar programs work as
     expected.
+
+  [ Michael Biebl ]
+  * Drop libsystemd-login-dev. All reverse dependencies have been updated to
+    use libsystemd-dev directly.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 

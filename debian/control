@@ -239,21 +239,6 @@ Description: systemd utility library - development files
  .
  This package contains the development files.
 
-Package: libsystemd-login-dev
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
-Description: systemd login utility library (transitional package)
- The libsystemd-login library provides an interface for the
- systemd-logind service which is used to track user sessions and seats.
- .
- This is a compatibility package which provides a .pc file for the old library
- name. That way, packages can be rebuilt against the new libsystemd library
- without requiring changes to existing configure scripts.
-
 Package: libsystemd-daemon-dev
 Architecture: linux-any
 Multi-Arch: same

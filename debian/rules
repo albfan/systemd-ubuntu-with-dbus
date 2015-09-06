@@ -168,6 +168,7 @@ override_dh_install:
 	# remove deprecated compatibility libraries
 	rm -f debian/install/*/usr/lib/*/pkgconfig/libsystemd-journal.pc
 	rm -f debian/install/*/usr/lib/*/pkgconfig/libsystemd-id128.pc
+	rm -f debian/install/*/usr/lib/*/pkgconfig/libsystemd-login.pc
 	rm -f debian/install/*/usr/lib/*/libsystemd-*.so
 	rm -f debian/install/*/lib/*/libsystemd-*.so.*
 	# remove symlinks enabling default-on services
