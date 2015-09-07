@@ -9,6 +9,15 @@ import subprocess
 
 
 class TestNetworkd(unittest.TestCase):
+    @classmethod
+    def setUpClass(klass):
+        # enable those, so that net.agent will call if-*.d/
+        subprocess.check_call(['systemctl', 'enable', '--quiet', 'systemd-networkd'])
+
+    @classmethod
+    def tearDownClass(klass):
+        subprocess.check_call(['systemctl', 'disable', '--quiet', 'systemd-networkd'])
+
     def setUp(self):
         self.iface = 'test_eth42'
         self.if_router = 'router_eth42'
