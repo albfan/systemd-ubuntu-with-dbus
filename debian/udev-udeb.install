@@ -13,7 +13,7 @@ lib/udev/rules.d/75-net-description.rules
 lib/udev/rules.d/75-probe_mtd.rules
 lib/udev/rules.d/80-drivers.rules
 lib/udev/rules.d/80-net-setup-link.rules
-../../extra/01-mac-for-usb.link lib/systemd/network/
+../../extra/90-mac-for-usb.link lib/systemd/network/
 ../../extra/rules/50-firmware.rules lib/udev/rules.d/
 ../../extra/rules/73-idrac.rules lib/udev/rules.d/
 ../../extra/udev-helpers/*.functions lib/udev/

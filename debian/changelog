@@ -31,6 +31,8 @@ systemd (225-2) UNRELEASED; urgency=medium
     journal, and suggest to uninstall system-log-daemon to avoid duplicate
     logging.
   * debian/README.Debian: Add documentation about networkd integration.
+  * Rename 01-mac-for-usb.link to 90-mac-for-usb.link so that it becomes
+    easier to override.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 
