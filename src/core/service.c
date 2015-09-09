@@ -556,7 +556,7 @@ static int service_add_extras(Service *s) {
         if (r < 0)
                 return r;
 
-        r = unit_add_default_slice(UNIT(s), &s->cgroup_context);
+        r = unit_set_default_slice(UNIT(s));
         if (r < 0)
                 return r;
 
@@ -767,7 +767,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 }
 
 static int service_search_main_pid(Service *s) {
-        pid_t pid;
+        pid_t pid = 0;
         int r;
 
         assert(s);
@@ -782,9 +782,9 @@ static int service_search_main_pid(Service *s) {
 
         assert(s->main_pid <= 0);
 
-        pid = unit_search_main_pid(UNIT(s));
-        if (pid <= 0)
-                return -ENOENT;
+        r = unit_search_main_pid(UNIT(s), &pid);
+        if (r < 0)
+                return r;
 
         log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid);
         r = service_set_main_pid(s, pid);
@@ -860,7 +860,7 @@ static void service_set_state(Service *s, ServiceState state) {
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
         if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
-                unit_destroy_cgroup_if_empty(UNIT(s));
+                unit_prune_cgroup(UNIT(s));
 
         /* For remain_after_exit services, let's see if we can "release" the
          * hold on the console, since unit_notify() only does that in case of
@@ -1269,7 +1269,7 @@ static int cgroup_good(Service *s) {
         if (!UNIT(s)->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path, true);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
         if (r < 0)
                 return r;
 
@@ -1520,18 +1520,33 @@ fail:
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
+static bool service_good(Service *s) {
+        int main_pid_ok;
+        assert(s);
+
+        if (s->type == SERVICE_DBUS && !s->bus_name_good)
+                return false;
+
+        main_pid_ok = main_pid_good(s);
+        if (main_pid_ok > 0) /* It's alive */
+                return true;
+        if (main_pid_ok == 0) /* It's dead */
+                return false;
+
+        /* OK, we don't know anything about the main PID, maybe
+         * because there is none. Let's check the control group
+         * instead. */
+
+        return cgroup_good(s) != 0;
+}
+
 static void service_enter_running(Service *s, ServiceResult f) {
-        int main_pid_ok, cgroup_ok;
         assert(s);
 
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
-        main_pid_ok = main_pid_good(s);
-        cgroup_ok = cgroup_good(s);
-
-        if ((main_pid_ok > 0 || (main_pid_ok < 0 && cgroup_ok != 0)) &&
-            (s->bus_name_good || s->type != SERVICE_DBUS)) {
+        if (service_good(s)) {
 
                 /* If there are any queued up sd_notify()
                  * notifications, process them now */
@@ -2629,7 +2644,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                 break;
                                         }
                                 } else
-                                        service_search_main_pid(s);
+                                        (void) service_search_main_pid(s);
 
                                 service_enter_start_post(s);
                                 break;
@@ -2651,7 +2666,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                 break;
                                         }
                                 } else
-                                        service_search_main_pid(s);
+                                        (void) service_search_main_pid(s);
 
                                 service_enter_running(s, SERVICE_SUCCESS);
                                 break;
@@ -2659,7 +2674,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         case SERVICE_RELOAD:
                                 if (f == SERVICE_SUCCESS) {
                                         service_load_pid_file(s, true);
-                                        service_search_main_pid(s);
+                                        (void) service_search_main_pid(s);
                                 }
 
                                 s->reload_result = f;
@@ -3214,7 +3229,6 @@ const UnitVTable service_vtable = {
 
         .bus_name_owner_change = service_bus_name_owner_change,
 
-        .bus_interface = "org.freedesktop.systemd1.Service",
         .bus_vtable = bus_service_vtable,
         .bus_set_property = bus_service_set_property,
         .bus_commit_properties = bus_service_commit_properties,

@@ -83,7 +83,7 @@ int strcmp_ptr(const char *a, const char *b) _pure_;
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
-#define malloc0(n) (calloc((n), 1))
+#define malloc0(n) (calloc(1, (n)))
 
 static inline void *mfree(void *memory) {
         free(memory);
@@ -154,7 +154,10 @@ int parse_size(const char *t, off_t base, off_t *size);
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
-#define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
+#define parse_gid(s, ret_gid) parse_uid(s, ret_gid)
+
+bool uid_is_valid(uid_t uid);
+#define gid_is_valid(gid) uid_is_valid(gid)
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
@@ -363,6 +366,9 @@ int fd_is_temporary_fs(int fd);
 
 int pipe_eof(int fd);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
+#define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
+
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
 #define xsprintf(buf, fmt, ...) assert_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf))
@@ -561,6 +567,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  void *arg);
 
 #define _(String) gettext (String)
+#define N_(String) String
 void init_gettext(void);
 bool is_locale_utf8(void);
 

@@ -345,7 +345,7 @@ static int socket_add_extras(Socket *s) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_default_slice(u, &s->cgroup_context);
+                r = unit_set_default_slice(u);
                 if (r < 0)
                         return r;
         }
@@ -839,7 +839,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->keep_alive_cnt) {
                 int value = s->keep_alive_cnt;
-                if (setsockopt(fd, SOL_SOCKET, TCP_KEEPCNT, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPCNT failed: %m");
         }
 
@@ -2709,7 +2709,6 @@ const UnitVTable socket_vtable = {
 
         .reset_failed = socket_reset_failed,
 
-        .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_vtable = bus_socket_vtable,
         .bus_set_property = bus_socket_set_property,
         .bus_commit_properties = bus_socket_commit_properties,

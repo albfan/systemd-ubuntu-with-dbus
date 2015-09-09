@@ -433,25 +433,28 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        const char *word, *state;
-        size_t l;
-        cpu_set_t *c = NULL;
+        const char *whole_rvalue = rvalue;
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
         unsigned ncpus = 0;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                char *t;
-                int r;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 unsigned cpu;
+                int r;
 
-                if (!(t = strndup(word, l)))
-                        return log_oom();
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        return r;
+                }
+                if (r == 0)
+                        break;
 
-                r = safe_atou(t, &cpu);
-                free(t);
+                r = safe_atou(word, &cpu);
 
                 if (!c)
                         if (!(c = cpu_set_malloc(&ncpus)))
@@ -460,22 +463,18 @@ static int config_parse_cpu_affinity2(
                 if (r < 0 || cpu >= ncpus) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse CPU affinity '%s'", rvalue);
-                        CPU_FREE(c);
                         return -EBADMSG;
                 }
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
-        if (!isempty(state))
+        if (!isempty(rvalue))
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Trailing garbage, ignoring.");
 
-        if (c) {
+        if (c)
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
                         log_warning("Failed to set CPU affinity: %m");
-
-                CPU_FREE(c);
-        }
 
         return 0;
 }
@@ -538,9 +537,8 @@ static int config_parse_join_controllers(const char *unit,
                                          void *data,
                                          void *userdata) {
 
+        const char *whole_rvalue = rvalue;
         unsigned n = 0;
-        const char *word, *state;
-        size_t length;
 
         assert(filename);
         assert(lvalue);
@@ -548,16 +546,22 @@ static int config_parse_join_controllers(const char *unit,
 
         free_join_controllers();
 
-        FOREACH_WORD_QUOTED(word, length, rvalue, state) {
-                char *s, **l;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                char **l;
+                int r;
 
-                s = strndup(word, length);
-                if (!s)
-                        return log_oom();
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        return r;
+                }
+                if (r == 0)
+                        break;
 
-                l = strv_split(s, ",");
-                free(s);
-
+                l = strv_split(word, ",");
+                if (!l)
+                        log_oom();
                 strv_uniq(l);
 
                 if (strv_length(l) <= 1) {
@@ -617,7 +621,7 @@ static int config_parse_join_controllers(const char *unit,
                         arg_join_controllers = t;
                 }
         }
-        if (!isempty(state))
+        if (!isempty(rvalue))
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Trailing garbage, ignoring.");
 
@@ -1391,8 +1395,7 @@ int main(int argc, char *argv[]) {
 
                 /* clear the kernel timestamp,
                  * because we are not PID 1 */
-                kernel_timestamp.monotonic = 0ULL;
-                kernel_timestamp.realtime = 0ULL;
+                kernel_timestamp = DUAL_TIMESTAMP_NULL;
         }
 
         /* Initialize default unit */
@@ -2044,7 +2047,7 @@ finish:
                  * kernel; at this point, we will not listen to the
                  * signals anyway */
                 if (detect_container(NULL) <= 0)
-                        cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+                        (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
                 log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",

@@ -250,8 +250,8 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
 static void manager_close_ask_password(Manager *m) {
         assert(m);
 
-        m->ask_password_inotify_fd = safe_close(m->ask_password_inotify_fd);
         m->ask_password_event_source = sd_event_source_unref(m->ask_password_event_source);
+        m->ask_password_inotify_fd = safe_close(m->ask_password_inotify_fd);
         m->have_ask_password = -EINVAL;
 }
 
@@ -568,11 +568,14 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
-        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd = m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->utab_inotify_fd = -1;
+        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd =
+                m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->utab_inotify_fd =
+                m->cgroup_inotify_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         m->ask_password_inotify_fd = -1;
         m->have_ask_password = -EINVAL; /* we don't know */
+        m->first_boot = -1;
 
         m->test_run = test_run;
 
@@ -1582,19 +1585,19 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                 /* Notify every unit that might be interested, but try
                  * to avoid notifying the same one multiple times. */
-                u1 = manager_get_unit_by_pid(m, ucred->pid);
+                u1 = manager_get_unit_by_pid_cgroup(m, ucred->pid);
                 if (u1) {
                         manager_invoke_notify_message(m, u1, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
-                u2 = hashmap_get(m->watch_pids1, LONG_TO_PTR(ucred->pid));
+                u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(ucred->pid));
                 if (u2 && u2 != u1) {
                         manager_invoke_notify_message(m, u2, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
-                u3 = hashmap_get(m->watch_pids2, LONG_TO_PTR(ucred->pid));
+                u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(ucred->pid));
                 if (u3 && u3 != u2 && u3 != u1) {
                         manager_invoke_notify_message(m, u3, ucred->pid, buf, n, fds);
                         found = true;
@@ -1660,13 +1663,13 @@ static int manager_dispatch_sigchld(Manager *m) {
 
                         /* And now figure out the unit this belongs
                          * to, it might be multiple... */
-                        u1 = manager_get_unit_by_pid(m, si.si_pid);
+                        u1 = manager_get_unit_by_pid_cgroup(m, si.si_pid);
                         if (u1)
                                 invoke_sigchld_event(m, u1, &si);
-                        u2 = hashmap_get(m->watch_pids1, LONG_TO_PTR(si.si_pid));
+                        u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(si.si_pid));
                         if (u2 && u2 != u1)
                                 invoke_sigchld_event(m, u2, &si);
-                        u3 = hashmap_get(m->watch_pids2, LONG_TO_PTR(si.si_pid));
+                        u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(si.si_pid));
                         if (u3 && u3 != u2 && u3 != u1)
                                 invoke_sigchld_event(m, u3, &si);
                 }
@@ -2721,7 +2724,7 @@ void manager_check_finished(Manager *m) {
 
         SET_FOREACH(u, m->startup_units, i)
                 if (u->cgroup_path)
-                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path, manager_state(m));
+                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_own_mask(u), u->cgroup_path, manager_state(m));
 }
 
 static int create_generator_dir(Manager *m, char **generator, const char *name) {
@@ -2998,12 +3001,14 @@ void manager_set_first_boot(Manager *m, bool b) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
-        m->first_boot = b;
+        if (m->first_boot != (int) b) {
+                if (b)
+                        (void) touch("/run/systemd/first-boot");
+                else
+                        (void) unlink("/run/systemd/first-boot");
+        }
 
-        if (m->first_boot)
-                touch("/run/systemd/first-boot");
-        else
-                unlink("/run/systemd/first-boot");
+        m->first_boot = b;
 }
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {

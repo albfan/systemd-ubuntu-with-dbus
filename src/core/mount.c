@@ -521,7 +521,7 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        r = unit_add_default_slice(u, &m->cgroup_context);
+        r = unit_set_default_slice(u);
         if (r < 0)
                 return r;
 
@@ -1871,7 +1871,6 @@ const UnitVTable mount_vtable = {
 
         .reset_failed = mount_reset_failed,
 
-        .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_vtable = bus_mount_vtable,
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,

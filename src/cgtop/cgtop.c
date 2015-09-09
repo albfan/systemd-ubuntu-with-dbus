@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#define __STDC_FORMAT_MACROS
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -31,6 +30,7 @@
 
 #include "path-util.h"
 #include "terminal-util.h"
+#include "process-util.h"
 #include "util.h"
 #include "hashmap.h"
 #include "cgroup-util.h"
@@ -48,23 +48,25 @@ typedef struct Group {
         unsigned n_tasks;
 
         unsigned cpu_iteration;
-        uint64_t cpu_usage;
-        struct timespec cpu_timestamp;
+        nsec_t cpu_usage;
+        nsec_t cpu_timestamp;
         double cpu_fraction;
 
         uint64_t memory;
 
         unsigned io_iteration;
         uint64_t io_input, io_output;
-        struct timespec io_timestamp;
+        nsec_t io_timestamp;
         uint64_t io_input_bps, io_output_bps;
 } Group;
 
 static unsigned arg_depth = 3;
-static unsigned arg_iterations = (unsigned)-1;
+static unsigned arg_iterations = (unsigned) -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
+static bool arg_kernel_threads = false;
+static bool arg_recursive = true;
 
 static enum {
         ORDER_PATH,
@@ -108,12 +110,16 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, off_t 
         return format_bytes(buf, l, t);
 }
 
-static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
+static int process(
+                const char *controller,
+                const char *path,
+                Hashmap *a,
+                Hashmap *b,
+                unsigned iteration,
+                Group **ret) {
+
         Group *g;
         int r;
-        FILE *f = NULL;
-        pid_t pid;
-        unsigned n;
 
         assert(controller);
         assert(path);
@@ -142,104 +148,111 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                         r = hashmap_move_one(a, b, path);
                         if (r < 0)
                                 return r;
+
                         g->cpu_valid = g->memory_valid = g->io_valid = g->n_tasks_valid = false;
                 }
         }
 
-        /* Regardless which controller, let's find the maximum number
-         * of processes in any of it */
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                _cleanup_fclose_ FILE *f = NULL;
+                pid_t pid;
 
-        r = cg_enumerate_processes(controller, path, &f);
-        if (r < 0)
-                return r;
+                r = cg_enumerate_processes(controller, path, &f);
+                if (r == -ENOENT)
+                        return 0;
+                if (r < 0)
+                        return r;
 
-        n = 0;
-        while (cg_read_pid(f, &pid) > 0)
-                n++;
-        fclose(f);
+                g->n_tasks = 0;
+                while (cg_read_pid(f, &pid) > 0) {
 
-        if (n > 0) {
-                if (g->n_tasks_valid)
-                        g->n_tasks = MAX(g->n_tasks, n);
-                else
-                        g->n_tasks = n;
+                        if (!arg_kernel_threads && is_kernel_thread(pid) > 0)
+                                continue;
 
-                g->n_tasks_valid = true;
-        }
+                        g->n_tasks++;
+                }
 
-        if (streq(controller, "cpuacct")) {
+                if (g->n_tasks > 0)
+                        g->n_tasks_valid = true;
+
+        } else if (streq(controller, "cpuacct") && cg_unified() <= 0) {
+                _cleanup_free_ char *p = NULL, *v = NULL;
                 uint64_t new_usage;
-                char *p, *v;
-                struct timespec ts;
+                nsec_t timestamp;
 
                 r = cg_get_path(controller, path, "cpuacct.usage", &p);
                 if (r < 0)
                         return r;
 
                 r = read_one_line_file(p, &v);
-                free(p);
+                if (r == -ENOENT)
+                        return 0;
                 if (r < 0)
                         return r;
 
                 r = safe_atou64(v, &new_usage);
-                free(v);
                 if (r < 0)
                         return r;
 
-                assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
+                timestamp = now_nsec(CLOCK_MONOTONIC);
 
-                if (g->cpu_iteration == iteration - 1) {
-                        uint64_t x, y;
+                if (g->cpu_iteration == iteration - 1 &&
+                    (nsec_t) new_usage > g->cpu_usage) {
 
-                        x = ((uint64_t) ts.tv_sec * 1000000000ULL + (uint64_t) ts.tv_nsec) -
-                                ((uint64_t) g->cpu_timestamp.tv_sec * 1000000000ULL + (uint64_t) g->cpu_timestamp.tv_nsec);
+                        nsec_t x, y;
 
-                        y = new_usage - g->cpu_usage;
+                        x = timestamp - g->cpu_timestamp;
+                        if (x < 1)
+                                x = 1;
 
-                        if (y > 0) {
-                                g->cpu_fraction = (double) y / (double) x;
-                                g->cpu_valid = true;
-                        }
+                        y = (nsec_t) new_usage - g->cpu_usage;
+                        g->cpu_fraction = (double) y / (double) x;
+                        g->cpu_valid = true;
                 }
 
-                g->cpu_usage = new_usage;
-                g->cpu_timestamp = ts;
+                g->cpu_usage = (nsec_t) new_usage;
+                g->cpu_timestamp = timestamp;
                 g->cpu_iteration = iteration;
 
         } else if (streq(controller, "memory")) {
-                char *p, *v;
+                _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                if (cg_unified() <= 0)
+                        r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                else
+                        r = cg_get_path(controller, path, "memory.current", &p);
                 if (r < 0)
                         return r;
 
                 r = read_one_line_file(p, &v);
-                free(p);
+                if (r == -ENOENT)
+                        return 0;
                 if (r < 0)
                         return r;
 
                 r = safe_atou64(v, &g->memory);
-                free(v);
                 if (r < 0)
                         return r;
 
                 if (g->memory > 0)
                         g->memory_valid = true;
 
-        } else if (streq(controller, "blkio")) {
-                char *p;
+        } else if (streq(controller, "blkio") && cg_unified() <= 0) {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char *p = NULL;
                 uint64_t wr = 0, rd = 0;
-                struct timespec ts;
+                nsec_t timestamp;
 
                 r = cg_get_path(controller, path, "blkio.io_service_bytes", &p);
                 if (r < 0)
                         return r;
 
                 f = fopen(p, "re");
-                free(p);
-
-                if (!f)
+                if (!f) {
+                        if (errno == ENOENT)
+                                return 0;
                         return -errno;
+                }
 
                 for (;;) {
                         char line[LINE_MAX], *l;
@@ -269,20 +282,26 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                         *q += k;
                 }
 
-                fclose(f);
-
-                assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
+                timestamp = now_nsec(CLOCK_MONOTONIC);
 
                 if (g->io_iteration == iteration - 1) {
                         uint64_t x, yr, yw;
 
-                        x = ((uint64_t) ts.tv_sec * 1000000000ULL + (uint64_t) ts.tv_nsec) -
-                                ((uint64_t) g->io_timestamp.tv_sec * 1000000000ULL + (uint64_t) g->io_timestamp.tv_nsec);
+                        x = (uint64_t) (timestamp - g->io_timestamp);
+                        if (x < 1)
+                                x = 1;
 
-                        yr = rd - g->io_input;
-                        yw = wr - g->io_output;
+                        if (rd > g->io_input)
+                                yr = rd - g->io_input;
+                        else
+                                yr = 0;
 
-                        if (g->io_input > 0 || g->io_output > 0) {
+                        if (wr > g->io_output)
+                                yw = wr - g->io_output;
+                        else
+                                yw = 0;
+
+                        if (yr > 0 || yw > 0) {
                                 g->io_input_bps = (yr * 1000000000ULL) / x;
                                 g->io_output_bps = (yw * 1000000000ULL) / x;
                                 g->io_valid = true;
@@ -291,9 +310,12 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
 
                 g->io_input = rd;
                 g->io_output = wr;
-                g->io_timestamp = ts;
+                g->io_timestamp = timestamp;
                 g->io_iteration = iteration;
         }
+
+        if (ret)
+                *ret = g;
 
         return 0;
 }
@@ -304,9 +326,11 @@ static int refresh_one(
                 Hashmap *a,
                 Hashmap *b,
                 unsigned iteration,
-                unsigned depth) {
+                unsigned depth,
+                Group **ret) {
 
-        DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        Group *ours;
         int r;
 
         assert(controller);
@@ -316,83 +340,100 @@ static int refresh_one(
         if (depth > arg_depth)
                 return 0;
 
-        r = process(controller, path, a, b, iteration);
+        r = process(controller, path, a, b, iteration, &ours);
         if (r < 0)
                 return r;
 
         r = cg_enumerate_subgroups(controller, path, &d);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return r;
-        }
 
         for (;;) {
-                char *fn, *p;
+                _cleanup_free_ char *fn = NULL, *p = NULL;
+                Group *child = NULL;
 
                 r = cg_read_subgroup(d, &fn);
-                if (r <= 0)
-                        goto finish;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 p = strjoin(path, "/", fn, NULL);
-                free(fn);
-
-                if (!p) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!p)
+                        return -ENOMEM;
 
                 path_kill_slashes(p);
 
-                r = refresh_one(controller, p, a, b, iteration, depth + 1);
-                free(p);
-
+                r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
                 if (r < 0)
-                        goto finish;
+                        return r;
+
+                if (arg_recursive &&
+                    child &&
+                    child->n_tasks_valid &&
+                    streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+
+                        /* Recursively sum up processes */
+
+                        if (ours->n_tasks_valid)
+                                ours->n_tasks += child->n_tasks;
+                        else {
+                                ours->n_tasks = child->n_tasks;
+                                ours->n_tasks_valid = true;
+                        }
+                }
         }
 
-finish:
-        if (d)
-                closedir(d);
+        if (ret)
+                *ret = ours;
 
-        return r;
+        return 1;
 }
 
-static int refresh(Hashmap *a, Hashmap *b, unsigned iteration) {
+static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
         int r;
 
         assert(a);
 
-        r = refresh_one("name=systemd", "/", a, b, iteration, 0);
+        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, root, a, b, iteration, 0, NULL);
         if (r < 0)
-                if (r != -ENOENT)
-                    return r;
-        r = refresh_one("cpuacct", "/", a, b, iteration, 0);
+                return r;
+        r = refresh_one("cpuacct", root, a, b, iteration, 0, NULL);
         if (r < 0)
-                if (r != -ENOENT)
-                    return r;
-        r = refresh_one("memory", "/", a, b, iteration, 0);
+                return r;
+        r = refresh_one("memory", root, a, b, iteration, 0, NULL);
         if (r < 0)
-                if (r != -ENOENT)
-                    return r;
+                return r;
+        r = refresh_one("blkio", root, a, b, iteration, 0, NULL);
+        if (r < 0)
+                return r;
 
-        r = refresh_one("blkio", "/", a, b, iteration, 0);
-        if (r < 0)
-                if (r != -ENOENT)
-                    return r;
         return 0;
 }
 
 static int group_compare(const void*a, const void *b) {
         const Group *x = *(Group**)a, *y = *(Group**)b;
 
-        if (path_startswith(y->path, x->path))
-                return -1;
-        if (path_startswith(x->path, y->path))
-                return 1;
+        if (arg_order != ORDER_TASKS || arg_recursive) {
+                /* Let's make sure that the parent is always before
+                 * the child. Except when ordering by tasks and
+                 * recursive summing is off, since that is actually
+                 * not accumulative for all children. */
 
-        if (arg_order == ORDER_CPU) {
+                if (path_startswith(y->path, x->path))
+                        return -1;
+                if (path_startswith(x->path, y->path))
+                        return 1;
+        }
+
+        switch (arg_order) {
+
+        case ORDER_PATH:
+                break;
+
+        case ORDER_CPU:
                 if (arg_cpu_type == CPU_PERCENT) {
                         if (x->cpu_valid && y->cpu_valid) {
                                 if (x->cpu_fraction > y->cpu_fraction)
@@ -409,10 +450,10 @@ static int group_compare(const void*a, const void *b) {
                         else if (x->cpu_usage < y->cpu_usage)
                                 return 1;
                 }
-        }
 
-        if (arg_order == ORDER_TASKS) {
+                break;
 
+        case ORDER_TASKS:
                 if (x->n_tasks_valid && y->n_tasks_valid) {
                         if (x->n_tasks > y->n_tasks)
                                 return -1;
@@ -422,9 +463,10 @@ static int group_compare(const void*a, const void *b) {
                         return -1;
                 else if (y->n_tasks_valid)
                         return 1;
-        }
 
-        if (arg_order == ORDER_MEMORY) {
+                break;
+
+        case ORDER_MEMORY:
                 if (x->memory_valid && y->memory_valid) {
                         if (x->memory > y->memory)
                                 return -1;
@@ -434,9 +476,10 @@ static int group_compare(const void*a, const void *b) {
                         return -1;
                 else if (y->memory_valid)
                         return 1;
-        }
 
-        if (arg_order == ORDER_IO) {
+                break;
+
+        case ORDER_IO:
                 if (x->io_valid && y->io_valid) {
                         if (x->io_input_bps + x->io_output_bps > y->io_input_bps + y->io_output_bps)
                                 return -1;
@@ -448,13 +491,13 @@ static int group_compare(const void*a, const void *b) {
                         return 1;
         }
 
-        return strcmp(x->path, y->path);
+        return path_compare(x->path, y->path);
 }
 
 #define ON ANSI_HIGHLIGHT_ON
 #define OFF ANSI_HIGHLIGHT_OFF
 
-static int display(Hashmap *a) {
+static void display(Hashmap *a) {
         Iterator i;
         Group *g;
         Group **array;
@@ -481,9 +524,10 @@ static int display(Hashmap *a) {
         for (j = 0; j < n; j++) {
                 unsigned cputlen, pathtlen;
 
-                format_timespan(buffer, sizeof(buffer), (nsec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0);
+                format_timespan(buffer, sizeof(buffer), (usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0);
                 cputlen = strlen(buffer);
                 maxtcpu = MAX(maxtcpu, cputlen);
+
                 pathtlen = strlen(array[j]->path);
                 maxtpath = MAX(maxtpath, pathtlen);
         }
@@ -503,7 +547,7 @@ static int display(Hashmap *a) {
                         path_columns = 10;
 
                 printf("%s%-*s%s %s%7s%s %s%s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
-                       arg_order == ORDER_PATH ? ON : "", path_columns, "Path",
+                       arg_order == ORDER_PATH ? ON : "", path_columns, "Control Group",
                        arg_order == ORDER_PATH ? OFF : "",
                        arg_order == ORDER_TASKS ? ON : "", "Tasks",
                        arg_order == ORDER_TASKS ? OFF : "",
@@ -519,16 +563,17 @@ static int display(Hashmap *a) {
                 path_columns = maxtpath;
 
         for (j = 0; j < n; j++) {
-                char *p;
+                _cleanup_free_ char *ellipsized = NULL;
+                const char *path;
 
                 if (on_tty() && j + 5 > rows)
                         break;
 
                 g = array[j];
 
-                p = ellipsize(g->path, path_columns, 33);
-                printf("%-*s", path_columns, p ? p : g->path);
-                free(p);
+                path = isempty(g->path) ? "/" : g->path;
+                ellipsized = ellipsize(path, path_columns, 33);
+                printf("%-*s", path_columns, ellipsized ?: path);
 
                 if (g->n_tasks_valid)
                         printf(" %7u", g->n_tasks);
@@ -541,7 +586,7 @@ static int display(Hashmap *a) {
                         else
                                 fputs("      -", stdout);
                 } else
-                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (nsec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
+                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
 
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->memory_valid, g->memory));
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->io_valid, g->io_input_bps));
@@ -549,22 +594,23 @@ static int display(Hashmap *a) {
 
                 putchar('\n');
         }
-
-        return 0;
 }
 
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Show top control groups by their resource usage.\n\n"
                "  -h --help           Show this help\n"
-               "  --version           Print version and exit\n"
-               "  -p                  Order by path\n"
-               "  -t                  Order by number of tasks\n"
-               "  -c                  Order by CPU load\n"
-               "  -m                  Order by memory load\n"
-               "  -i                  Order by IO load\n"
+               "     --version        Show package version\n"
+               "  -p --order=path     Order by path\n"
+               "  -t --order=tasks    Order by number of tasks\n"
+               "  -c --order=cpu      Order by CPU load (default)\n"
+               "  -m --order=memory   Order by memory load\n"
+               "  -i --order=io       Order by IO load\n"
                "  -r --raw            Provide raw (not human-readable) numbers\n"
-               "     --cpu[=TYPE]     Show CPU usage as time or percentage (default)\n"
+               "     --cpu=percentage Show CPU usage as percentage (default)\n"
+               "     --cpu=time       Show CPU usage as time\n"
+               "  -k                  Include kernel threads in task count\n"
+               "     --recursive=BOOL Sum up task count recursively\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
@@ -577,28 +623,31 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_DEPTH,
-                ARG_CPU_TYPE
+                ARG_CPU_TYPE,
+                ARG_ORDER,
+                ARG_RECURSIVE,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'         },
-                { "version",    no_argument,       NULL, ARG_VERSION },
-                { "delay",      required_argument, NULL, 'd'         },
-                { "iterations", required_argument, NULL, 'n'         },
-                { "batch",      no_argument,       NULL, 'b'         },
-                { "raw",        no_argument,       NULL, 'r'         },
-                { "depth",      required_argument, NULL, ARG_DEPTH   },
-                { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
+                { "help",         no_argument,       NULL, 'h'           },
+                { "version",      no_argument,       NULL, ARG_VERSION   },
+                { "delay",        required_argument, NULL, 'd'           },
+                { "iterations",   required_argument, NULL, 'n'           },
+                { "batch",        no_argument,       NULL, 'b'           },
+                { "raw",          no_argument,       NULL, 'r'           },
+                { "depth",        required_argument, NULL, ARG_DEPTH     },
+                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE  },
+                { "order",        required_argument, NULL, ARG_ORDER     },
+                { "recursive",    required_argument, NULL, ARG_RECURSIVE },
                 {}
         };
 
-        int c;
-        int r;
+        int c, r;
 
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:k", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -613,13 +662,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CPU_TYPE:
                         if (optarg) {
-                                if (strcmp(optarg, "time") == 0)
+                                if (streq(optarg, "time"))
                                         arg_cpu_type = CPU_TIME;
-                                else if (strcmp(optarg, "percentage") == 0)
+                                else if (streq(optarg, "percentage"))
                                         arg_cpu_type = CPU_PERCENT;
-                                else
+                                else {
+                                        log_error("Unknown argument to --cpu=: %s", optarg);
                                         return -EINVAL;
-                        }
+                                }
+                        } else
+                                arg_cpu_type = CPU_TIME;
+
                         break;
 
                 case ARG_DEPTH:
@@ -677,6 +730,37 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_order = ORDER_IO;
                         break;
 
+                case ARG_ORDER:
+                        if (streq(optarg, "path"))
+                                arg_order = ORDER_PATH;
+                        else if (streq(optarg, "tasks"))
+                                arg_order = ORDER_TASKS;
+                        else if (streq(optarg, "cpu"))
+                                arg_order = ORDER_CPU;
+                        else if (streq(optarg, "memory"))
+                                arg_order = ORDER_MEMORY;
+                        else if (streq(optarg, "io"))
+                                arg_order = ORDER_IO;
+                        else {
+                                log_error("Invalid argument to --order=: %s", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
+                case 'k':
+                        arg_kernel_threads = true;
+                        break;
+
+                case ARG_RECURSIVE:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --recursive= argument: %s", optarg);
+                                return r;
+                        }
+
+                        arg_recursive = r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -698,6 +782,7 @@ int main(int argc, char *argv[]) {
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
+        _cleanup_free_ char *root = NULL;
 
         log_parse_environment();
         log_open();
@@ -705,6 +790,12 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        r = cg_get_root_path(&root);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get root control group path: %m");
+                goto finish;
+        }
 
         a = hashmap_new(&string_hash_ops);
         b = hashmap_new(&string_hash_ops);
@@ -715,7 +806,7 @@ int main(int argc, char *argv[]) {
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
-        if (arg_iterations == (unsigned)-1)
+        if (arg_iterations == (unsigned) -1)
                 arg_iterations = on_tty() ? 0 : 1;
 
         while (!quit) {
@@ -728,9 +819,11 @@ int main(int argc, char *argv[]) {
 
                 if (t >= last_refresh + arg_delay || immediate_refresh) {
 
-                        r = refresh(a, b, iteration++);
-                        if (r < 0)
+                        r = refresh(root, a, b, iteration++);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to refresh: %m");
                                 goto finish;
+                        }
 
                         group_hashmap_clear(b);
 
@@ -742,9 +835,7 @@ int main(int argc, char *argv[]) {
                         immediate_refresh = false;
                 }
 
-                r = display(b);
-                if (r < 0)
-                        goto finish;
+                display(b);
 
                 if (arg_iterations && iteration >= arg_iterations)
                         break;
@@ -753,11 +844,10 @@ int main(int argc, char *argv[]) {
                         fputs("\n", stdout);
                 fflush(stdout);
 
-                if (arg_batch) {
-                        usleep(last_refresh + arg_delay - t);
-                } else {
-                        r = read_one_char(stdin, &key,
-                                          last_refresh + arg_delay - t, NULL);
+                if (arg_batch)
+                        (void) usleep(last_refresh + arg_delay - t);
+                else {
+                        r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
                         if (r == -ETIMEDOUT)
                                 continue;
                         if (r < 0) {
@@ -808,6 +898,20 @@ int main(int argc, char *argv[]) {
                         arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENT : CPU_TIME;
                         break;
 
+                case 'k':
+                        arg_kernel_threads = !arg_kernel_threads;
+                        fprintf(stdout, "\nCounting kernel threads: %s.", yes_no(arg_kernel_threads));
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
+                case 'r':
+                        arg_recursive = !arg_recursive;
+                        fprintf(stdout, "\nRecursive task counting: %s", yes_no(arg_recursive));
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
                 case '+':
                         if (arg_delay < USEC_PER_SEC)
                                 arg_delay += USEC_PER_MSEC*250;
@@ -836,14 +940,17 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         fprintf(stdout,
                                 "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
-                                "\t<" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "%%" OFF "> Toggle time\n"
-                                "\t<" ON "q" OFF "> Quit; <" ON "SPACE" OFF "> Refresh");
+                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
+                                "\t<" ON "k" OFF "> Count kernel threads; <" ON "r" OFF "> Count recursively; <" ON "q" OFF "> Quit");
                         fflush(stdout);
                         sleep(3);
                         break;
 
                 default:
-                        fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
+                        if (key < ' ')
+                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", key);
+                        else
+                                fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
                         fflush(stdout);
                         sleep(1);
                         break;
@@ -856,10 +963,5 @@ finish:
         group_hashmap_free(a);
         group_hashmap_free(b);
 
-        if (r < 0) {
-                log_error_errno(r, "Exiting with failure: %m");
-                return EXIT_FAILURE;
-        }
-
-        return EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -942,6 +942,7 @@ static int method_lock_sessions(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.lock-sessions",
+                        NULL,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -1096,6 +1097,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.set-user-linger",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -1268,6 +1270,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.attach-device",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -1299,6 +1302,7 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.flush-devices",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -1339,8 +1343,7 @@ static int bus_manager_log_shutdown(
                 InhibitWhat w,
                 const char *unit_name) {
 
-        const char *p;
-        const char *q;
+        const char *p, *q;
 
         assert(m);
         assert(unit_name);
@@ -1365,8 +1368,8 @@ static int bus_manager_log_shutdown(
                 q = NULL;
         }
 
-        if (m->wall_message)
-                p = strjoina(p, " (", m->wall_message, ")", NULL);
+        if (!isempty(m->wall_message))
+                p = strjoina(p, " (", m->wall_message, ")");
 
         return log_struct(LOG_NOTICE,
                           LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
@@ -1650,7 +1653,7 @@ static int verify_shutdown_creds(
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions && action_multiple_sessions) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_multiple_sessions, interactive, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_multiple_sessions, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1658,7 +1661,7 @@ static int verify_shutdown_creds(
         }
 
         if (blocked && action_ignore_inhibit) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, interactive, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1666,7 +1669,7 @@ static int verify_shutdown_creds(
         }
 
         if (!multiple_sessions && !blocked && action) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action, interactive, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1786,20 +1789,15 @@ static int nologin_timeout_handler(
 }
 
 static int update_schedule_file(Manager *m) {
-
-        int r;
+        _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *t = NULL, *temp_path = NULL;
+        int r;
 
         assert(m);
 
         r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
-
-        t = cescape(m->wall_message);
-        if (!t)
-                return log_oom();
 
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
         if (r < 0)
@@ -1815,8 +1813,17 @@ static int update_schedule_file(Manager *m) {
                 m->enable_wall_messages,
                 m->scheduled_shutdown_type);
 
-        if (!isempty(m->wall_message))
+        if (!isempty(m->wall_message)) {
+                _cleanup_free_ char *t;
+
+                t = cescape(m->wall_message);
+                if (!t) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
                 fprintf(f, "WALL_MESSAGE=%s\n", t);
+        }
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -2084,7 +2091,7 @@ static int method_can_shutdown_or_sleep(
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
-                r = bus_test_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, NULL, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -2097,7 +2104,7 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_test_polkit(message, CAP_SYS_BOOT, action_ignore_inhibit, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(message, CAP_SYS_BOOT, action_ignore_inhibit, NULL, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -2113,7 +2120,7 @@ static int method_can_shutdown_or_sleep(
                 /* If neither inhibit nor multiple sessions
                  * apply then just check the normal policy */
 
-                r = bus_test_polkit(message, CAP_SYS_BOOT, action, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(message, CAP_SYS_BOOT, action, NULL, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -2232,6 +2239,7 @@ static int method_set_reboot_to_firmware_setup(
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
                                     "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                                    NULL,
                                     false,
                                     UID_INVALID,
                                     &m->polkit_registry,
@@ -2270,6 +2278,7 @@ static int method_can_reboot_to_firmware_setup(
         r = bus_test_polkit(message,
                             CAP_SYS_ADMIN,
                             "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                            NULL,
                             UID_INVALID,
                             &challenge,
                             error);
@@ -2294,7 +2303,7 @@ static int method_set_wall_message(
         int r;
         Manager *m = userdata;
         char *wall_message;
-        bool enable_wall_messages;
+        int enable_wall_messages;
 
         assert(message);
         assert(m);
@@ -2306,19 +2315,24 @@ static int method_set_wall_message(
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
                                     "org.freedesktop.login1.set-wall-message",
+                                    NULL,
                                     false,
                                     UID_INVALID,
                                     &m->polkit_registry,
                                     error);
-
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = free_and_strdup(&m->wall_message, wall_message);
-        if (r < 0)
-                return log_oom();
+        if (isempty(wall_message))
+                m->wall_message = mfree(m->wall_message);
+        else {
+                r = free_and_strdup(&m->wall_message, wall_message);
+                if (r < 0)
+                        return log_oom();
+        }
+
         m->enable_wall_messages = enable_wall_messages;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -2373,6 +2387,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                         w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
                         w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
                                                             "org.freedesktop.login1.inhibit-handle-lid-switch",
+                        NULL,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,

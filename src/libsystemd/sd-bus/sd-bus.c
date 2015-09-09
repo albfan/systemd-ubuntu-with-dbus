@@ -1025,19 +1025,30 @@ static int bus_start_address(sd_bus *b) {
 
                 if (b->exec_path)
                         r = bus_socket_exec(b);
+
                 else if ((b->nspid > 0 || b->machine) && b->kernel) {
                         r = bus_container_connect_kernel(b);
                         if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
                                 container_kdbus_available = true;
-                } else if (!container_kdbus_available && (b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC)
-                        r = bus_container_connect_socket(b);
-                else if (b->kernel) {
+
+                } else if ((b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC) {
+                        if (!container_kdbus_available)
+                                r = bus_container_connect_socket(b);
+                        else
+                                skipped = true;
+
+                } else if (b->kernel) {
                         r = bus_kernel_connect(b);
                         if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
                                 kdbus_available = true;
-                } else if (!kdbus_available && b->sockaddr.sa.sa_family != AF_UNSPEC)
-                        r = bus_socket_connect(b);
-                else
+
+                } else if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
+                        if (!kdbus_available)
+                                r = bus_socket_connect(b);
+                        else
+                                skipped = true;
+
+                } else
                         skipped = true;
 
                 if (!skipped) {
@@ -1230,12 +1241,18 @@ fail:
 
 int bus_set_address_user(sd_bus *b) {
         const char *e;
+        uid_t uid;
+        int r;
 
         assert(b);
 
         e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
         if (e)
                 return sd_bus_set_address(b, e);
+
+        r = cg_pid_get_owner_uid(0, &uid);
+        if (r < 0)
+                uid = getuid();
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (e) {
@@ -1245,9 +1262,9 @@ int bus_set_address_user(sd_bus *b) {
                 if (!ee)
                         return -ENOMEM;
 
-                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, getuid(), ee);
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, ee);
         } else
-                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, uid);
 
         if (!b->address)
                 return -ENOMEM;
