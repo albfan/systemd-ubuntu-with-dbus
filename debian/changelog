@@ -11,7 +11,7 @@ systemd (226-1) UNRELEASED; urgency=medium
     hooks. (LP: #1492129)
     - Add debian/extra/systemd-networkd-dispatcher.c: suid root wrapper for
       calling if-up.d/ or if-post-down.d/ hook scripts. Install it as
-      root:systemd-networkd 4751 so that only networkd can run it.
+      root:systemd-networkd 4754 so that only networkd can run it.
     - Add networkd-call-systemd-networkd-dispatcher-when-links.patch: Call the
       above wrapper when links go up/down.
     - debian/tests/networkd: Verify that if-up.d/ and if-post-down.d/ scripts
