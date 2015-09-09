@@ -1,7 +1,0 @@
-#! /bin/sh
-
-set -e
-
-if [ ! -L /etc/mtab ]; then
-    ln -sf /proc/mounts /etc/mtab
-fi

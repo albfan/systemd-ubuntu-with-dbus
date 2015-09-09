@@ -37,6 +37,9 @@ systemd (226-1) UNRELEASED; urgency=medium
   * debian/README.Debian: Add documentation about networkd integration.
   * Rename 01-mac-for-usb.link to 90-mac-for-usb.link so that it becomes
     easier to override.
+  * debian-fixup.service just has one purpose now (make /etc/mtab a symlink),
+    so drop the debian/extra/debian-fixup shell script and put the ln command
+    directly into debian-fixup.service. Update the description.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 
