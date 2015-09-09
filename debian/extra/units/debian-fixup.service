@@ -1,11 +1,11 @@
 [Unit]
-Description=Various fixups to make systemd work better on Debian
+Description=Ensure /etc/mtab is a symlink to /proc/mounts
 Before=sysinit.target
 After=systemd-remount-fs.service
 DefaultDependencies=no
 ConditionPathIsSymbolicLink=|!/etc/mtab
 
 [Service]
-ExecStart=/lib/systemd/debian-fixup
+ExecStart=/bin/ln -sf /proc/mounts /etc/mtab
 Type=oneshot
 RemainAfterExit=true
