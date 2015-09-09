@@ -1,4 +1,4 @@
-systemd (225-1ubuntu4) UNRELEASED; urgency=medium
+systemd (225-1ubuntu4) wily; urgency=medium
 
   * Rename 01-mac-for-usb.link to 90-mac-for-usb.link so that it becomes
     easier to override.
@@ -18,7 +18,7 @@ systemd (225-1ubuntu4) UNRELEASED; urgency=medium
     expected.
   * Fix shutdown with specifying a time.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 12:43:49 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 17:08:50 +0200
 
 systemd (225-1ubuntu3) wily; urgency=medium
 
