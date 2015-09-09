@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
-        const char* action, *interface;
+        const char* action, *interface, *nameservers;
         const char *c;
         char path[100];
 
@@ -43,6 +43,13 @@ int main(int argc, char *argv[]) {
                         return 1;
                 }
 
+        /* set up clean environment, only salvage defined vars */
+        nameservers = getenv("IF_DNS_NAMESERVERS");
+        clearenv();
+        setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", 1);
+        if (nameservers)
+                setenv("IF_DNS_NAMESERVERS", nameservers, 1);
+
         //fprintf(stderr, "action: %s iface %s", action, interface);
 
         /* fully elevate to root privs, so that we will keep them through exec() */
@@ -59,6 +66,18 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
         setenv("IFACE", interface, 1);
+        /* some other env vars that scripts might expect */
+        setenv("LOGICAL", interface, 1);
+        setenv("METHOD", "networkd", 1);
+        setenv("ADDRFAM", "inet", 1);
+        setenv("VERBOSITY", "0", 1);
+        if (strcmp(action, "up") == 0) {
+                setenv("MODE", "start", 1);
+                setenv("PHASE", "post-up", 1);
+        } else {
+                setenv("MODE", "stop", 1);
+                setenv("PHASE", "post-down", 1);
+        }
         execl("/bin/run-parts", "/bin/run-parts", "--lsbsysinit", path, NULL);
         perror("failed to execute run-parts");
         return 1;

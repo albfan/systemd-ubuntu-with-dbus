@@ -9,11 +9,11 @@ appropriate times.
 Also pass on the DNS server list to if-up.d/ as $IF_DNS_NAMESERVERS, so that
 resolvconf or similar programs work as expected.
 ---
- src/network/networkd-link.c | 60 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 60 insertions(+)
+ src/network/networkd-link.c | 59 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 59 insertions(+)
 
 diff --git a/src/network/networkd-link.c b/src/network/networkd-link.c
-index 1dc9db0..f0bae63 100644
+index 1dc9db0..acb94ca 100644
 --- a/src/network/networkd-link.c
 +++ b/src/network/networkd-link.c
 @@ -22,6 +22,8 @@
@@ -25,7 +25,7 @@ index 1dc9db0..f0bae63 100644
  
  #include "util.h"
  #include "virt.h"
-@@ -99,6 +101,61 @@ bool link_lldp_enabled(Link *link) {
+@@ -99,6 +101,60 @@ bool link_lldp_enabled(Link *link) {
          return link->network->lldp;
  }
  
@@ -60,7 +60,6 @@ index 1dc9db0..f0bae63 100644
 +                        /* resolv.conf supports up to 3 nameservers; this looks
 +                         * a bit clumsy, but avoids complicated loops with
 +                         * string concatenation */
-+                        setenv("ADDRFAM", "inet", 1);
 +                        snprintf(dns_concat, sizeof(dns_concat), "%s %s %s",
 +                                dns[0],
 +                                dns[1] ? dns[1] : "",
@@ -87,7 +86,7 @@ index 1dc9db0..f0bae63 100644
  static bool link_ipv4_forward_enabled(Link *link) {
          if (link->flags & IFF_LOOPBACK)
                  return false;
-@@ -486,6 +543,7 @@ static int link_enter_configured(Link *link) {
+@@ -486,6 +542,7 @@ static int link_enter_configured(Link *link) {
  
          link_save(link);
  
@@ -95,7 +94,7 @@ index 1dc9db0..f0bae63 100644
          return 0;
  }
  
-@@ -2205,6 +2263,8 @@ static int link_carrier_lost(Link *link) {
+@@ -2205,6 +2262,8 @@ static int link_carrier_lost(Link *link) {
  
          assert(link);
  
