@@ -1,4 +1,7 @@
 rm_conffile /etc/init.d/udev-mtab 204-1~
 rm_conffile /etc/udev/links.conf 204-9~
+rm_conffile /etc/init.d/udev-finish 225-2~
+rm_conffile /etc/init/udev-finish.conf 225-2~
+rm_conffile /etc/init/udev-fallback-graphics.conf 225-2~
 symlink_to_dir /usr/share/doc/udev libudev1 221-2~
 rm_conffile /etc/udev/rules.d/README 215-5ubuntu1~

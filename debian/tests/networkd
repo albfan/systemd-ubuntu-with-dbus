@@ -9,9 +9,18 @@ import subprocess
 
 
 class TestNetworkd(unittest.TestCase):
+    @classmethod
+    def setUpClass(klass):
+        # enable those, so that net.agent will call if-*.d/
+        subprocess.check_call(['systemctl', 'enable', '--quiet', 'systemd-networkd'])
+
+    @classmethod
+    def tearDownClass(klass):
+        subprocess.check_call(['systemctl', 'disable', '--quiet', 'systemd-networkd'])
+
     def setUp(self):
-        self.iface = None
-        self.if_router = None
+        self.iface = 'test_eth42'
+        self.if_router = 'router_eth42'
         self.dnsmasq = None
         self.workdir_obj = tempfile.TemporaryDirectory()
         self.workdir = self.workdir_obj.name
@@ -21,18 +30,41 @@ class TestNetworkd(unittest.TestCase):
         # avoid "Failed to open /dev/tty" errors in containers
         os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
 
+        # create if-*.d hooks
+        for hook in ('up', 'post-down'):
+            with open('/etc/network/if-%s.d/test-networkd' % hook, 'w') as f:
+                f.write('''#!/bin/sh -e
+L=%s/if-%s.log
+if [ -e $L ]; then
+echo "ERROR: $L already exists, called twice?" > $L
+exit 1
+fi
+echo "called: args='$@' IFACE=$IFACE" > $L
+networkctl status "$IFACE" >> $L''' % (self.workdir, hook))
+                os.fchmod(f.fileno(), 0o755)
+
     def tearDown(self):
         self.shutdown_iface()
         if os.path.exists(self.config):
             os.unlink(self.config)
         subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
 
+        # let all networkd-if-up.d@.service jobs settle down
+        timeout = 5
+        while timeout > 0:
+            out = subprocess.check_output(['systemctl', 'list-units', '--no-legend', '-tservice',
+                                           'networkd-if-up.d@*']).strip()
+            if not out:
+                break
+            time.sleep(1)
+            timeout -= 1
+        else:
+            self.fail('timed out waiting for networkd-if-up.d@.service to settle:\n' + out)
+
     def create_iface(self, ipv6=False):
         '''Create test interface with DHCP server behind it'''
 
         # add veth pair
-        self.iface = 'test_eth42'
-        self.if_router = 'router_eth42'
         subprocess.check_call(['ip', 'link', 'add', 'name', self.iface, 'type',
                                'veth', 'peer', 'name', self.if_router])
 
@@ -68,14 +100,22 @@ class TestNetworkd(unittest.TestCase):
             self.dnsmasq.wait()
             self.dnsmasq = None
 
-    def do_coldplug_test(self, ipv6=False):
-        self.create_iface(ipv6=ipv6)
+    def do_test(self, coldplug=True, ipv6=False):
         with open(self.config, 'w') as f:
             f.write('''[Match]
 Name=%s
 [Network]
 DHCP=yes''' % self.iface)
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+        if coldplug:
+            # create interface first, then start networkd
+            self.create_iface(ipv6=ipv6)
+            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        else:
+            # start networkd first, then create interface
+            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+            self.create_iface(ipv6=ipv6)
+
         subprocess.check_call(['/lib/systemd/systemd-networkd-wait-online',
                                '--interface', self.iface, '--timeout=10'])
 
@@ -127,11 +167,56 @@ DHCP=yes''' % self.iface)
                 sys.stderr.write('\n\n----- dnsmasq log ----\n%s\n------\n' % f.read())
             raise
 
+        # give if-up.d/ up to 5s to run
+        up_log = os.path.join(self.workdir, 'if-up.log')
+        down_log = os.path.join(self.workdir, 'if-post-down.log')
+        timeout = 50
+        while timeout > 0 and not os.path.exists(up_log):
+            time.sleep(0.1)
+            timeout -= 1
+
+        # verify that if-up.d/ script ran
+        with open(up_log) as f:
+            out = f.read()
+        self.assertNotIn('ERROR', out)
+        self.assertRegex(out, 'called:.*IFACE=%s' % self.iface)
+        self.assertIn(self.config, out)
+        self.assertRegex(out, 'State:\s+routable.*configured')
+
+        if os.path.exists(down_log):
+            with open(down_log) as f:
+                self.fail('Not expecting if-post-down.d to have run already:\n%s' % f.read())
+        self.assertFalse(os.path.exists(down_log))
+
+        if not coldplug:
+            # check post-down.d hook
+            self.shutdown_iface()
+
+            # give if-post-down.d/ up to 5s to run
+            timeout = 50
+            while timeout > 0 and not os.path.exists(down_log):
+                time.sleep(0.1)
+                timeout -= 1
+
+            # verify that if-post-down.d/ script ran
+            with open(down_log) as f:
+                out = f.read()
+            self.assertNotIn('ERROR', out)
+            self.assertRegex(out, 'called:.*IFACE=%s' % self.iface)
+            # networkctl status should fail
+            self.assertNotIn('State:', out)
+
     def test_coldplug_dhcp_ip4(self):
-        self.do_coldplug_test(False)
+        self.do_test(coldplug=True, ipv6=False)
 
     def test_coldplug_dhcp_ip6(self):
-        self.do_coldplug_test(True)
+        self.do_test(coldplug=True, ipv6=True)
+
+    def test_hotplug_dhcp_ip4(self):
+        self.do_test(coldplug=False, ipv6=False)
+
+    def test_hotplug_dhcp_ip6(self):
+        self.do_test(coldplug=False, ipv6=True)
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,

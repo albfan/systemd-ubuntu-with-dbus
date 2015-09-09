@@ -1,0 +1,21 @@
+[Unit]
+Description=Run if-up.d/ for networkd managed interface %I
+DefaultDependencies=no
+After=systemd-networkd.service local-fs.target networking.service apparmor.service
+Before=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# If that interface is managed by networkd, run /etc/network/if-up.d/*, like
+# ifupdown and NetworkManager
+Environment=IFACE=%I
+ExecStart=/bin/sh -c 'if /lib/systemd/systemd-networkd-wait-online --interface "%I" --timeout=60 && \
+       networkctl status "%I" | grep -q "Network File:.*.network"; then \
+    > "/run/systemd/network/if-up.d.$IFACE"; \
+    run-parts --lsbsysinit /etc/network/if-up.d; \
+  fi'
+ExecStop=/bin/sh -c 'if [ -e "/run/systemd/network/if-up.d.$IFACE" ]; then \
+    run-parts --lsbsysinit /etc/network/if-post-down.d; \
+    rm -f "/run/systemd/network/if-up.d.$IFACE"; \
+fi'

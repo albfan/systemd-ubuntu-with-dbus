@@ -1,3 +1,2 @@
 /lib/systemd/system/systemd-udevd.service /lib/systemd/system/udev.service
 /bin/udevadm /sbin/udevadm
-/lib/systemd/system/udev-finish.service /lib/systemd/system/sysinit.target.wants/udev-finish.service
