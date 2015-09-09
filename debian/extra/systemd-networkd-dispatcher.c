@@ -43,7 +43,14 @@ int main(int argc, char *argv[]) {
                         return 1;
                 }
 
-        //printf("action: %s iface %s\n", action, interface);
+        //fprintf(stderr, "action: %s iface %s", action, interface);
+
+        /* fully elevate to root privs, so that we will keep them through exec() */
+        if (setreuid(0, 0) < 0) {
+                fprintf(stderr, "Could not change real/effective user to root: %m\n");
+                return 1;
+        }
+
         snprintf(path, sizeof(path), "/etc/network/if-%s.d", action);
 
         /* Run the actual command in the background, to avoid blocking networkd */
