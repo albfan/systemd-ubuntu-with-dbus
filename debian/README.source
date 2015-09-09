@@ -2,7 +2,7 @@ Building from source
 --------------------
 Install “git-buildpackage” and run the following steps:
 
-  gbp-clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
+  gbp clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
   cd systemd
   gbp buildpackage
 
