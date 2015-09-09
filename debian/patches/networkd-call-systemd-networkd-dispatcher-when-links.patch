@@ -1,0 +1,85 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 9 Sep 2015 10:06:33 +0200
+Subject: networkd: call systemd-networkd-dispatcher when links go up/down
+
+Debian ships a systemd-networkd-dispatcher suid wrapper to run ifupdown hooks
+when interfaces become configured or were removed. Call this wrapper at the
+appropriate times.
+---
+ src/network/networkd-link.c | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/src/network/networkd-link.c b/src/network/networkd-link.c
+index 1dc9db0..14106a1 100644
+--- a/src/network/networkd-link.c
++++ b/src/network/networkd-link.c
+@@ -22,6 +22,7 @@
+ #include <netinet/ether.h>
+ #include <linux/if.h>
+ #include <unistd.h>
++#include <sys/wait.h>
+ 
+ #include "util.h"
+ #include "virt.h"
+@@ -99,6 +100,44 @@ bool link_lldp_enabled(Link *link) {
+         return link->network->lldp;
+ }
+ 
++static void link_call_dispatcher(Link *link, const char *action)
++{
++        pid_t pid;
++        int status;
++
++        log_link_debug(link, "calling dispatcher for action %s, interface %s (%s)", action, link->ifname, link->network ? "managed" : "unmanaged");
++
++        if (!link->network) {
++                log_link_debug(link, "not managed by networkd, not calling dispatcher");
++                return;
++        }
++        if (link->state != LINK_STATE_CONFIGURED) {
++                log_link_debug(link, "not configured, not calling dispatcher");
++                return;
++        }
++
++        pid = fork();
++        if (pid < 0) {
++                log_link_error(link, "Failed to fork: %m");
++                return;
++        }
++        if (pid == 0) {
++                execl(ROOTLIBEXECDIR "/systemd-networkd-dispatcher",
++                      ROOTLIBEXECDIR "/systemd-networkd-dispatcher",
++                      action,
++                      link->ifname,
++                      NULL);
++                log_link_error(link, "Failed to execute " ROOTLIBEXECDIR "/systemd-networkd-dispatcher: %m");
++                exit(1);
++        }
++        if (waitpid(pid, &status, 0) < 0) {
++                log_link_error(link, "Failed to wait for systemd-networkd-dispatcher: %m");
++                return;
++        }
++        if (status != 0)
++                log_link_warning(link, "systemd-networkd-dispatcher failed with status %i", status);
++}
++
+ static bool link_ipv4_forward_enabled(Link *link) {
+         if (link->flags & IFF_LOOPBACK)
+                 return false;
+@@ -486,6 +525,7 @@ static int link_enter_configured(Link *link) {
+ 
+         link_save(link);
+ 
++        link_call_dispatcher(link, "up");
+         return 0;
+ }
+ 
+@@ -2205,6 +2245,8 @@ static int link_carrier_lost(Link *link) {
+ 
+         assert(link);
+ 
++        link_call_dispatcher(link, "post-down");
++
+         r = link_stop_clients(link);
+         if (r < 0) {
+                 link_enter_failed(link);

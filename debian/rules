@@ -120,6 +120,8 @@ override_dh_auto_build:
 ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_build --builddirectory=build-udeb
 endif
+	mkdir -p debian/install/deb/lib/systemd
+	$(CC) $(CFLAGS) debian/extra/systemd-networkd-dispatcher.c -o debian/install/deb/lib/systemd/systemd-networkd-dispatcher
 	# generate POT file for translators
 	cd build-deb/po; srcdir=../../po intltool-update --pot --verbose
 

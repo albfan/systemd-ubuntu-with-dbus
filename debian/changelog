@@ -5,6 +5,11 @@ systemd (225-1ubuntu4) UNRELEASED; urgency=medium
   * debian-fixup.service just has one purpose now (make /etc/mtab a symlink),
     so drop the debian/extra/debian-fixup shell script and put the ln command
     directly into debian-fixup.service. Update the description.
+  * Rework networkd ifupdown integration: Drop networkd-if-up.d@.service and
+    its invocation from net.agent again. It does not work when restarting
+    networkd and requires too much overhead. Instead, add a suid root helper
+    systemd-networkd-dispatcher which calls run-parts, and patch networkd to
+    run the wrapper at the appropriate time.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 12:43:49 +0200
 
