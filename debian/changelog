@@ -1,4 +1,4 @@
-systemd (225-1ubuntu3) UNRELEASED; urgency=medium
+systemd (225-1ubuntu3) wily; urgency=medium
 
   * Enable libseccomp support for mips64, mips64el, and x32. (Closes: #797403)
   * debian/tests/networkd: Add hotplug tests.
@@ -32,7 +32,7 @@ systemd (225-1ubuntu3) UNRELEASED; urgency=medium
     logging.
   * debian/README.Debian: Add documentation about networkd integration.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 03 Sep 2015 09:41:08 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 07:56:03 +0200
 
 systemd (225-1ubuntu2) wily; urgency=medium
 
