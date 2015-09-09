@@ -5,23 +5,27 @@ Subject: networkd: call systemd-networkd-dispatcher when links go up/down
 Debian ships a systemd-networkd-dispatcher suid wrapper to run ifupdown hooks
 when interfaces become configured or were removed. Call this wrapper at the
 appropriate times.
+
+Also pass on the DNS server list to if-up.d/ as $IF_DNS_NAMESERVERS, so that
+resolvconf or similar programs work as expected.
 ---
- src/network/networkd-link.c | 42 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
+ src/network/networkd-link.c | 60 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 60 insertions(+)
 
 diff --git a/src/network/networkd-link.c b/src/network/networkd-link.c
-index 1dc9db0..14106a1 100644
+index 1dc9db0..f0bae63 100644
 --- a/src/network/networkd-link.c
 +++ b/src/network/networkd-link.c
-@@ -22,6 +22,7 @@
+@@ -22,6 +22,8 @@
  #include <netinet/ether.h>
  #include <linux/if.h>
  #include <unistd.h>
 +#include <sys/wait.h>
++#include "sd-network.h"
  
  #include "util.h"
  #include "virt.h"
-@@ -99,6 +100,44 @@ bool link_lldp_enabled(Link *link) {
+@@ -99,6 +101,61 @@ bool link_lldp_enabled(Link *link) {
          return link->network->lldp;
  }
  
@@ -47,6 +51,23 @@ index 1dc9db0..14106a1 100644
 +                return;
 +        }
 +        if (pid == 0) {
++                char **dns = NULL;
++                char dns_concat[1000];
++                sd_network_link_get_dns(link->ifindex, &dns);
++
++                /* pass DNS information to e. g. resolvconf */
++                if (dns && dns[0]) {
++                        /* resolv.conf supports up to 3 nameservers; this looks
++                         * a bit clumsy, but avoids complicated loops with
++                         * string concatenation */
++                        setenv("ADDRFAM", "inet", 1);
++                        snprintf(dns_concat, sizeof(dns_concat), "%s %s %s",
++                                dns[0],
++                                dns[1] ? dns[1] : "",
++                                (dns[1] && dns[2]) ? dns[2] : "");
++                        setenv("IF_DNS_NAMESERVERS", dns_concat, 1);
++                }
++
 +                execl(ROOTLIBEXECDIR "/systemd-networkd-dispatcher",
 +                      ROOTLIBEXECDIR "/systemd-networkd-dispatcher",
 +                      action,
@@ -66,7 +87,7 @@ index 1dc9db0..14106a1 100644
  static bool link_ipv4_forward_enabled(Link *link) {
          if (link->flags & IFF_LOOPBACK)
                  return false;
-@@ -486,6 +525,7 @@ static int link_enter_configured(Link *link) {
+@@ -486,6 +543,7 @@ static int link_enter_configured(Link *link) {
  
          link_save(link);
  
@@ -74,7 +95,7 @@ index 1dc9db0..14106a1 100644
          return 0;
  }
  
-@@ -2205,6 +2245,8 @@ static int link_carrier_lost(Link *link) {
+@@ -2205,6 +2263,8 @@ static int link_carrier_lost(Link *link) {
  
          assert(link);
  
