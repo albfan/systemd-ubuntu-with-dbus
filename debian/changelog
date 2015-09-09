@@ -3,6 +3,7 @@ systemd (226-1) UNRELEASED; urgency=medium
   * New upstream release:
     - Fix scheduled shutdown to not shut down immediately. (Closes: #797763)
     - Fix description of CPE_NAME in os-release(5). (Closes: #797768)
+  * debian/libsystemd0.symbols: Add new symbols from this release.
   * Enable libseccomp support for mips64, mips64el, and x32. (Closes: #797403)
   * debian/tests/networkd: Add hotplug tests.
   * Make networkd call if-up.d/ scripts when it brings up interfaces, to

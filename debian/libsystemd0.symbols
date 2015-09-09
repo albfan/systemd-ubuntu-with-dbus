@@ -9,6 +9,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  LIBSYSTEMD_220@LIBSYSTEMD_220 220
  LIBSYSTEMD_221@LIBSYSTEMD_221 221
  LIBSYSTEMD_222@LIBSYSTEMD_222 222
+ LIBSYSTEMD_226@LIBSYSTEMD_226 226
  sd_booted@LIBSYSTEMD_209 0
  sd_bus_add_fallback@LIBSYSTEMD_221 221
  sd_bus_add_fallback_vtable@LIBSYSTEMD_221 221
@@ -375,6 +376,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_machine_get_ifindices@LIBSYSTEMD_216 217
  sd_notify@LIBSYSTEMD_209 0
  sd_notifyf@LIBSYSTEMD_209 0
+ sd_peer_get_cgroup@LIBSYSTEMD_226 226
  sd_peer_get_machine_name@LIBSYSTEMD_211 211
  sd_peer_get_owner_uid@LIBSYSTEMD_211 211
  sd_peer_get_session@LIBSYSTEMD_211 211
@@ -382,6 +384,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_peer_get_unit@LIBSYSTEMD_211 211
  sd_peer_get_user_slice@LIBSYSTEMD_220 220
  sd_peer_get_user_unit@LIBSYSTEMD_211 211
+ sd_pid_get_cgroup@LIBSYSTEMD_226 226
  sd_pid_get_machine_name@LIBSYSTEMD_209 0
  sd_pid_get_owner_uid@LIBSYSTEMD_209 0
  sd_pid_get_session@LIBSYSTEMD_209 0
