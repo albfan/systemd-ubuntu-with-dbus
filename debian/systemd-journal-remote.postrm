@@ -2,8 +2,8 @@
 set -e
 
 if [ "$1" = "purge" ] ; then
-    if type deluser >/dev/null 2>&1; then
-        deluser --quiet --system systemd-journal-gateway
+    if [ -x "$(command -v deluser)" ]; then
+        deluser --quiet --system systemd-journal-gateway > /dev/null || true
     fi
 fi
 
