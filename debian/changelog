@@ -40,6 +40,9 @@ systemd (226-1) UNRELEASED; urgency=medium
   * debian-fixup.service just has one purpose now (make /etc/mtab a symlink),
     so drop the debian/extra/debian-fixup shell script and put the ln command
     directly into debian-fixup.service. Update the description.
+  * debian/tests/networkd: Check that /etc/resolv.conf gets the DHCP's
+    nameserver in case it is a symlink (i. e. dynamically managed by
+    systemd-resolved or resolvconf).
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 
