@@ -14,28 +14,28 @@ Bug-Debian: https://bugs.debian.org/777601
  2 files changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
-index 6b3162a..8b49701 100644
+index f661a54..aa7ee51 100644
 --- a/src/basic/cgroup-util.c
 +++ b/src/basic/cgroup-util.c
-@@ -1744,8 +1744,6 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
-         NULSTR_FOREACH(n, mask_names) {
-                 if (mask & bit)
-                         cg_create(n, path);
--                else if (supported & bit)
--                        cg_trim(n, path, true);
+@@ -1851,8 +1851,6 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
  
-                 bit <<= 1;
+                 if (mask & bit)
+                         (void) cg_create(n, path);
+-                else if (supported & bit)
+-                        (void) cg_trim(n, path, true);
          }
+ 
+         return 0;
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index 6474e08..c7533fe 100644
+index 9a025cf..52626aa 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -840,7 +840,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
-         if (!u->cgroup_path)
-                 return;
+@@ -1025,7 +1025,7 @@ void unit_prune_cgroup(Unit *u) {
  
--        r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
-+        r = cg_trim_everywhere(u->cgroup_realized_mask, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
+         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
+ 
+-        r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
++        r = cg_trim_everywhere(u->cgroup_realized_mask, u->cgroup_path, !is_root_slice);
          if (r < 0) {
-                 log_debug_errno(r, "Failed to destroy cgroup %s: %m", u->cgroup_path);
+                 log_debug_errno(r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
                  return;

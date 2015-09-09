@@ -58,7 +58,7 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index 6528737..df17eae 100644
+index 3b80386..b5c83c6 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
 @@ -93,6 +93,7 @@ MANPAGES += \
@@ -69,7 +69,7 @@ index 6528737..df17eae 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -366,6 +367,8 @@ MANPAGES_ALIAS += \
+@@ -367,6 +368,8 @@ MANPAGES_ALIAS += \
  	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -78,7 +78,7 @@ index 6528737..df17eae 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -652,6 +655,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
+@@ -653,6 +656,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
  man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
@@ -87,7 +87,7 @@ index 6528737..df17eae 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -1348,6 +1353,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1349,6 +1354,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index 6528737..df17eae 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -2313,6 +2324,7 @@ EXTRA_DIST += \
+@@ -2324,6 +2335,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,10 +109,10 @@ index 6528737..df17eae 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 3865f17..d9d85ae 100644
+index 35ab77a..0a3acba 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -395,6 +395,7 @@ rootlibexec_PROGRAMS = \
+@@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -120,7 +120,7 @@ index 3865f17..d9d85ae 100644
  	systemd-machine-id-commit \
  	systemd-ac-power \
  	systemd-sysctl \
-@@ -503,6 +504,7 @@ dist_systemunit_DATA = \
+@@ -505,6 +506,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
  	units/x-.slice \
@@ -128,7 +128,7 @@ index 3865f17..d9d85ae 100644
  	units/systemd-initctl.socket \
  	units/syslog.socket \
  	units/dev-hugepages.mount \
-@@ -551,6 +553,7 @@ nodist_systemunit_DATA = \
+@@ -553,6 +555,7 @@ nodist_systemunit_DATA = \
  	units/systemd-kexec.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
@@ -136,7 +136,7 @@ index 3865f17..d9d85ae 100644
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -608,6 +611,7 @@ EXTRA_DIST += \
+@@ -610,6 +613,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \
@@ -144,7 +144,7 @@ index 3865f17..d9d85ae 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2355,6 +2359,16 @@ systemd_fsck_LDADD = \
+@@ -2357,6 +2361,16 @@ systemd_fsck_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------
@@ -330,13 +330,13 @@ index 0000000..c976062
 +
 +</refentry>
 diff --git a/po/POTFILES.in b/po/POTFILES.in
-index b4c1121..70e7594 100644
+index f33c53f..4b8ef2e 100644
 --- a/po/POTFILES.in
 +++ b/po/POTFILES.in
-@@ -5,3 +5,4 @@ src/locale/org.freedesktop.locale1.policy.in
- src/login/org.freedesktop.login1.policy.in
+@@ -6,3 +6,4 @@ src/login/org.freedesktop.login1.policy.in
  src/machine/org.freedesktop.machine1.policy.in
  src/timedate/org.freedesktop.timedate1.policy.in
+ src/core/dbus-unit.c
 +src/fsckd/fsckd.c
 diff --git a/src/fsckd/fsckd.c b/src/fsckd/fsckd.c
 new file mode 100644

@@ -12,7 +12,7 @@ Patch courtesy of Steve Langasek.
  1 file changed, 106 insertions(+), 96 deletions(-)
 
 diff --git a/src/locale/localed.c b/src/locale/localed.c
-index e9489f0..007e717 100644
+index e304588..2893f49 100644
 --- a/src/locale/localed.c
 +++ b/src/locale/localed.c
 @@ -162,6 +162,24 @@ static int locale_read_data(Context *c) {

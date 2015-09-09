@@ -18,7 +18,7 @@ Closes: #726256
  1 file changed, 94 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 6967891..552a2f9 100644
+index 6958d94..dcd8a38 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -22,6 +22,9 @@
@@ -135,7 +135,7 @@ index 6967891..552a2f9 100644
  static int context_read_data(Context *c) {
          _cleanup_free_ char *t = NULL;
          int r;
-@@ -127,7 +220,7 @@ static int context_write_data_timezone(Context *c) {
+@@ -104,7 +197,7 @@ static int context_write_data_timezone(Context *c) {
          if (!p)
                  return log_oom();
  

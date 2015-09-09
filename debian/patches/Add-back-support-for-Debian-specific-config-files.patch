@@ -8,10 +8,51 @@ This reverts the Debian specific bits from
 46a2911bf2780f616396df5671dd901cc7cb54fd
 99f861310d3f05f4e86cb9582a94b891dbb3382b
 ---
+ src/basic/time-util.c    | 22 ++++++++++++++++++++--
  src/core/locale-setup.c  | 22 ++++++++++++++++++++++
- src/timedate/timedated.c | 20 ++++++++++++++++++--
- 2 files changed, 40 insertions(+), 2 deletions(-)
+ src/timedate/timedated.c | 10 ++++++++++
+ 3 files changed, 52 insertions(+), 2 deletions(-)
 
+diff --git a/src/basic/time-util.c b/src/basic/time-util.c
+index 531931f..34ddcfc 100644
+--- a/src/basic/time-util.c
++++ b/src/basic/time-util.c
+@@ -28,6 +28,7 @@
+ #include "time-util.h"
+ #include "path-util.h"
+ #include "strv.h"
++#include "fileio.h"
+ 
+ usec_t now(clockid_t clock_id) {
+         struct timespec ts;
+@@ -1053,8 +1054,25 @@ int get_timezone(char **tz) {
+         int r;
+ 
+         r = readlink_malloc("/etc/localtime", &t);
+-        if (r < 0)
+-                return r; /* returns EINVAL if not a symlink */
++        if (r < 0) {
++                if (r != -EINVAL)
++                        return r; /* returns EINVAL if not a symlink */
++
++                r = read_one_line_file("/etc/timezone", &t);
++                if (r < 0) {
++                        if (r != -ENOENT)
++                                log_warning("Failed to read /etc/timezone: %s", strerror(-r));
++                        return -EINVAL;
++                }
++
++                if (!timezone_is_valid(t))
++                        return -EINVAL;
++                z = strdup(t);
++                if (!z)
++                        return -ENOMEM;
++                *tz = z;
++                return 0;
++        }
+ 
+         e = path_startswith(t, "/usr/share/zoneinfo/");
+         if (!e)
 diff --git a/src/core/locale-setup.c b/src/core/locale-setup.c
 index 108072c..9ea0083 100644
 --- a/src/core/locale-setup.c
@@ -46,41 +87,10 @@ index 108072c..9ea0083 100644
          for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                  char *s;
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 21d6ee4..6967891 100644
+index 6de9e24..6958d94 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
-@@ -71,7 +71,7 @@ static int context_read_data(Context *c) {
-         r = readlink_malloc("/etc/localtime", &t);
-         if (r < 0) {
-                 if (r == -EINVAL)
--                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-+                        log_debug("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-                 else
-                         log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
-         } else {
-@@ -82,7 +82,7 @@ static int context_read_data(Context *c) {
-                         e = path_startswith(t, "../usr/share/zoneinfo/");
- 
-                 if (!e)
--                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-+                        log_debug("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-                 else {
-                         c->zone = strdup(e);
-                         if (!c->zone)
-@@ -90,6 +90,12 @@ static int context_read_data(Context *c) {
-                 }
-         }
- 
-+        r = read_one_line_file("/etc/timezone", &c->zone);
-+        if (r < 0) {
-+                if (r != -ENOENT)
-+                        log_warning("Failed to read /etc/timezone: %s", strerror(-r));
-+        }
-+
-         if (isempty(c->zone)) {
-                 free(c->zone);
-                 c->zone = NULL;
-@@ -103,6 +109,7 @@ static int context_read_data(Context *c) {
+@@ -86,6 +86,7 @@ static int context_read_data(Context *c) {
  static int context_write_data_timezone(Context *c) {
          _cleanup_free_ char *p = NULL;
          int r = 0;
@@ -88,7 +98,7 @@ index 21d6ee4..6967891 100644
  
          assert(c);
  
-@@ -110,6 +117,9 @@ static int context_write_data_timezone(Context *c) {
+@@ -93,6 +94,9 @@ static int context_write_data_timezone(Context *c) {
                  if (unlink("/etc/localtime") < 0 && errno != ENOENT)
                          r = -errno;
  
@@ -98,7 +108,7 @@ index 21d6ee4..6967891 100644
                  return r;
          }
  
-@@ -121,6 +131,12 @@ static int context_write_data_timezone(Context *c) {
+@@ -104,6 +108,12 @@ static int context_write_data_timezone(Context *c) {
          if (r < 0)
                  return r;
  
