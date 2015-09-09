@@ -1,4 +1,5 @@
 ## Cherry-picked from upstream
+login-fix-NULL-deref-on-wall_message.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

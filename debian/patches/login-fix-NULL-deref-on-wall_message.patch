@@ -1,0 +1,48 @@
+From: David Herrmann <dh.herrmann@gmail.com>
+Date: Sat, 5 Sep 2015 12:56:04 +0200
+Subject: login: fix NULL-deref on wall_message
+
+We treat an empty wall-message equal to a NULL wall-message since:
+
+        commit 5744f59a3ee883ef3a78214bd5236157acdc35ba
+        Author: Lennart Poettering <lennart@poettering.net>
+        Date:   Fri Sep 4 10:34:47 2015 +0200
+
+            logind: treat an empty wall message like a NULL one
+
+Fix the shutdown scheduler to not deref a NULL pointer, but properly
+check for an empty wall-message.
+
+Fixes: #1120
+---
+ src/login/logind-dbus.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
+index 5b2b36b..10e70fe 100644
+--- a/src/login/logind-dbus.c
++++ b/src/login/logind-dbus.c
+@@ -1797,9 +1797,11 @@ static int update_schedule_file(Manager *m) {
+         if (r < 0)
+                 return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
+ 
+-        t = cescape(m->wall_message);
+-        if (!t)
+-                return log_oom();
++        if (!isempty(m->wall_message)) {
++                t = cescape(m->wall_message);
++                if (!t)
++                        return log_oom();
++        }
+ 
+         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
+         if (r < 0)
+@@ -1815,7 +1817,7 @@ static int update_schedule_file(Manager *m) {
+                 m->enable_wall_messages,
+                 m->scheduled_shutdown_type);
+ 
+-        if (!isempty(m->wall_message))
++        if (t)
+                 fprintf(f, "WALL_MESSAGE=%s\n", t);
+ 
+         r = fflush_and_check(f);

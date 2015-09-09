@@ -16,6 +16,7 @@ systemd (225-1ubuntu4) UNRELEASED; urgency=medium
   * systemd-networkd-dispatcher: Also pass on the DNS server list to if-up.d/
     as $IF_DNS_NAMESERVERS, so that resolvconf or similar programs work as
     expected.
+  * Fix shutdown with specifying a time.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 12:43:49 +0200
 
