@@ -13,6 +13,9 @@ systemd (225-1ubuntu4) UNRELEASED; urgency=medium
   * debian/tests/networkd: Check that /etc/resolv.conf gets the DHCP's
     nameserver in case it is a symlink (i. e. dynamically managed by
     systemd-resolved or resolvconf).
+  * systemd-networkd-dispatcher: Also pass on the DNS server list to if-up.d/
+    as $IF_DNS_NAMESERVERS, so that resolvconf or similar programs work as
+    expected.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 12:43:49 +0200
 

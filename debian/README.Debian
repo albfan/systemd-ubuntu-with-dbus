@@ -75,12 +75,13 @@ Interfaces brought up/down will run hooks in /etc/network/if-up.d/ and
 if-post-down.d/ (like NetworkManager). if-pre-up.d/ and if-down.d/ hooks are
 (deliberately) *not* being called.
 
-ATTENTION: networkd does not currently work together with "resolvconf".
-Integrating with it is planned, but until then, if you want to use a dynamic
-/etc/resolv.conf you need to use systemd-resolved:
+It is recommended to use networkd together with systemd-resolved(8) to
+dynamically manage /etc/resolv.conf:
 
   systemctl enable systemd-resolved
   ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+
+Debian's networkd has been modified to also work with the resolvconf package.
 
 Going back to SysV init
 =======================
