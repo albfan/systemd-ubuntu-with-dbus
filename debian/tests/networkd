@@ -188,6 +188,11 @@ DHCP=yes''' % self.iface)
                 self.fail('Not expecting if-post-down.d to have run already:\n%s' % f.read())
         self.assertFalse(os.path.exists(down_log))
 
+        # verify resolv.conf if it gets dynamically managed
+        if os.path.islink('/etc/resolv.conf'):
+            with open('/etc/resolv.conf') as f:
+                self.assertIn('nameserver 192.168.5.1\n', f.read())
+
         if not coldplug:
             # check post-down.d hook
             self.shutdown_iface()

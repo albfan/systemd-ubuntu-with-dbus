@@ -10,6 +10,9 @@ systemd (225-1ubuntu4) UNRELEASED; urgency=medium
     networkd and requires too much overhead. Instead, add a suid root helper
     systemd-networkd-dispatcher which calls run-parts, and patch networkd to
     run the wrapper at the appropriate time.
+  * debian/tests/networkd: Check that /etc/resolv.conf gets the DHCP's
+    nameserver in case it is a symlink (i. e. dynamically managed by
+    systemd-resolved or resolvconf).
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 09 Sep 2015 12:43:49 +0200
 
