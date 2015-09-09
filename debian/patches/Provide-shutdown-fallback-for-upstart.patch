@@ -17,7 +17,7 @@ LP: #1370329
  1 file changed, 42 insertions(+), 2 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 081087a..b531ebe 100644
+index 6946bd7..5c4c4af 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -31,6 +31,7 @@
@@ -28,7 +28,7 @@ index 081087a..b531ebe 100644
  #include <stddef.h>
  
  #include "sd-daemon.h"
-@@ -7075,6 +7076,41 @@ static int talk_initctl(void) {
+@@ -7108,6 +7109,41 @@ static int talk_initctl(void) {
          return 1;
  }
  
@@ -70,7 +70,7 @@ index 081087a..b531ebe 100644
  static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
  
          static const struct {
-@@ -7262,11 +7298,15 @@ static int start_with_fallback(sd_bus *bus) {
+@@ -7295,11 +7331,15 @@ static int start_with_fallback(sd_bus *bus) {
                          goto done;
          }
  

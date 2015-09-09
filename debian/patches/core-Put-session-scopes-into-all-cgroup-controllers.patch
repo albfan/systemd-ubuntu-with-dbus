@@ -29,7 +29,7 @@ https://launchpad.net/bugs/1346734
  4 files changed, 93 insertions(+), 7 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
-index 1442885..dd17f53 100644
+index 8b49701..e00fe3f 100644
 --- a/src/basic/cgroup-util.c
 +++ b/src/basic/cgroup-util.c
 @@ -612,6 +612,27 @@ int cg_create(const char *controller, const char *path) {
@@ -60,7 +60,7 @@ index 1442885..dd17f53 100644
  int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
          int r, q;
  
-@@ -1727,7 +1748,13 @@ static const char mask_names[] =
+@@ -1724,7 +1745,13 @@ static const char mask_names[] =
          "cpuacct\0"
          "blkio\0"
          "memory\0"
@@ -75,7 +75,7 @@ index 1442885..dd17f53 100644
  
  int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path) {
          CGroupControllerMask bit = 1;
-@@ -1754,6 +1781,33 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
+@@ -1751,6 +1778,33 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
          return 0;
  }
  

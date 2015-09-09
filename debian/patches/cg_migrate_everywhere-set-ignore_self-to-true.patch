@@ -28,10 +28,10 @@ Forwarded: https://github.com/systemd/systemd/pull/1056
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
-index 8b49701..63d54fa 100644
+index e00fe3f..4aca341 100644
 --- a/src/basic/cgroup-util.c
 +++ b/src/basic/cgroup-util.c
-@@ -1803,7 +1803,7 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
+@@ -1857,7 +1857,7 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
          int r;
  
          if (!path_equal(from, to))  {
@@ -40,7 +40,7 @@ index 8b49701..63d54fa 100644
                  if (r < 0)
                          return r;
          }
-@@ -1818,7 +1818,7 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
+@@ -1872,7 +1872,7 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
                          if (!p)
                                  p = to;
  

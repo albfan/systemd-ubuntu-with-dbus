@@ -15,7 +15,7 @@ Bug-Ubuntu: https://launchpad.net/bugs/1227520
  2 files changed, 50 insertions(+), 12 deletions(-)
 
 diff --git a/src/hostname/hostnamed.c b/src/hostname/hostnamed.c
-index e52b872..4b26365 100644
+index a78516c..5c711f4 100644
 --- a/src/hostname/hostnamed.c
 +++ b/src/hostname/hostnamed.c
 @@ -76,6 +76,25 @@ static void context_free(Context *c) {
