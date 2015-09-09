@@ -82,13 +82,6 @@ case "$ACTION" in
 	exit 0 ;;
     esac
 
-    # run if-up.d/ for networkd
-    if [ -d /run/systemd/system ]; then
-        if systemctl is-enabled --quiet systemd-networkd || systemctl is-active --quiet systemd-networkd; then
-            systemctl --no-block start $(systemd-escape --template networkd-if-up.d@.service $INTERFACE || true)
-        fi
-    fi
-
     net_ifup
     ;;
 
@@ -98,13 +91,6 @@ case "$ACTION" in
 	ppp*)
 	exit 0 ;;
     esac
-
-    # stop if-up.d helper unit, and run if-post-down.d/ for networkd
-    if [ -d /run/systemd/system ]; then
-        if systemctl is-enabled --quiet systemd-networkd || systemctl is-active --quiet systemd-networkd; then
-            systemctl --no-block stop $(systemd-escape --template networkd-if-up.d@.service $INTERFACE || true)
-        fi
-    fi
 
     net_ifdown
     ;;

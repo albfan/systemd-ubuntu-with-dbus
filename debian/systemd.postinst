@@ -114,6 +114,10 @@ _update_catalog
 # Make systemd-detect-virt utility usable for non-root users
 setcap cap_dac_override,cap_sys_ptrace=ep /usr/bin/systemd-detect-virt || true
 
+# systemd-networkd-dispatcher is a suid root helper for networkd
+chown root:systemd-network /lib/systemd/systemd-networkd-dispatcher
+chmod 4754 /lib/systemd/systemd-networkd-dispatcher
+
 # Re-run systemctl enable for any service that was enabled when preinst was run.
 if dpkg --compare-versions "$2" ge "204" && [ -e /run/systemd/was-enabled ]; then
     while read UNIT ; do
