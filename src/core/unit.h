@@ -184,9 +184,10 @@ struct Unit {
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
-        CGroupControllerMask cgroup_realized_mask;
-        CGroupControllerMask cgroup_subtree_mask;
-        CGroupControllerMask cgroup_members_mask;
+        CGroupMask cgroup_realized_mask;
+        CGroupMask cgroup_subtree_mask;
+        CGroupMask cgroup_members_mask;
+        int cgroup_inotify_wd;
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
@@ -404,9 +405,6 @@ struct UnitVTable {
          * of this type will immediately fail. */
         bool (*supported)(void);
 
-        /* The interface name */
-        const char *bus_interface;
-
         /* The bus vtable */
         const sd_bus_vtable *bus_vtable;
 
@@ -441,6 +439,10 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 /* For casting the various unit types into a unit */
 #define UNIT(u) (&(u)->meta)
+
+#define UNIT_HAS_EXEC_CONTEXT(u) (UNIT_VTABLE(u)->exec_context_offset > 0)
+#define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
+#define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
 #define UNIT_TRIGGER(u) ((Unit*) set_first((u)->dependencies[UNIT_TRIGGERS]))
 
@@ -493,7 +495,8 @@ int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
 
-int unit_add_default_slice(Unit *u, CGroupContext *c);
+int unit_set_slice(Unit *u, Unit *slice);
+int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
 
@@ -520,7 +523,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
-int unit_watch_all_pids(Unit *u);
 void unit_unwatch_all_pids(Unit *u);
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
@@ -564,8 +566,6 @@ bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
-
-char *unit_default_cgroup_path(Unit *u);
 
 void unit_start_on_failure(Unit *u);
 void unit_trigger_notify(Unit *u);

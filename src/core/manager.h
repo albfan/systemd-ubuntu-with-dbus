@@ -215,15 +215,21 @@ struct Manager {
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_unit;
-        CGroupControllerMask cgroup_supported;
+        CGroupMask cgroup_supported;
         char *cgroup_root;
 
-        int gc_marker;
-        unsigned n_in_gc_queue;
+        /* Notifications from cgroups, when the unified hierarchy is
+         * used is done via inotify. */
+        int cgroup_inotify_fd;
+        sd_event_source *cgroup_inotify_event_source;
+        Hashmap *cgroup_inotify_wd_unit;
 
         /* Make sure the user cannot accidentally unmount our cgroup
          * file system */
         int pin_cgroupfs_fd;
+
+        int gc_marker;
+        unsigned n_in_gc_queue;
 
         /* Flags */
         ManagerRunningAs running_as;
@@ -233,7 +239,6 @@ struct Manager {
         bool dispatching_dbus_queue:1;
 
         bool taint_usr:1;
-        bool first_boot:1;
 
         bool test_run:1;
 
@@ -295,6 +300,8 @@ struct Manager {
 
         const char *unit_log_field;
         const char *unit_log_format_string;
+
+        int first_boot;
 };
 
 int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);

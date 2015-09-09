@@ -25,6 +25,7 @@
 #include "cgroup-util.h"
 #include "strv.h"
 #include "bus-common-errors.h"
+#include "special.h"
 #include "dbus.h"
 #include "dbus-unit.h"
 
@@ -390,6 +391,29 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", e.name, e.message);
 }
 
+static int bus_verify_manage_units_async_full(
+                Unit *u,
+                const char *verb,
+                int capability,
+                const char *polkit_message,
+                sd_bus_message *call,
+                sd_bus_error *error) {
+
+        const char *details[9] = {
+                "unit", u->id,
+                "verb", verb,
+        };
+
+        if (polkit_message) {
+                details[4] = "polkit.message";
+                details[5] = polkit_message;
+                details[6] = "polkit.gettext_domain";
+                details[7] = GETTEXT_PACKAGE;
+        }
+
+        return bus_verify_polkit_async(call, capability, "org.freedesktop.systemd1.manage-units", details, false, UID_INVALID, &u->manager->polkit_registry, error);
+}
+
 int bus_unit_method_start_generic(
                 sd_bus_message *message,
                 Unit *u,
@@ -399,6 +423,14 @@ int bus_unit_method_start_generic(
 
         const char *smode;
         JobMode mode;
+        _cleanup_free_ char *verb = NULL;
+        static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
+                [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
+                [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
+                [JOB_RELOAD]      = N_("Authentication is required to reload '$(unit)'."),
+                [JOB_RESTART]     = N_("Authentication is required to restart '$(unit)'."),
+                [JOB_TRY_RESTART] = N_("Authentication is required to restart '$(unit)'."),
+        };
         int r;
 
         assert(message);
@@ -417,7 +449,20 @@ int bus_unit_method_start_generic(
         if (mode < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
-        r = bus_verify_manage_units_async(u->manager, message, error);
+        if (reload_if_possible)
+                verb = strjoin("reload-or-", job_type_to_string(job_type), NULL);
+        else
+                verb = strdup(job_type_to_string(job_type));
+        if (!verb)
+                return -ENOMEM;
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        verb,
+                        CAP_SYS_ADMIN,
+                        job_type < _JOB_TYPE_MAX ? polkit_message_for_job[job_type] : NULL,
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -483,7 +528,13 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        r = bus_verify_manage_units_async_for_kill(u->manager, message, error);
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "kill",
+                        CAP_KILL,
+                        N_("Authentication is required to kill '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -507,7 +558,13 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(u->manager, message, error);
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "reset-failed",
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -533,7 +590,13 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(u->manager, message, error);
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "set-property",
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to set properties on '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -783,7 +846,7 @@ static int send_changed_signal(sd_bus *bus, void *userdata) {
 
         r = sd_bus_emit_properties_changed_strv(
                         bus, p,
-                        UNIT_VTABLE(u)->bus_interface,
+                        unit_dbus_interface_from_type(u->type),
                         NULL);
         if (r < 0)
                 return r;
@@ -965,38 +1028,41 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "Slice") && unit_get_cgroup_context(u)) {
+        } else if (streq(name, "Slice")) {
+                Unit *slice;
                 const char *s;
+
+                if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
+                if (u->type == UNIT_SLICE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
+                if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope");
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
 
-                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN) || !endswith(s, ".slice"))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid slice name %s", s);
+                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name '%s'", s);
 
-                if (isempty(s)) {
-                        if (mode != UNIT_CHECK) {
-                                unit_ref_unset(&u->slice);
-                                unit_remove_drop_in(u, mode, name);
-                        }
-                } else {
-                        Unit *slice;
+                r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                if (r < 0)
+                        return r;
 
-                        r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                if (slice->type != UNIT_SLICE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
+
+                if (mode != UNIT_CHECK) {
+                        r = unit_set_slice(u, slice);
                         if (r < 0)
                                 return r;
 
-                        if (slice->type != UNIT_SLICE)
-                                return -EINVAL;
-
-                        if (mode != UNIT_CHECK) {
-                                unit_ref_set(&u->slice, slice);
-                                unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
-                        }
+                        unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
                 }
 
                 return 1;
+
         } else if (STR_IN_SET(name,
                               "Requires", "RequiresOverridable",
                               "Requisite", "RequisiteOverridable",

@@ -326,7 +326,7 @@ static int swap_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_default_slice(u, &s->cgroup_context);
+                r = unit_set_default_slice(u);
                 if (r < 0)
                         return r;
 
@@ -1485,7 +1485,6 @@ const UnitVTable swap_vtable = {
 
         .reset_failed = swap_reset_failed,
 
-        .bus_interface = "org.freedesktop.systemd1.Swap",
         .bus_vtable = bus_swap_vtable,
         .bus_set_property = bus_swap_set_property,
         .bus_commit_properties = bus_swap_commit_properties,

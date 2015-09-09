@@ -1048,7 +1048,7 @@ int config_parse_bounding_set(const char *unit,
 
                 cap = capability_from_name(t);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse capability in bounding set, ignoring: %s", t);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse capability in bounding set, ignoring: %s", t);
                         continue;
                 }
 
@@ -1143,38 +1143,7 @@ int config_parse_sysv_priority(const char *unit,
 #endif
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
-
-int config_parse_kill_signal(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
-
-        int *sig = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(sig);
-
-        r = signal_from_string_try_harder(rvalue);
-        if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse kill signal, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *sig = r;
-        return 0;
-}
 
 int config_parse_exec_mount_flags(const char *unit,
                                   const char *filename,
@@ -2602,7 +2571,7 @@ int config_parse_unit_slice(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata, *slice;
+        Unit *u = userdata, *slice = NULL;
         int r;
 
         assert(filename);
@@ -2611,29 +2580,23 @@ int config_parse_unit_slice(
         assert(u);
 
         r = unit_name_printf(u, rvalue, &k);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve unit specifiers on %s. Ignoring.", rvalue);
-        if (!k) {
-                k = strdup(rvalue);
-                if (!k)
-                        return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s. Ignoring.", rvalue);
+                return 0;
         }
 
         r = manager_load_unit(u->manager, k, NULL, NULL, &slice);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to load slice unit %s. Ignoring.", k);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to load slice unit %s. Ignoring.", k);
                 return 0;
         }
 
-        if (slice->type != UNIT_SLICE) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Slice unit %s is not a slice. Ignoring.", k);
+        r = unit_set_slice(u, slice);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to assign slice %s to unit %s. Ignoring.", slice->id, u->id);
                 return 0;
         }
 
-        unit_ref_set(&u->slice, slice);
         return 0;
 }
 
@@ -3024,36 +2987,6 @@ int config_parse_job_mode_isolate(
         }
 
         *m = r ? JOB_ISOLATE : JOB_REPLACE;
-        return 0;
-}
-
-int config_parse_personality(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        unsigned long *personality = data, p;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(personality);
-
-        p = personality_from_string(rvalue);
-        if (p == PERSONALITY_INVALID) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Failed to parse personality, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *personality = p;
         return 0;
 }
 
@@ -3603,6 +3536,11 @@ int unit_load_fragment(Unit *u) {
         assert(u->load_state == UNIT_STUB);
         assert(u->id);
 
+        if (u->transient) {
+                u->load_state = UNIT_LOADED;
+                return 0;
+        }
+
         /* First, try to find the unit under its id. We always look
          * for unit files in the default directories, to make it easy
          * to override things by placing things in /etc/systemd/system */
@@ -3721,7 +3659,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_sysv_priority,         "SYSVPRIORITY" },
 #endif
                 { config_parse_kill_mode,             "KILLMODE" },
-                { config_parse_kill_signal,           "SIGNAL" },
+                { config_parse_signal,                "SIGNAL" },
                 { config_parse_socket_listen,         "SOCKET [...]" },
                 { config_parse_socket_bind,           "SOCKETBIND" },
                 { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },

@@ -68,32 +68,15 @@ static int context_read_data(Context *c) {
 
         assert(c);
 
-        r = readlink_malloc("/etc/localtime", &t);
-        if (r < 0) {
-                if (r == -EINVAL)
-                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-                else
-                        log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
-        } else {
-                const char *e;
+        r = get_timezone(&t);
+        if (r == -EINVAL)
+                log_warning_errno(r, "/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
 
-                e = path_startswith(t, "/usr/share/zoneinfo/");
-                if (!e)
-                        e = path_startswith(t, "../usr/share/zoneinfo/");
-
-                if (!e)
-                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-                else {
-                        c->zone = strdup(e);
-                        if (!c->zone)
-                                return log_oom();
-                }
-        }
-
-        if (isempty(c->zone)) {
-                free(c->zone);
-                c->zone = NULL;
-        }
+        free(c->zone);
+        c->zone = t;
+        t = NULL;
 
         c->local_rtc = clock_is_localtime() > 0;
 
@@ -378,6 +361,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                         m,
                         CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-timezone",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &c->polkit_registry,
@@ -445,6 +429,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                         m,
                         CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-local-rtc",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &c->polkit_registry,
@@ -560,6 +545,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                         m,
                         CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-time",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &c->polkit_registry,
@@ -618,6 +604,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         m,
                         CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-ntp",
+                        NULL,
                         interactive,
                         UID_INVALID,
                         &c->polkit_registry,

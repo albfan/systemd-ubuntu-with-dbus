@@ -42,9 +42,9 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=4
 LIBUDEV_AGE=6
 
-LIBSYSTEMD_CURRENT=10
-LIBSYSTEMD_REVISION=2
-LIBSYSTEMD_AGE=10
+LIBSYSTEMD_CURRENT=11
+LIBSYSTEMD_REVISION=0
+LIBSYSTEMD_AGE=11
 
 # The following four libraries only exist for compatibility reasons,
 # their version info should not be bumped anymore
@@ -155,6 +155,7 @@ noinst_PROGRAMS =
 TESTS =
 endif
 udevlibexec_PROGRAMS =
+gperf_gperf_sources =
 
 in_files = $(filter %.in,$(EXTRA_DIST))
 in_in_files = $(filter %.in.in, $(in_files))
@@ -220,6 +221,7 @@ AM_CPPFLAGS = \
 	-I $(top_builddir)/src/journal \
 	-I $(top_srcdir)/src/timedate \
 	-I $(top_srcdir)/src/timesync \
+	-I $(top_srcdir)/src/nspawn \
 	-I $(top_srcdir)/src/resolve \
 	-I $(top_builddir)/src/resolve \
 	-I $(top_srcdir)/src/systemd \
@@ -2776,10 +2778,30 @@ systemd_cgtop_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn.c \
+	src/nspawn/nspawn-settings.c \
+	src/nspawn/nspawn-settings.h \
+	src/nspawn/nspawn-mount.c \
+	src/nspawn/nspawn-mount.h \
+	src/nspawn/nspawn-network.c \
+	src/nspawn/nspawn-network.h \
+	src/nspawn/nspawn-expose-ports.c \
+	src/nspawn/nspawn-expose-ports.h \
+	src/nspawn/nspawn-cgroup.c \
+	src/nspawn/nspawn-cgroup.h \
+	src/nspawn/nspawn-register.c \
+	src/nspawn/nspawn-register.h \
+	src/nspawn/nspawn-setuid.c \
+	src/nspawn/nspawn-setuid.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
 	src/core/loopback-setup.h
+
+nodist_systemd_nspawn_SOURCES = \
+	src/nspawn/nspawn-gperf.c
+
+gperf_gperf_sources += \
+	src/nspawn/nspawn-gperf.gperf
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -3486,7 +3508,7 @@ nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-to-name.h \
 	src/udev/net/link-config-gperf.c
 
-gperf_gperf_sources = \
+gperf_gperf_sources += \
 	src/udev/net/link-config-gperf.gperf
 
 libudev_core_la_CFLAGS = \
@@ -5167,41 +5189,48 @@ libnetworkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
 	src/network/networkd-link.h \
-	src/network/networkd-netdev.h \
-	src/network/networkd-netdev-tunnel.h \
-	src/network/networkd-netdev-veth.h \
-	src/network/networkd-netdev-vxlan.h \
-	src/network/networkd-netdev-vlan.h \
-	src/network/networkd-netdev-macvlan.h \
-	src/network/networkd-netdev-ipvlan.h \
-	src/network/networkd-netdev-dummy.h \
-	src/network/networkd-netdev-tuntap.h \
-	src/network/networkd-netdev-bond.h \
-	src/network/networkd-netdev-bridge.h \
-	src/network/networkd-netdev.c \
-	src/network/networkd-netdev-tunnel.c \
-	src/network/networkd-netdev-veth.c \
-	src/network/networkd-netdev-vxlan.c \
-	src/network/networkd-netdev-vlan.c \
-	src/network/networkd-netdev-macvlan.c \
-	src/network/networkd-netdev-ipvlan.c \
-	src/network/networkd-netdev-dummy.c \
-	src/network/networkd-netdev-tuntap.c \
-	src/network/networkd-netdev-bond.c \
-	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link.c \
+	src/network/networkd-netdev.h \
+	src/network/networkd-netdev.c \
+	src/network/networkd-netdev-tunnel.h \
+	src/network/networkd-netdev-tunnel.c \
+	src/network/networkd-netdev-veth.h \
+	src/network/networkd-netdev-veth.c \
+	src/network/networkd-netdev-vxlan.h \
+	src/network/networkd-netdev-vxlan.c \
+	src/network/networkd-netdev-vlan.h \
+	src/network/networkd-netdev-vlan.c \
+	src/network/networkd-netdev-macvlan.h \
+	src/network/networkd-netdev-macvlan.c \
+	src/network/networkd-netdev-ipvlan.h \
+	src/network/networkd-netdev-ipvlan.c \
+	src/network/networkd-netdev-dummy.h \
+	src/network/networkd-netdev-dummy.c \
+	src/network/networkd-netdev-tuntap.h \
+	src/network/networkd-netdev-tuntap.c \
+	src/network/networkd-netdev-bond.h \
+	src/network/networkd-netdev-bond.c \
+	src/network/networkd-netdev-bridge.h \
+	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
 	src/network/networkd-dhcp6.c \
+	src/network/networkd-network.h \
 	src/network/networkd-network.c \
 	src/network/networkd-network-bus.c \
+	src/network/networkd-address.h \
 	src/network/networkd-address.c \
+	src/network/networkd-route.h \
 	src/network/networkd-route.c \
 	src/network/networkd-manager.c \
 	src/network/networkd-manager-bus.c \
+	src/network/networkd-fdb.h \
 	src/network/networkd-fdb.c \
-	src/network/networkd-address-pool.c
+	src/network/networkd-address-pool.h \
+	src/network/networkd-address-pool.c \
+	src/network/networkd-util.h \
+	src/network/networkd-util.c
 
 nodist_libnetworkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \

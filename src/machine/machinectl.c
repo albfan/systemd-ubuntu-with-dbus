@@ -361,8 +361,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        endswith(unit, ".scope") ? "org.freedesktop.systemd1.Scope" :
-                        endswith(unit, ".slice") ? "org.freedesktop.systemd1.Slice" : "org.freedesktop.systemd1.Service",
+                        unit_dbus_interface_from_name(unit),
                         "ControlGroup",
                         &error,
                         &reply,
@@ -376,7 +375,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup, false) != 0 && leader <= 0)
+        if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
                 return 0;
 
         c = columns();

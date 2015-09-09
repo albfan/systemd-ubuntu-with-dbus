@@ -356,7 +356,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         *found = u;
@@ -378,10 +378,10 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
-        if (!unit_get_cgroup_context(u))
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
         *found = u;
@@ -404,7 +404,7 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         c = unit_get_cgroup_context(u);
@@ -431,7 +431,7 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         c = unit_get_exec_context(u);
@@ -458,7 +458,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         c = unit_get_kill_context(u);
@@ -555,30 +555,34 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
                 return log_error_errno(r, "Failed to add job enumerator: %m");
 
         for (t = 0; t < _UNIT_TYPE_MAX; t++) {
-                r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
+                const char *interface;
+
+                assert_se(interface = unit_dbus_interface_from_type(t));
+
+                r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to register type specific vtable for %s: %m", unit_vtable[t]->bus_interface);
+                        return log_error_errno(r, "Failed to register type specific vtable for %s: %m", interface);
 
                 if (unit_vtable[t]->cgroup_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register control group unit vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register control group unit vtable for %s: %m", interface);
 
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register control group vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register control group vtable for %s: %m", interface);
                 }
 
                 if (unit_vtable[t]->exec_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_exec_vtable, bus_exec_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_exec_vtable, bus_exec_context_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register execute vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register execute vtable for %s: %m", interface);
                 }
 
                 if (unit_vtable[t]->kill_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_kill_vtable, bus_kill_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_kill_vtable, bus_kill_context_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register kill vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register kill vtable for %s: %m", interface);
                 }
         }
 
@@ -1194,22 +1198,17 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
 }
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", false, UID_INVALID, &m->polkit_registry, error);
-}
-
-/* Same as bus_verify_manage_unit_async(), but checks for CAP_KILL instead of CAP_SYS_ADMIN */
-int bus_verify_manage_units_async_for_kill(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_KILL, "org.freedesktop.systemd1.manage-units", false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }

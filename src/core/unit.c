@@ -28,27 +28,28 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 #include "set.h"
-#include "unit.h"
 #include "macro.h"
 #include "strv.h"
 #include "path-util.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "log.h"
-#include "unit-name.h"
-#include "dbus-unit.h"
-#include "special.h"
 #include "cgroup-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "fileio-label.h"
-#include "bus-common-errors.h"
-#include "dbus.h"
-#include "execute.h"
-#include "dropin.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "virt.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
+#include "dropin.h"
+#include "unit-name.h"
+#include "special.h"
+#include "unit.h"
+#include "load-fragment.h"
+#include "load-dropin.h"
+#include "dbus.h"
+#include "dbus-unit.h"
+#include "execute.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -90,6 +91,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
+        u->cgroup_inotify_wd = -1;
 
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
@@ -405,17 +407,17 @@ static void unit_remove_transient(Unit *u) {
                 return;
 
         if (u->fragment_path)
-                unlink(u->fragment_path);
+                (void) unlink(u->fragment_path);
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL;
                 int r;
 
-                unlink(*i);
+                (void) unlink(*i);
 
                 r = path_get_parent(*i, &p);
                 if (r >= 0)
-                        rmdir(p);
+                        (void) rmdir(p);
         }
 }
 
@@ -524,10 +526,7 @@ void unit_free(Unit *u) {
         if (u->in_cgroup_queue)
                 LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
 
-        if (u->cgroup_path) {
-                hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                free(u->cgroup_path);
-        }
+        unit_release_cgroup(u);
 
         manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
@@ -1122,7 +1121,7 @@ static int unit_add_target_dependencies(Unit *u) {
 static int unit_add_slice_dependencies(Unit *u) {
         assert(u);
 
-        if (!unit_get_cgroup_context(u))
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
         if (UNIT_ISSET(u->slice))
@@ -1417,6 +1416,7 @@ int unit_start(Unit *u) {
 
         assert(u);
 
+        /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
                 return -EINVAL;
 
@@ -1445,15 +1445,21 @@ int unit_start(Unit *u) {
                 return -EPROTO;
         }
 
+        /* Units of types that aren't supported cannot be
+         * started. Note that we do this test only after the condition
+         * checks, so that we rather return condition check errors
+         * (which are usually not considered a true failure) than "not
+         * supported" errors (which are considered a failure).
+         */
+        if (!unit_supported(u))
+                return -EOPNOTSUPP;
+
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
         if (following) {
                 log_unit_debug(u, "Redirecting start request from %s to %s.", u->id, following->id);
                 return unit_start(following);
         }
-
-        if (!unit_supported(u))
-                return -EOPNOTSUPP;
 
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
@@ -1472,6 +1478,12 @@ int unit_start(Unit *u) {
 
 bool unit_can_start(Unit *u) {
         assert(u);
+
+        if (u->load_state != UNIT_LOADED)
+                return false;
+
+        if (!unit_supported(u))
+                return false;
 
         return !!UNIT_VTABLE(u)->start;
 }
@@ -1800,7 +1812,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                unit_destroy_cgroup_if_empty(u);
+                unit_prune_cgroup(u);
 
         /* Note that this doesn't apply to RemainAfterExit services exiting
          * successfully, since there's no change of state in that case. Which is
@@ -1996,16 +2008,16 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         if (r < 0)
                 return r;
 
-        r = hashmap_put(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
+        r = hashmap_put(u->manager->watch_pids1, PID_TO_PTR(pid), u);
         if (r == -EEXIST) {
                 r = hashmap_ensure_allocated(&u->manager->watch_pids2, NULL);
                 if (r < 0)
                         return r;
 
-                r = hashmap_put(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
+                r = hashmap_put(u->manager->watch_pids2, PID_TO_PTR(pid), u);
         }
 
-        q = set_put(u->pids, LONG_TO_PTR(pid));
+        q = set_put(u->pids, PID_TO_PTR(pid));
         if (q < 0)
                 return q;
 
@@ -2016,81 +2028,18 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
-        hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
-        set_remove(u->pids, LONG_TO_PTR(pid));
+        (void) hashmap_remove_value(u->manager->watch_pids1, PID_TO_PTR(pid), u);
+        (void) hashmap_remove_value(u->manager->watch_pids2, PID_TO_PTR(pid), u);
+        (void) set_remove(u->pids, PID_TO_PTR(pid));
 }
 
 void unit_unwatch_all_pids(Unit *u) {
         assert(u);
 
         while (!set_isempty(u->pids))
-                unit_unwatch_pid(u, PTR_TO_LONG(set_first(u->pids)));
+                unit_unwatch_pid(u, PTR_TO_PID(set_first(u->pids)));
 
-        set_free(u->pids);
-        u->pids = NULL;
-}
-
-static int unit_watch_pids_in_path(Unit *u, const char *path) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        int ret = 0, r;
-
-        assert(u);
-        assert(path);
-
-        /* Adds all PIDs from a specific cgroup path to the set of PIDs we watch. */
-
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
-        if (r >= 0) {
-                pid_t pid;
-
-                while ((r = cg_read_pid(f, &pid)) > 0) {
-                        r = unit_watch_pid(u, pid);
-                        if (r < 0 && ret >= 0)
-                                ret = r;
-                }
-                if (r < 0 && ret >= 0)
-                        ret = r;
-
-        } else if (ret >= 0)
-                ret = r;
-
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
-        if (r >= 0) {
-                char *fn;
-
-                while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        p = strjoin(path, "/", fn, NULL);
-                        free(fn);
-
-                        if (!p)
-                                return -ENOMEM;
-
-                        r = unit_watch_pids_in_path(u, p);
-                        if (r < 0 && ret >= 0)
-                                ret = r;
-                }
-                if (r < 0 && ret >= 0)
-                        ret = r;
-
-        } else if (ret >= 0)
-                ret = r;
-
-        return ret;
-}
-
-int unit_watch_all_pids(Unit *u) {
-        assert(u);
-
-        /* Adds all PIDs from our cgroup to the set of PIDs we watch */
-
-        if (!u->cgroup_path)
-                return -ENOENT;
-
-        return unit_watch_pids_in_path(u, u->cgroup_path);
+        u->pids = set_free(u->pids);
 }
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
@@ -2102,7 +2051,7 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
         /* Cleans dead PIDs from our list */
 
         SET_FOREACH(e, u->pids, i) {
-                pid_t pid = PTR_TO_LONG(e);
+                pid_t pid = PTR_TO_PID(e);
 
                 if (pid == except1 || pid == except2)
                         continue;
@@ -2399,39 +2348,49 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-char *unit_default_cgroup_path(Unit *u) {
-        _cleanup_free_ char *escaped = NULL, *slice = NULL;
-        int r;
-
+int unit_set_slice(Unit *u, Unit *slice) {
         assert(u);
+        assert(slice);
 
-        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
-                return strdup(u->manager->cgroup_root);
+        /* Sets the unit slice if it has not been set before. Is extra
+         * careful, to only allow this for units that actually have a
+         * cgroup context. Also, we don't allow to set this for slices
+         * (since the parent slice is derived from the name). Make
+         * sure the unit we set is actually a slice. */
 
-        if (UNIT_ISSET(u->slice) && !unit_has_name(UNIT_DEREF(u->slice), SPECIAL_ROOT_SLICE)) {
-                r = cg_slice_to_path(UNIT_DEREF(u->slice)->id, &slice);
-                if (r < 0)
-                        return NULL;
-        }
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EOPNOTSUPP;
 
-        escaped = cg_escape(u->id);
-        if (!escaped)
-                return NULL;
+        if (u->type == UNIT_SLICE)
+                return -EINVAL;
 
-        if (slice)
-                return strjoin(u->manager->cgroup_root, "/", slice, "/", escaped, NULL);
-        else
-                return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
+        if (unit_active_state(u) != UNIT_INACTIVE)
+                return -EBUSY;
+
+        if (slice->type != UNIT_SLICE)
+                return -EINVAL;
+
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE) &&
+            !unit_has_name(slice, SPECIAL_ROOT_SLICE))
+                return -EPERM;
+
+        if (UNIT_DEREF(u->slice) == slice)
+                return 0;
+
+        if (UNIT_ISSET(u->slice))
+                return -EBUSY;
+
+        unit_ref_set(&u->slice, slice);
+        return 1;
 }
 
-int unit_add_default_slice(Unit *u, CGroupContext *c) {
+int unit_set_default_slice(Unit *u) {
         _cleanup_free_ char *b = NULL;
         const char *slice_name;
         Unit *slice;
         int r;
 
         assert(u);
-        assert(c);
 
         if (UNIT_ISSET(u->slice))
                 return 0;
@@ -2463,7 +2422,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
                 slice_name = b;
         } else
                 slice_name =
-                        u->manager->running_as == MANAGER_SYSTEM
+                        u->manager->running_as == MANAGER_SYSTEM && !unit_has_name(u, SPECIAL_INIT_SCOPE)
                         ? SPECIAL_SYSTEM_SLICE
                         : SPECIAL_ROOT_SLICE;
 
@@ -2471,8 +2430,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&u->slice, slice);
-        return 0;
+        return unit_set_slice(u, slice);
 }
 
 const char *unit_slice_name(Unit *u) {
@@ -2673,40 +2631,6 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
         fprintf(f, "%s=%s\n", key, value);
 }
 
-static int unit_set_cgroup_path(Unit *u, const char *path) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(u);
-
-        if (path) {
-                p = strdup(path);
-                if (!p)
-                        return -ENOMEM;
-        } else
-                p = NULL;
-
-        if (streq_ptr(u->cgroup_path, p))
-                return 0;
-
-        if (p) {
-                r = hashmap_put(u->manager->cgroup_unit, p, u);
-                if (r < 0)
-                        return r;
-        }
-
-        if (u->cgroup_path) {
-                log_unit_debug(u, "Changing cgroup path from %s to %s.", u->cgroup_path, strna(p));
-                hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                free(u->cgroup_path);
-        }
-
-        u->cgroup_path = p;
-        p = NULL;
-
-        return 0;
-}
-
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         ExecRuntime **rt = NULL;
         size_t offset;
@@ -2836,6 +2760,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = unit_set_cgroup_path(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", v);
+
+                        (void) unit_watch_cgroup(u);
 
                         continue;
                 } else if (streq(l, "cgroup-realized")) {
@@ -3080,13 +3006,13 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
 
         /* Exclude the main/control pids from being killed via the cgroup */
         if (main_pid > 0) {
-                r = set_put(pid_set, LONG_TO_PTR(main_pid));
+                r = set_put(pid_set, PID_TO_PTR(main_pid));
                 if (r < 0)
                         goto fail;
         }
 
         if (control_pid > 0) {
-                r = set_put(pid_set, LONG_TO_PTR(control_pid));
+                r = set_put(pid_set, PID_TO_PTR(control_pid));
                 if (r < 0)
                         goto fail;
         }
@@ -3108,17 +3034,17 @@ int unit_kill_common(
 
         int r = 0;
 
-        if (who == KILL_MAIN && main_pid <= 0) {
+        if (who == KILL_MAIN) {
                 if (main_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
-                else
+                else if (main_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (who == KILL_CONTROL && control_pid <= 0) {
+        if (who == KILL_CONTROL) {
                 if (control_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
-                else
+                else if (control_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
@@ -3141,7 +3067,7 @@ int unit_kill_common(
                 if (!pid_set)
                         return -ENOMEM;
 
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, false, false, pid_set);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
         }
@@ -3317,6 +3243,8 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
 }
 
 static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
+        assert(u);
+
         if (u->manager->running_as == MANAGER_USER) {
                 int r;
 
@@ -3324,9 +3252,9 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
                         r = user_config_home(dir);
                 else
                         r = user_runtime_dir(dir);
-
                 if (r == 0)
                         return -ENOENT;
+
                 return r;
         }
 
@@ -3340,8 +3268,7 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
         return 0;
 }
 
-static int unit_drop_in_file(Unit *u,
-                             UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
+static int unit_drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
         _cleanup_free_ char *dir = NULL;
         int r;
 
@@ -3475,40 +3402,17 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
 }
 
 int unit_make_transient(Unit *u) {
-        int r;
-
         assert(u);
+
+        if (!UNIT_VTABLE(u)->can_transient)
+                return -EOPNOTSUPP;
 
         u->load_state = UNIT_STUB;
         u->load_error = 0;
         u->transient = true;
+        u->fragment_path = mfree(u->fragment_path);
 
-        free(u->fragment_path);
-        u->fragment_path = NULL;
-
-        if (u->manager->running_as == MANAGER_USER) {
-                _cleanup_free_ char *c = NULL;
-
-                r = user_runtime_dir(&c);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOENT;
-
-                u->fragment_path = strjoin(c, "/", u->id, NULL);
-                if (!u->fragment_path)
-                        return -ENOMEM;
-
-                mkdir_p(c, 0755);
-        } else {
-                u->fragment_path = strappend("/run/systemd/system/", u->id);
-                if (!u->fragment_path)
-                        return -ENOMEM;
-
-                mkdir_p("/run/systemd/system", 0755);
-        }
-
-        return write_string_file_atomic_label(u->fragment_path, "# Transient stub");
+        return 0;
 }
 
 int unit_kill_context(
@@ -3519,7 +3423,8 @@ int unit_kill_context(
                 pid_t control_pid,
                 bool main_pid_alien) {
 
-        int sig, wait_for_exit = false, r;
+        bool wait_for_exit = false;
+        int sig, r;
 
         assert(u);
         assert(c);
@@ -3548,13 +3453,13 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s): %m", main_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL)
-                                kill(main_pid, SIGHUP);
+                        if (c->send_sighup && k == KILL_TERMINATE)
+                                (void) kill(main_pid, SIGHUP);
                 }
         }
 
@@ -3565,16 +3470,17 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s): %m", control_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL)
-                                kill(control_pid, SIGHUP);
+                        if (c->send_sighup && k == KILL_TERMINATE)
+                                (void) kill(control_pid, SIGHUP);
                 }
         }
 
-        if ((c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL)) && u->cgroup_path) {
+        if (u->cgroup_path &&
+            (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
@@ -3582,21 +3488,30 @@ int unit_kill_context(
                 if (!pid_set)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, k != KILL_TERMINATE, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                log_unit_warning_errno(u, r, "Failed to kill control group: %m");
+                                log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
+
                 } else if (r > 0) {
 
-                        /* FIXME: For now, we will not wait for the
-                         * cgroup members to die, simply because
-                         * cgroup notification is unreliable. It
-                         * doesn't work at all in containers, and
-                         * outside of containers it can be confused
-                         * easily by leaving directories in the
-                         * cgroup. */
+                        /* FIXME: For now, on the legacy hierarchy, we
+                         * will not wait for the cgroup members to die
+                         * if we are running in a container or if this
+                         * is a delegation unit, simply because cgroup
+                         * notification is unreliable in these
+                         * cases. It doesn't work at all in
+                         * containers, and outside of containers it
+                         * can be confused easily by left-over
+                         * directories in the cgroup -- which however
+                         * should not exist in non-delegated units. On
+                         * the unified hierarchy that's different,
+                         * there we get proper events. Hence rely on
+                         * them.*/
 
-                        /* wait_for_exit = true; */
+                        if  (cg_unified() > 0 ||
+                             (detect_container(NULL) == 0 && !unit_cgroup_delegate(u)))
+                                wait_for_exit = true;
 
                         if (c->send_sighup && k != KILL_KILL) {
                                 set_free(pid_set);
