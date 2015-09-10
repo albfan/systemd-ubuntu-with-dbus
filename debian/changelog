@@ -47,14 +47,14 @@ systemd (226-1) UNRELEASED; urgency=medium
   * systemd-networkd-dispatcher: Also pass on the DNS server list to if-up.d/
     as $IF_DNS_NAMESERVERS, so that resolvconf or similar programs work as
     expected.
+  * Drop debian/systemd-journal-remote.postrm: Removing system users is
+    potentially dangerous (there might be a leftover process after purging).
 
   [ Michael Biebl ]
   * Drop libsystemd-login-dev. All reverse dependencies have been updated to
     use libsystemd-dev directly.
   * Update build instructions to use "gbp clone" instead of "gbp-clone" as all
     gbp-* commands have been removed from git-buildpackage.
-  * debian/systemd-journal-remote.postrm: Fix bashism when testing for
-    deluser.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 03 Sep 2015 09:41:08 +0200
 
