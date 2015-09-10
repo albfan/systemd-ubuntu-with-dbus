@@ -93,6 +93,10 @@ upgrade_fixes() {
     update-rc.d udev-mtab remove
   fi
 
+  if dpkg --compare-versions "$2" lt "226-1"; then
+    update-rc.d udev-finish remove
+  fi
+
   # we enabled net.ifnames in 220-7 by default; don't change iface names in
   # virtualized envs (where 75-persistent-net-generator.rules didn't work)
   if dpkg --compare-versions "$2" lt-nl "220-7~" &&
