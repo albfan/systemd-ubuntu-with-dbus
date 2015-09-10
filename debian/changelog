@@ -1,3 +1,9 @@
+systemd (225-1ubuntu5) UNRELEASED; urgency=medium
+
+  * Add microphone mute keymap for Dell Precision. (LP: #1494135)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Sep 2015 08:46:06 +0200
+
 systemd (225-1ubuntu4) wily; urgency=medium
 
   * Rename 01-mac-for-usb.link to 90-mac-for-usb.link so that it becomes

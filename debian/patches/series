@@ -1,5 +1,6 @@
 ## Cherry-picked from upstream
 login-fix-NULL-deref-on-wall_message.patch
+Add-microphone-mute-keymap-for-Dell-Precision.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
