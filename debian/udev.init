@@ -22,11 +22,11 @@ unmount_devpts() {
 # mount a devtmpfs over /dev, if somebody did not already do it
 mount_devtmpfs() {
   if grep -E -q "^[^[:space:]]+ /dev devtmpfs" /proc/mounts; then
-    mount -n -o remount,size=$tmpfs_size,mode=0755 -t devtmpfs devtmpfs /dev
+    mount -n -o remount,nosuid,noexec,size=$tmpfs_size,mode=0755 -t devtmpfs devtmpfs /dev
     return
   fi
 
-  if ! mount -n -o size=$tmpfs_size,mode=0755 -t devtmpfs devtmpfs /dev; then
+  if ! mount -n -o nosuid,noexec,size=$tmpfs_size,mode=0755 -t devtmpfs devtmpfs /dev; then
     log_failure_msg "udev requires devtmpfs support, not started"
     log_end_msg 1
   fi
