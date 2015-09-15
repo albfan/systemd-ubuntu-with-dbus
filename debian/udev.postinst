@@ -113,6 +113,26 @@ upgrade_fixes() {
 # supported mechanism.
 EOF
   fi
+
+  # 226 introduced predictable interface names for virtio
+  # (https://github.com/systemd/systemd/pull/1119); disable for upgrades
+  if dpkg --compare-versions "$2" lt-nl "226-2~" &&
+      ls -d /sys/bus/virtio/drivers/virtio_net/virt* >/dev/null 2>&1; then
+    echo "virtio network devices detected, disabling predictable interface names in /etc/systemd/network/50-virtio-kernel-names.link"
+    mkdir -p /etc/systemd/network/
+    cat <<EOF > /etc/systemd/network/50-virtio-kernel-names.link
+# udev 226 introduced predictable interface names for virtio;
+# disable this for upgrades. You can remove this file if you update your
+# network configuration to move to the ens* names instead.
+# See /usr/share/doc/udev/README.Debian.gz for details about predictable
+# network interface names.
+[Match]
+Driver=virtio_net
+
+[Link]
+NamePolicy=onboard kernel
+EOF
+  fi
 }
 
 update_hwdb() {
