@@ -117,6 +117,7 @@ EOF
   # 226 introduced predictable interface names for virtio
   # (https://github.com/systemd/systemd/pull/1119); disable for upgrades
   if dpkg --compare-versions "$2" lt-nl "226-2~" &&
+      [ ! -e /etc/systemd/network/50-virtio-kernel-names.link ] &&
       ls -d /sys/bus/virtio/drivers/virtio_net/virt* >/dev/null 2>&1; then
     echo "virtio network devices detected, disabling predictable interface names in /etc/systemd/network/50-virtio-kernel-names.link"
     mkdir -p /etc/systemd/network/
