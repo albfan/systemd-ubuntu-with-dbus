@@ -10,7 +10,7 @@ systemd will add an ACL for read permissions for users in the "adm" group.
 This will allow you to look at previous boot logs with e. g.
 "journalctl -b -1".
 
-If you enable persistent logging, consider uninstalling rsyslog or any othe
+If you enable persistent logging, consider uninstalling rsyslog or any other
 system-log-daemon, to avoid logging everything twice.
 
 Debugging boot/shutdown problems
