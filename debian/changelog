@@ -1,6 +1,6 @@
 systemd (226-3) UNRELEASED; urgency=medium
 
-  * README.Debian: Fix "other" typo. Thanks Salvatore Bonacco.
+  * README.Debian: Fix "other" typo. Thanks Salvatore Bonaccorso.
     (Closes: #798737)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 16 Sep 2015 10:30:44 +0200
