@@ -1,4 +1,4 @@
-systemd (226-3) UNRELEASED; urgency=medium
+systemd (226-3) unstable; urgency=medium
 
   [ Martin Pitt ]
   * README.Debian: Fix "other" typo. Thanks Salvatore Bonaccorso.
@@ -8,7 +8,7 @@ systemd (226-3) UNRELEASED; urgency=medium
   * Stop building the compat library packages and drop them for good.
   * Update debian/copyright.
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 16 Sep 2015 10:30:44 +0200
+ -- Michael Biebl <biebl@debian.org>  Sat, 19 Sep 2015 19:06:51 +0200
 
 systemd (226-2) unstable; urgency=medium
 
