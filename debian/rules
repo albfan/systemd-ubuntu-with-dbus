@@ -25,6 +25,7 @@ CONFFLAGS = \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
+	--disable-compat-libs \
 	--disable-qrencode \
 	--disable-libidn \
 	--disable-elfutils \
@@ -41,7 +42,6 @@ CONFFLAGS = \
 
 CONFFLAGS_deb = \
 	--enable-selinux \
-	--enable-compat-libs \
 	--enable-hwdb \
 	--enable-efi \
 	PYTHON=python3
@@ -165,12 +165,6 @@ override_dh_install:
 		-name ldconfig.service -o \
 		-name etc.conf \) -delete
 	rm -rf debian/install/*/usr/share/factory/
-	# remove deprecated compatibility libraries
-	rm -f debian/install/*/usr/lib/*/pkgconfig/libsystemd-journal.pc
-	rm -f debian/install/*/usr/lib/*/pkgconfig/libsystemd-id128.pc
-	rm -f debian/install/*/usr/lib/*/pkgconfig/libsystemd-login.pc
-	rm -f debian/install/*/usr/lib/*/libsystemd-*.so
-	rm -f debian/install/*/lib/*/libsystemd-*.so.*
 	# remove symlinks enabling default-on services
 	rm -rf debian/install/*/etc/systemd/system/*.target.wants/
 ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))

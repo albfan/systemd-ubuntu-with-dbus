@@ -239,21 +239,6 @@ Description: systemd utility library - development files
  .
  This package contains the development files.
 
-Package: libsystemd-daemon-dev
-Architecture: linux-any
-Multi-Arch: same
-Section: oldlibs
-Priority: extra
-Depends: ${misc:Depends},
-         libsystemd-dev (>= ${binary:Version})
-Description: systemd utility library (transitional package)
- The sd-daemon library provides a reference implementation of various
- APIs for new-style daemons, as implemented by the systemd init system.
- .
- This is a compatibility package which provides a .pc file for the old library
- name. That way, packages can be rebuilt against the new libsystemd library
- without requiring changes to existing configure scripts.
-
 Package: udev
 Section: admin
 Priority: important
