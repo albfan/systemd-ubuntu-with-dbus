@@ -55,6 +55,7 @@ Recommends: libpam-systemd,
             dbus
 Suggests: systemd-ui,
           systemd-container
+Provides: system-log-daemon
 Pre-Depends: ${shlibs:Pre-Depends},
              ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
