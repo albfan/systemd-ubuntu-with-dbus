@@ -17,8 +17,18 @@ wait_suspend() {
     echo " * closing lid caused suspend"
 }
 
-echo " * process is in session cgroup"
-grep 'systemd:.*session.*scope' /proc/self/cgroup
+echo " * XDG_SESSION_ID=$XDG_SESSION_ID"
+if grep 'systemd:.*session.*scope' /proc/self/cgroup; then
+    echo " * process is in session cgroup"
+else
+    echo "FAIL: process is not in session cgroup"
+    echo "/proc/self/cgroup:"
+    cat /proc/self/cgroup
+    loginctl
+    loginctl show-session "$XDG_SESSION_ID"
+    exit 1
+fi
+
 echo " * daemon is started"
 # should start at boot, not with D-BUS activation
 pidof systemd-logind > /dev/null

@@ -1,3 +1,9 @@
+systemd (226-4) UNRELEASED; urgency=medium
+
+  * debian/tests/logind: Be more verbose on failures.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 22 Sep 2015 09:04:32 +0200
+
 systemd (226-3) unstable; urgency=medium
 
   [ Martin Pitt ]
