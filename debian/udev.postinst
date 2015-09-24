@@ -59,6 +59,7 @@ case "$1" in
         if ! chrooted && ! in_debootstrap; then
             invoke-rc.d udev restart
         fi
+	upgrade_fixes "$@"
 	update_initramfs
 	;;
 

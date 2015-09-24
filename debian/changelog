@@ -3,6 +3,8 @@ systemd (225-1ubuntu5) UNRELEASED; urgency=medium
   * Add microphone mute keymap for Dell Precision. (LP: #1494135)
   * Fix logind crash when setting wall messages (on timed shutdown).
     (LP: #1495178)
+  * udev.postinst: Actually call upgrade_fixes(), so that the "disable
+    persistent names on upgrades" quirk actually runs.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Sep 2015 08:46:06 +0200
 
