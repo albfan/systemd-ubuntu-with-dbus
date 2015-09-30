@@ -1,0 +1,11 @@
+[Unit]
+Description=Update resolvconf for networkd DNS
+ConditionPathIsSymbolicLink=/etc/resolv.conf
+ConditionPathExists=/run/resolvconf/enable-updates
+After=resolvconf.service
+
+[Service]
+Type=oneshot
+# we need to wait for "online" here, as we might be triggered several times in short succession during restarting networkd
+ExecStart=/bin/sh -c 'if /lib/systemd/systemd-networkd-wait-online --timeout=30; then sed -n "/^DNS=/ { s/^DNS=/nameserver /; p}" /run/systemd/netif/state | /sbin/resolvconf -a networkd; fi'
+

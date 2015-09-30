@@ -136,8 +136,13 @@ DHCP=yes''' % self.iface)
 
         # verify resolv.conf if it gets dynamically managed
         if os.path.islink('/etc/resolv.conf'):
-            with open('/etc/resolv.conf') as f:
-                self.assertIn('nameserver 192.168.5.1\n', f.read())
+            for timeout in range(50):
+                with open('/etc/resolv.conf') as f:
+                    if 'nameserver 192.168.5.1\n' in f.read():
+                        break
+                time.sleep(0.1)
+            else:
+                self.fail('nameserver 192.168.5.1 not found in /etc/resolv.conf')
 
         if not coldplug:
             # check post-down.d hook

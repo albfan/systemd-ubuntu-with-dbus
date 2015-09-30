@@ -146,4 +146,11 @@ if dpkg --compare-versions "$2" lt-nl "219-8"; then
        rmdir --ignore-fail-on-non-empty /etc/systemd/system/${t}.target.wants 2> /dev/null || true
    done
 fi
+
+# start systemd-networkd-resolvconf-update.path on first install/upgrade if
+# required
+if _systemctl is-active --quiet resolvconf; then
+    _systemctl start systemd-networkd-resolvconf-update.path || true
+fi
+
 #DEBHELPER#
