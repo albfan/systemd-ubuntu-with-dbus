@@ -147,6 +147,12 @@ if dpkg --compare-versions "$2" lt-nl "219-8"; then
    done
 fi
 
+# start systemd-networkd-resolvconf-update.path on first install/upgrade if
+# required
+if _systemctl is-active --quiet resolvconf; then
+    _systemctl start systemd-networkd-resolvconf-update.path || true
+fi
+
 # migrate mountall specific fstab options to standard util-linux "nofail" option
 if dpkg --compare-versions "$2" lt "221-1" && [ -w /etc/fstab ]; then
     if awk '{ gsub(/^nobootwait/, "nofail", $4); gsub(/,nobootwait/, ",nofail", $4); gsub(/^optional/, "nofail", $4); gsub(/,optional/, ",nofail", $4); print }' /etc/fstab > /etc/fstab.new; then

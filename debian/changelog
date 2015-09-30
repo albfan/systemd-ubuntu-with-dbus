@@ -9,6 +9,8 @@ systemd (225-1ubuntu5) UNRELEASED; urgency=medium
     existing hooks are not relevant or even actively detrimental when running
     with networkd. For the relevant ones, a lot of them should be fixed in the
     projects themselves (using IP_FREEBIND etc.). (Closes: #798625)
+  * Add systemd-networkd-resolvconf-update.{path,service} units to send DNS
+    server updates from networkd to resolvconf, if installed and enabled.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Sep 2015 08:46:06 +0200
 
