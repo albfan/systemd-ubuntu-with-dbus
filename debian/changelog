@@ -1,4 +1,4 @@
-systemd (225-1ubuntu5) UNRELEASED; urgency=medium
+systemd (225-1ubuntu5) wily; urgency=medium
 
   * Add microphone mute keymap for Dell Precision. (LP: #1494135)
   * Fix logind crash when setting wall messages (on timed shutdown).
@@ -12,7 +12,7 @@ systemd (225-1ubuntu5) UNRELEASED; urgency=medium
   * Add systemd-networkd-resolvconf-update.{path,service} units to send DNS
     server updates from networkd to resolvconf, if installed and enabled.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Sep 2015 08:46:06 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 30 Sep 2015 15:37:09 +0200
 
 systemd (225-1ubuntu4) wily; urgency=medium
 
