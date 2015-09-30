@@ -5,6 +5,10 @@ systemd (225-1ubuntu5) UNRELEASED; urgency=medium
     (LP: #1495178)
   * udev.postinst: Actually call upgrade_fixes(), so that the "disable
     persistent names on upgrades" quirk actually runs.
+  * Revert networkd calling if-{up,post-down}.d/ scripts. About half of the
+    existing hooks are not relevant or even actively detrimental when running
+    with networkd. For the relevant ones, a lot of them should be fixed in the
+    projects themselves (using IP_FREEBIND etc.). (Closes: #798625)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Sep 2015 08:46:06 +0200
 
