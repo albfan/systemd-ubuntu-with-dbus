@@ -133,7 +133,8 @@ fi
 
 if [ -n "$2" ]; then
     _systemctl daemon-reexec || true
-    _systemctl try-restart systemd-logind.service || true
+    # don't restart logind; this can be done again once this gets implemented:
+    # https://github.com/systemd/systemd/issues/1163
     _systemctl try-restart systemd-networkd.service || true
     _systemctl try-restart systemd-resolved.service || true
     _systemctl try-restart systemd-timesyncd.service || true
