@@ -1,4 +1,4 @@
-systemd (226-4) UNRELEASED; urgency=medium
+systemd (226-4) unstable; urgency=medium
 
   * debian/tests/logind: Be more verbose on failures.
   * Revert networkd calling if-{up,post-down}.d/ scripts. About half of the
@@ -11,7 +11,7 @@ systemd (226-4) UNRELEASED; urgency=medium
     while logind doesn't save/restore its open fds (issue #1163), and also
     gets confused about being idle in between (LP: #1473800)
 
- -- Martin Pitt <mpitt@debian.org>  Tue, 22 Sep 2015 09:04:32 +0200
+ -- Martin Pitt <mpitt@debian.org>  Fri, 02 Oct 2015 13:44:28 +0200
 
 systemd (226-3) unstable; urgency=medium
 
