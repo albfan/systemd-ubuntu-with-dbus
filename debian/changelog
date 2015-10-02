@@ -7,6 +7,9 @@ systemd (226-4) UNRELEASED; urgency=medium
     projects themselves (using IP_FREEBIND etc.). (Closes: #798625)
   * Add systemd-networkd-resolvconf-update.{path,service} units to send DNS
     server updates from networkd to resolvconf, if installed and enabled.
+  * Don't restart logind on upgrades any more. This kills X.org (#798097)
+    while logind doesn't save/restore its open fds (issue #1163), and also
+    gets confused about being idle in between (LP: #1473800)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 22 Sep 2015 09:04:32 +0200
 
