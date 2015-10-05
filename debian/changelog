@@ -1,4 +1,4 @@
-systemd (225-1ubuntu6) UNRELEASED; urgency=medium
+systemd (225-1ubuntu6) wily; urgency=medium
 
   * Build using libseccomp on all architectures.
 
