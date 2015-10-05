@@ -4,6 +4,11 @@ systemd (226-5) UNRELEASED; urgency=medium
     /etc/udev/rules.d/*.rules rules which are not merely overriding the one in
     /lib/, not just 70-persistent-net.rules.  They might contain network names
     or other bits which are relevant for the initramfs. (Closes: #795494)
+  * ifup@.service: Drop PartOf=network.target; we don't want to stop these
+    units during shutdown. Stopping networking.service already shuts down the
+    interfaces, but contains the safeguard for NFS or other network file
+    systems. Isolating emergency.target still keeps working as before as well,
+    as this also stops networking.service. (Closes: #761909, LP: #1492546)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 05 Oct 2015 12:27:04 +0200
 
