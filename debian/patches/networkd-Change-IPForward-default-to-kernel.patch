@@ -1,0 +1,39 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 5 Oct 2015 14:44:26 +0200
+Subject: networkd: Change IPForward= default to "kernel"
+
+This keeps compatibility with lots of packages which expect to be able to
+enable global forwarding in /proc/sys/net/ipv4/ip_forward.
+
+Bug: https://github.com/systemd/systemd/issues/1411
+Bug-Ubuntu: https://launchpad.net/bugs/1500992
+---
+ man/systemd.network.xml        | 2 +-
+ src/network/networkd-network.c | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/man/systemd.network.xml b/man/systemd.network.xml
+index 2fb4733..a83309d 100644
+--- a/man/systemd.network.xml
++++ b/man/systemd.network.xml
+@@ -370,7 +370,7 @@
+           sysctl options of the network interface (see <ulink
+           url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+           for details about sysctl options). Defaults to
+-          <literal>no</literal>.</para>
++          <literal>kernel</literal>.</para>
+ 
+          <para>Note: unless this option is turned on, or set to <literal>kernel</literal>,
+           no IP forwarding is done on this interface, even if this is
+diff --git a/src/network/networkd-network.c b/src/network/networkd-network.c
+index ee14401..4cc6619 100644
+--- a/src/network/networkd-network.c
++++ b/src/network/networkd-network.c
+@@ -118,6 +118,7 @@ static int network_load_one(Manager *manager, const char *filename) {
+         network->llmnr = RESOLVE_SUPPORT_YES;
+ 
+         network->link_local = ADDRESS_FAMILY_IPV6;
++        network->ip_forward = _ADDRESS_FAMILY_BOOLEAN_INVALID;
+ 
+         network->ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
+ 
