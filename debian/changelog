@@ -1,3 +1,9 @@
+systemd (225-1ubuntu6) UNRELEASED; urgency=medium
+
+  * Build using libseccomp on all architectures.
+
+ -- Matthias Klose <doko@ubuntu.com>  Sat, 03 Oct 2015 21:06:07 +0200
+
 systemd (225-1ubuntu5) wily; urgency=medium
 
   * Add microphone mute keymap for Dell Precision. (LP: #1494135)

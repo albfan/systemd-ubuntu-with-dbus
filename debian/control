@@ -42,7 +42,7 @@ Build-Depends: debhelper (>= 9.20141010),
                libkmod-dev (>= 15),
                libblkid-dev (>= 2.24),
                libmount-dev (>= 2.20),
-               libseccomp-dev (>= 1.0.0) [amd64 arm64 armel armhf i386 mips mipsel mips64 mips64el x32],
+               libseccomp-dev (>= 1.0.0) [linux-any],
                python3:native,
                python3-lxml:native
 
