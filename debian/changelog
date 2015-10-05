@@ -1,4 +1,4 @@
-systemd (225-1ubuntu7) UNRELEASED; urgency=medium
+systemd (225-1ubuntu7) wily; urgency=medium
 
   * Don't restart logind on upgrades any more. This kills X.org (#798097)
     while logind doesn't save/restore its open fds (issue #1163), and also
@@ -16,7 +16,7 @@ systemd (225-1ubuntu7) UNRELEASED; urgency=medium
     with lots of packages which expect to be able to enable global forwarding
     in /proc/sys/net/ipv4/ip_forward. (LP: #1500992)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 05 Oct 2015 13:04:39 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 05 Oct 2015 15:53:26 +0200
 
 systemd (225-1ubuntu6) wily; urgency=medium
 
