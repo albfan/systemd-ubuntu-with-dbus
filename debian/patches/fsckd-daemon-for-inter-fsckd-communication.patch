@@ -58,7 +58,7 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index 3b80386..b5c83c6 100644
+index 1ff85d7..3480489 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
 @@ -93,6 +93,7 @@ MANPAGES += \
@@ -69,7 +69,7 @@ index 3b80386..b5c83c6 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -367,6 +368,8 @@ MANPAGES_ALIAS += \
+@@ -369,6 +370,8 @@ MANPAGES_ALIAS += \
  	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -78,7 +78,7 @@ index 3b80386..b5c83c6 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -653,6 +656,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
+@@ -658,6 +661,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
  man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
@@ -87,7 +87,7 @@ index 3b80386..b5c83c6 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -1349,6 +1354,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1363,6 +1368,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index 3b80386..b5c83c6 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -2324,6 +2335,7 @@ EXTRA_DIST += \
+@@ -2343,6 +2354,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,7 +109,7 @@ index 3b80386..b5c83c6 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 35ab77a..0a3acba 100644
+index deed50a..33410b7 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
@@ -117,9 +117,9 @@ index 35ab77a..0a3acba 100644
  	systemd-reply-password \
  	systemd-fsck \
 +	systemd-fsckd \
- 	systemd-machine-id-commit \
  	systemd-ac-power \
  	systemd-sysctl \
+ 	systemd-sleep \
 @@ -505,6 +506,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
@@ -128,15 +128,15 @@ index 35ab77a..0a3acba 100644
  	units/systemd-initctl.socket \
  	units/syslog.socket \
  	units/dev-hugepages.mount \
-@@ -553,6 +555,7 @@ nodist_systemunit_DATA = \
- 	units/systemd-kexec.service \
+@@ -554,6 +556,7 @@ nodist_systemunit_DATA = \
+ 	units/systemd-exit.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
 +	units/systemd-fsckd.service \
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -610,6 +613,7 @@ EXTRA_DIST += \
+@@ -612,6 +615,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \
@@ -144,7 +144,7 @@ index 35ab77a..0a3acba 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2357,6 +2361,16 @@ systemd_fsck_LDADD = \
+@@ -2367,6 +2371,16 @@ systemd_fsck_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------
@@ -158,9 +158,9 @@ index 35ab77a..0a3acba 100644
 +	$(NULL)
 +
 +# ------------------------------------------------------------------------------
- systemd_machine_id_commit_SOURCES = \
- 	src/machine-id-commit/machine-id-commit.c \
- 	src/core/machine-id-setup.c \
+ systemd_ac_power_SOURCES = \
+ 	src/ac-power/ac-power.c
+ 
 diff --git a/man/systemd-fsckd.service.xml b/man/systemd-fsckd.service.xml
 new file mode 100644
 index 0000000..c976062

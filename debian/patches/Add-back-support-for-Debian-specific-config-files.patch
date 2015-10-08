@@ -54,7 +54,7 @@ index 531931f..34ddcfc 100644
          e = path_startswith(t, "/usr/share/zoneinfo/");
          if (!e)
 diff --git a/src/core/locale-setup.c b/src/core/locale-setup.c
-index 108072c..9ea0083 100644
+index 6961c26..c32d559 100644
 --- a/src/core/locale-setup.c
 +++ b/src/core/locale-setup.c
 @@ -81,6 +81,28 @@ int locale_setup(char ***environment) {

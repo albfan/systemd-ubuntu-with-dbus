@@ -7,14 +7,14 @@ Make the SysV compat tools in systemd-sysv try both /run/initctl and the
 traditional /dev/initctl. This makes them usable when running sysvinit
 as PID 1.
 ---
- src/systemctl/systemctl.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ src/systemctl/systemctl.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 96c39aa..d13b678 100644
+index 420a246..feb5d44 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -7087,18 +7087,23 @@ static int talk_initctl(void) {
+@@ -7378,17 +7378,22 @@ static int talk_initctl(void) {
  
          request.runlevel = rl;
  
@@ -30,10 +30,8 @@ index 96c39aa..d13b678 100644
 +                        if (errno == ENOENT)
 +                                return 0;
  
--                log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
--                return -errno;
-+                        log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
-+                        return -errno;
+-                return log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
++                        return log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
 +                }
          }
  
@@ -43,4 +41,4 @@ index 96c39aa..d13b678 100644
 +                return log_error_errno(r, "Failed to write to initctl FIFO: %m");
  
          return 1;
- }
+ #else

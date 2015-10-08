@@ -8,11 +8,11 @@ configuration and use /etc/default/keyboard instead of
 
 Patch courtesy of Steve Langasek.
 ---
- src/locale/localed.c | 202 +++++++++++++++++++++++++++------------------------
- 1 file changed, 106 insertions(+), 96 deletions(-)
+ src/locale/localed.c | 205 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 106 insertions(+), 99 deletions(-)
 
 diff --git a/src/locale/localed.c b/src/locale/localed.c
-index e304588..2893f49 100644
+index e3eef4a..5f07680 100644
 --- a/src/locale/localed.c
 +++ b/src/locale/localed.c
 @@ -162,6 +162,24 @@ static int locale_read_data(Context *c) {
@@ -40,7 +40,7 @@ index e304588..2893f49 100644
          if (r == -ENOENT) {
                  int p;
  
-@@ -199,64 +217,17 @@ static int vconsole_read_data(Context *c) {
+@@ -199,67 +217,17 @@ static int vconsole_read_data(Context *c) {
  }
  
  static int x11_read_data(Context *c) {
@@ -72,17 +72,20 @@ index e304588..2893f49 100644
 -                                return r;
 -
 -                        if (strv_length(a) == 3) {
--                                if (streq(a[1], "XkbLayout")) {
--                                        free_and_replace(&c->x11_layout, a[2]);
--                                        a[2] = NULL;
--                                } else if (streq(a[1], "XkbModel")) {
--                                        free_and_replace(&c->x11_model, a[2]);
--                                        a[2] = NULL;
--                                } else if (streq(a[1], "XkbVariant")) {
--                                        free_and_replace(&c->x11_variant, a[2]);
--                                        a[2] = NULL;
--                                } else if (streq(a[1], "XkbOptions")) {
--                                        free_and_replace(&c->x11_options, a[2]);
+-                                char **p = NULL;
+-
+-                                if (streq(a[1], "XkbLayout"))
+-                                        p = &c->x11_layout;
+-                                else if (streq(a[1], "XkbModel"))
+-                                        p = &c->x11_model;
+-                                else if (streq(a[1], "XkbVariant"))
+-                                        p = &c->x11_variant;
+-                                else if (streq(a[1], "XkbOptions"))
+-                                        p = &c->x11_options;
+-
+-                                if (p) {
+-                                        free(*p);
+-                                        *p = a[2];
 -                                        a[2] = NULL;
 -                                }
 -                        }
@@ -112,7 +115,7 @@ index e304588..2893f49 100644
  }
  
  static int context_read_data(Context *c) {
-@@ -272,10 +243,15 @@ static int context_read_data(Context *c) {
+@@ -275,10 +243,15 @@ static int context_read_data(Context *c) {
  static int locale_write_data(Context *c, char ***settings) {
          int r, p;
          _cleanup_strv_free_ char **l = NULL;
@@ -129,7 +132,7 @@ index e304588..2893f49 100644
          if (r < 0 && r != -ENOENT)
                  return r;
  
-@@ -302,13 +278,13 @@ static int locale_write_data(Context *c, char ***settings) {
+@@ -305,13 +278,13 @@ static int locale_write_data(Context *c, char ***settings) {
          }
  
          if (strv_isempty(l)) {
@@ -145,7 +148,7 @@ index e304588..2893f49 100644
          if (r < 0)
                  return r;
  
-@@ -429,65 +405,99 @@ static int vconsole_write_data(Context *c) {
+@@ -432,65 +405,99 @@ static int vconsole_write_data(Context *c) {
  }
  
  static int x11_write_data(Context *c) {

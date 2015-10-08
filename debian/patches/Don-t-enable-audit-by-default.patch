@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/773528
  1 file changed, 5 deletions(-)
 
 diff --git a/src/journal/journald-audit.c b/src/journal/journald-audit.c
-index 83c3332..bbd65ff 100644
+index fe8ae19..afbbd59 100644
 --- a/src/journal/journald-audit.c
 +++ b/src/journal/journald-audit.c
-@@ -553,10 +553,5 @@ int server_open_audit(Server *s) {
+@@ -552,10 +552,5 @@ int server_open_audit(Server *s) {
          if (r < 0)
                  return log_error_errno(r, "Failed to add audit fd to event loop: %m");
  

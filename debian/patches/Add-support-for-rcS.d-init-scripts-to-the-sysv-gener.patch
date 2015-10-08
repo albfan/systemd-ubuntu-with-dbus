@@ -12,10 +12,10 @@ adjustments to the test suite.
  4 files changed, 38 insertions(+), 10 deletions(-)
 
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index e4700d9..8214b63 100644
+index 78bad4d..8e6ced0 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
-@@ -314,6 +314,11 @@
+@@ -333,6 +333,11 @@
            target unit for those mounts listed in
            <filename>/etc/fstab</filename> that have the
            <option>auto</option> mount option set.</para>
@@ -41,7 +41,7 @@ index 4560392..6bc4de7 100644
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 177bd85..f8862d7 100644
+index e16d439..9e9ac51 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
 @@ -38,6 +38,7 @@
@@ -130,7 +130,7 @@ index 177bd85..f8862d7 100644
                  if (other->sysv_start_priority < s->sysv_start_priority) {
                          r = strv_extend(&s->after, other->name);
                          if (r < 0)
-@@ -861,8 +880,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
+@@ -860,8 +879,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                  }
  
                                  if (de->d_name[0] == 'S')  {

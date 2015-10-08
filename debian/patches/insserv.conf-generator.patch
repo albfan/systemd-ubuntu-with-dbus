@@ -25,10 +25,10 @@ It has the following modifications:
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 8e0448f..e52b3e4 100644
+index 8646e55..26a3f23 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -411,6 +411,7 @@ rootlibexec_PROGRAMS += \
+@@ -410,6 +410,7 @@ rootlibexec_PROGRAMS += \
  endif
  
  systemgenerator_PROGRAMS = \
@@ -36,7 +36,7 @@ index 8e0448f..e52b3e4 100644
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
-@@ -2390,6 +2391,13 @@ systemd_delta_LDADD = \
+@@ -2388,6 +2389,13 @@ systemd_delta_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------

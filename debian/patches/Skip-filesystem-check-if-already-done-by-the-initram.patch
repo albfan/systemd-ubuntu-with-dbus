@@ -12,7 +12,7 @@ Closes: #782522
  2 files changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/src/fstab-generator/fstab-generator.c b/src/fstab-generator/fstab-generator.c
-index a88b68e..5329233 100644
+index 3f8ea56..fc9cec6 100644
 --- a/src/fstab-generator/fstab-generator.c
 +++ b/src/fstab-generator/fstab-generator.c
 @@ -130,10 +130,12 @@ static bool mount_is_network(struct mntent *me) {

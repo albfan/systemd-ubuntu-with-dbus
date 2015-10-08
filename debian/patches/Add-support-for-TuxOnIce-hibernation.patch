@@ -12,7 +12,7 @@ Forwarded: http://lists.freedesktop.org/archives/systemd-devel/2014-April/018960
  1 file changed, 6 insertions(+)
 
 diff --git a/src/shared/sleep-config.c b/src/shared/sleep-config.c
-index 1064fd5..225225d 100644
+index 3dedbd1..5a2e0ca 100644
 --- a/src/shared/sleep-config.c
 +++ b/src/shared/sleep-config.c
 @@ -222,6 +222,12 @@ static bool enough_memory_for_hibernation(void) {

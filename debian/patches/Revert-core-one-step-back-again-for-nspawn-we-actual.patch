@@ -10,17 +10,18 @@ Bug-Debian: https://bugs.debian.org/784720
 Bug-Ubuntu: https://launchpad.net/bugs/1448259
 Bug-Fedora: https://bugzilla.redhat.com/show_bug.cgi?id=1141137
 ---
- src/core/unit.c | 18 +-----------------
- 1 file changed, 1 insertion(+), 17 deletions(-)
+ src/core/unit.c | 19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
 diff --git a/src/core/unit.c b/src/core/unit.c
-index 1aa0321..a1fafb4 100644
+index 33c0317..74a9e22 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
-@@ -3495,23 +3495,7 @@ int unit_kill_context(
+@@ -3537,24 +3537,7 @@ int unit_kill_context(
+                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
  
                  } else if (r > 0) {
- 
+-
 -                        /* FIXME: For now, on the legacy hierarchy, we
 -                         * will not wait for the cgroup members to die
 -                         * if we are running in a container or if this
@@ -36,7 +37,7 @@ index 1aa0321..a1fafb4 100644
 -                         * them.*/
 -
 -                        if  (cg_unified() > 0 ||
--                             (detect_container(NULL) == 0 && !unit_cgroup_delegate(u)))
+-                             (detect_container() == 0 && !unit_cgroup_delegate(u)))
 -                                wait_for_exit = true;
 +                        wait_for_exit = true;
  
