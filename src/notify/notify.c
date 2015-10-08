@@ -19,20 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <getopt.h>
 #include <errno.h>
-#include <unistd.h>
+#include <getopt.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-#include "systemd/sd-daemon.h"
+#include "sd-daemon.h"
 
-#include "strv.h"
-#include "util.h"
-#include "log.h"
-#include "build.h"
 #include "env-util.h"
 #include "formats-util.h"
+#include "log.h"
+#include "strv.h"
+#include "util.h"
 
 static bool arg_ready = false;
 static pid_t arg_pid = 0;
@@ -85,9 +84,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_READY:
                         arg_ready = true;
@@ -191,14 +188,14 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        r = sd_pid_notify(arg_pid, false, n);
+        r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
         if (r < 0) {
                 log_error_errno(r, "Failed to notify init system: %m");
                 goto finish;
-        }
-
-        if (r == 0)
+        } else if (r == 0) {
+                log_error("No status data could be sent: $NOTIFY_SOCKET was not set");
                 r = -EOPNOTSUPP;
+        }
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

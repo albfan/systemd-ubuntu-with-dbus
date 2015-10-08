@@ -287,7 +287,7 @@
         below (see section "Command Lines" below).
         </para>
 
-        <para>When <varname>Type</varname> is not
+        <para>When <varname>Type=</varname> is not
         <option>oneshot</option>, only one command may and must be
         given. When <varname>Type=oneshot</varname> is used, zero or
         more commands may be specified. This can be specified by
@@ -421,7 +421,7 @@
         <varname>ExecStop=</varname> defined, or where the service
         exited unexpectedly. This argument takes multiple command
         lines, following the same scheme as described for
-        <varname>ExecStart</varname>. Use of these settings is
+        <varname>ExecStart=</varname>. Use of these settings is
         optional. Specifier and environment variable substitution is
         supported.</para></listitem>
       </varlistentry>
@@ -486,7 +486,7 @@
         "keep-alive ping"). If the time between two such calls is
         larger than the configured time, then the service is placed in
         a failed state and it will be terminated with
-        <varname>SIGABRT</varname>. By setting
+        <constant>SIGABRT</constant>. By setting
         <varname>Restart=</varname> to <option>on-failure</option> or
         <option>always</option>, the service will be automatically
         restarted. The time configured here will be passed to the
@@ -903,6 +903,27 @@
         and no job queued or being executed for it.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>USBFunctionDescriptors=</varname></term>
+        <listitem><para>Configure the location of a file containing
+        <ulink
+        url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
+        FunctionFS</ulink> descriptors, for implementation of USB
+        gadget functions. This is is used only in conjunction with a
+        socket unit with <varname>ListenUSBFunction=</varname>
+        configured. The contents of this file is written to the
+        <filename>ep0</filename> file after it is
+        opened.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>USBFunctionStrings=</varname></term>
+        <listitem><para>Configure the location of a file containing
+        USB FunctionFS strings.  Behavior is similar to
+        <varname>USBFunctionDescriptors=</varname>
+        above.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Check
@@ -972,7 +993,7 @@
     <literal>$FOO</literal> as a separate word on the command line, in
     which case it will be replaced by the value of the environment
     variable split at whitespace resulting in zero or more arguments.
-    For this type of expansion, quotes and respected when splitting
+    For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
 
     <para>Example:</para>

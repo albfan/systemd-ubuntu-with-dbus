@@ -353,9 +353,9 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
                 r = wait_for_terminate(child, &si);
                 if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to wait for client: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 break;
         }
 
@@ -423,7 +423,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                                         _exit(EXIT_FAILURE);
                         }
 
-                        r = copy_bytes(fd, pair[1], (off_t) -1, false);
+                        r = copy_bytes(fd, pair[1], (uint64_t) -1, false);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -444,9 +444,9 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
                 r = wait_for_terminate(child, &si);
                 if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to wait for client: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 break;
         }
@@ -735,7 +735,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         description = strjoina("Shell for User ", isempty(user) ? "root" : user);
         r = sd_bus_message_append(tm,
-                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
                                   "StandardInput", "s", "tty",
                                   "StandardOutput", "s", "tty",
@@ -748,7 +748,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                                   "TTYReset", "b", true,
                                   "UtmpIdentifier", "s", utmp_id,
                                   "UtmpMode", "s", "user",
-                                  "PAMName", "s", "login");
+                                  "PAMName", "s", "login",
+                                  "WorkingDirectory", "s", "-~");
         if (r < 0)
                 return r;
 
@@ -1040,11 +1041,11 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         r = wait_for_terminate(child, &si);
         if (r < 0) {
-                r = sd_bus_error_set_errnof(error, r, "Failed to wait for client: %m");
+                r = sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 goto finish;
         }
         if (si.si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 goto finish;
         }
         if (si.si_status != EXIT_SUCCESS) {
@@ -1052,7 +1053,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
                         r = sd_bus_error_set_errnof(error, r, "Failed to mount: %m");
                 else
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client failed.");
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child failed.");
                 goto finish;
         }
 
@@ -1088,7 +1089,7 @@ static int machine_operation_done(sd_event_source *s, const siginfo_t *si, void 
         o->pid = 0;
 
         if (si->si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
+                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 goto fail;
         }
 
@@ -1096,7 +1097,7 @@ static int machine_operation_done(sd_event_source *s, const siginfo_t *si, void 
                 if (read(o->errno_fd, &r, sizeof(r)) == sizeof(r))
                         r = sd_bus_error_set_errnof(&error, r, "%m");
                 else
-                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Client failed.");
+                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child failed.");
 
                 goto fail;
         }

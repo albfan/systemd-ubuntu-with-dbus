@@ -313,14 +313,10 @@ static char *disk_mount_point(const char *label) {
 }
 
 static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***passwords) {
-        int r = 0;
-        char **p;
-        _cleanup_free_ char *text = NULL;
-        _cleanup_free_ char *escaped_name = NULL;
-        char *id;
+        _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *maj_min = NULL, *text = NULL, *escaped_name = NULL;
         const char *name = NULL;
-        _cleanup_free_ char *description = NULL, *name_buffer = NULL,
-                *mount_point = NULL, *maj_min = NULL;
+        char **p, *id;
+        int r = 0;
 
         assert(vol);
         assert(src);
@@ -329,12 +325,11 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         description = disk_description(src);
         mount_point = disk_mount_point(vol);
 
-        if (description && streq(vol, description)) {
+        if (description && streq(vol, description))
                 /* If the description string is simply the
                  * volume name, then let's not show this
                  * twice */
                 description = mfree(description);
-        }
 
         if (mount_point && description)
                 r = asprintf(&name_buffer, "%s (%s) on %s", description, vol, mount_point);
@@ -365,7 +360,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         id = strjoina("cryptsetup:", escaped_name);
 
-        r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
+        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE|(accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0), passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -379,7 +374,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
                 id = strjoina("cryptsetup-verification:", escaped_name);
 
-                r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
+                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 

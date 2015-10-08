@@ -19,48 +19,47 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <locale.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <errno.h>
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <getopt.h>
-#include <signal.h>
-#include <poll.h>
-#include <sys/stat.h>
-#include <sys/inotify.h>
 #include <linux/fs.h>
+#include <locale.h>
+#include <poll.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/inotify.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "sd-journal.h"
 #include "sd-bus.h"
-#include "log.h"
-#include "logs-show.h"
-#include "util.h"
+#include "sd-journal.h"
+
 #include "acl-util.h"
-#include "path-util.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "catalog.h"
 #include "fileio.h"
-#include "build.h"
-#include "pager.h"
-#include "strv.h"
-#include "set.h"
-#include "sigbus.h"
-#include "journal-internal.h"
+#include "fsprg.h"
+#include "hostname-util.h"
 #include "journal-def.h"
-#include "journal-verify.h"
+#include "journal-internal.h"
 #include "journal-qrcode.h"
 #include "journal-vacuum.h"
-#include "fsprg.h"
-#include "unit-name.h"
-#include "catalog.h"
+#include "journal-verify.h"
+#include "log.h"
+#include "logs-show.h"
 #include "mkdir.h"
-#include "bus-util.h"
-#include "bus-error.h"
+#include "pager.h"
+#include "path-util.h"
+#include "set.h"
+#include "sigbus.h"
+#include "strv.h"
 #include "terminal-util.h"
-#include "hostname-util.h"
+#include "unit-name.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -107,8 +106,9 @@ static bool arg_reverse = false;
 static int arg_journal_type = 0;
 static const char *arg_root = NULL;
 static const char *arg_machine = NULL;
-static off_t arg_vacuum_size = (off_t) -1;
-static usec_t arg_vacuum_time = USEC_INFINITY;
+static uint64_t arg_vacuum_size = 0;
+static uint64_t arg_vacuum_n_files = 0;
+static usec_t arg_vacuum_time = 0;
 
 static enum {
         ACTION_SHOW,
@@ -122,6 +122,7 @@ static enum {
         ACTION_UPDATE_CATALOG,
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
+        ACTION_ROTATE,
         ACTION_VACUUM,
 } arg_action = ACTION_SHOW;
 
@@ -235,8 +236,10 @@ static void help(void) {
                "     --new-id128           Generate a new 128-bit ID\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
-               "     --vacuum-time=TIME    Remove journal files older than specified date\n"
+               "     --vacuum-files=INT    Leave only the specified number of journal files\n"
+               "     --vacuum-time=TIME    Remove journal files older than specified time\n"
                "     --flush               Flush all journal data from /run into /var\n"
+               "     --rotate              Request immediate rotation of the journal files\n"
                "     --header              Show journal header information\n"
                "     --list-catalog        Show all message IDs in the catalog\n"
                "     --dump-catalog        Show entries in the message catalog\n"
@@ -278,7 +281,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_UTC,
                 ARG_FLUSH,
+                ARG_ROTATE,
                 ARG_VACUUM_SIZE,
+                ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
         };
 
@@ -331,7 +336,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",        required_argument, NULL, 'M'                },
                 { "utc",            no_argument,       NULL, ARG_UTC            },
                 { "flush",          no_argument,       NULL, ARG_FLUSH          },
+                { "rotate",         no_argument,       NULL, ARG_ROTATE         },
                 { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
+                { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
                 { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
                 {}
         };
@@ -350,9 +357,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
@@ -539,6 +544,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_VACUUM;
                         break;
 
+                case ARG_VACUUM_FILES:
+                        r = safe_atou64(optarg, &arg_vacuum_n_files);
+                        if (r < 0) {
+                                log_error("Failed to parse vacuum files: %s", optarg);
+                                return r;
+                        }
+
+                        arg_action = ACTION_VACUUM;
+                        break;
+
                 case ARG_VACUUM_TIME:
                         r = parse_sec(optarg, &arg_vacuum_time);
                         if (r < 0) {
@@ -697,6 +712,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FLUSH:
                         arg_action = ACTION_FLUSH;
+                        break;
+
+                case ARG_ROTATE:
+                        arg_action = ACTION_ROTATE;
                         break;
 
                 case '?':
@@ -1428,8 +1447,7 @@ static int setup_keys(void) {
 
         fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open /dev/random: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to open /dev/random: %m");
                 goto finish;
         }
 
@@ -1454,8 +1472,7 @@ static int setup_keys(void) {
         safe_close(fd);
         fd = mkostemp_safe(k, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", k);
-                r = -errno;
+                r = log_error_errno(errno, "Failed to open %s: %m", k);
                 goto finish;
         }
 
@@ -1488,23 +1505,22 @@ static int setup_keys(void) {
         }
 
         if (link(k, p) < 0) {
-                log_error_errno(errno, "Failed to link file: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to link file: %m");
                 goto finish;
         }
 
         if (on_tty()) {
                 fprintf(stderr,
                         "\n"
-                        "The new key pair has been generated. The " ANSI_HIGHLIGHT_ON "secret sealing key" ANSI_HIGHLIGHT_OFF " has been written to\n"
+                        "The new key pair has been generated. The " ANSI_HIGHLIGHT "secret sealing key" ANSI_NORMAL " has been written to\n"
                         "the following local file. This key file is automatically updated when the\n"
                         "sealing key is advanced. It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
-                        "Please write down the following " ANSI_HIGHLIGHT_ON "secret verification key" ANSI_HIGHLIGHT_OFF ". It should be stored\n"
+                        "Please write down the following " ANSI_HIGHLIGHT "secret verification key" ANSI_NORMAL ". It should be stored\n"
                         "at a safe location and should not be saved locally on disk.\n"
-                        "\n\t" ANSI_HIGHLIGHT_RED_ON, p);
+                        "\n\t" ANSI_HIGHLIGHT_RED, p);
                 fflush(stderr);
         }
         for (i = 0; i < seed_size; i++) {
@@ -1519,7 +1535,7 @@ static int setup_keys(void) {
                 char tsb[FORMAT_TIMESPAN_MAX], *hn;
 
                 fprintf(stderr,
-                        ANSI_HIGHLIGHT_OFF "\n"
+                        ANSI_NORMAL "\n"
                         "The sealing key is automatically changed every %s.\n",
                         format_timespan(tsb, sizeof(tsb), arg_interval, 0));
 
@@ -1583,7 +1599,7 @@ static int verify(sd_journal *j) {
                         /* If the key was invalid give up right-away. */
                         return k;
                 } else if (k < 0) {
-                        log_warning("FAIL: %s (%s)", f->path, strerror(-k));
+                        log_warning_errno(k, "FAIL: %s (%m)", f->path);
                         r = k;
                 } else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
@@ -1728,7 +1744,7 @@ static int flush_to_var(void) {
 
         /* OK, let's actually do the full logic, send SIGUSR1 to the
          * daemon and set up inotify to wait for the flushed file to appear */
-        r = bus_open_system_systemd(&bus);
+        r = bus_connect_system_systemd(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
@@ -1775,6 +1791,30 @@ static int flush_to_var(void) {
         return 0;
 }
 
+static int rotate(void) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        int r;
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi", "systemd-journald.service", "main", SIGUSR2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         _cleanup_journal_close_ sd_journal *j = NULL;
@@ -1807,6 +1847,11 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_FLUSH) {
                 r = flush_to_var();
+                goto finish;
+        }
+
+        if (arg_action == ACTION_ROTATE) {
+                r = rotate();
                 goto finish;
         }
 
@@ -1898,9 +1943,9 @@ int main(int argc, char *argv[]) {
                         if (d->is_root)
                                 continue;
 
-                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_time, NULL, true);
+                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, true);
                         if (q < 0) {
-                                log_error_errno(q, "Failed to vacuum: %m");
+                                log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                                 r = q;
                         }
                 }
@@ -2147,7 +2192,7 @@ int main(int argc, char *argv[]) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
                                                 printf("%s-- Reboot --%s\n",
-                                                       ansi_highlight(), ansi_highlight_off());
+                                                       ansi_highlight(), ansi_normal());
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;

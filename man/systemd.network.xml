@@ -408,6 +408,14 @@
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6AcceptRouterAdvertisements=</varname></term>
+          <listitem><para>Configures Accept Router Advertisements.
+          This is enabled if local forwarding is disabled.
+          Disabled if local forwarding is enabled.
+          Takes a boolean. Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
@@ -535,6 +543,14 @@
             <para>The scope of the route. One of the values <literal>global</literal>,
             <literal>link</literal> or <literal>host</literal>. Defaults to
             <literal>global</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>PreferredSource=</varname></term>
+          <listitem>
+            <para>The preferred source address of the route. The address
+            must be in the format described in
+            <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -885,7 +901,7 @@ DHCP=yes</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bridge-static.network</title>
+      <title>/etc/systemd/network/25-bridge-static.network</title>
 
       <programlisting>[Match]
 Name=bridge0
@@ -897,7 +913,7 @@ DNS=192.168.0.1</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bridge-slave-interface.network</title>
+      <title>/etc/systemd/network/25-bridge-slave-interface.network</title>
 
       <programlisting>[Match]
 Name=enp2s0
@@ -906,7 +922,7 @@ Name=enp2s0
 Bridge=bridge0</programlisting>
     </example>
     <example>
-      <title>/etc/systemd/network/ipip.network</title>
+      <title>/etc/systemd/network/25-ipip.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -916,7 +932,7 @@ Tunnel=ipip-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/sit.network</title>
+      <title>/etc/systemd/network/25-sit.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -926,7 +942,7 @@ Tunnel=sit-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/gre.network</title>
+      <title>/etc/systemd/network/25-gre.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -936,7 +952,7 @@ Tunnel=gre-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/vti.network</title>
+      <title>/etc/systemd/network/25-vti.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -946,7 +962,7 @@ Tunnel=vti-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bond.network</title>
+      <title>/etc/systemd/network/25-bond.network</title>
 
       <programlisting>[Match]
 Name=bond1

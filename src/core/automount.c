@@ -127,13 +127,10 @@ static void automount_done(Unit *u) {
 
         unmount_autofs(a);
 
-        free(a->where);
-        a->where = NULL;
+        a->where = mfree(a->where);
 
-        set_free(a->tokens);
-        a->tokens = NULL;
-        set_free(a->expire_tokens);
-        a->expire_tokens = NULL;
+        a->tokens = set_free(a->tokens);
+        a->expire_tokens = set_free(a->expire_tokens);
 
         a->expire_event_source = sd_event_source_unref(a->expire_event_source);
 }
@@ -1026,15 +1023,6 @@ static bool automount_supported(void) {
 
         return supported;
 }
-
-static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
-        [AUTOMOUNT_DEAD] = "dead",
-        [AUTOMOUNT_WAITING] = "waiting",
-        [AUTOMOUNT_RUNNING] = "running",
-        [AUTOMOUNT_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
 
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_SUCCESS] = "success",

@@ -20,25 +20,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <getopt.h>
 #include <locale.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "log.h"
-#include "build.h"
-#include "util.h"
-#include "strxcpyx.h"
-#include "strv.h"
-#include "unit-name.h"
-#include "special.h"
-#include "hashmap.h"
-#include "pager.h"
+
 #include "analyze-verify.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
+#include "special.h"
+#include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
@@ -318,6 +318,10 @@ finish:
 }
 
 static void free_host_info(struct host_info *hi) {
+
+        if (!hi)
+                return;
+
         free(hi->hostname);
         free(hi->kernel_name);
         free(hi->kernel_release);
@@ -327,6 +331,8 @@ static void free_host_info(struct host_info *hi) {
         free(hi->architecture);
         free(hi);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -430,23 +436,24 @@ fail:
 }
 
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
-        int r;
-        struct host_info *host;
-
         static const struct bus_properties_map hostname_map[] = {
-                { "Hostname", "s", NULL, offsetof(struct host_info, hostname) },
-                { "KernelName", "s", NULL, offsetof(struct host_info, kernel_name) },
-                { "KernelRelease", "s", NULL, offsetof(struct host_info, kernel_release) },
-                { "KernelVersion", "s", NULL, offsetof(struct host_info, kernel_version) },
+                { "Hostname",                  "s", NULL, offsetof(struct host_info, hostname)       },
+                { "KernelName",                "s", NULL, offsetof(struct host_info, kernel_name)    },
+                { "KernelRelease",             "s", NULL, offsetof(struct host_info, kernel_release) },
+                { "KernelVersion",             "s", NULL, offsetof(struct host_info, kernel_version) },
                 { "OperatingSystemPrettyName", "s", NULL, offsetof(struct host_info, os_pretty_name) },
                 {}
         };
 
         static const struct bus_properties_map manager_map[] = {
-                { "Virtualization", "s", NULL, offsetof(struct host_info, virtualization) },
-                { "Architecture",   "s", NULL, offsetof(struct host_info, architecture) },
+                { "Virtualization",            "s", NULL, offsetof(struct host_info, virtualization) },
+                { "Architecture",              "s", NULL, offsetof(struct host_info, architecture)   },
                 {}
         };
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(free_host_infop) struct host_info *host;
+        int r;
 
         host = new0(struct host_info, 1);
         if (!host)
@@ -458,7 +465,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    hostname_map,
                                    host);
         if (r < 0)
-                goto fail;
+                log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s", bus_error_message(&error, r));
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
@@ -466,13 +473,12 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    manager_map,
                                    host);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to get host information from systemd: %s", bus_error_message(&error, r));
 
         *hi = host;
+        host = NULL;
+
         return 0;
-fail:
-        free_host_info(host);
-        return r;
 }
 
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
@@ -535,9 +541,9 @@ static void svg_graph_box(double height, double begin, double end) {
 }
 
 static int analyze_plot(sd_bus *bus) {
+        _cleanup_(free_host_infop) struct host_info *host = NULL;
         struct unit_times *times;
         struct boot_times *boot;
-        struct host_info *host = NULL;
         int n, m = 1, y=0;
         double width;
         _cleanup_free_ char *pretty_times = NULL;
@@ -557,7 +563,7 @@ static int analyze_plot(sd_bus *bus) {
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
-                goto out;
+                return n;
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_start);
 
@@ -582,8 +588,7 @@ static int analyze_plot(sd_bus *bus) {
 
                 if (u->activating < boot->userspace_time ||
                     u->activating > boot->finish_time) {
-                        free(u->name);
-                        u->name = NULL;
+                        u->name = mfree(u->name);
                         continue;
                 }
 
@@ -654,12 +659,12 @@ static int analyze_plot(sd_bus *bus) {
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
             isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
-            isempty(host->hostname) ? "" : host->hostname,
-            isempty(host->kernel_name) ? "" : host->kernel_name,
-            isempty(host->kernel_release) ? "" : host->kernel_release,
-            isempty(host->kernel_version) ? "" : host->kernel_version,
-            isempty(host->architecture) ? "" : host->architecture,
-            isempty(host->virtualization) ? "" : host->virtualization);
+            strempty(host->hostname),
+            strempty(host->kernel_name),
+            strempty(host->kernel_release),
+            strempty(host->kernel_version),
+            strempty(host->architecture),
+            strempty(host->virtualization));
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
@@ -743,8 +748,6 @@ static int analyze_plot(sd_bus *bus) {
         free_unit_times(times, (unsigned) n);
 
         n = 0;
-out:
-        free_host_info(host);
         return n;
 }
 
@@ -760,9 +763,9 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
 
         if (times) {
                 if (times->time)
-                        printf("%s%s @%s +%s%s", ANSI_HIGHLIGHT_RED_ON, name,
+                        printf("%s%s @%s +%s%s", ANSI_HIGHLIGHT_RED, name,
                                format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC),
-                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
+                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ANSI_NORMAL);
                 else if (times->activated > boot->userspace_time)
                         printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
@@ -845,11 +848,8 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times && times->activated
-                    && times->activated <= boot->finish_time
-                    && (service_longest - times->activated) <= arg_fuzz) {
+                if (times && times->activated && times->activated <= boot->finish_time && (service_longest - times->activated) <= arg_fuzz)
                         to_print++;
-                }
         }
 
         if (!to_print)
@@ -931,8 +931,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
         if (times) {
                 if (times->time)
-                        printf("%s%s +%s%s\n", ANSI_HIGHLIGHT_RED_ON, id,
-                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
+                        printf("%s%s +%s%s\n", ANSI_HIGHLIGHT_RED, id,
+                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ANSI_NORMAL);
                 else if (times->activated > boot->userspace_time)
                         printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
@@ -1016,7 +1016,7 @@ static int analyze_time(sd_bus *bus) {
         return 0;
 }
 
-static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[]) {
+static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[], char* from_patterns[], char* to_patterns[]) {
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
@@ -1028,9 +1028,9 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
 
         match_patterns = strv_fnmatch(patterns, u->id, 0);
 
-        if (!strv_isempty(arg_dot_from_patterns) &&
+        if (!strv_isempty(from_patterns) &&
             !match_patterns &&
-            !strv_fnmatch(arg_dot_from_patterns, u->id, 0))
+            !strv_fnmatch(from_patterns, u->id, 0))
                         return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
@@ -1042,9 +1042,9 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
 
                 match_patterns2 = strv_fnmatch(patterns, *unit, 0);
 
-                if (!strv_isempty(arg_dot_to_patterns) &&
+                if (!strv_isempty(to_patterns) &&
                     !match_patterns2 &&
-                    !strv_fnmatch(arg_dot_to_patterns, *unit, 0))
+                    !strv_fnmatch(to_patterns, *unit, 0))
                         continue;
 
                 if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
@@ -1056,35 +1056,35 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
         return 0;
 }
 
-static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[]) {
+static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *from_patterns[], char *to_patterns[]) {
         int r;
 
         assert(bus);
         assert(u);
 
         if (arg_dot == DEP_ORDER ||arg_dot == DEP_ALL) {
-                r = graph_one_property(bus, u, "After", "green", patterns);
+                r = graph_one_property(bus, u, "After", "green", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (arg_dot == DEP_REQUIRE ||arg_dot == DEP_ALL) {
-                r = graph_one_property(bus, u, "Requires", "black", patterns);
+                r = graph_one_property(bus, u, "Requires", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns);
+                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns);
+                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Wants", "grey66", patterns);
+                r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Conflicts", "red", patterns);
+                r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns);
+                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1138,10 +1138,20 @@ static int dot(sd_bus *bus, char* patterns[]) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **expanded_patterns = NULL;
+        _cleanup_strv_free_ char **expanded_from_patterns = NULL;
+        _cleanup_strv_free_ char **expanded_to_patterns = NULL;
         int r;
         UnitInfo u;
 
         r = expand_patterns(bus, patterns, &expanded_patterns);
+        if (r < 0)
+                return r;
+
+        r = expand_patterns(bus, arg_dot_from_patterns, &expanded_from_patterns);
+        if (r < 0)
+                return r;
+
+        r = expand_patterns(bus, arg_dot_to_patterns, &expanded_to_patterns);
         if (r < 0)
                 return r;
 
@@ -1167,7 +1177,7 @@ static int dot(sd_bus *bus, char* patterns[]) {
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
 
-                r = graph_one(bus, &u, expanded_patterns);
+                r = graph_one(bus, &u, expanded_patterns, expanded_from_patterns, expanded_to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1211,10 +1221,8 @@ static int dump(sd_bus *bus, char **args) {
                        &error,
                        &reply,
                        "");
-        if (r < 0) {
-                log_error("Failed issue method call: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed issue method call: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &text);
         if (r < 0)
@@ -1245,10 +1253,35 @@ static int set_log_level(sd_bus *bus, char **args) {
                         &error,
                         "s",
                         args[0]);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-                return -EIO;
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int set_log_target(sd_bus *bus, char **args) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(args);
+
+        if (strv_length(args) != 1) {
+                log_error("This command expects one argument only.");
+                return -E2BIG;
         }
+
+        r = sd_bus_set_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "LogTarget",
+                        &error,
+                        "s",
+                        args[0]);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1279,7 +1312,8 @@ static void help(void) {
                "  critical-chain          Print a tree of the time critical chain of units\n"
                "  plot                    Output SVG graphic showing service initialization\n"
                "  dot                     Output dependency graph in dot(1) format\n"
-               "  set-log-level LEVEL     Set logging threshold for systemd\n"
+               "  set-log-level LEVEL     Set logging threshold for manager\n"
+               "  set-log-target TARGET   Set logging target for manager\n"
                "  dump                    Output state serialization of service manager\n"
                "  verify FILE...          Check unit files for correctness\n"
                , program_invocation_short_name);
@@ -1333,9 +1367,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_USER:
                         arg_user = true;
@@ -1428,7 +1460,7 @@ int main(int argc, char *argv[]) {
         else {
                 _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
 
-                r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create bus connection: %m");
                         goto finish;
@@ -1448,6 +1480,8 @@ int main(int argc, char *argv[]) {
                         r = dump(bus, argv+optind+1);
                 else if (streq(argv[optind], "set-log-level"))
                         r = set_log_level(bus, argv+optind+1);
+                else if (streq(argv[optind], "set-log-target"))
+                        r = set_log_target(bus, argv+optind+1);
                 else
                         log_error("Unknown operation '%s'.", argv[optind]);
         }

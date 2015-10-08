@@ -23,11 +23,12 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <libmount.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
-#include "fdset.h"
 #include "cgroup-util.h"
+#include "fdset.h"
 #include "hashmap.h"
 #include "list.h"
 #include "ratelimit.h"
@@ -68,11 +69,11 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
+#include "execute.h"
 #include "job.h"
 #include "path-lookup.h"
-#include "execute.h"
-#include "unit-name.h"
 #include "show-status.h"
+#include "unit-name.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -176,10 +177,8 @@ struct Manager {
         Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */
-        FILE *proc_self_mountinfo;
+        struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
-        int utab_inotify_fd;
-        sd_event_source *mount_utab_event_source;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
@@ -242,6 +241,11 @@ struct Manager {
 
         bool test_run:1;
 
+        /* If non-zero, exit with the following value when the systemd
+         * process terminate. Useful for containers: systemd-nspawn could get
+         * the return value. */
+        uint8_t return_value;
+
         ShowStatus show_status;
         bool confirm_spawn;
         bool no_console_output;
@@ -256,6 +260,7 @@ struct Manager {
         bool default_cpu_accounting;
         bool default_memory_accounting;
         bool default_blockio_accounting;
+        bool default_tasks_accounting;
 
         usec_t default_timer_accuracy_usec;
 
@@ -302,6 +307,10 @@ struct Manager {
         const char *unit_log_format_string;
 
         int first_boot;
+
+        /* Used for NetClass=auto units */
+        Hashmap *cgroup_netclass_registry;
+        uint32_t cgroup_netclass_registry_last;
 };
 
 int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);
@@ -368,7 +377,7 @@ const char *manager_get_runtime_prefix(Manager *m);
 
 ManagerState manager_state(Manager *m);
 
-void manager_update_failed_units(Manager *m, Unit *u, bool failed);
+int manager_update_failed_units(Manager *m, Unit *u, bool failed);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;

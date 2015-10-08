@@ -60,14 +60,14 @@ static bool arg_force = false;
 static bool arg_show_progress = false;
 static const char *arg_repair = "-a";
 
-static void start_target(const char *target) {
+static void start_target(const char *target, const char *mode) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(target);
 
-        r = bus_open_system_systemd(&bus);
+        r = bus_connect_system_systemd(&bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to get D-Bus connection: %m");
                 return;
@@ -83,7 +83,7 @@ static void start_target(const char *target) {
                                "StartUnitReplace",
                                &error,
                                NULL,
-                               "sss", "basic.target", target, "replace");
+                               "sss", "basic.target", target, mode);
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
@@ -463,10 +463,10 @@ int main(int argc, char *argv[]) {
 
                 if (status.si_code == CLD_EXITED && (status.si_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory)
                         /* System should be rebooted. */
-                        start_target(SPECIAL_REBOOT_TARGET);
+                        start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
                 else if (status.si_code == CLD_EXITED && (status.si_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
                         /* Some other problem */
-                        start_target(SPECIAL_EMERGENCY_TARGET);
+                        start_target(SPECIAL_EMERGENCY_TARGET, "replace");
                 else {
                         log_warning("Ignoring error.");
                         r = 0;

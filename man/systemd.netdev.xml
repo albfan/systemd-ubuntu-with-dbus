@@ -277,6 +277,43 @@
       </variablelist>
   </refsect1>
 
+    <refsect1>
+    <title>[Bridge] Section Options</title>
+
+      <para>The <literal>[Bridge]</literal> section only applies for
+      netdevs of kind <literal>bridge</literal>, and accepts the
+      following key:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>HelloTimeSec=</varname></term>
+          <listitem>
+            <para>HelloTimeSec specifies the number of seconds a hello packet is
+            sent out by the root bridge and the designated bridges. Hello packets are
+            used to communicate information about the topology throughout the entire
+            bridged local area network.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MaxAgeSec=</varname></term>
+          <listitem>
+            <para>MaxAgeSec specifies the number of seconds of maximum message age.
+            If the last seen (received) hello packet is more than this number of
+            seconds old, the bridge in question will start the takeover procedure
+            in attempt to become the Root Bridge itself.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ForwardDelaySec=</varname></term>
+          <listitem>
+            <para>ForwardDelaySec specifies the number of seconds spent in each
+            of the Listening and Learning states before the Forwarding state is entered.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+  </refsect1>
+
   <refsect1>
     <title>[VLAN] Section Options</title>
 
@@ -909,7 +946,7 @@
   <refsect1>
     <title>Example</title>
     <example>
-      <title>/etc/systemd/network/bridge.netdev</title>
+      <title>/etc/systemd/network/25-bridge.netdev</title>
 
       <programlisting>[NetDev]
 Name=bridge0
@@ -917,7 +954,7 @@ Kind=bridge</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/vlan1.netdev</title>
+      <title>/etc/systemd/network/25-vlan1.netdev</title>
 
       <programlisting>[Match]
 Virtualization=no
@@ -930,7 +967,7 @@ Kind=vlan
 Id=1</programlisting>
     </example>
     <example>
-      <title>/etc/systemd/network/ipip.netdev</title>
+      <title>/etc/systemd/network/25-ipip.netdev</title>
       <programlisting>[NetDev]
 Name=ipip-tun
 Kind=ipip
@@ -942,7 +979,7 @@ Remote=192.169.224.239
 TTL=64</programlisting>
     </example>
     <example>
-      <title>/etc/systemd/network/tap.netdev</title>
+      <title>/etc/systemd/network/25-tap.netdev</title>
       <programlisting>[NetDev]
 Name=tap-test
 Kind=tap
@@ -952,7 +989,7 @@ MultiQueue=true
 PacketInfo=true</programlisting> </example>
 
     <example>
-      <title>/etc/systemd/network/sit.netdev</title>
+      <title>/etc/systemd/network/25-sit.netdev</title>
       <programlisting>[NetDev]
 Name=sit-tun
 Kind=sit
@@ -964,7 +1001,7 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/gre.netdev</title>
+      <title>/etc/systemd/network/25-gre.netdev</title>
       <programlisting>[NetDev]
 Name=gre-tun
 Kind=gre
@@ -976,7 +1013,7 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/vti.netdev</title>
+      <title>/etc/systemd/network/25-vti.netdev</title>
 
       <programlisting>[NetDev]
 Name=vti-tun
@@ -989,7 +1026,7 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/veth.netdev</title>
+      <title>/etc/systemd/network/25-veth.netdev</title>
       <programlisting>[NetDev]
 Name=veth-test
 Kind=veth
@@ -999,7 +1036,7 @@ Name=veth-peer</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bond.netdev</title>
+      <title>/etc/systemd/network/25-bond.netdev</title>
       <programlisting>[NetDev]
 Name=bond1
 Kind=bond
@@ -1013,7 +1050,7 @@ LACPTransmitRate=fast
     </example>
 
     <example>
-      <title>/etc/systemd/network/dummy.netdev</title>
+      <title>/etc/systemd/network/25-dummy.netdev</title>
       <programlisting>[NetDev]
 Name=dummy-test
 Kind=dummy

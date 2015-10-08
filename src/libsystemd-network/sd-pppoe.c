@@ -385,7 +385,7 @@ static int pppoe_send_initiation(sd_pppoe *ppp) {
                 return r;
 
         log_debug("PPPoE: sent DISCOVER (Service-Name: %s)",
-                  ppp->service_name ? : "");
+                  strna(ppp->service_name));
 
         pppoe_arm_timeout(ppp);
 
@@ -625,8 +625,8 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
                   mac->ether_addr_octet[3],
                   mac->ether_addr_octet[4],
                   mac->ether_addr_octet[5],
-                  ppp->tags.service_name ? : "",
-                  ppp->tags.ac_name ? : "");
+                  strempty(ppp->tags.service_name),
+                  strempty(ppp->tags.ac_name));
 
                 memcpy(&ppp->peer_mac, mac, ETH_ALEN);
 
@@ -670,7 +670,7 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
 
                 ppp->timeout = sd_event_source_unref(ppp->timeout);
                 assert(ppp->cb);
-                ppp->cb(ppp, PPPOE_EVENT_RUNNING, ppp->userdata);
+                ppp->cb(ppp, SD_PPPOE_EVENT_RUNNING, ppp->userdata);
 
                 break;
         case PPPOE_STATE_RUNNING:
@@ -688,7 +688,7 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
                 ppp->state = PPPOE_STATE_STOPPED;
 
                 assert(ppp->cb);
-                ppp->cb(ppp, PPPOE_EVENT_STOPPED, ppp->userdata);
+                ppp->cb(ppp, SD_PPPOE_EVENT_STOPPED, ppp->userdata);
 
                 break;
         case PPPOE_STATE_STOPPED:

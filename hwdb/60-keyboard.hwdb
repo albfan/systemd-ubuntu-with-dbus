@@ -273,6 +273,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:pvr*
 
 # Dell Latitude microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*
+# Dell Precision microphone mute
+evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*
  KEYBOARD_KEY_150=f20                                   # Mic mute toggle, should be micmute
 
 ###########################################################
@@ -645,6 +647,10 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 # V480
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
+
+# Thinkpad Yoga 12 (2015)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPadS1Yoga12*
+ KEYBOARD_KEY_d9=direction
 
 # enhanced USB keyboard
 evdev:input:b0003v04B3p301B*

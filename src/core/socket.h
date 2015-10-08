@@ -27,24 +27,6 @@ typedef struct Socket Socket;
 #include "mount.h"
 #include "service.h"
 
-typedef enum SocketState {
-        SOCKET_DEAD,
-        SOCKET_START_PRE,
-        SOCKET_START_CHOWN,
-        SOCKET_START_POST,
-        SOCKET_LISTENING,
-        SOCKET_RUNNING,
-        SOCKET_STOP_PRE,
-        SOCKET_STOP_PRE_SIGTERM,
-        SOCKET_STOP_PRE_SIGKILL,
-        SOCKET_STOP_POST,
-        SOCKET_FINAL_SIGTERM,
-        SOCKET_FINAL_SIGKILL,
-        SOCKET_FAILED,
-        _SOCKET_STATE_MAX,
-        _SOCKET_STATE_INVALID = -1
-} SocketState;
-
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
         SOCKET_EXEC_START_CHOWN,
@@ -60,6 +42,7 @@ typedef enum SocketType {
         SOCKET_FIFO,
         SOCKET_SPECIAL,
         SOCKET_MQUEUE,
+        SOCKET_USB_FUNCTION,
         _SOCKET_FIFO_MAX,
         _SOCKET_FIFO_INVALID = -1
 } SocketType;
@@ -81,6 +64,8 @@ typedef struct SocketPort {
 
         SocketType type;
         int fd;
+        int *auxiliary_fds;
+        int n_auxiliary_fds;
 
         SocketAddress address;
         char *path;
@@ -133,6 +118,7 @@ struct Socket {
 
         bool accept;
         bool remove_on_stop;
+        bool writable;
 
         /* Socket options */
         bool keep_alive;
@@ -168,20 +154,23 @@ struct Socket {
         char *user, *group;
 
         bool reset_cpu_usage:1;
+
+        char *fdname;
 };
 
 /* Called from the service code when collecting fds */
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
+int socket_collect_fds(Socket *s, int **fds);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);
 
 void socket_free_ports(Socket *s);
 
-extern const UnitVTable socket_vtable;
+int socket_instantiate_service(Socket *s);
 
-const char* socket_state_to_string(SocketState i) _const_;
-SocketState socket_state_from_string(const char *s) _pure_;
+char *socket_fdname(Socket *s);
+
+extern const UnitVTable socket_vtable;
 
 const char* socket_exec_command_to_string(SocketExecCommand i) _const_;
 SocketExecCommand socket_exec_command_from_string(const char *s) _pure_;
@@ -190,5 +179,3 @@ const char* socket_result_to_string(SocketResult i) _const_;
 SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
-
-int socket_instantiate_service(Socket *s);

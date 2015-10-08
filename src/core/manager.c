@@ -19,19 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
 #include <errno.h>
-#include <string.h>
+#include <fcntl.h>
+#include <linux/kd.h>
 #include <signal.h>
+#include <string.h>
+#include <sys/epoll.h>
+#include <sys/inotify.h>
+#include <sys/ioctl.h>
+#include <sys/reboot.h>
+#include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <sys/inotify.h>
-#include <sys/epoll.h>
-#include <sys/reboot.h>
-#include <sys/ioctl.h>
-#include <linux/kd.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/timerfd.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -40,40 +40,40 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
-#include "hashmap.h"
-#include "macro.h"
-#include "strv.h"
-#include "log.h"
-#include "util.h"
-#include "mkdir.h"
-#include "ratelimit.h"
-#include "locale-setup.h"
-#include "unit-name.h"
-#include "missing.h"
-#include "rm-rf.h"
-#include "path-lookup.h"
-#include "special.h"
-#include "exit-status.h"
-#include "virt.h"
-#include "watchdog.h"
-#include "path-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
-#include "env-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "bus-kernel.h"
-#include "time-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
-#include "signal-util.h"
-#include "dbus.h"
-#include "dbus-unit.h"
+#include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
-#include "manager.h"
+#include "dbus-unit.h"
+#include "dbus.h"
+#include "env-util.h"
+#include "exit-status.h"
+#include "hashmap.h"
+#include "locale-setup.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "path-lookup.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "ratelimit.h"
+#include "rm-rf.h"
+#include "signal-util.h"
+#include "special.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "transaction.h"
+#include "unit-name.h"
+#include "util.h"
+#include "virt.h"
+#include "watchdog.h"
+#include "manager.h"
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
@@ -111,7 +111,7 @@ static void manager_watch_jobs_in_progress(Manager *m) {
         (void) sd_event_source_set_description(m->jobs_in_progress_event_source, "manager-jobs-in-progress");
 }
 
-#define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED_ON)-1) + sizeof(ANSI_HIGHLIGHT_RED_ON)-1 + 2*(sizeof(ANSI_HIGHLIGHT_OFF)-1))
+#define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED)-1) + sizeof(ANSI_HIGHLIGHT_RED)-1 + 2*(sizeof(ANSI_NORMAL)-1))
 
 static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
         char *p = buffer;
@@ -122,23 +122,23 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         if (pos > 1) {
                 if (pos > 2)
                         p = mempset(p, ' ', pos-2);
-                p = stpcpy(p, ANSI_RED_ON);
+                p = stpcpy(p, ANSI_RED);
                 *p++ = '*';
         }
 
         if (pos > 0 && pos <= width) {
-                p = stpcpy(p, ANSI_HIGHLIGHT_RED_ON);
+                p = stpcpy(p, ANSI_HIGHLIGHT_RED);
                 *p++ = '*';
         }
 
-        p = stpcpy(p, ANSI_HIGHLIGHT_OFF);
+        p = stpcpy(p, ANSI_NORMAL);
 
         if (pos < width) {
-                p = stpcpy(p, ANSI_RED_ON);
+                p = stpcpy(p, ANSI_RED);
                 *p++ = '*';
                 if (pos < width-1)
                         p = mempset(p, ' ', width-1-pos);
-                strcpy(p, ANSI_HIGHLIGHT_OFF);
+                strcpy(p, ANSI_NORMAL);
         }
 }
 
@@ -317,6 +317,8 @@ static int manager_watch_idle_pipe(Manager *m) {
 static void manager_close_idle_pipe(Manager *m) {
         assert(m);
 
+        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
+
         safe_close_pair(m->idle_pipe);
         safe_close_pair(m->idle_pipe + 2);
 }
@@ -493,6 +495,7 @@ static void manager_clean_environment(Manager *m) {
                         "MANAGERPID",
                         "LISTEN_PID",
                         "LISTEN_FDS",
+                        "LISTEN_FDNAMES",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
                         NULL);
@@ -554,7 +557,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
                 return -ENOMEM;
 
 #ifdef ENABLE_EFI
-        if (running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0)
+        if (running_as == MANAGER_SYSTEM && detect_container() <= 0)
                 boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
 
@@ -569,13 +572,15 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
         m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd =
-                m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->utab_inotify_fd =
-                m->cgroup_inotify_fd = -1;
+                m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->cgroup_inotify_fd = -1;
+
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         m->ask_password_inotify_fd = -1;
         m->have_ask_password = -EINVAL; /* we don't know */
         m->first_boot = -1;
+
+        m->cgroup_netclass_registry_last = CGROUP_NETCLASS_FIXED_MAX;
 
         m->test_run = test_run;
 
@@ -599,14 +604,6 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
                 goto fail;
 
         r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops);
-        if (r < 0)
-                goto fail;
-
-        r = set_ensure_allocated(&m->startup_units, NULL);
-        if (r < 0)
-                goto fail;
-
-        r = set_ensure_allocated(&m->failed_units, NULL);
         if (r < 0)
                 goto fail;
 
@@ -674,8 +671,7 @@ static int manager_setup_notify(Manager *m) {
                 static const int one = 1;
 
                 /* First free all secondary fields */
-                free(m->notify_socket);
-                m->notify_socket = NULL;
+                m->notify_socket = mfree(m->notify_socket);
                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
@@ -945,7 +941,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->notify_event_source);
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
-        sd_event_source_unref(m->idle_pipe_event_source);
         sd_event_source_unref(m->run_queue_event_source);
 
         safe_close(m->signal_fd);
@@ -967,6 +962,8 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
+
+        hashmap_free(m->cgroup_netclass_registry);
 
         free(m->switch_root);
         free(m->switch_root_init);
@@ -1075,8 +1072,7 @@ static void manager_build_unit_path_cache(Manager *m) {
                                 goto fail;
                 }
 
-                closedir(d);
-                d = NULL;
+                d = safe_closedir(d);
         }
 
         return;
@@ -1963,7 +1959,6 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 
         m->no_console_output = m->n_on_console > 0;
 
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
 
         return 0;
@@ -2156,7 +2151,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return;
 
         if (u->type != UNIT_SERVICE &&
@@ -2613,7 +2608,7 @@ static void manager_notify_finished(Manager *m) {
         if (m->test_run)
                 return;
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
+        if (m->running_as == MANAGER_SYSTEM && detect_container() <= 0) {
 
                 /* Note that m->kernel_usec.monotonic is always at 0,
                  * and m->firmware_usec.monotonic and
@@ -2676,9 +2671,6 @@ static void manager_notify_finished(Manager *m) {
 }
 
 void manager_check_finished(Manager *m) {
-        Unit *u = NULL;
-        Iterator i;
-
         assert(m);
 
         if (m->n_reloading > 0)
@@ -2691,11 +2683,9 @@ void manager_check_finished(Manager *m) {
                 return;
 
         if (hashmap_size(m->jobs) > 0) {
-
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
-                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
-                                                        now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
+                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
 
                 return;
         }
@@ -2703,7 +2693,6 @@ void manager_check_finished(Manager *m) {
         manager_flip_auto_status(m, false);
 
         /* Notify Type=idle units that we are done now */
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
@@ -2722,9 +2711,7 @@ void manager_check_finished(Manager *m) {
 
         manager_notify_finished(m);
 
-        SET_FOREACH(u, m->startup_units, i)
-                if (u->cgroup_path)
-                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_own_mask(u), u->cgroup_path, manager_state(m));
+        manager_invalidate_startup_units(m);
 }
 
 static int create_generator_dir(Manager *m, char **generator, const char *name) {
@@ -2793,10 +2780,8 @@ static void trim_generator_dir(Manager *m, char **generator) {
         if (!*generator)
                 return;
 
-        if (rmdir(*generator) >= 0) {
-                free(*generator);
-                *generator = NULL;
-        }
+        if (rmdir(*generator) >= 0)
+                *generator = mfree(*generator);
 
         return;
 }
@@ -2866,8 +2851,7 @@ static void remove_generator_dir(Manager *m, char **generator) {
         strv_remove(m->lookup_paths.unit_path, *generator);
         (void) rm_rf(*generator, REMOVE_ROOT);
 
-        free(*generator);
-        *generator = NULL;
+        *generator = mfree(*generator);
 }
 
 static void manager_undo_generators(Manager *m) {
@@ -3073,8 +3057,9 @@ const char *manager_get_runtime_prefix(Manager *m) {
                getenv("XDG_RUNTIME_DIR");
 }
 
-void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
+int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         unsigned size;
+        int r;
 
         assert(m);
         assert(u->manager == m);
@@ -3082,13 +3067,19 @@ void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         size = set_size(m->failed_units);
 
         if (failed) {
+                r = set_ensure_allocated(&m->failed_units, NULL);
+                if (r < 0)
+                        return log_oom();
+
                 if (set_put(m->failed_units, u) < 0)
-                        log_oom();
+                        return log_oom();
         } else
-                set_remove(m->failed_units, u);
+                (void) set_remove(m->failed_units, u);
 
         if (set_size(m->failed_units) != size)
                 bus_manager_send_change_signal(m);
+
+        return 0;
 }
 
 ManagerState manager_state(Manager *m) {

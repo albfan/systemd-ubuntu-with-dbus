@@ -672,9 +672,8 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
                 const char *key = udev_list_entry_get_name(list_entry);
                 const char *val = udev_list_entry_get_value(list_entry);
 
-                if (fnmatch(filter, key, 0) == 0) {
+                if (fnmatch(filter, key, 0) == 0)
                         udev_device_add_property(dev, key, val);
-                }
         }
         return 0;
 }
@@ -1429,9 +1428,9 @@ static int add_rule(struct udev_rules *rules, char *line,
                         } else if ((rules->resolve_names > 0) && strchr("$%", value[0]) == NULL) {
                                 uid = add_uid(rules, value);
                                 rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
-                        } else if (rules->resolve_names >= 0) {
+                        } else if (rules->resolve_names >= 0)
                                 rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
-                        }
+
                         rule_tmp.rule.rule.can_set_name = true;
                         continue;
                 }
@@ -1451,9 +1450,9 @@ static int add_rule(struct udev_rules *rules, char *line,
                         } else if ((rules->resolve_names > 0) && strchr("$%", value[0]) == NULL) {
                                 gid = add_gid(rules, value);
                                 rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
-                        } else if (rules->resolve_names >= 0) {
+                        } else if (rules->resolve_names >= 0)
                                 rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
-                        }
+
                         rule_tmp.rule.rule.can_set_name = true;
                         continue;
                 }
@@ -1686,12 +1685,10 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         strbuf_complete(rules->strbuf);
 
         /* cleanup uid/gid cache */
-        free(rules->uids);
-        rules->uids = NULL;
+        rules->uids = mfree(rules->uids);
         rules->uids_cur = 0;
         rules->uids_max = 0;
-        free(rules->gids);
-        rules->gids = NULL;
+        rules->gids = mfree(rules->gids);
         rules->gids_cur = 0;
         rules->gids_max = 0;
 
@@ -1940,7 +1937,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                         break;
                                 }
                         }
-                        if (!match && (cur->key.op != OP_NOMATCH))
+                        if ((!match && (cur->key.op != OP_NOMATCH)) ||
+                            (match && (cur->key.op == OP_NOMATCH)))
                                 goto nomatch;
                         break;
                 }
@@ -2064,8 +2062,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         char program[UTIL_PATH_SIZE];
                         char result[UTIL_LINE_SIZE];
 
-                        free(event->program_result);
-                        event->program_result = NULL;
+                        event->program_result = mfree(event->program_result);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program));
                         log_debug("PROGRAM '%s' %s:%u",
                                   program,
@@ -2518,7 +2515,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                         r = sysctl_write(filename, value);
                         if (r < 0)
-                                log_error("error writing SYSCTL{%s}='%s': %s", filename, value, strerror(-r));
+                                log_error_errno(r, "error writing SYSCTL{%s}='%s': %m", filename, value);
                         break;
                 }
                 case TK_A_RUN_BUILTIN:

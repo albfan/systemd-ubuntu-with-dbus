@@ -77,10 +77,14 @@ static void test_exec_workingdirectory(Manager *m) {
 }
 
 static void test_exec_personality(Manager *m) {
-        test(m, "exec-personality-x86.service", 0, CLD_EXITED);
-
 #if defined(__x86_64__)
         test(m, "exec-personality-x86-64.service", 0, CLD_EXITED);
+
+#elif defined(__s390__)
+        test(m, "exec-personality-s390.service", 0, CLD_EXITED);
+
+#else
+        test(m, "exec-personality-x86.service", 0, CLD_EXITED);
 #endif
 }
 
@@ -137,6 +141,12 @@ static void test_exec_umask(Manager *m) {
         test(m, "exec-umask-0177.service", 0, CLD_EXITED);
 }
 
+static void test_exec_runtimedirectory(Manager *m) {
+        test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
+        test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
+        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -150,6 +160,7 @@ int main(int argc, char *argv[]) {
                 test_exec_group,
                 test_exec_environment,
                 test_exec_umask,
+                test_exec_runtimedirectory,
                 NULL,
         };
         test_function_t *test = NULL;
@@ -165,6 +176,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
+        assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
         assert_se(set_unit_path(TEST_DIR) >= 0);
 
         r = manager_new(MANAGER_USER, true, &m);

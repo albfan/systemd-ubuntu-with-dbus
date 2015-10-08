@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [226],
+        [227],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -171,7 +171,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
-        -Werror=shadow \
         -Wstrict-prototypes \
         -Wredundant-decls \
         -Wmissing-noreturn \
@@ -195,6 +194,17 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fstack-protector-strong \
         -fPIE \
         --param=ssp-buffer-size=4])
+
+CC_CHECK_FLAG_APPEND([with_cflags], [CFLAGS], [-Werror=shadow], [
+#include <time.h>
+#include <inttypes.h>
+typedef uint64_t usec_t;
+usec_t now(clockid_t clock);
+int main(void) {
+        struct timespec now;
+        return 0;
+}
+])
 
 AS_CASE([$CC], [*clang*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
@@ -288,7 +298,7 @@ AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2, kcmp, LO_FLAGS_PARTSCAN],
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2, kcmp, keyctl, key_serial_t, LO_FLAGS_PARTSCAN],
                [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
@@ -311,6 +321,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_GRE_ENCAP_DPORT,
                 IFLA_BRIDGE_VLAN_INFO,
                 IFLA_BRPORT_LEARNING_SYNC,
+                IFLA_BR_PRIORITY,
                 NDA_IFINDEX,
                 IFA_FLAGS],
 [], [], [[
@@ -427,7 +438,7 @@ AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_libmount=no
-PKG_CHECK_MODULES(MOUNT, [ mount >= 2.20 ],
+PKG_CHECK_MODULES(MOUNT, [ mount >= 2.27 ],
         [AC_DEFINE(HAVE_LIBMOUNT, 1, [Define if libmount is available]) have_libmount=yes], have_libmount=no)
 if test "x$have_libmount" = xno; then
         AC_MSG_ERROR([*** libmount support required but libraries not found])
@@ -657,11 +668,16 @@ if test "x${have_smack}" = xauto; then
         have_smack=yes
 fi
 
+have_smack_run_label=no
 AC_ARG_WITH(smack-run-label,
 AS_HELP_STRING([--with-smack-run-label=STRING],
         [run systemd --system itself with a specific SMACK label]),
-        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run systemd itself with SMACK label])],
+        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run systemd itself with SMACK label]) have_smack_run_label=yes],
         [])
+
+if test "x${have_smack_run_label}" = xyes; then
+        M4_DEFINES="$M4_DEFINES -DHAVE_SMACK_RUN_LABEL"
+fi
 
 AC_ARG_WITH(smack-default-process-label,
 AS_HELP_STRING([--with-smack-default-process-label=STRING],
@@ -686,12 +702,21 @@ AC_ARG_ENABLE([gcrypt],
                 [have_gcrypt=auto])
 
 if test "x${have_gcrypt}" != xno ; then
-        AM_PATH_LIBGCRYPT(
-                [1.4.5],
-                [have_gcrypt=yes],
-                [if test "x$have_gcrypt" = xyes ; then
-                        AC_MSG_ERROR([*** GCRYPT headers not found.])
-                fi])
+        m4_define([AM_PATH_LIBGCRYPT_FAIL],
+                [{ test "x$have_gcrypt" != xyes || AC_MSG_ERROR([*** GCRYPT headers not found.]); }]
+        )
+        m4_ifdef([AM_PATH_LIBGCRYPT], [AM_PATH_LIBGCRYPT(
+                        [1.4.5],
+                        [have_gcrypt=yes],
+                        dnl  If we have the gcrypt m4 macros, but don't have
+                        dnl  gcrypt, throw an error if gcrypt is explicitly
+                        dnl  requested.
+                        [AM_PATH_LIBGCRYPT_FAIL]
+                )],
+                dnl  If we don't have the gcrypt m4 macros, but build with
+                dnl  gcrypt explicitly requested, throw an error.
+                [AM_PATH_LIBGCRYPT_FAIL]
+        )
 
         if test "x$have_gcrypt" = xyes ; then
                 GCRYPT_LIBS="$LIBGCRYPT_LIBS"
@@ -1246,7 +1271,6 @@ if test "x$enable_myhostname" != "xno"; then
         AC_TYPE_SIZE_T
         AC_HEADER_TIME
 
-        AC_FUNC_MALLOC
         AC_FUNC_SELECT_ARGTYPES
         AC_CHECK_FUNCS([gethostbyaddr gethostbyname gettimeofday inet_ntoa memset select socket strcspn strdup strerror strncasecmp strcasecmp strspn])
 

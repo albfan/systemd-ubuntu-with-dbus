@@ -95,8 +95,7 @@ static void busname_done(Unit *u) {
 
         assert(n);
 
-        free(n->name);
-        n->name = NULL;
+        n->name = mfree(n->name);
 
         busname_free_policy(n);
         busname_unwatch_control_pid(n);
@@ -991,19 +990,6 @@ static bool busname_supported(void) {
 
         return supported;
 }
-
-static const char* const busname_state_table[_BUSNAME_STATE_MAX] = {
-        [BUSNAME_DEAD] = "dead",
-        [BUSNAME_MAKING] = "making",
-        [BUSNAME_REGISTERED] = "registered",
-        [BUSNAME_LISTENING] = "listening",
-        [BUSNAME_RUNNING] = "running",
-        [BUSNAME_SIGTERM] = "sigterm",
-        [BUSNAME_SIGKILL] = "sigkill",
-        [BUSNAME_FAILED] = "failed",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(busname_state, BusNameState);
 
 static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
         [BUSNAME_SUCCESS] = "success",

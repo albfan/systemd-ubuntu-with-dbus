@@ -20,25 +20,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <locale.h>
-#include <errno.h>
-#include <signal.h>
 #include <math.h>
+#include <signal.h>
+#include <string.h>
+#include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/xattr.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "mkdir.h"
-#include "rm-rf.h"
-#include "strv.h"
+#include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "def.h"
 #include "fileio.h"
-#include "conf-parser.h"
-#include "virt.h"
+#include "mkdir.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "signal-util.h"
+#include "strv.h"
+#include "util.h"
+#include "virt.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -893,7 +896,7 @@ static void test_protect_errno(void) {
 }
 
 static void test_parse_size(void) {
-        off_t bytes;
+        uint64_t bytes;
 
         assert_se(parse_size("111", 1024, &bytes) == 0);
         assert_se(bytes == 111);
@@ -960,12 +963,70 @@ static void test_parse_size(void) {
         assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
 }
 
-static void test_config_parse_iec_off(void) {
-        off_t offset = 0;
-        assert_se(config_parse_iec_off(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
+static void test_parse_cpu_set(void) {
+        cpu_set_t *c = NULL;
+        int ncpus;
+        int cpu;
+
+        /* Simple range (from CPUAffinity example) */
+        ncpus = parse_cpu_set_and_warn("1 2", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_ISSET_S(1, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(CPU_ISSET_S(2, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 2);
+        c = mfree(c);
+
+        /* A more interesting range */
+        ncpus = parse_cpu_set_and_warn("0 1 2 3 8 9 10 11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 4; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Quoted strings */
+        ncpus = parse_cpu_set_and_warn("8 '9' 10 \"11\"", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 4);
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Use commas as separators */
+        ncpus = parse_cpu_set_and_warn("0,1,2,3 8,9,10,11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Ranges */
+        ncpus = parse_cpu_set_and_warn("0-3,8-11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Garbage */
+        ncpus = parse_cpu_set_and_warn("0 1 2 3 garbage", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Empty string */
+        c = NULL;
+        ncpus = parse_cpu_set_and_warn("", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus == 0);  /* empty string returns 0 */
+        assert_se(!c);
+
+        /* Runnaway quoted string */
+        ncpus = parse_cpu_set_and_warn("0 1 2 3 \"4 5 6 7 ", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+}
+
+static void test_config_parse_iec_uint64(void) {
+        uint64_t offset = 0;
+        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
         assert_se(offset == 4 * 1024 * 1024);
 
-        assert_se(config_parse_iec_off(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
 static void test_strextend(void) {
@@ -2204,6 +2265,38 @@ static void test_strcmp_ptr(void) {
         assert_se(strcmp_ptr("", "") == 0);
 }
 
+static void test_fgetxattrat_fake(void) {
+        char t[] = "/var/tmp/xattrtestXXXXXX";
+        _cleanup_close_ int fd = -1;
+        const char *x;
+        char v[3] = {};
+        int r;
+
+        assert_se(mkdtemp(t));
+        x = strjoina(t, "/test");
+        assert_se(touch(x) >= 0);
+
+        r = setxattr(x, "user.foo", "bar", 3, 0);
+        if (r < 0 && errno == EOPNOTSUPP) /* no xattrs supported on /var/tmp... */
+                goto cleanup;
+        assert_se(r >= 0);
+
+        fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
+        assert_se(fd >= 0);
+
+        assert_se(fgetxattrat_fake(fd, "test", "user.foo", v, 3, 0) >= 0);
+        assert_se(memcmp(v, "bar", 3) == 0);
+
+        safe_close(fd);
+        fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
+        assert_se(fd >= 0);
+        assert_se(fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0) == -ENODATA);
+
+cleanup:
+        assert_se(unlink(x) >= 0);
+        assert_se(rmdir(t) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -2250,7 +2343,8 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_protect_errno();
         test_parse_size();
-        test_config_parse_iec_off();
+        test_parse_cpu_set();
+        test_config_parse_iec_uint64();
         test_strextend();
         test_strrep();
         test_split_pair();
@@ -2293,6 +2387,7 @@ int main(int argc, char *argv[]) {
         test_parse_mode();
         test_tempfn();
         test_strcmp_ptr();
+        test_fgetxattrat_fake();
 
         return 0;
 }

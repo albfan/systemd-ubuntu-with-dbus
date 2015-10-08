@@ -53,12 +53,12 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         j = (n * (unsigned) p) / 65535ULL;
         k = n - j;
 
-        fputs("\r\x1B[?25l" ANSI_HIGHLIGHT_GREEN_ON, stdout);
+        fputs("\r\x1B[?25l" ANSI_HIGHLIGHT_GREEN, stdout);
 
         for (i = 0; i < j; i++)
                 fputs("\xe2\x96\x88", stdout);
 
-        fputs(ANSI_HIGHLIGHT_OFF, stdout);
+        fputs(ANSI_NORMAL, stdout);
 
         for (i = 0; i < k; i++)
                 fputs("\xe2\x96\x91", stdout);
@@ -839,22 +839,20 @@ int journal_file_verify(
 
         data_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (data_fd < 0) {
-                log_error_errno(errno, "Failed to create data file: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to create data file: %m");
                 goto fail;
         }
 
         entry_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_fd < 0) {
-                log_error_errno(errno, "Failed to create entry file: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to create entry file: %m");
                 goto fail;
         }
 
         entry_array_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_array_fd < 0) {
-                log_error_errno(errno, "Failed to create entry array file: %m");
-                r = -errno;
+                r = log_error_errno(errno,
+                                    "Failed to create entry array file: %m");
                 goto fail;
         }
 

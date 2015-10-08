@@ -19,37 +19,39 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/stat.h>
-#include <unistd.h>
+#include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/epoll.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
 #include <mqueue.h>
+#include <netinet/tcp.h>
+#include <signal.h>
+#include <sys/epoll.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-event.h"
+
+#include "bus-error.h"
+#include "bus-util.h"
+#include "copy.h"
+#include "dbus-socket.h"
+#include "def.h"
+#include "exit-status.h"
+#include "formats-util.h"
+#include "label.h"
 #include "log.h"
-#include "strv.h"
+#include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "selinux-util.h"
+#include "signal-util.h"
+#include "smack-util.h"
+#include "socket.h"
+#include "special.h"
+#include "strv.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "missing.h"
-#include "special.h"
-#include "label.h"
-#include "exit-status.h"
-#include "def.h"
-#include "smack-util.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "selinux-util.h"
-#include "dbus-socket.h"
 #include "unit.h"
-#include "formats-util.h"
-#include "signal-util.h"
-#include "socket.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -104,6 +106,16 @@ static void socket_unwatch_control_pid(Socket *s) {
         s->control_pid = 0;
 }
 
+static void socket_cleanup_fd_list(SocketPort *p) {
+        int k = p->n_auxiliary_fds;
+
+        while (k--)
+                safe_close(p->auxiliary_fds[k]);
+
+        p->auxiliary_fds = mfree(p->auxiliary_fds);
+        p->n_auxiliary_fds = 0;
+}
+
 void socket_free_ports(Socket *s) {
         SocketPort *p;
 
@@ -114,6 +126,7 @@ void socket_free_ports(Socket *s) {
 
                 sd_event_source_unref(p->event_source);
 
+                socket_cleanup_fd_list(p);
                 safe_close(p->fd);
                 free(p->path);
                 free(p);
@@ -135,11 +148,8 @@ static void socket_done(Unit *u) {
 
         unit_ref_unset(&s->service);
 
-        free(s->tcp_congestion);
-        s->tcp_congestion = NULL;
-
-        free(s->bind_to_device);
-        s->bind_to_device = NULL;
+        s->tcp_congestion = mfree(s->tcp_congestion);
+        s->bind_to_device = mfree(s->bind_to_device);
 
         free(s->smack);
         free(s->smack_ip_in);
@@ -251,7 +261,7 @@ static int socket_add_mount_links(Socket *s) {
 
                 if (p->type == SOCKET_SOCKET)
                         path = socket_address_get_path(&p->address);
-                else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL)
+                else if (IN_SET(p->type, SOCKET_FIFO, SOCKET_SPECIAL, SOCKET_USB_FUNCTION))
                         path = p->path;
 
                 if (!path)
@@ -497,6 +507,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
+                "%sWritable: %s\n"
+                "%sFDName: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -513,6 +525,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
+                prefix, yes_no(s->writable),
+                prefix, socket_fdname(s),
                 prefix, yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
@@ -633,7 +647,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         int r;
                         char *k = NULL;
 
-                        if ((r = socket_address_print(&p->address, &k)) < 0)
+                        r = socket_address_print(&p->address, &k);
+                        if (r < 0)
                                 t = strerror(-r);
                         else
                                 t = k;
@@ -642,6 +657,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         free(k);
                 } else if (p->type == SOCKET_SPECIAL)
                         fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
+                else if (p->type == SOCKET_USB_FUNCTION)
+                        fprintf(f, "%sListenUSBFunction: %s\n", prefix, p->path);
                 else if (p->type == SOCKET_MQUEUE)
                         fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
                 else
@@ -778,6 +795,7 @@ static void socket_close_fds(Socket *s) {
                         continue;
 
                 p->fd = safe_close(p->fd);
+                socket_cleanup_fd_list(p);
 
                 /* One little note: we should normally not delete any
                  * sockets in the file system here! After all some
@@ -943,49 +961,49 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
 
         if (s->pipe_size > 0)
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "F_SETPIPE_SZ: %m");
+                        log_unit_warning_errno(UNIT(s), errno, "Setting pipe size failed, ignoring: %m");
 
         if (s->smack) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_ACCESS, s->smack);
                 if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "mac_smack_apply_fd: %m");
+                        log_unit_error_errno(UNIT(s), r, "SMACK relabelling failed, ignoring: %m");
         }
 }
 
 static int fifo_address_create(
                 const char *path,
                 mode_t directory_mode,
-                mode_t socket_mode,
-                int *_fd) {
+                mode_t socket_mode) {
 
-        int fd = -1, r = 0;
-        struct stat st;
+        _cleanup_close_ int fd = -1;
         mode_t old_mask;
+        struct stat st;
+        int r;
 
         assert(path);
-        assert(_fd);
 
         mkdir_parents_label(path, directory_mode);
 
         r = mac_selinux_create_file_prepare(path, S_IFIFO);
         if (r < 0)
-                goto fail;
+                return r;
 
         /* Enforce the right access mode for the fifo */
         old_mask = umask(~ socket_mode);
 
         /* Include the original umask in our mask */
-        umask(~socket_mode | old_mask);
+        (void) umask(~socket_mode | old_mask);
 
         r = mkfifo(path, socket_mode);
-        umask(old_mask);
+        (void) umask(old_mask);
 
         if (r < 0 && errno != EEXIST) {
                 r = -errno;
                 goto fail;
         }
 
-        if ((fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+        fd = open(path, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -1001,53 +1019,64 @@ static int fifo_address_create(
             (st.st_mode & 0777) != (socket_mode & ~old_mask) ||
             st.st_uid != getuid() ||
             st.st_gid != getgid()) {
-
                 r = -EEXIST;
                 goto fail;
         }
 
-        *_fd = fd;
-        return 0;
+        r = fd;
+        fd = -1;
+
+        return r;
 
 fail:
         mac_selinux_create_file_clear();
-        safe_close(fd);
+        return r;
+}
+
+static int special_address_create(const char *path, bool writable) {
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+        int r;
+
+        assert(path);
+
+        fd = open(path, (writable ? O_RDWR : O_RDONLY)|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        /* Check whether this is a /proc, /sys or /dev file or char device */
+        if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode))
+                return -EEXIST;
+
+        r = fd;
+        fd = -1;
 
         return r;
 }
 
-static int special_address_create(
-                const char *path,
-                int *_fd) {
-
-        int fd = -1, r = 0;
+static int usbffs_address_create(const char *path) {
+        _cleanup_close_ int fd = -1;
         struct stat st;
+        int r;
 
         assert(path);
-        assert(_fd);
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
-        if (fd < 0) {
-                r = -errno;
-                goto fail;
-        }
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
 
-        if (fstat(fd, &st) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (fstat(fd, &st) < 0)
+                return -errno;
 
-        /* Check whether this is a /proc, /sys or /dev file or char device */
-        if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode)) {
-                r = -EEXIST;
-                goto fail;
-        }
+        /* Check whether this is a regular file (ffs endpoint)*/
+        if (!S_ISREG(st.st_mode))
+                return -EEXIST;
 
-        *_fd = fd;
-        return 0;
-
-fail:
-        safe_close(fd);
+        r = fd;
+        fd = -1;
 
         return r;
 }
@@ -1056,22 +1085,22 @@ static int mq_address_create(
                 const char *path,
                 mode_t mq_mode,
                 long maxmsg,
-                long msgsize,
-                int *_fd) {
+                long msgsize) {
 
-        int fd = -1, r = 0;
+        _cleanup_close_ int fd = -1;
         struct stat st;
         mode_t old_mask;
         struct mq_attr _attr, *attr = NULL;
+        int r;
 
         assert(path);
-        assert(_fd);
 
         if (maxmsg > 0 && msgsize > 0) {
-                zero(_attr);
-                _attr.mq_flags = O_NONBLOCK;
-                _attr.mq_maxmsg = maxmsg;
-                _attr.mq_msgsize = msgsize;
+                _attr = (struct mq_attr) {
+                        .mq_flags = O_NONBLOCK,
+                        .mq_maxmsg = maxmsg,
+                        .mq_msgsize = msgsize,
+                };
                 attr = &_attr;
         }
 
@@ -1079,33 +1108,24 @@ static int mq_address_create(
         old_mask = umask(~ mq_mode);
 
         /* Include the original umask in our mask */
-        umask(~mq_mode | old_mask);
+        (void) umask(~mq_mode | old_mask);
         fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
-        umask(old_mask);
+        (void) umask(old_mask);
 
-        if (fd < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (fd < 0)
+                return -errno;
 
-        if (fstat(fd, &st) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (fstat(fd, &st) < 0)
+                return -errno;
 
         if ((st.st_mode & 0777) != (mq_mode & ~old_mask) ||
             st.st_uid != getuid() ||
-            st.st_gid != getgid()) {
+            st.st_gid != getgid())
+                return -EEXIST;
 
-                r = -EEXIST;
-                goto fail;
-        }
+        r = fd;
+        fd = -1;
 
-        *_fd = fd;
-        return 0;
-
-fail:
-        safe_close(fd);
         return r;
 }
 
@@ -1125,11 +1145,78 @@ static int socket_symlink(Socket *s) {
         return 0;
 }
 
+static int usbffs_write_descs(int fd, Service *s) {
+        int r;
+
+        if (!s->usb_function_descriptors || !s->usb_function_strings)
+                return -EINVAL;
+
+        r = copy_file_fd(s->usb_function_descriptors, fd, false);
+        if (r < 0)
+                return r;
+
+        return copy_file_fd(s->usb_function_strings, fd, false);
+}
+
+static int usbffs_select_ep(const struct dirent *d) {
+        return d->d_name[0] != '.' && !streq(d->d_name, "ep0");
+}
+
+static int usbffs_dispatch_eps(SocketPort *p) {
+        _cleanup_free_ struct dirent **ent = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r, i, n, k;
+
+        r = path_get_parent(p->path, &path);
+        if (r < 0)
+                return r;
+
+        r = scandir(path, &ent, usbffs_select_ep, alphasort);
+        if (r < 0)
+                return -errno;
+
+        n = r;
+        p->auxiliary_fds = new(int, n);
+        if (!p->auxiliary_fds)
+                return -ENOMEM;
+
+        p->n_auxiliary_fds = n;
+
+        k = 0;
+        for (i = 0; i < n; ++i) {
+                _cleanup_free_ char *ep = NULL;
+
+                ep = path_make_absolute(ent[i]->d_name, path);
+                if (!ep)
+                        return -ENOMEM;
+
+                path_kill_slashes(ep);
+
+                r = usbffs_address_create(ep);
+                if (r < 0)
+                        goto fail;
+
+                p->auxiliary_fds[k] = r;
+
+                ++k;
+                free(ent[i]);
+        }
+
+        return r;
+
+fail:
+        close_many(p->auxiliary_fds, k);
+        p->auxiliary_fds = mfree(p->auxiliary_fds);
+        p->n_auxiliary_fds = 0;
+
+        return r;
+}
+
 static int socket_open_fds(Socket *s) {
+        _cleanup_(mac_selinux_freep) char *label = NULL;
+        bool know_label = false;
         SocketPort *p;
         int r;
-        char *label = NULL;
-        bool know_label = false;
 
         assert(s);
 
@@ -1138,7 +1225,9 @@ static int socket_open_fds(Socket *s) {
                 if (p->fd >= 0)
                         continue;
 
-                if (p->type == SOCKET_SOCKET) {
+                switch (p->type) {
+
+                case SOCKET_SOCKET:
 
                         if (!know_label) {
                                 /* Figure out label, if we don't it know
@@ -1189,49 +1278,72 @@ static int socket_open_fds(Socket *s) {
                         p->fd = r;
                         socket_apply_socket_options(s, p->fd);
                         socket_symlink(s);
+                        break;
 
-                } else  if (p->type == SOCKET_SPECIAL) {
+                case SOCKET_SPECIAL:
 
-                        r = special_address_create(
-                                        p->path,
-                                        &p->fd);
-                        if (r < 0)
+                        p->fd = special_address_create(p->path, s->writable);
+                        if (p->fd < 0) {
+                                r = p->fd;
                                 goto rollback;
+                        }
+                        break;
 
-                } else  if (p->type == SOCKET_FIFO) {
+                case SOCKET_FIFO:
 
-                        r = fifo_address_create(
+                        p->fd = fifo_address_create(
                                         p->path,
                                         s->directory_mode,
-                                        s->socket_mode,
-                                        &p->fd);
-                        if (r < 0)
+                                        s->socket_mode);
+                        if (p->fd < 0) {
+                                r = p->fd;
                                 goto rollback;
+                        }
 
                         socket_apply_fifo_options(s, p->fd);
                         socket_symlink(s);
+                        break;
 
-                } else if (p->type == SOCKET_MQUEUE) {
+                case SOCKET_MQUEUE:
 
-                        r = mq_address_create(
+                        p->fd = mq_address_create(
                                         p->path,
                                         s->socket_mode,
                                         s->mq_maxmsg,
-                                        s->mq_msgsize,
-                                        &p->fd);
+                                        s->mq_msgsize);
+                        if (p->fd < 0) {
+                                r = p->fd;
+                                goto rollback;
+                        }
+                        break;
+
+                case SOCKET_USB_FUNCTION:
+
+                        p->fd = usbffs_address_create(p->path);
+                        if (p->fd < 0) {
+                                r = p->fd;
+                                goto rollback;
+                        }
+
+                        r = usbffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
                         if (r < 0)
                                 goto rollback;
-                } else
+
+                        r = usbffs_dispatch_eps(p);
+                        if (r < 0)
+                                goto rollback;
+
+                        break;
+
+                default:
                         assert_not_reached("Unknown port type");
+                }
         }
 
-        mac_selinux_free(label);
         return 0;
 
 rollback:
         socket_close_fds(s);
-        mac_selinux_free(label);
-
         return r;
 }
 
@@ -2036,6 +2148,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         unit_serialize_item_format(u, f, "special", "%i %s", copy, p->path);
                 else if (p->type == SOCKET_MQUEUE)
                         unit_serialize_item_format(u, f, "mqueue", "%i %s", copy, p->path);
+                else if (p->type == SOCKET_USB_FUNCTION)
+                        unit_serialize_item_format(u, f, "ffs", "%i %s", copy, p->path);
                 else {
                         assert(p->type == SOCKET_FIFO);
                         unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
@@ -2185,6 +2299,26 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                                 p->fd = fdset_remove(fds, fd);
                         }
                 }
+
+        } else if (streq(key, "ffs")) {
+                int fd, skip = 0;
+                SocketPort *p;
+
+                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u, "Failed to parse ffs value: %s", value);
+                else {
+
+                        LIST_FOREACH(port, p, s->ports)
+                                if (p->type == SOCKET_USB_FUNCTION &&
+                                    path_equal_or_files_same(p->path, value+skip))
+                                        break;
+
+                        if (p) {
+                                safe_close(p->fd);
+                                p->fd = fdset_remove(fds, fd);
+                        }
+                }
+
         } else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
@@ -2267,6 +2401,9 @@ const char* socket_port_type_to_string(SocketPort *p) {
         case SOCKET_FIFO:
                 return "FIFO";
 
+        case SOCKET_USB_FUNCTION:
+                return "USBFunction";
+
         default:
                 return NULL;
         }
@@ -2298,7 +2435,6 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                         log_unit_error(UNIT(p->socket), "Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.");
                 else
                         log_unit_error(UNIT(p->socket), "Got unexpected poll event (0x%x) on socket.", revents);
-
                 goto fail;
         }
 
@@ -2494,43 +2630,43 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         return 0;
 }
 
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
-        int *rfds;
-        unsigned rn_fds, k;
+int socket_collect_fds(Socket *s, int **fds) {
+        int *rfds, k = 0, n = 0;
         SocketPort *p;
 
         assert(s);
         assert(fds);
-        assert(n_fds);
 
         /* Called from the service code for requesting our fds */
 
-        rn_fds = 0;
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
-                        rn_fds++;
+                        n++;
+                n += p->n_auxiliary_fds;
+        }
 
-        if (rn_fds <= 0) {
+        if (n <= 0) {
                 *fds = NULL;
-                *n_fds = 0;
                 return 0;
         }
 
-        rfds = new(int, rn_fds);
+        rfds = new(int, n);
         if (!rfds)
                 return -ENOMEM;
 
-        k = 0;
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
+                int i;
+
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
+                for (i = 0; i < p->n_auxiliary_fds; ++i)
+                        rfds[k++] = p->auxiliary_fds[i];
+        }
 
-        assert(k == rn_fds);
+        assert(k == n);
 
         *fds = rfds;
-        *n_fds = rn_fds;
-
-        return 0;
+        return n;
 }
 
 static void socket_reset_failed(Unit *u) {
@@ -2626,23 +2762,18 @@ static int socket_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
-static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
-        [SOCKET_DEAD] = "dead",
-        [SOCKET_START_PRE] = "start-pre",
-        [SOCKET_START_CHOWN] = "start-chown",
-        [SOCKET_START_POST] = "start-post",
-        [SOCKET_LISTENING] = "listening",
-        [SOCKET_RUNNING] = "running",
-        [SOCKET_STOP_PRE] = "stop-pre",
-        [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
-        [SOCKET_STOP_PRE_SIGKILL] = "stop-pre-sigkill",
-        [SOCKET_STOP_POST] = "stop-post",
-        [SOCKET_FINAL_SIGTERM] = "final-sigterm",
-        [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_FAILED] = "failed"
-};
+char *socket_fdname(Socket *s) {
+        assert(s);
 
-DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
+        /* Returns the name to use for $LISTEN_NAMES. If the user
+         * didn't specify anything specifically, use the socket unit's
+         * name as fallback. */
+
+        if (s->fdname)
+                return s->fdname;
+
+        return UNIT(s)->id;
+}
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_START_PRE] = "StartPre",

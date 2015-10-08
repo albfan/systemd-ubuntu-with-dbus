@@ -27,7 +27,6 @@
 
 typedef struct Unit Unit;
 typedef struct UnitVTable UnitVTable;
-typedef enum UnitActiveState UnitActiveState;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
@@ -36,17 +35,6 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "install.h"
 #include "unit-name.h"
 #include "failure-action.h"
-
-enum UnitActiveState {
-        UNIT_ACTIVE,
-        UNIT_RELOADING,
-        UNIT_INACTIVE,
-        UNIT_FAILED,
-        UNIT_ACTIVATING,
-        UNIT_DEACTIVATING,
-        _UNIT_ACTIVE_STATE_MAX,
-        _UNIT_ACTIVE_STATE_INVALID = -1
-};
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -161,6 +149,9 @@ struct Unit {
         /* CGroup realize members queue */
         LIST_FIELDS(Unit, cgroup_queue);
 
+        /* Units with the same CGroup netclass */
+        LIST_FIELDS(Unit, cgroup_netclass);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -188,6 +179,8 @@ struct Unit {
         CGroupMask cgroup_subtree_mask;
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
+
+        uint32_t cgroup_netclass_id;
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
@@ -611,9 +604,6 @@ static inline bool unit_supported(Unit *u) {
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_symlink(Unit *u, const char* where);
-
-const char *unit_active_state_to_string(UnitActiveState i) _const_;
-UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

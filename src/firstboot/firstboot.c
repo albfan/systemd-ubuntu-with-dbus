@@ -19,24 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #include <fcntl.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <shadow.h>
+#include <unistd.h>
 
-#include "strv.h"
-#include "fileio.h"
+#include "ask-password-api.h"
 #include "copy.h"
-#include "build.h"
+#include "fileio.h"
+#include "hostname-util.h"
+#include "locale-util.h"
 #include "mkdir.h"
-#include "time-util.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "locale-util.h"
-#include "ask-password-api.h"
+#include "strv.h"
 #include "terminal-util.h"
-#include "hostname-util.h"
+#include "time-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */
@@ -468,7 +466,7 @@ static int prompt_root_password(void) {
         for (;;) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
 
-                r = ask_password_tty(msg1, 0, false, NULL, &a);
+                r = ask_password_tty(msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
 
@@ -477,11 +475,10 @@ static int prompt_root_password(void) {
                         break;
                 }
 
-                r = ask_password_tty(msg2, 0, false, NULL, &b);
+                r = ask_password_tty(msg2, NULL, 0, 0, NULL, &b);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to query root password: %m");
                         clear_string(a);
-                        return r;
+                        return log_error_errno(r, "Failed to query root password: %m");
                 }
 
                 if (!streq(a, b)) {
@@ -704,9 +701,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_ROOT:
                         free(arg_root);

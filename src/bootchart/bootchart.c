@@ -338,10 +338,9 @@ int main(int argc, char *argv[]) {
          * - child logs data
          */
         if (getpid() == 1) {
-                if (fork()) {
+                if (fork())
                         /* parent */
                         execl(arg_init_path, arg_init_path, NULL);
-                }
         }
         argv[0][0] = '@';
 
@@ -438,10 +437,9 @@ int main(int argc, char *argv[]) {
 
                         res = nanosleep(&req, NULL);
                         if (res) {
-                                if (errno == EINTR) {
+                                if (errno == EINTR)
                                         /* caught signal, probably HUP! */
                                         break;
-                                }
                                 log_error_errno(errno, "nanosleep() failed: %m");
                                 return EXIT_FAILURE;
                         }
@@ -459,10 +457,7 @@ int main(int argc, char *argv[]) {
                 ps = ps->next_ps;
                 ps->schedstat = safe_close(ps->schedstat);
                 ps->sched = safe_close(ps->sched);
-                if (ps->smaps) {
-                        fclose(ps->smaps);
-                        ps->smaps = NULL;
-                }
+                ps->smaps = safe_fclose(ps->smaps);
         }
 
         if (!of) {

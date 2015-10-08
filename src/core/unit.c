@@ -125,6 +125,7 @@ static void unit_init(Unit *u) {
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
+                cc->tasks_accounting = u->manager->default_tasks_accounting;
         }
 
         ec = unit_get_exec_context(u);
@@ -445,13 +446,13 @@ static void unit_free_requires_mounts_for(Unit *u) {
                 }
         }
 
-        strv_free(u->requires_mounts_for);
-        u->requires_mounts_for = NULL;
+        u->requires_mounts_for = strv_free(u->requires_mounts_for);
 }
 
 static void unit_done(Unit *u) {
         ExecContext *ec;
         CGroupContext *cc;
+        int r;
 
         assert(u);
 
@@ -468,6 +469,10 @@ static void unit_done(Unit *u) {
         cc = unit_get_cgroup_context(u);
         if (cc)
                 cgroup_context_done(cc);
+
+        r = unit_remove_from_netclass_cgroup(u);
+        if (r < 0)
+                log_warning_errno(r, "Unable to remove unit from netclass group: %m");
 }
 
 void unit_free(Unit *u) {
@@ -528,7 +533,7 @@ void unit_free(Unit *u) {
 
         unit_release_cgroup(u);
 
-        manager_update_failed_units(u->manager, u, false);
+        (void) manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
 
         free(u->description);
@@ -674,8 +679,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         /* The move cannot fail. The caller must have performed a reservation. */
         assert_se(complete_move(&u->dependencies[d], &other->dependencies[d]) == 0);
 
-        set_free(other->dependencies[d]);
-        other->dependencies[d] = NULL;
+        other->dependencies[d] = set_free(other->dependencies[d]);
 }
 
 int unit_merge(Unit *u, Unit *other) {
@@ -1125,12 +1129,12 @@ static int unit_add_slice_dependencies(Unit *u) {
                 return 0;
 
         if (UNIT_ISSET(u->slice))
-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT_DEREF(u->slice), true);
 
-        if (streq(u->id, SPECIAL_ROOT_SLICE))
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
 
-        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_ROOT_SLICE, NULL, true);
+        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, NULL, true);
 }
 
 static int unit_add_mount_dependencies(Unit *u) {
@@ -1173,14 +1177,19 @@ static int unit_add_mount_dependencies(Unit *u) {
 
 static int unit_add_startup_units(Unit *u) {
         CGroupContext *c;
+        int r;
 
         c = unit_get_cgroup_context(u);
         if (!c)
                 return 0;
 
-        if (c->startup_cpu_shares == (unsigned long) -1 &&
-            c->startup_blockio_weight == (unsigned long) -1)
+        if (c->startup_cpu_shares == CGROUP_CPU_SHARES_INVALID &&
+            c->startup_blockio_weight == CGROUP_BLKIO_WEIGHT_INVALID)
                 return 0;
+
+        r = set_ensure_allocated(&u->manager->startup_units, NULL);
+        if (r < 0)
+                return r;
 
         return set_put(u->manager->startup_units, u);
 }
@@ -1237,6 +1246,14 @@ int unit_load(Unit *u) {
                 }
 
                 unit_update_cgroup_members_masks(u);
+
+                /* If we are reloading, we need to wait for the deserializer
+                 * to restore the net_cls ids that have been set previously */
+                if (u->manager->n_reloading <= 0) {
+                        r = unit_add_to_netclass_cgroup(u);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
@@ -1808,7 +1825,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         /* Keep track of failed units */
-        manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
+        (void) manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
 
         /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -2587,6 +2604,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
 
+        if (u->cgroup_netclass_id)
+                unit_serialize_item_format(u, f, "netclass-id", "%" PRIu32, u->cgroup_netclass_id);
+
         if (serialize_jobs) {
                 if (u->job) {
                         fprintf(f, "job\n");
@@ -2772,6 +2792,17 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse cgroup-realized bool %s, ignoring.", v);
                         else
                                 u->cgroup_realized = b;
+
+                        continue;
+                } else if (streq(l, "netclass-id")) {
+                        r = safe_atou32(v, &u->cgroup_netclass_id);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse netclass ID %s, ignoring.", v);
+                        else {
+                                r = unit_add_to_netclass_cgroup(u);
+                                if (r < 0)
+                                        log_unit_debug_errno(u, r, "Failed to add unit to netclass cgroup, ignoring: %m");
+                        }
 
                         continue;
                 }
@@ -3033,32 +3064,39 @@ int unit_kill_common(
                 sd_bus_error *error) {
 
         int r = 0;
+        bool killed = false;
 
-        if (who == KILL_MAIN) {
+        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (main_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
                 else if (main_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (who == KILL_CONTROL) {
+        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL)) {
                 if (control_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
                 else if (control_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
-        if (who == KILL_CONTROL || who == KILL_ALL)
-                if (control_pid > 0)
+        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL))
+                if (control_pid > 0) {
                         if (kill(control_pid, signo) < 0)
                                 r = -errno;
+                        else
+                                killed = true;
+                }
 
-        if (who == KILL_MAIN || who == KILL_ALL)
-                if (main_pid > 0)
+        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL))
+                if (main_pid > 0) {
                         if (kill(main_pid, signo) < 0)
                                 r = -errno;
+                        else
+                                killed = true;
+                }
 
-        if (who == KILL_ALL && u->cgroup_path) {
+        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && u->cgroup_path) {
                 _cleanup_set_free_ Set *pid_set = NULL;
                 int q;
 
@@ -3070,7 +3108,12 @@ int unit_kill_common(
                 q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, false, false, pid_set);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
+                else
+                        killed = true;
         }
+
+        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_ALL_FAIL))
+                return -ESRCH;
 
         return r;
 }
@@ -3510,7 +3553,7 @@ int unit_kill_context(
                          * them.*/
 
                         if  (cg_unified() > 0 ||
-                             (detect_container(NULL) == 0 && !unit_cgroup_delegate(u)))
+                             (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
                         if (c->send_sighup && k != KILL_KILL) {
@@ -3686,14 +3729,3 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
 
         return -ELOOP;
 }
-
-static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
-        [UNIT_ACTIVE] = "active",
-        [UNIT_RELOADING] = "reloading",
-        [UNIT_INACTIVE] = "inactive",
-        [UNIT_FAILED] = "failed",
-        [UNIT_ACTIVATING] = "activating",
-        [UNIT_DEACTIVATING] = "deactivating"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);

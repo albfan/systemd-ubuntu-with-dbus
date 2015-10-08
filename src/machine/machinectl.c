@@ -19,44 +19,44 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <unistd.h>
+#include <arpa/inet.h>
 #include <errno.h>
-#include <string.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <locale.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <string.h>
 #include <sys/mount.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
-#include "log.h"
-#include "util.h"
-#include "macro.h"
-#include "pager.h"
-#include "spawn-polkit-agent.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
-#include "build.h"
-#include "strv.h"
-#include "unit-name.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
-#include "logs-show.h"
 #include "cgroup-util.h"
-#include "ptyfwd.h"
-#include "event-util.h"
-#include "path-util.h"
-#include "mkdir.h"
 #include "copy.h"
-#include "verbs.h"
-#include "import-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
-#include "signal-util.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "hostname-util.h"
+#include "import-util.h"
+#include "log.h"
+#include "logs-show.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "pager.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "ptyfwd.h"
+#include "signal-util.h"
+#include "spawn-polkit-agent.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
+#include "verbs.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -327,7 +327,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 printf("%-*s %-*s %s%-3s%s %-*s %-*s %-*s\n",
                        (int) max_name, images[j].name,
                        (int) max_type, images[j].type,
-                       images[j].read_only ? ansi_highlight_red() : "", yes_no(images[j].read_only), images[j].read_only ? ansi_highlight_off() : "",
+                       images[j].read_only ? ansi_highlight_red() : "", yes_no(images[j].read_only), images[j].read_only ? ansi_normal() : "",
                        (int) max_size, strna(format_bytes(size_buf, sizeof(size_buf), images[j].size)),
                        (int) max_crtime, strna(format_timestamp(crtime_buf, sizeof(crtime_buf), images[j].crtime)),
                        (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
@@ -597,7 +597,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 printf("\t    Unit: %s\n", i->unit);
                 show_unit_cgroup(bus, i->unit, i->leader);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
 
                         show_journal_by_unit(
                                         stdout,
@@ -611,7 +611,6 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                                         SD_JOURNAL_LOCAL_ONLY,
                                         true,
                                         NULL);
-                }
         }
 }
 
@@ -794,7 +793,7 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         printf("\t      RO: %s%s%s\n",
                i->read_only ? ansi_highlight_red() : "",
                i->read_only ? "read-only" : "writable",
-               i->read_only ? ansi_highlight_off() : "");
+               i->read_only ? ansi_normal() : "");
 
         s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->crtime);
         s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->crtime);
@@ -2386,13 +2385,9 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         if (streq(argv[argc-1], "-"))
                 limit = (uint64_t) -1;
         else {
-                off_t off;
-
-                r = parse_size(argv[argc-1], 1024, &off);
+                r = parse_size(argv[argc-1], 1024, &limit);
                 if (r < 0)
                         return log_error("Failed to parse size: %s", argv[argc-1]);
-
-                limit = (uint64_t) off;
         }
 
         if (argc > 2)
@@ -2559,9 +2554,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help(0, NULL, NULL);
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'p':
                         r = strv_extend(&arg_property, optarg);
@@ -2752,7 +2745,7 @@ int main(int argc, char*argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;

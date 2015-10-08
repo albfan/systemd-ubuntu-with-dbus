@@ -21,18 +21,18 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/prctl.h>
-#include <sys/stat.h>
+#include <glob.h>
 #include <grp.h>
 #include <poll.h>
-#include <glob.h>
-#include <utmpx.h>
+#include <signal.h>
+#include <string.h>
 #include <sys/personality.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <utmpx.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -51,35 +51,37 @@
 #endif
 
 #include "sd-messages.h"
-#include "rm-rf.h"
-#include "strv.h"
-#include "macro.h"
-#include "capability.h"
-#include "util.h"
-#include "log.h"
-#include "ioprio.h"
-#include "securebits.h"
-#include "namespace.h"
-#include "exit-status.h"
-#include "missing.h"
-#include "utmp-wtmp.h"
-#include "def.h"
-#include "path-util.h"
-#include "env-util.h"
-#include "fileio.h"
-#include "unit.h"
-#include "async.h"
-#include "selinux-util.h"
-#include "errno-list.h"
+
 #include "af-list.h"
-#include "mkdir.h"
-#include "smack-util.h"
+#include "async.h"
+#include "barrier.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
+#include "capability.h"
+#include "def.h"
+#include "env-util.h"
+#include "errno-list.h"
+#include "exit-status.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "ioprio.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "namespace.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
+#include "rm-rf.h"
+#include "securebits.h"
+#include "selinux-util.h"
 #include "signal-util.h"
+#include "smack-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "unit.h"
+#include "util.h"
+#include "utmp-wtmp.h"
 
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
@@ -122,7 +124,8 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         if (fds[i] == i+3)
                                 continue;
 
-                        if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
+                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        if (nfd < 0)
                                 return -errno;
 
                         safe_close(fds[i]);
@@ -156,14 +159,16 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
 
         for (i = 0; i < n_fds; i++) {
 
-                if ((r = fd_nonblock(fds[i], nonblock)) < 0)
+                r = fd_nonblock(fds[i], nonblock);
+                if (r < 0)
                         return r;
 
                 /* We unconditionally drop FD_CLOEXEC from the fds,
                  * since after all we want to pass these fds to our
                  * children */
 
-                if ((r = fd_cloexec(fds[i], false)) < 0)
+                r = fd_cloexec(fds[i], false);
+                if (r < 0)
                         return r;
         }
 
@@ -315,7 +320,8 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
         assert(path);
         assert(nfd >= 0);
 
-        if ((fd = open_terminal(path, mode | O_NOCTTY)) < 0)
+        fd = open_terminal(path, mode | O_NOCTTY);
+        if (fd < 0)
                 return fd;
 
         if (fd != nfd) {
@@ -625,14 +631,6 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
          * we avoid NSS lookups for gid=0. */
 
         if (context->group || username) {
-
-                if (context->group) {
-                        const char *g = context->group;
-
-                        if ((r = get_group_creds(&g, &gid)) < 0)
-                                return r;
-                }
-
                 /* First step, initialize groups from /etc/groups */
                 if (username && gid != 0) {
                         if (initgroups(username, gid) < 0)
@@ -658,7 +656,8 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         return -ENOMEM;
 
                 if (keep_groups) {
-                        if ((k = getgroups(ngroups_max, gids)) < 0) {
+                        k = getgroups(ngroups_max, gids);
+                        if (k < 0) {
                                 free(gids);
                                 return -errno;
                         }
@@ -771,10 +770,11 @@ static int setup_pam(
                 .appdata_ptr = NULL
         };
 
+        _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS;
-        int err;
+        int err = 0;
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
@@ -790,6 +790,10 @@ static int setup_pam(
          * session again. The parent process will exec() the actual
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
+
+        err = barrier_create(&barrier);
+        if (err < 0)
+                goto fail;
 
         if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
@@ -839,6 +843,7 @@ static int setup_pam(
 
                 /* The child's job is to reset the PAM session on
                  * termination */
+                barrier_set_role(&barrier, BARRIER_CHILD);
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init"), to look pretty in /bin/ps */
@@ -865,6 +870,11 @@ static int setup_pam(
                  * to do the rest for us. */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         goto child_finish;
+
+                /* Tell the parent that our setup is done. This is especially
+                 * important regarding dropping privileges. Otherwise, unit
+                 * setup might race against our setresuid(2) call. */
+                barrier_place(&barrier);
 
                 /* Check if our parent process might already have
                  * died? */
@@ -901,6 +911,8 @@ static int setup_pam(
                 _exit(r);
         }
 
+        barrier_set_role(&barrier, BARRIER_PARENT);
+
         /* If the child was forked off successfully it will do all the
          * cleanups, so forget about the handle here. */
         handle = NULL;
@@ -912,6 +924,11 @@ static int setup_pam(
          * might have opened it, but we don't want this fd around. */
         closelog();
 
+        /* Synchronously wait for the child to initialize. We don't care for
+         * errors as we cannot recover. However, warn loudly if it happens. */
+        if (!barrier_place_and_sync(&barrier))
+                log_error("PAM initialization failed");
+
         *pam_env = e;
         e = NULL;
 
@@ -922,8 +939,7 @@ fail:
                 log_error("PAM failed: %s", pam_strerror(handle, pam_code));
                 err = -EPERM;  /* PAM errors do not map to errno */
         } else {
-                log_error_errno(errno, "PAM failed: %m");
-                err = -errno;
+                err = log_error_errno(err < 0 ? err : errno, "PAM failed: %m");
         }
 
         if (handle) {
@@ -1155,8 +1171,8 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
         assert(idle_pipe);
 
 
-        safe_close(idle_pipe[1]);
-        safe_close(idle_pipe[2]);
+        idle_pipe[1] = safe_close(idle_pipe[1]);
+        idle_pipe[2] = safe_close(idle_pipe[2]);
 
         if (idle_pipe[0] >= 0) {
                 int r;
@@ -1164,23 +1180,26 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
                 r = fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
 
                 if (idle_pipe[3] >= 0 && r == 0 /* timeout */) {
+                        ssize_t n;
+
                         /* Signal systemd that we are bored and want to continue. */
-                        r = write(idle_pipe[3], "x", 1);
-                        if (r > 0)
+                        n = write(idle_pipe[3], "x", 1);
+                        if (n > 0)
                                 /* Wait for systemd to react to the signal above. */
                                 fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
                 }
 
-                safe_close(idle_pipe[0]);
+                idle_pipe[0] = safe_close(idle_pipe[0]);
 
         }
 
-        safe_close(idle_pipe[3]);
+        idle_pipe[3] = safe_close(idle_pipe[3]);
 }
 
 static int build_environment(
                 const ExecContext *c,
                 unsigned n_fds,
+                char ** fd_names,
                 usec_t watchdog_usec,
                 const char *home,
                 const char *username,
@@ -1194,16 +1213,27 @@ static int build_environment(
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 10);
+        our_env = new0(char*, 11);
         if (!our_env)
                 return -ENOMEM;
 
         if (n_fds > 0) {
+                _cleanup_free_ char *joined = NULL;
+
                 if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
                 if (asprintf(&x, "LISTEN_FDS=%u", n_fds) < 0)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+
+                joined = strv_join(fd_names, ":");
+                if (!joined)
+                        return -ENOMEM;
+
+                x = strjoin("LISTEN_FDNAMES=", joined, NULL);
+                if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -1256,7 +1286,7 @@ static int build_environment(
         }
 
         our_env[n_env++] = NULL;
-        assert(n_env <= 10);
+        assert(n_env <= 11);
 
         *ret = our_env;
         our_env = NULL;
@@ -1308,7 +1338,7 @@ static int exec_child(
 
         _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
-        const char *username = NULL, *home = NULL, *shell = NULL;
+        const char *username = NULL, *home = NULL, *shell = NULL, *wd;
         unsigned n_dont_close = 0;
         int dont_close[n_fds + 4];
         uid_t uid = UID_INVALID;
@@ -1406,6 +1436,17 @@ static int exec_child(
                         return r;
                 }
         }
+
+        if (context->group) {
+                const char *g = context->group;
+
+                r = get_group_creds(&g, &gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
+                }
+        }
+
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
@@ -1573,25 +1614,50 @@ static int exec_child(
                 }
         }
 
+        umask(context->umask);
+
         if (params->apply_permissions) {
                 r = enforce_groups(context, username, gid);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
                         return r;
                 }
-        }
-
-        umask(context->umask);
-
-#ifdef HAVE_PAM
-        if (params->apply_permissions && context->pam_name && username) {
-                r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
-                if (r < 0) {
-                        *exit_status = EXIT_PAM;
-                        return r;
+#ifdef HAVE_SMACK
+                if (context->smack_process_label) {
+                        r = mac_smack_apply_pid(0, context->smack_process_label);
+                        if (r < 0) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
                 }
-        }
+#ifdef SMACK_DEFAULT_PROCESS_LABEL
+                else {
+                        _cleanup_free_ char *exec_label = NULL;
+
+                        r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
+                        if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
+
+                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
+                        if (r < 0) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
+                }
 #endif
+#endif
+#ifdef HAVE_PAM
+                if (context->pam_name && username) {
+                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
+                }
+#endif
+        }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
                 r = setup_netns(runtime->netns_storage_socket);
@@ -1645,6 +1711,13 @@ static int exec_child(
                 }
         }
 
+        if (context->working_directory_home)
+                wd = home;
+        else if (context->working_directory)
+                wd = context->working_directory;
+        else
+                wd = "/";
+
         if (params->apply_chroot) {
                 if (!needs_mount_namespace && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
@@ -1652,21 +1725,15 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (chdir(context->working_directory ?: "/") < 0 &&
+                if (chdir(wd) < 0 &&
                     !context->working_directory_missing_ok) {
                         *exit_status = EXIT_CHDIR;
                         return -errno;
                 }
         } else {
-                _cleanup_free_ char *d = NULL;
+                const char *d;
 
-                if (asprintf(&d, "%s/%s",
-                             context->root_directory ?: "",
-                             context->working_directory ?: "") < 0) {
-                        *exit_status = EXIT_MEMORY;
-                        return -ENOMEM;
-                }
-
+                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
                 if (chdir(d) < 0 &&
                     !context->working_directory_missing_ok) {
                         *exit_status = EXIT_CHDIR;
@@ -1719,33 +1786,6 @@ static int exec_child(
                                 return r;
                         }
                 }
-
-#ifdef HAVE_SMACK
-                if (context->smack_process_label) {
-                        r = mac_smack_apply_pid(0, context->smack_process_label);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#ifdef SMACK_DEFAULT_PROCESS_LABEL
-                else {
-                        _cleanup_free_ char *exec_label = NULL;
-
-                        r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
-                        if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-
-                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#endif
-#endif
 
                 if (context->user) {
                         r = enforce_user(context, uid);
@@ -1823,7 +1863,7 @@ static int exec_child(
 #endif
         }
 
-        r = build_environment(context, n_fds, params->watchdog_usec, home, username, shell, &our_env);
+        r = build_environment(context, n_fds, params->fd_names, params->watchdog_usec, home, username, shell, &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
                 return r;
@@ -1987,77 +2027,44 @@ void exec_context_done(ExecContext *c) {
 
         assert(c);
 
-        strv_free(c->environment);
-        c->environment = NULL;
+        c->environment = strv_free(c->environment);
+        c->environment_files = strv_free(c->environment_files);
 
-        strv_free(c->environment_files);
-        c->environment_files = NULL;
+        for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
+                c->rlimit[l] = mfree(c->rlimit[l]);
 
-        for (l = 0; l < ELEMENTSOF(c->rlimit); l++) {
-                free(c->rlimit[l]);
-                c->rlimit[l] = NULL;
-        }
+        c->working_directory = mfree(c->working_directory);
+        c->root_directory = mfree(c->root_directory);
+        c->tty_path = mfree(c->tty_path);
+        c->syslog_identifier = mfree(c->syslog_identifier);
+        c->user = mfree(c->user);
+        c->group = mfree(c->group);
 
-        free(c->working_directory);
-        c->working_directory = NULL;
-        free(c->root_directory);
-        c->root_directory = NULL;
+        c->supplementary_groups = strv_free(c->supplementary_groups);
 
-        free(c->tty_path);
-        c->tty_path = NULL;
-
-        free(c->syslog_identifier);
-        c->syslog_identifier = NULL;
-
-        free(c->user);
-        c->user = NULL;
-
-        free(c->group);
-        c->group = NULL;
-
-        strv_free(c->supplementary_groups);
-        c->supplementary_groups = NULL;
-
-        free(c->pam_name);
-        c->pam_name = NULL;
+        c->pam_name = mfree(c->pam_name);
 
         if (c->capabilities) {
                 cap_free(c->capabilities);
                 c->capabilities = NULL;
         }
 
-        strv_free(c->read_only_dirs);
-        c->read_only_dirs = NULL;
-
-        strv_free(c->read_write_dirs);
-        c->read_write_dirs = NULL;
-
-        strv_free(c->inaccessible_dirs);
-        c->inaccessible_dirs = NULL;
+        c->read_only_dirs = strv_free(c->read_only_dirs);
+        c->read_write_dirs = strv_free(c->read_write_dirs);
+        c->inaccessible_dirs = strv_free(c->inaccessible_dirs);
 
         if (c->cpuset)
                 CPU_FREE(c->cpuset);
 
-        free(c->utmp_id);
-        c->utmp_id = NULL;
+        c->utmp_id = mfree(c->utmp_id);
+        c->selinux_context = mfree(c->selinux_context);
+        c->apparmor_profile = mfree(c->apparmor_profile);
 
-        free(c->selinux_context);
-        c->selinux_context = NULL;
+        c->syscall_filter = set_free(c->syscall_filter);
+        c->syscall_archs = set_free(c->syscall_archs);
+        c->address_families = set_free(c->address_families);
 
-        free(c->apparmor_profile);
-        c->apparmor_profile = NULL;
-
-        set_free(c->syscall_filter);
-        c->syscall_filter = NULL;
-
-        set_free(c->syscall_archs);
-        c->syscall_archs = NULL;
-
-        set_free(c->address_families);
-        c->address_families = NULL;
-
-        strv_free(c->runtime_directory);
-        c->runtime_directory = NULL;
+        c->runtime_directory = strv_free(c->runtime_directory);
 
         bus_endpoint_free(c->bus_endpoint);
         c->bus_endpoint = NULL;
@@ -2090,11 +2097,9 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
 void exec_command_done(ExecCommand *c) {
         assert(c);
 
-        free(c->path);
-        c->path = NULL;
+        c->path = mfree(c->path);
 
-        strv_free(c->argv);
-        c->argv = NULL;
+        c->argv = strv_free(c->argv);
 }
 
 void exec_command_done_array(ExecCommand *c, unsigned n) {
@@ -2720,7 +2725,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         if (!l)
                 return -ENOMEM;
 
-        r = strv_extend_strv(&c->argv, l);
+        r = strv_extend_strv(&c->argv, l, false);
         if (r < 0)
                 return r;
 

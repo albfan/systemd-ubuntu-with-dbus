@@ -23,14 +23,13 @@
 #include <getopt.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "in-addr-util.h"
-#include "af-list.h"
-#include "build.h"
 
-#include "resolved-dns-packet.h"
+#include "af-list.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "in-addr-util.h"
 #include "resolved-def.h"
+#include "resolved-dns-packet.h"
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
@@ -168,11 +167,10 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (!streq(name, canonical)) {
+        if (!streq(name, canonical))
                 printf("%*s%s (%s)\n",
                        (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
                        canonical);
-        }
 
         if (c == 0) {
                 log_error("%s: no addresses found", name);
@@ -508,9 +506,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0; /* done */;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0 /* done */;
+                        return version();
 
                 case '4':
                         arg_family = AF_INET;

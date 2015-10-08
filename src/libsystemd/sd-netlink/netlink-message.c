@@ -149,6 +149,15 @@ int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type) {
         return 0;
 }
 
+int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags) {
+        assert_return(m, -EINVAL);
+        assert_return(flags, -EINVAL);
+
+        m->hdr->nlmsg_flags = flags;
+
+        return 0;
+}
+
 int sd_netlink_message_is_broadcast(sd_netlink_message *m) {
         assert_return(m, -EINVAL);
 
@@ -843,8 +852,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         assert_return(m->sealed, -EINVAL);
         assert_return(m->n_containers > 0, -EINVAL);
 
-        free(m->containers[m->n_containers].attributes);
-        m->containers[m->n_containers].attributes = NULL;
+        m->containers[m->n_containers].attributes = mfree(m->containers[m->n_containers].attributes);
         m->containers[m->n_containers].type_system = NULL;
 
         m->n_containers --;
@@ -893,17 +901,14 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
         if (!m->sealed)
                 rtnl_message_seal(m);
 
-        for (i = 1; i <= m->n_containers; i++) {
-                free(m->containers[i].attributes);
-                m->containers[i].attributes = NULL;
-        }
+        for (i = 1; i <= m->n_containers; i++)
+                m->containers[i].attributes = mfree(m->containers[i].attributes);
 
         m->n_containers = 0;
 
-        if (m->containers[0].attributes) {
+        if (m->containers[0].attributes)
                 /* top-level attributes have already been parsed */
                 return 0;
-        }
 
         assert(m->hdr);
 

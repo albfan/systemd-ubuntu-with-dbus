@@ -59,8 +59,7 @@ static void swap_unset_proc_swaps(Swap *s) {
         if (!s->from_proc_swaps)
                 return;
 
-        free(s->parameters_proc_swaps.what);
-        s->parameters_proc_swaps.what = NULL;
+        s->parameters_proc_swaps.what = mfree(s->parameters_proc_swaps.what);
 
         s->from_proc_swaps = false;
 }
@@ -87,8 +86,7 @@ static int swap_set_devnode(Swap *s, const char *devnode) {
                 else
                         hashmap_remove(swaps, s->devnode);
 
-                free(s->devnode);
-                s->devnode = NULL;
+                s->devnode = mfree(s->devnode);
         }
 
         if (devnode) {
@@ -141,14 +139,9 @@ static void swap_done(Unit *u) {
         swap_unset_proc_swaps(s);
         swap_set_devnode(s, NULL);
 
-        free(s->what);
-        s->what = NULL;
-
-        free(s->parameters_fragment.what);
-        s->parameters_fragment.what = NULL;
-
-        free(s->parameters_fragment.options);
-        s->parameters_fragment.options = NULL;
+        s->what = mfree(s->what);
+        s->parameters_fragment.what = mfree(s->parameters_fragment.what);
+        s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
@@ -215,7 +208,7 @@ static int swap_add_default_dependencies(Swap *s) {
         if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return 0;
 
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
@@ -824,7 +817,7 @@ static int swap_start(Unit *u) {
 
         assert(s->state == SWAP_DEAD || s->state == SWAP_FAILED);
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return -EPERM;
 
         /* If there's a job for another swap unit for the same node
@@ -857,7 +850,7 @@ static int swap_stop(Unit *u) {
                s->state == SWAP_ACTIVATING_DONE ||
                s->state == SWAP_ACTIVE);
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return -EPERM;
 
         swap_enter_deactivating(s);
@@ -1259,13 +1252,9 @@ static void swap_shutdown(Manager *m) {
 
         m->swap_event_source = sd_event_source_unref(m->swap_event_source);
 
-        if (m->proc_swaps) {
-                fclose(m->proc_swaps);
-                m->proc_swaps = NULL;
-        }
+        m->proc_swaps = safe_fclose(m->proc_swaps);
 
-        hashmap_free(m->swaps_by_devnode);
-        m->swaps_by_devnode = NULL;
+        m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
 static int swap_enumerate(Manager *m) {
@@ -1404,25 +1393,10 @@ static bool swap_supported(void) {
         if (supported < 0)
                 supported =
                         access("/proc/swaps", F_OK) >= 0 &&
-                        detect_container(NULL) <= 0;
+                        detect_container() <= 0;
 
         return supported;
 }
-
-static const char* const swap_state_table[_SWAP_STATE_MAX] = {
-        [SWAP_DEAD] = "dead",
-        [SWAP_ACTIVATING] = "activating",
-        [SWAP_ACTIVATING_DONE] = "activating-done",
-        [SWAP_ACTIVE] = "active",
-        [SWAP_DEACTIVATING] = "deactivating",
-        [SWAP_ACTIVATING_SIGTERM] = "activating-sigterm",
-        [SWAP_ACTIVATING_SIGKILL] = "activating-sigkill",
-        [SWAP_DEACTIVATING_SIGTERM] = "deactivating-sigterm",
-        [SWAP_DEACTIVATING_SIGKILL] = "deactivating-sigkill",
-        [SWAP_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
 
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
         [SWAP_EXEC_ACTIVATE] = "ExecActivate",

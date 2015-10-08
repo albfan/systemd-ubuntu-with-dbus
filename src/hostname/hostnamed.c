@@ -63,10 +63,8 @@ static void context_reset(Context *c) {
 
         assert(c);
 
-        for (p = 0; p < _PROP_MAX; p++) {
-                free(c->data[p]);
-                c->data[p] = NULL;
-        }
+        for (p = 0; p < _PROP_MAX; p++)
+                c->data[p] = mfree(c->data[p]);
 }
 
 static void context_free(Context *c) {
@@ -114,12 +112,11 @@ static int context_read_data(Context *c) {
                            "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                            "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
                            NULL);
-        if (r == -ENOENT) {
+        if (r == -ENOENT)
                 r = parse_env_file("/usr/lib/os-release", NEWLINE,
                                    "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                                    "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
                                    NULL);
-        }
 
         if (r < 0 && r != -ENOENT)
                 return r;
@@ -155,11 +152,11 @@ static const char* fallback_chassis(void) {
         unsigned t;
         int v;
 
-        v = detect_virtualization(NULL);
+        v = detect_virtualization();
 
-        if (v == VIRTUALIZATION_VM)
+        if (VIRTUALIZATION_IS_VM(v))
                 return "vm";
-        if (v == VIRTUALIZATION_CONTAINER)
+        if (VIRTUALIZATION_IS_CONTAINER(v))
                 return "container";
 
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
@@ -498,8 +495,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         if (isempty(name)) {
-                free(c->data[PROP_STATIC_HOSTNAME]);
-                c->data[PROP_STATIC_HOSTNAME] = NULL;
+                c->data[PROP_STATIC_HOSTNAME] = mfree(c->data[PROP_STATIC_HOSTNAME]);
         } else {
                 char *h;
 
@@ -570,8 +566,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         if (isempty(name)) {
-                free(c->data[prop]);
-                c->data[prop] = NULL;
+                c->data[prop] = mfree(c->data[prop]);
         } else {
                 char *h;
 
@@ -707,12 +702,6 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
         mac_selinux_init("/etc");
-
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
-        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

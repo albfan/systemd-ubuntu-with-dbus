@@ -501,8 +501,13 @@ void link_client_handler(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
-        if (link_dhcp4_enabled(link) && !link->dhcp4_configured)
-                        return;
+        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured) ||
+            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
+             !link->dhcp6_configured) ||
+            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured && !link->dhcp6_configured))
+                return;
 
         if (link->state != LINK_STATE_CONFIGURED)
                 link_enter_configured(link);
@@ -1112,13 +1117,16 @@ static void lldp_handler(sd_lldp *lldp, int event, void *userdata) {
         assert(link->network);
         assert(link->manager);
 
-        if (event != UPDATE_INFO)
-                return;
+        switch (event) {
+        case SD_LLDP_EVENT_UPDATE_INFO:
+                r = sd_lldp_save(link->lldp, link->lldp_file);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Could not save LLDP: %m");
 
-        r = sd_lldp_save(link->lldp, link->lldp_file);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not save LLDP: %m");
-
+                break;
+        default:
+                break;
+        }
 }
 
 static int link_acquire_conf(Link *link) {
@@ -1789,6 +1797,45 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_accept_ra(Link *link) {
+        const char *p = NULL, *v = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        /* If unset use system default (enabled if local forwarding is disabled.
+         * disabled if local forwarding is enabled).
+         * If set, ignore or enforce RA independent of local forwarding state.
+         */
+        if (link->network->ipv6_accept_ra < 0) {
+                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
+                v = "1";
+        } else if (link->network->ipv6_accept_ra > 0) {
+                /* "2" means accept RA even if ip_forward is enabled */
+                v = "2";
+        } else {
+                /* "0" means ignore RA */
+                v = "0";
+        }
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
+
+        r = write_string_file(p, v, 0);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, v) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot configure IPv6 accept_ra for interface: %m");
+        }
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1809,6 +1856,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_privacy_extensions(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_accept_ra(link);
         if (r < 0)
                 return r;
 
@@ -2152,7 +2203,7 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 
         log_link_debug(link, "Link %d added", link->ifindex);
 
-        if (detect_container(NULL) <= 0) {
+        if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 device = udev_device_new_from_device_id(m->udev, ifindex_str);

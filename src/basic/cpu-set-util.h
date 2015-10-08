@@ -5,7 +5,8 @@
 /***
   This file is part of systemd.
 
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
+  Copyright 2010-2015 Lennart Poettering
+  Copyright 2015 Filipe Brandenburger
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,18 +22,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/if_ether.h>
+#include <sched.h>
 
-#include "sparse-endian.h"
-#include "socket-util.h"
+#include "macro.h"
 
-int arp_network_bind_raw_socket(int index, union sockaddr_union *link);
-int arp_network_send_raw_socket(int fd, const union sockaddr_union *link,
-                                        const struct ether_arp *arp);
+DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
+#define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
 
-void arp_packet_init(struct ether_arp *arp);
-void arp_packet_probe(struct ether_arp *arp, be32_t pa, const struct ether_addr *ha);
-void arp_packet_announcement(struct ether_arp *arp, be32_t pa, const struct ether_addr *ha);
-int arp_packet_verify_headers(struct ether_arp *arp);
+cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-#define log_ipv4ll(ll, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "IPv4LL: " fmt, ##__VA_ARGS__)
+int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue);

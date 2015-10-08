@@ -169,11 +169,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                         /* the device does not exist (any more?) */
                                         return -ENODEV;
 
-                                log_debug("sd-device: could not canonicalize '%s': %m", _syspath);
-                                return -errno;
+                                return log_debug_errno(errno, "sd-device: could not canonicalize '%s': %m", _syspath);
                         }
                 } else if (r < 0) {
-                        log_debug("sd-device: could not get target of '%s': %s", _syspath, strerror(-r));
+                        log_debug_errno(r, "sd-device: could not get target of '%s': %m", _syspath);
                         return r;
                 }
 
@@ -296,15 +295,27 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                 } else
                         return -EINVAL;
         } else {
-                syspath = strjoina("/sys/subsystem/", subsystem, "/devices/", sysname);
+                char *name;
+                size_t len = 0;
+
+                /* translate sysname back to sysfs filename */
+                name = strdupa(sysname);
+                while (name[len] != '\0') {
+                        if (name[len] == '/')
+                                name[len] = '!';
+
+                        len ++;
+                }
+
+                syspath = strjoina("/sys/subsystem/", subsystem, "/devices/", name);
                 if (access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
 
-                syspath = strjoina("/sys/bus/", subsystem, "/devices/", sysname);
+                syspath = strjoina("/sys/bus/", subsystem, "/devices/", name);
                 if (access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
 
-                syspath = strjoina("/sys/class/", subsystem, "/", sysname);
+                syspath = strjoina("/sys/class/", subsystem, "/", name);
                 if (access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
         }
@@ -516,7 +527,7 @@ int device_read_uevent_file(sd_device *device) {
                 /* some devices may not have uevent files, see set_syspath() */
                 return 0;
         else if (r < 0) {
-                log_debug("sd-device: failed to read uevent file '%s': %s", path, strerror(-r));
+                log_debug_errno(r, "sd-device: failed to read uevent file '%s': %m", path);
                 return r;
         }
 
@@ -555,7 +566,7 @@ int device_read_uevent_file(sd_device *device) {
 
                                 r = handle_uevent_line(device, key, value, &major, &minor);
                                 if (r < 0)
-                                        log_debug("sd-device: failed to handle uevent entry '%s=%s': %s", key, value, strerror(-r));
+                                        log_debug_errno(r, "sd-device: failed to handle uevent entry '%s=%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }
@@ -569,7 +580,7 @@ int device_read_uevent_file(sd_device *device) {
         if (major) {
                 r = device_set_devnum(device, major, minor);
                 if (r < 0)
-                        log_debug("sd-device: could not set 'MAJOR=%s' or 'MINOR=%s' from '%s': %s", major, minor, path, strerror(-r));
+                        log_debug_errno(r, "sd-device: could not set 'MAJOR=%s' or 'MINOR=%s' from '%s': %m", major, minor, path);
         }
 
         return 0;
@@ -1271,10 +1282,8 @@ int device_read_db_aux(sd_device *device, bool force) {
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;
-                else {
-                        log_debug("sd-device: failed to read db '%s': %s", path, strerror(-r));
-                        return r;
-                }
+                else
+                        return log_debug_errno(r, "sd-device: failed to read db '%s': %m", path);
         }
 
         /* devices with a database entry are initialized */
@@ -1318,7 +1327,7 @@ int device_read_db_aux(sd_device *device, bool force) {
                                 db[i] = '\0';
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
-                                        log_debug("sd-device: failed to handle db entry '%c:%s': %s", key, value, strerror(-r));
+                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }

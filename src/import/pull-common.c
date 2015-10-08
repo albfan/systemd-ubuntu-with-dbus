@@ -31,10 +31,19 @@
 #include "pull-common.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "siphash24.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
+#define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)
 
-int pull_find_old_etags(const char *url, const char *image_root, int dt, const char *prefix, const char *suffix, char ***etags) {
+int pull_find_old_etags(
+                const char *url,
+                const char *image_root,
+                int dt,
+                const char *prefix,
+                const char *suffix,
+                char ***etags) {
+
         _cleanup_free_ char *escaped_url = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -142,8 +151,21 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         return 0;
 }
 
+static int hash_url(const char *url, char **ret) {
+        uint64_t h;
+        static const sd_id128_t k = SD_ID128_ARRAY(df,89,16,87,01,cc,42,30,98,ab,4a,19,a6,a5,63,4f);
+
+        assert(url);
+
+        siphash24((uint8_t *) &h, url, strlen(url), k.bytes);
+        if (asprintf(ret, "%"PRIx64, h) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
 int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret) {
-        _cleanup_free_ char *escaped_url = NULL;
+        _cleanup_free_ char *escaped_url = NULL, *escaped_etag = NULL;
         char *path;
 
         assert(url);
@@ -157,19 +179,79 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
                 return -ENOMEM;
 
         if (etag) {
-                _cleanup_free_ char *escaped_etag = NULL;
-
                 escaped_etag = xescape(etag, FILENAME_ESCAPE);
                 if (!escaped_etag)
                         return -ENOMEM;
+        }
 
-                path = strjoin(image_root, "/", strempty(prefix), escaped_url, ".", escaped_etag, strempty(suffix), NULL);
-        } else
-                path = strjoin(image_root, "/", strempty(prefix), escaped_url, strempty(suffix), NULL);
+        path = strjoin(image_root, "/", strempty(prefix), escaped_url, escaped_etag ? "." : "",
+                       strempty(escaped_etag), strempty(suffix), NULL);
         if (!path)
                 return -ENOMEM;
 
+        /* URLs might make the path longer than the maximum allowed length for a file name.
+         * When that happens, a URL hash is used instead. Paths returned by this function
+         * can be later used with tempfn_random() which adds 16 bytes to the resulting name. */
+        if (strlen(path) >= HASH_URL_THRESHOLD_LENGTH) {
+                _cleanup_free_ char *hash = NULL;
+                int r;
+
+                free(path);
+
+                r = hash_url(url, &hash);
+                if (r < 0)
+                        return r;
+
+                path = strjoin(image_root, "/", strempty(prefix), hash, escaped_etag ? "." : "",
+                               strempty(escaped_etag), strempty(suffix), NULL);
+                if (!path)
+                        return -ENOMEM;
+        }
+
         *ret = path;
+        return 0;
+}
+
+int pull_make_settings_job(
+                PullJob **ret,
+                const char *url,
+                CurlGlue *glue,
+                PullJobFinished on_finished,
+                void *userdata) {
+
+        _cleanup_free_ char *last_component = NULL, *ll = NULL, *settings_url = NULL;
+        _cleanup_(pull_job_unrefp) PullJob *job = NULL;
+        const char *q;
+        int r;
+
+        assert(ret);
+        assert(url);
+        assert(glue);
+
+        r = import_url_last_component(url, &last_component);
+        if (r < 0)
+                return r;
+
+        r = tar_strip_suffixes(last_component, &ll);
+        if (r < 0)
+                return r;
+
+        q = strjoina(ll, ".nspawn");
+
+        r = import_url_change_last_component(url, q, &settings_url);
+        if (r < 0)
+                return r;
+
+        r = pull_job_new(&job, settings_url, glue, userdata);
+        if (r < 0)
+                return r;
+
+        job->on_finished = on_finished;
+        job->compressed_max = job->uncompressed_max = 1ULL * 1024ULL * 1024ULL;
+
+        *ret = job;
+        job = NULL;
+
         return 0;
 }
 
@@ -232,8 +314,8 @@ int pull_make_verification_jobs(
         return 0;
 }
 
-int pull_verify(
-                PullJob *main_job,
+int pull_verify(PullJob *main_job,
+                PullJob *settings_job,
                 PullJob *checksum_job,
                 PullJob *signature_job) {
 
@@ -278,11 +360,46 @@ int pull_verify(
                    strlen(line));
 
         if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
-                log_error("Checksum did not check out, payload has been tempered with.");
+                log_error("DOWNLOAD INVALID: Checksum did not check out, payload has been tampered with.");
                 return -EBADMSG;
         }
 
         log_info("SHA256 checksum of %s is valid.", main_job->url);
+
+        assert(!settings_job || settings_job->state == PULL_JOB_DONE);
+
+        if (settings_job &&
+            settings_job->error == 0 &&
+            !settings_job->etag_exists) {
+
+                _cleanup_free_ char *settings_fn = NULL;
+
+                assert(settings_job->calc_checksum);
+                assert(settings_job->checksum);
+
+                r = import_url_last_component(settings_job->url, &settings_fn);
+                if (r < 0)
+                        return log_oom();
+
+                if (!filename_is_valid(settings_fn)) {
+                        log_error("Cannot verify checksum, could not determine server-side settings file name.");
+                        return -EBADMSG;
+                }
+
+                line = strjoina(settings_job->checksum, " *", settings_fn, "\n");
+
+                p = memmem(checksum_job->payload,
+                           checksum_job->payload_size,
+                           line,
+                           strlen(line));
+
+                if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
+                        log_error("DOWNLOAD INVALID: Checksum of settings file did not checkout, settings file has been tampered with.");
+                        return -EBADMSG;
+                }
+
+                log_info("SHA256 checksum of %s is valid.", settings_job->url);
+        }
 
         if (!signature_job)
                 return 0;
@@ -407,7 +524,7 @@ int pull_verify(
         if (r < 0)
                 goto finish;
         if (r > 0) {
-                log_error("Signature verification failed.");
+                log_error("DOWNLOAD INVALID: Signature verification failed.");
                 r = -EBADMSG;
         } else {
                 log_info("Signature verification succeeded.");
@@ -416,7 +533,7 @@ int pull_verify(
 
 finish:
         if (sig_file >= 0)
-                unlink(sig_file_path);
+                (void) unlink(sig_file_path);
 
         if (gpg_home_created)
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
