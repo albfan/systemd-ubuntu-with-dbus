@@ -10,6 +10,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  LIBSYSTEMD_221@LIBSYSTEMD_221 221
  LIBSYSTEMD_222@LIBSYSTEMD_222 222
  LIBSYSTEMD_226@LIBSYSTEMD_226 226
+ LIBSYSTEMD_227@LIBSYSTEMD_227 227
  sd_booted@LIBSYSTEMD_209 0
  sd_bus_add_fallback@LIBSYSTEMD_221 221
  sd_bus_add_fallback_vtable@LIBSYSTEMD_221 221
@@ -66,6 +67,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_bus_creds_ref@LIBSYSTEMD_221 221
  sd_bus_creds_unref@LIBSYSTEMD_221 221
  sd_bus_default@LIBSYSTEMD_221 221
+ sd_bus_default_flush_close@LIBSYSTEMD_227 227
  sd_bus_default_system@LIBSYSTEMD_221 221
  sd_bus_default_user@LIBSYSTEMD_221 221
  sd_bus_detach_event@LIBSYSTEMD_221 221
@@ -195,7 +197,9 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_bus_open_system_remote@LIBSYSTEMD_221 221
  sd_bus_open_user@LIBSYSTEMD_221 221
  sd_bus_path_decode@LIBSYSTEMD_221 221
+ sd_bus_path_decode_many@LIBSYSTEMD_227 227
  sd_bus_path_encode@LIBSYSTEMD_221 221
+ sd_bus_path_encode_many@LIBSYSTEMD_227 227
  sd_bus_process@LIBSYSTEMD_221 221
  sd_bus_process_priority@LIBSYSTEMD_221 221
  sd_bus_query_sender_creds@LIBSYSTEMD_221 221
@@ -366,6 +370,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_journal_test_cursor@LIBSYSTEMD_209 0
  sd_journal_wait@LIBSYSTEMD_209 0
  sd_listen_fds@LIBSYSTEMD_209 0
+ sd_listen_fds_with_names@LIBSYSTEMD_227 227
  sd_login_monitor_flush@LIBSYSTEMD_209 0
  sd_login_monitor_get_events@LIBSYSTEMD_209 0
  sd_login_monitor_get_fd@LIBSYSTEMD_209 0
