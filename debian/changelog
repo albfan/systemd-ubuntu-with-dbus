@@ -5,6 +5,7 @@ systemd (227-1) UNRELEASED; urgency=medium
     - gpt-auto-generator: Check fstab for /boot entries. (Closes: #797326)
     - Fix group of RuntimeDirectory dirs. (Closes: #798391)
     - Support %i (and other macros) in RuntimeDirectory. (Closes: #799324)
+    - Bump util-linux/libmount-dev dependencies to >= 2.27.
   * debian/extra/initramfs-tools/hooks/udev: Copy all
     /etc/udev/rules.d/*.rules rules which are not merely overriding the one in
     /lib/, not just 70-persistent-net.rules.  They might contain network names
