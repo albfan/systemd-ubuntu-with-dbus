@@ -476,8 +476,7 @@ int scope_abandon(Scope *s) {
         if (!IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED))
                 return -ESTALE;
 
-        free(s->controller);
-        s->controller = NULL;
+        s->controller = mfree(s->controller);
 
         /* The client is no longer watching the remaining processes,
          * so let's step in here, under the assumption that the
@@ -549,17 +548,6 @@ static int scope_enumerate(Manager *m) {
 
         return 0;
 }
-
-static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
-        [SCOPE_DEAD] = "dead",
-        [SCOPE_RUNNING] = "running",
-        [SCOPE_ABANDONED] = "abandoned",
-        [SCOPE_STOP_SIGTERM] = "stop-sigterm",
-        [SCOPE_STOP_SIGKILL] = "stop-sigkill",
-        [SCOPE_FAILED] = "failed",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
 
 static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
         [SCOPE_SUCCESS] = "success",

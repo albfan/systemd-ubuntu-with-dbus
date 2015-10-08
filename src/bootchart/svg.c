@@ -30,6 +30,7 @@
 #include <sys/utsname.h>
 #include <fcntl.h>
 
+#include "architecture.h"
 #include "util.h"
 #include "fileio.h"
 #include "macro.h"
@@ -147,7 +148,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         _cleanup_free_ char *model = NULL;
         _cleanup_free_ char *buf = NULL;
         char date[256] = "Unknown";
-        char *cpu;
+        const char *cpu;
         char *c;
         time_t t;
         int r;
@@ -188,20 +189,11 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         assert_se(r > 0);
 
         /* CPU type */
-        r = read_full_file("/proc/cpuinfo", &buf, NULL);
+        r = get_proc_field("/proc/cpuinfo", PROC_CPUINFO_MODEL, "\n", &buf);
         if (r < 0)
-                return log_error_errno(r, "Unable to read cpuinfo: %m");
-
-        cpu = strstr(buf, "model name");
-        if (!cpu) {
-                log_error("Unable to read module name from cpuinfo.\n");
-                return -ENOENT;
-        }
-
-        cpu += 13;
-        c = strchr(cpu, '\n');
-        if (c)
-                *c = '\0';
+                cpu = "Unknown";
+        else
+                cpu = buf;
 
         fprintf(of, "<text class=\"t1\" x=\"0\" y=\"30\">Bootchart for %s - %s</text>\n",
                 uts.nodename, date);
@@ -630,12 +622,11 @@ static void svg_io_bi_bar(FILE *of,
                                 pbi * (arg_scale_y * 5));
 
                 /* labels around highest value */
-                if (i == max_here) {
+                if (i == max_here)
                         fprintf(of, "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\">%0.2fmb/sec</text>\n",
                                 time_to_graph(sampledata->sampletime - graph_start) + 5,
                                 ((arg_scale_y * 5) - (pbi * (arg_scale_y * 5))) + 15,
                                 max / 1024.0 / (interval / 1000000000.0));
-                }
 
                 i++;
                 prev_sampledata = sampledata;
@@ -743,12 +734,11 @@ static void svg_io_bo_bar(FILE *of,
                                 pbo * (arg_scale_y * 5));
 
                 /* labels around highest bo value */
-                if (i == max_here) {
+                if (i == max_here)
                         fprintf(of, "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\">%0.2fmb/sec</text>\n",
                                 time_to_graph(sampledata->sampletime - graph_start) + 5,
                                 ((arg_scale_y * 5) - (pbo * (arg_scale_y * 5))),
                                 max / 1024.0 / (interval / 1000000000.0));
-                }
 
                 i++;
                 prev_sampledata = sampledata;
@@ -890,7 +880,7 @@ static struct ps_struct *get_next_ps(struct ps_struct *ps, struct ps_struct *ps_
                 return ps->next;
 
         /* go back for parent siblings */
-        while (1) {
+        for (;;) {
                 if (ps->parent && ps->parent->next)
                         return ps->parent->next;
 

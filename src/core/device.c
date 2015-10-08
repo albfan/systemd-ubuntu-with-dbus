@@ -60,8 +60,7 @@ static void device_unset_sysfs(Device *d) {
         else
                 hashmap_remove(devices, d->sysfs);
 
-        free(d->sysfs);
-        d->sysfs = NULL;
+        d->sysfs = mfree(d->sysfs);
 }
 
 static int device_set_sysfs(Device *d, const char *sysfs) {
@@ -595,8 +594,7 @@ static void device_shutdown(Manager *m) {
                 m->udev_monitor = NULL;
         }
 
-        hashmap_free(m->devices_by_sysfs);
-        m->devices_by_sysfs = NULL;
+        m->devices_by_sysfs = hashmap_free(m->devices_by_sysfs);
 }
 
 static int device_enumerate(Manager *m) {
@@ -817,14 +815,6 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
         /* Update the device unit's state, should it exist */
         return device_update_found_by_name(m, node, add, found, now);
 }
-
-static const char* const device_state_table[_DEVICE_STATE_MAX] = {
-        [DEVICE_DEAD] = "dead",
-        [DEVICE_TENTATIVE] = "tentative",
-        [DEVICE_PLUGGED] = "plugged",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
 
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),

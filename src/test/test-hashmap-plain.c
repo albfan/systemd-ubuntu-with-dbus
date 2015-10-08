@@ -692,8 +692,8 @@ static void test_hashmap_get2(void) {
         hashmap_free_free_free(m);
 }
 
-static unsigned long crippled_hashmap_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        return trivial_hash_func(p, hash_key) & 0xff;
+static void crippled_hashmap_func(const void *p, struct siphash *state) {
+        return trivial_hash_func(INT_TO_PTR(PTR_TO_INT(p) & 0xff), state);
 }
 
 static const struct hash_ops crippled_hashmap_ops = {
@@ -710,7 +710,7 @@ static void test_hashmap_many(void) {
                 unsigned n_entries;
         } tests[] = {
                 { .ops = NULL,                  .n_entries = 1 << 20 },
-                { .ops = &crippled_hashmap_ops, .n_entries = 1 << 11 },
+                { .ops = &crippled_hashmap_ops, .n_entries = 1 << 14 },
         };
 
 

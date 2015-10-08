@@ -19,25 +19,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
+
+#include "bus-error.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "log.h"
-#include "path-util.h"
-#include "util.h"
-#include "pager.h"
-#include "build.h"
-#include "output-mode.h"
 #include "fileio.h"
-#include "sd-bus.h"
-#include "bus-util.h"
-#include "bus-error.h"
+#include "log.h"
+#include "output-mode.h"
+#include "pager.h"
+#include "path-util.h"
 #include "unit-name.h"
+#include "util.h"
 
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
@@ -89,9 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
@@ -147,7 +145,7 @@ static int get_cgroup_root(char **ret) {
         if (!path)
                 return log_oom();
 
-        r = bus_open_transport(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -163,6 +161,13 @@ static int get_cgroup_root(char **ret) {
                 return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
 
         return 0;
+}
+
+static void show_cg_info(const char *controller, const char *path) {
+        if (cg_unified() <= 0)
+                printf("Controller %s; ", controller);
+        printf("Control group %s:\n", isempty(path) ? "/" : path);
+        fflush(stdout);
 }
 
 int main(int argc, char *argv[]) {
@@ -225,11 +230,7 @@ int main(int argc, char *argv[]) {
                                 } else
                                         path = root;
 
-                                if (cg_unified() > 0)
-                                        printf("Control group %s:\n", path);
-                                else
-                                        printf("Controller %s; control group %s:\n", controller, path);
-                                fflush(stdout);
+                                show_cg_info(controller, path);
 
                                 q = show_cgroup(controller, path, NULL, 0, arg_kernel_threads, output_flags);
                         }
@@ -266,8 +267,7 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        printf("Control group %s:\n", isempty(root) ? "/" : root);
-                        fflush(stdout);
+                        show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
                 }

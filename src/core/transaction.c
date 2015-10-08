@@ -380,12 +380,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                          "Found dependency on %s/%s",
                                          k->unit->id, job_type_to_string(k->type));
 
-                        if (!delete && hashmap_get(tr->jobs, k->unit) &&
-                            !unit_matters_to_anchor(k->unit, k)) {
+                        if (!delete && hashmap_get(tr->jobs, k->unit) && !unit_matters_to_anchor(k->unit, k))
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
                                 delete = k;
-                        }
 
                         /* Check if this in fact was the beginning of
                          * the cycle */
@@ -403,7 +401,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                        "Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                        delete->unit->id, job_type_to_string(delete->type),
                                        j->unit->id, job_type_to_string(j->type));
-                        unit_status_printf(delete->unit, ANSI_HIGHLIGHT_RED_ON " SKIP " ANSI_HIGHLIGHT_OFF,
+                        unit_status_printf(delete->unit, ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL,
                                            "Ordering cycle found, skipping %s");
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
@@ -464,9 +462,11 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bu
 
         g = (*generation)++;
 
-        HASHMAP_FOREACH(j, tr->jobs, i)
-                if ((r = transaction_verify_order_one(tr, j, NULL, g, e)) < 0)
+        HASHMAP_FOREACH(j, tr->jobs, i) {
+                r = transaction_verify_order_one(tr, j, NULL, g, e);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -736,8 +736,8 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
 
                 if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0 &&
                     m->idle_pipe[2] < 0 && m->idle_pipe[3] < 0) {
-                        pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
-                        pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
+                        (void) pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
+                        (void) pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
                 }
         }
 

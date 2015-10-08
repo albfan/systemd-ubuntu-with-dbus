@@ -204,9 +204,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
             b->mode == NETDEV_BOND_MODE_802_3AD) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
-                if (r < 0) {
+                if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_LACP_RATE attribute: %m");
-                }
         }
 
         if (b->miimon != 0) {
@@ -358,12 +357,12 @@ int config_parse_arp_ip_target_address(const char *unit,
 
                 r = in_addr_from_string_auto(n, &f, &buffer->ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
                         return 0;
                 }
 
                 if (f != AF_INET) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
                         return 0;
                 }
 
@@ -374,7 +373,7 @@ int config_parse_arp_ip_target_address(const char *unit,
         }
 
         if (b->n_arp_ip_targets > NETDEV_BOND_ARP_TARGETS_MAX)
-                log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d", b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d", b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
 
         return 0;
 }

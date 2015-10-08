@@ -103,6 +103,7 @@ struct ExecContext {
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory;
         bool working_directory_missing_ok;
+        bool working_directory_home;
 
         mode_t umask;
         int oom_score_adjust;
@@ -207,19 +208,30 @@ struct ExecContext {
 
 struct ExecParameters {
         char **argv;
-        int *fds; unsigned n_fds;
+
+        int *fds;
+        char **fd_names;
+        unsigned n_fds;
+
         char **environment;
+
         bool apply_permissions;
         bool apply_chroot;
         bool apply_tty_stdin;
+
         bool confirm_spawn;
         bool selinux_context_net;
+
         CGroupMask cgroup_supported;
         const char *cgroup_path;
         bool cgroup_delegate;
+
         const char *runtime_prefix;
+
         usec_t watchdog_usec;
+
         int *idle_pipe;
+
         char *bus_endpoint_path;
         int bus_endpoint_fd;
 };

@@ -21,31 +21,30 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <getopt.h>
-
-#include "sd-daemon.h"
-#include "signal-util.h"
-#include "journal-file.h"
-#include "journald-native.h"
-#include "socket-util.h"
-#include "build.h"
-#include "macro.h"
-#include "strv.h"
-#include "fileio.h"
-#include "conf-parser.h"
 
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
 
-#include "journal-remote.h"
+#include "sd-daemon.h"
+
+#include "conf-parser.h"
+#include "fileio.h"
+#include "journal-file.h"
+#include "journald-native.h"
+#include "macro.h"
+#include "signal-util.h"
+#include "socket-util.h"
+#include "strv.h"
 #include "journal-remote-write.h"
+#include "journal-remote.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
@@ -88,8 +87,7 @@ static int spawn_child(const char* child, char** argv) {
 
         child_pid = fork();
         if (child_pid < 0) {
-                r = -errno;
-                log_error_errno(errno, "Failed to fork: %m");
+                r = log_error_errno(errno, "Failed to fork: %m");
                 safe_close_pair(fd);
                 return r;
         }
@@ -519,7 +517,7 @@ static int process_http_upload(
         } else
                 finished = true;
 
-        while (true) {
+        for (;;) {
                 r = process_source(source, arg_compress, arg_seal);
                 if (r == -EAGAIN)
                         break;
@@ -615,10 +613,9 @@ static int request_handler(
                         return code;
         } else {
                 r = getnameinfo_pretty(fd, &hostname);
-                if (r < 0) {
+                if (r < 0)
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote hostname");
-                }
         }
 
         assert(hostname);
@@ -650,9 +647,10 @@ static int setup_microhttpd_server(RemoteServer *s,
         int opts_pos = 3;
         int flags =
                 MHD_USE_DEBUG |
-                MHD_USE_PEDANTIC_CHECKS |
+                MHD_USE_DUAL_STACK |
                 MHD_USE_EPOLL_LINUX_ONLY |
-                MHD_USE_DUAL_STACK;
+                MHD_USE_PEDANTIC_CHECKS |
+                MHD_USE_PIPE_FOR_SHUTDOWN;
 
         const union MHD_DaemonInfo *info;
         int r, epoll_fd;
@@ -956,7 +954,7 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         if (s->active == 0) {
-                log_error("Zarro sources specified");
+                log_error("Zero sources specified");
                 return -EINVAL;
         }
 
@@ -1261,9 +1259,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0 /* done */;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0 /* done */;
+                        return version();
 
                 case ARG_URL:
                         if (arg_url) {

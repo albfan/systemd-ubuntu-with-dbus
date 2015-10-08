@@ -181,7 +181,7 @@ static char** user_dirs(
                 if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
                         return NULL;
 
-        if (strv_extend_strv(&res, (char**) config_unit_paths) < 0)
+        if (strv_extend_strv(&res, (char**) config_unit_paths, false) < 0)
                 return NULL;
 
         if (runtime_dir)
@@ -203,7 +203,7 @@ static char** user_dirs(
                 if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
                         return NULL;
 
-        if (strv_extend_strv(&res, (char**) data_unit_paths) < 0)
+        if (strv_extend_strv(&res, (char**) data_unit_paths, false) < 0)
                 return NULL;
 
         if (generator_late)
@@ -318,7 +318,7 @@ int lookup_paths_init(
                 if (!unit_path)
                         return -ENOMEM;
 
-                r = strv_extend_strv(&p->unit_path, unit_path);
+                r = strv_extend_strv(&p->unit_path, unit_path, false);
                 if (r < 0)
                         return r;
         }
@@ -333,8 +333,7 @@ int lookup_paths_init(
                 log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
         } else {
                 log_debug("Ignoring unit files.");
-                strv_free(p->unit_path);
-                p->unit_path = NULL;
+                p->unit_path = strv_free(p->unit_path);
         }
 
         if (running_as == MANAGER_SYSTEM) {
@@ -390,8 +389,7 @@ int lookup_paths_init(
                         log_debug("Looking for SysV init scripts in:\n\t%s", t);
                 } else {
                         log_debug("Ignoring SysV init scripts.");
-                        strv_free(p->sysvinit_path);
-                        p->sysvinit_path = NULL;
+                        p->sysvinit_path = strv_free(p->sysvinit_path);
                 }
 
                 if (!strv_isempty(p->sysvrcnd_path)) {
@@ -403,8 +401,7 @@ int lookup_paths_init(
                         log_debug("Looking for SysV rcN.d links in:\n\t%s", t);
                 } else {
                         log_debug("Ignoring SysV rcN.d links.");
-                        strv_free(p->sysvrcnd_path);
-                        p->sysvrcnd_path = NULL;
+                        p->sysvrcnd_path = strv_free(p->sysvrcnd_path);
                 }
 #else
                 log_debug("SysV init scripts and rcN.d links support disabled");
@@ -417,8 +414,7 @@ int lookup_paths_init(
 void lookup_paths_free(LookupPaths *p) {
         assert(p);
 
-        strv_free(p->unit_path);
-        p->unit_path = NULL;
+        p->unit_path = strv_free(p->unit_path);
 
 #ifdef HAVE_SYSV_COMPAT
         strv_free(p->sysvinit_path);

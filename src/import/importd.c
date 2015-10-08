@@ -167,6 +167,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
         t->type = _TRANSFER_TYPE_INVALID;
         t->log_fd = -1;
         t->stdin_fd = -1;
+        t->stdout_fd = -1;
         t->verify = _IMPORT_VERIFY_INVALID;
 
         id = m->current_transfer_id + 1;
@@ -599,14 +600,11 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         cmsg_close_all(&msghdr);
 
-        CMSG_FOREACH(cmsg, &msghdr) {
+        CMSG_FOREACH(cmsg, &msghdr)
                 if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SCM_CREDENTIALS &&
-                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
                         ucred = (struct ucred*) CMSG_DATA(cmsg);
-                }
-        }
 
         if (msghdr.msg_flags & MSG_TRUNC) {
                 log_warning("Got overly long notification datagram, ignoring.");

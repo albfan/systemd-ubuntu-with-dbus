@@ -19,27 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fcntl.h>
+#include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
 #include <string.h>
-#include <getopt.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
-#include "build.h"
-#include "set.h"
-#include "util.h"
-#include "log.h"
-#include "path-util.h"
-#include "pager.h"
-#include "macro.h"
-#include "journal-internal.h"
+
 #include "compress.h"
-#include "sigbus.h"
+#include "journal-internal.h"
+#include "log.h"
+#include "macro.h"
+#include "pager.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
+#include "set.h"
+#include "sigbus.h"
 #include "signal-util.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static enum {
         ACTION_NONE,
@@ -175,9 +175,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                 case ARG_VERSION:
                         arg_action = ACTION_NONE;
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
@@ -402,11 +400,11 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (comm)
                 fprintf(file,
                         "           PID: %s%s%s (%s)\n",
-                        ansi_highlight(), strna(pid), ansi_highlight_off(), comm);
+                        ansi_highlight(), strna(pid), ansi_normal(), comm);
         else
                 fprintf(file,
                         "           PID: %s%s%s\n",
-                        ansi_highlight(), strna(pid), ansi_highlight_off());
+                        ansi_highlight(), strna(pid), ansi_normal());
 
         if (uid) {
                 uid_t n;
@@ -470,7 +468,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (cmdline)
                 fprintf(file, "  Command Line: %s\n", cmdline);
         if (exe)
-                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), exe, ansi_highlight_off());
+                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), exe, ansi_normal());
         if (cgroup)
                 fprintf(file, " Control Group: %s\n", cgroup);
         if (unit)
@@ -631,8 +629,8 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         sz = write(fdt, data, len);
                         if (sz < 0) {
-                                log_error_errno(errno, "Failed to write temporary file: %m");
-                                r = -errno;
+                                r = log_error_errno(errno,
+                                                    "Failed to write temporary file: %m");
                                 goto error;
                         }
                         if (sz != (ssize_t) len) {
@@ -646,8 +644,9 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
                         if (fdf < 0) {
-                                log_error_errno(errno, "Failed to open %s: %m", filename);
-                                r = -errno;
+                                r = log_error_errno(errno,
+                                                    "Failed to open %s: %m",
+                                                    filename);
                                 goto error;
                         }
 
@@ -758,8 +757,7 @@ static int run_gdb(sd_journal *j) {
 
         pid = fork();
         if (pid < 0) {
-                log_error_errno(errno, "Failed to fork(): %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to fork(): %m");
                 goto finish;
         }
         if (pid == 0) {

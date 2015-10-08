@@ -233,6 +233,12 @@
                 <literal>locally administered</literal> bits set.</para>
               </listitem>
             </varlistentry>
+            <varlistentry>
+              <term><literal>none</literal></term>
+              <listitem>
+                <para>Keeps the MAC address assigned by the kernel.</para>
+              </listitem>
+            </varlistentry>
           </variablelist>
         </listitem>
       </varlistentry>
@@ -383,7 +389,7 @@
   <refsect1>
     <title>Example</title>
     <example>
-      <title>/etc/systemd/network/wireless.link</title>
+      <title>/etc/systemd/network/25-wireless.link</title>
 
       <programlisting>[Match]
 MACAddress=12:34:56:78:9a:bc

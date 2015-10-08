@@ -44,7 +44,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         r = address_new_dynamic(&address);
         if (r < 0) {
-                log_link_error(link, "Could not allocate address: %s", strerror(-r));
+                log_link_error_errno(link, r, "Could not allocate address: %m");
                 return r;
         }
 
@@ -57,8 +57,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         r = route_new_dynamic(&route, RTPROT_UNSPEC);
         if (r < 0) {
-                log_link_error(link, "Could not allocate route: %s",
-                               strerror(-r));
+                log_link_error_errno(link, r, "Could not allocate route: %m");
                 return r;
         }
 
@@ -82,7 +81,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error(link, "could not set ipv4ll route: %s", strerror(-r));
+                log_link_error_errno(link, r, "could not set ipv4ll route: %m");
                 link_enter_failed(link);
         }
 
@@ -103,7 +102,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error(link, "could not set ipv4ll address: %s", strerror(-r));
+                log_link_error_errno(link, r, "could not set ipv4ll address: %m");
                 link_enter_failed(link);
         } else if (r >= 0)
                 link_rtnl_process_address(rtnl, m, link->manager);
@@ -179,15 +178,15 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
                 return;
 
         switch(event) {
-                case IPV4LL_EVENT_STOP:
-                case IPV4LL_EVENT_CONFLICT:
+                case SD_IPV4LL_EVENT_STOP:
+                case SD_IPV4LL_EVENT_CONFLICT:
                         r = ipv4ll_address_lost(link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return;
                         }
                         break;
-                case IPV4LL_EVENT_BIND:
+                case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
                                 link_enter_failed(link);
@@ -195,10 +194,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
                         }
                         break;
                 default:
-                        if (event < 0)
-                                log_link_warning(link, "IPv4 link-local error: %s", strerror(-event));
-                        else
-                                log_link_warning(link, "IPv4 link-local unknown event: %d", event);
+                        log_link_warning(link, "IPv4 link-local unknown event: %d", event);
                         break;
         }
 }
@@ -218,7 +214,9 @@ int ipv4ll_configure(Link *link) {
         if (link->udev_device) {
                 r = net_get_unique_predictable_data(link->udev_device, seed);
                 if (r >= 0) {
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
+                        assert_cc(sizeof(unsigned) <= 8);
+
+                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, *(unsigned *)seed);
                         if (r < 0)
                                 return r;
                 }

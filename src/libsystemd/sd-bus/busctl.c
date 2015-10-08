@@ -21,22 +21,21 @@
 
 #include <getopt.h>
 
-#include "strv.h"
-#include "util.h"
+#include "sd-bus.h"
+
+#include "bus-dump.h"
+#include "bus-internal.h"
+#include "bus-signature.h"
+#include "bus-type.h"
+#include "bus-util.h"
+#include "busctl-introspect.h"
 #include "log.h"
-#include "build.h"
 #include "pager.h"
 #include "path-util.h"
 #include "set.h"
-
-#include "sd-bus.h"
-#include "bus-internal.h"
-#include "bus-util.h"
-#include "bus-dump.h"
-#include "bus-signature.h"
-#include "bus-type.h"
-#include "busctl-introspect.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -449,7 +448,7 @@ static int tree(sd_bus *bus, char **argv) {
                         if (not_first)
                                 printf("\n");
 
-                        printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_highlight_off());
+                        printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
 
                         q = tree_one(bus, *i, NULL, true);
                         if (q < 0 && r >= 0)
@@ -466,7 +465,7 @@ static int tree(sd_bus *bus, char **argv) {
 
                         if (argv[2]) {
                                 pager_open_if_enabled();
-                                printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_highlight_off());
+                                printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
                         q = tree_one(bus, *i, NULL, !!argv[2]);
@@ -629,22 +628,24 @@ typedef struct Member {
         uint64_t flags;
 } Member;
 
-static unsigned long member_hash_func(const void *p, const uint8_t hash_key[]) {
+static void member_hash_func(const void *p, struct siphash *state) {
         const Member *m = p;
-        unsigned long ul;
+        uint64_t arity = 1;
 
         assert(m);
         assert(m->type);
 
-        ul = string_hash_func(m->type, hash_key);
+        string_hash_func(m->type, state);
+
+        arity += !!m->name + !!m->interface;
+
+        uint64_hash_func(&arity, state);
 
         if (m->name)
-                ul ^= string_hash_func(m->name, hash_key);
+                string_hash_func(m->name, state);
 
         if (m->interface)
-                ul ^= string_hash_func(m->interface, hash_key);
-
-        return ul;
+                string_hash_func(m->interface, state);
 }
 
 static int member_compare_func(const void *a, const void *b) {
@@ -1052,7 +1053,7 @@ static int introspect(sd_bus *bus, char **argv) {
                        is_interface ? ansi_highlight() : "",
                        is_interface ? "" : ".",
                        - !is_interface + (int) name_width, strdash(streq_ptr(m->type, "interface") ? m->interface : m->name),
-                       is_interface ? ansi_highlight_off() : "",
+                       is_interface ? ansi_normal() : "",
                        (int) type_width, strdash(m->type),
                        (int) signature_width, strdash(m->signature),
                        (int) result_width, rv,
@@ -1089,6 +1090,15 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                 }
 
                 m = strjoin("sender='", *i, "'", NULL);
+                if (!m)
+                        return log_oom();
+
+                r = sd_bus_add_match(bus, NULL, m, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
+
+                free(m);
+                m = strjoin("destination='", *i, "'", NULL);
                 if (!m)
                         return log_oom();
 
@@ -1196,15 +1206,15 @@ static int status(sd_bus *bus, char *argv[]) {
 
                 r = sd_bus_get_address(bus, &address);
                 if (r >= 0)
-                        printf("BusAddress=%s%s%s\n", ansi_highlight(), address, ansi_highlight_off());
+                        printf("BusAddress=%s%s%s\n", ansi_highlight(), address, ansi_normal());
 
                 r = sd_bus_get_scope(bus, &scope);
                 if (r >= 0)
-                        printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_highlight_off());
+                        printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_normal());
 
                 r = sd_bus_get_bus_id(bus, &bus_id);
                 if (r >= 0)
-                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n", ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_highlight_off());
+                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n", ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_normal());
 
                 r = sd_bus_get_owner_creds(
                                 bus,
@@ -1777,9 +1787,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
@@ -1823,20 +1831,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SIZE: {
-                        off_t o;
+                        uint64_t sz;
 
-                        r = parse_size(optarg, 1024, &o);
+                        r = parse_size(optarg, 1024, &sz);
                         if (r < 0) {
                                 log_error("Failed to parse size: %s", optarg);
                                 return r;
                         }
 
-                        if ((off_t) (size_t) o !=  o) {
+                        if ((uint64_t) (size_t) sz !=  sz) {
                                 log_error("Size out of range.");
                                 return -E2BIG;
                         }
 
-                        arg_snaplen = (size_t) o;
+                        arg_snaplen = (size_t) sz;
                         break;
                 }
 

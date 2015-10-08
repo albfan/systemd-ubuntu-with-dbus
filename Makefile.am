@@ -42,9 +42,9 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=4
 LIBUDEV_AGE=6
 
-LIBSYSTEMD_CURRENT=11
+LIBSYSTEMD_CURRENT=12
 LIBSYSTEMD_REVISION=0
-LIBSYSTEMD_AGE=11
+LIBSYSTEMD_AGE=12
 
 # The following four libraries only exist for compatibility reasons,
 # their version info should not be bumped anymore
@@ -397,7 +397,6 @@ rootlibexec_PROGRAMS = \
 	systemd-remount-fs \
 	systemd-reply-password \
 	systemd-fsck \
-	systemd-machine-id-commit \
 	systemd-ac-power \
 	systemd-sysctl \
 	systemd-sleep \
@@ -474,6 +473,7 @@ dist_systemunit_DATA = \
 	units/getty.target \
 	units/halt.target \
 	units/kexec.target \
+	units/exit.target \
 	units/local-fs.target \
 	units/local-fs-pre.target \
 	units/initrd.target \
@@ -550,6 +550,7 @@ nodist_systemunit_DATA = \
 	units/systemd-poweroff.service \
 	units/systemd-reboot.service \
 	units/systemd-kexec.service \
+	units/systemd-exit.service \
 	units/systemd-fsck@.service \
 	units/systemd-fsck-root.service \
 	units/systemd-machine-id-commit.service \
@@ -601,6 +602,7 @@ EXTRA_DIST += \
 	units/systemd-poweroff.service.in \
 	units/systemd-reboot.service.in \
 	units/systemd-kexec.service.in \
+	units/systemd-exit.service.in \
 	units/user/systemd-exit.service.in \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
@@ -778,6 +780,8 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/cpu-set-util.c \
+	src/basic/cpu-set-util.h \
 	src/basic/lockfile-util.c \
 	src/basic/lockfile-util.h \
 	src/basic/path-util.c \
@@ -865,8 +869,6 @@ libbasic_la_SOURCES = \
 	src/basic/xml.h \
 	src/basic/json.c \
 	src/basic/json.h \
-	src/basic/ring.c \
-	src/basic/ring.h \
 	src/basic/barrier.c \
 	src/basic/barrier.h \
 	src/basic/async.c \
@@ -954,8 +956,6 @@ libshared_la_SOURCES = \
 	src/shared/ima-util.h \
 	src/shared/ptyfwd.c \
 	src/shared/ptyfwd.h \
-	src/shared/pty.c \
-	src/shared/pty.h \
 	src/shared/base-filesystem.c \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
@@ -1331,7 +1331,8 @@ systemd_SOURCES = \
 
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 systemd_LDADD = \
 	libcore.la
@@ -1371,7 +1372,9 @@ manual_tests += \
 	test-watchdog \
 	test-log \
 	test-ipcrm \
-	test-btrfs
+	test-btrfs \
+	test-acd \
+	test-ipv4ll-manual
 
 if HAVE_LIBIPTC
 manual_tests += \
@@ -1393,6 +1396,7 @@ tests += \
 	test-path \
 	test-path-util \
 	test-strxcpyx \
+	test-siphash24 \
 	test-unit-name \
 	test-unit-file \
 	test-utf8 \
@@ -1402,9 +1406,7 @@ tests += \
 	test-process-util \
 	test-terminal-util \
 	test-path-lookup \
-	test-ring \
 	test-barrier \
-	test-pty \
 	test-tmpfiles \
 	test-namespace \
 	test-date \
@@ -1502,6 +1504,7 @@ EXTRA_DIST += \
 	test/exec-ignoresigpipe-yes.service \
 	test/exec-personality-x86-64.service \
 	test/exec-personality-x86.service \
+	test/exec-personality-s390.service \
 	test/exec-privatedevices-no.service \
 	test/exec-privatedevices-yes.service \
 	test/exec-privatetmp-no.service \
@@ -1538,7 +1541,8 @@ test_engine_SOURCES = \
 
 test_engine_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_engine_LDADD = \
 	libcore.la
@@ -1548,7 +1552,8 @@ test_job_type_SOURCES = \
 
 test_job_type_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_job_type_LDADD = \
 	libcore.la
@@ -1598,7 +1603,8 @@ test_unit_name_SOURCES = \
 
 test_unit_name_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_unit_name_LDADD = \
 	libcore.la
@@ -1608,7 +1614,8 @@ test_unit_file_SOURCES = \
 
 test_unit_file_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_unit_file_LDADD = \
 	libcore.la
@@ -1721,23 +1728,11 @@ test_socket_util_SOURCES = \
 test_socket_util_LDADD = \
 	libshared.la
 
-test_ring_SOURCES = \
-	src/test/test-ring.c
-
-test_ring_LDADD = \
-	libshared.la
-
 test_barrier_SOURCES = \
 	src/test/test-barrier.c
 
 test_barrier_LDADD = \
 	libshared.la
-
-test_pty_SOURCES = \
-	src/test/test-pty.c
-
-test_pty_LDADD = \
-	libcore.la
 
 test_tmpfiles_SOURCES = \
 	src/test/test-tmpfiles.c
@@ -1829,7 +1824,8 @@ test_tables_CPPFLAGS = \
 
 test_tables_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_tables_LDADD = \
 	libjournal-core.la \
@@ -1955,7 +1951,8 @@ test_cgroup_mask_SOURCES = \
 	src/test/test-cgroup-mask.c
 
 test_cgroup_mask_CPPFLAGS = \
-	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_cgroup_mask_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1998,7 +1995,8 @@ test_path_SOURCES = \
 	src/test/test-path.c
 
 test_path_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_path_LDADD = \
 	libcore.la
@@ -2007,10 +2005,17 @@ test_execute_SOURCES = \
 	src/test/test-execute.c
 
 test_execute_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_execute_LDADD = \
 	libcore.la
+
+test_siphash24_SOURCES = \
+	src/test/test-siphash24.c
+
+test_siphash24_LDADD = \
+	libshared.la
 
 test_strxcpyx_SOURCES = \
 	src/test/test-strxcpyx.c
@@ -2034,7 +2039,8 @@ test_sched_prio_SOURCES = \
 	src/test/test-sched-prio.c
 
 test_sched_prio_CPPFLAGS = \
-	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_sched_prio_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2121,7 +2127,8 @@ systemd_analyze_SOURCES = \
 
 systemd_analyze_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 systemd_analyze_LDADD = \
 	libcore.la
@@ -2332,6 +2339,9 @@ systemd_machine_id_setup_SOURCES = \
 systemd_machine_id_setup_LDADD = \
 	libshared.la
 
+SYSINIT_TARGET_WANTS += \
+	systemd-machine-id-commit.service
+
 # ------------------------------------------------------------------------------
 systemd_sysctl_SOURCES = \
 	src/sysctl/sysctl.c
@@ -2352,18 +2362,6 @@ systemd_fsck_SOURCES = \
 
 systemd_fsck_LDADD = \
 	libshared.la
-
-# ------------------------------------------------------------------------------
-systemd_machine_id_commit_SOURCES = \
-	src/machine-id-commit/machine-id-commit.c \
-	src/core/machine-id-setup.c \
-	src/core/machine-id-setup.h
-
-systemd_machine_id_commit_LDADD = \
-	libshared.la
-
-SYSINIT_TARGET_WANTS += \
-	systemd-machine-id-commit.service
 
 # ------------------------------------------------------------------------------
 systemd_ac_power_SOURCES = \
@@ -3216,6 +3214,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-dhcp-server.h \
 	src/systemd/sd-dhcp-lease.h \
 	src/systemd/sd-ipv4ll.h \
+	src/systemd/sd-ipv4acd.h \
 	src/systemd/sd-icmp6-nd.h \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
@@ -3232,9 +3231,9 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp-lease-internal.h \
 	src/libsystemd-network/sd-dhcp-lease.c \
 	src/libsystemd-network/sd-ipv4ll.c \
-	src/libsystemd-network/ipv4ll-network.c \
-	src/libsystemd-network/ipv4ll-packet.c \
-	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/sd-ipv4acd.c \
+	src/libsystemd-network/arp-util.h \
+	src/libsystemd-network/arp-util.c \
 	src/libsystemd-network/sd-pppoe.c \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
@@ -3291,10 +3290,26 @@ test_dhcp_server_LDADD = \
 
 test_ipv4ll_SOURCES = \
 	src/systemd/sd-ipv4ll.h \
-	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/arp-util.h \
 	src/libsystemd-network/test-ipv4ll.c
 
 test_ipv4ll_LDADD = \
+	libsystemd-network.la \
+	libshared.la
+
+test_ipv4ll_manual_SOURCES = \
+	src/systemd/sd-ipv4ll.h \
+	src/libsystemd-network/test-ipv4ll-manual.c
+
+test_ipv4ll_manual_LDADD = \
+	libsystemd-network.la \
+	libshared.la
+
+test_acd_SOURCES = \
+	src/systemd/sd-ipv4acd.h \
+	src/libsystemd-network/test-acd.c
+
+test_acd_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
@@ -4455,7 +4470,10 @@ rootlibexec_PROGRAMS += \
 	systemd-rfkill
 
 nodist_systemunit_DATA += \
-	units/systemd-rfkill@.service
+	units/systemd-rfkill.service
+
+dist_systemunit_DATA += \
+	units/systemd-rfkill.socket
 
 systemd_rfkill_SOURCES = \
 	src/rfkill/rfkill.c
@@ -4465,7 +4483,7 @@ systemd_rfkill_LDADD = \
 endif
 
 EXTRA_DIST += \
-	units/systemd-rfkill@.service.in
+	units/systemd-rfkill.service.in
 
 # ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
@@ -5473,6 +5491,8 @@ pamlib_LTLIBRARIES = \
 dist_pamconf_DATA = \
 	src/login/systemd-user
 
+EXTRA_DIST += \
+	src/login/systemd-user.m4
 endif
 
 nodist_systemunit_DATA += \
@@ -6110,7 +6130,7 @@ doc-sync: all
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 
 .PHONY: gardel
-gardel: upload
+gardel:
 	scp man/*.html gardel:public/systemd-man/
 
 .PHONY: lennart-fedora

@@ -19,14 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <errno.h>
 #include <getopt.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #include "util.h"
 #include "virt.h"
-#include "build.h"
 
 static bool arg_quiet = false;
 static enum {
@@ -75,9 +74,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'q':
                         arg_quiet = true;
@@ -99,8 +96,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc) {
-                log_error("%s takes no arguments.",
-                          program_invocation_short_name);
+                log_error("%s takes no arguments.", program_invocation_short_name);
                 return -EINVAL;
         }
 
@@ -108,8 +104,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        const char *id = NULL;
-        int retval = EXIT_SUCCESS;
         int r;
 
         /* This is mostly intended to be used for scripts which want
@@ -125,42 +119,37 @@ int main(int argc, char *argv[]) {
 
         switch (arg_mode) {
 
-        case ANY_VIRTUALIZATION: {
-                int v;
-
-                v = detect_virtualization(&id);
-                if (v < 0) {
-                        log_error_errno(v, "Failed to check for virtualization: %m");
+        case ONLY_VM:
+                r = detect_vm();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check for VM: %m");
                         return EXIT_FAILURE;
                 }
 
-                retval = v != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
                 break;
-        }
 
         case ONLY_CONTAINER:
-                r = detect_container(&id);
+                r = detect_container();
                 if (r < 0) {
                         log_error_errno(r, "Failed to check for container: %m");
                         return EXIT_FAILURE;
                 }
 
-                retval = r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
                 break;
 
-        case ONLY_VM:
-                r = detect_vm(&id);
+        case ANY_VIRTUALIZATION:
+        default:
+                r = detect_virtualization();
                 if (r < 0) {
-                        log_error_errno(r, "Failed to check for vm: %m");
+                        log_error_errno(r, "Failed to check for virtualization: %m");
                         return EXIT_FAILURE;
                 }
 
-                retval = r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
                 break;
         }
 
         if (!arg_quiet)
-                puts(id ? id : "none");
+                puts(virtualization_to_string(r));
 
-        return retval;
+        return r != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
 }

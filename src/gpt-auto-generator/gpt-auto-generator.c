@@ -38,6 +38,7 @@
 #include "gpt.h"
 #include "fileio.h"
 #include "efivars.h"
+#include "fstab-util.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
 
@@ -460,8 +461,14 @@ static int add_boot(const char *what) {
                 return 0;
         }
 
-        if (detect_container(NULL) > 0) {
+        if (detect_container() > 0) {
                 log_debug("In a container, ignoring /boot.");
+                return 0;
+        }
+
+        /* We create an .automount which is not overridden by the .mount from the fstab generator. */
+        if (fstab_is_mount_point("/boot")) {
+                log_debug("/boot specified in fstab, ignoring.");
                 return 0;
         }
 
@@ -526,9 +533,9 @@ static int add_boot(const char *what) {
                        what,
                        "/boot",
                        "vfat",
-                       "EFI System Partition Automount",
-                       false,
+                       true,
                        "umask=0077",
+                       "EFI System Partition Automount",
                        120 * USEC_PER_SEC);
 
         return r;
@@ -864,7 +871,6 @@ static int get_block_device_harder(const char *path, dev_t *dev) {
                         goto fallback;
 
                 found = de;
-                break;
         }
 
         if (!found)
@@ -992,7 +998,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (detect_container(NULL) > 0) {
+        if (detect_container() > 0) {
                 log_debug("In a container, exiting.");
                 return EXIT_SUCCESS;
         }

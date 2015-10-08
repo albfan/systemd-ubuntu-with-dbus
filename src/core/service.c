@@ -142,8 +142,7 @@ static void service_unwatch_pid_file(Service *s) {
         log_unit_debug(UNIT(s), "Stopping watch for PID file %s", s->pid_file_pathspec->path);
         path_spec_unwatch(s->pid_file_pathspec);
         path_spec_done(s->pid_file_pathspec);
-        free(s->pid_file_pathspec);
-        s->pid_file_pathspec = NULL;
+        s->pid_file_pathspec = mfree(s->pid_file_pathspec);
 }
 
 static int service_set_main_pid(Service *s, pid_t pid) {
@@ -262,6 +261,7 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
                 sd_event_source_unref(fs->event_source);
         }
 
+        free(fs->fdname);
         safe_close(fs->fd);
         free(fs);
 }
@@ -287,14 +287,9 @@ static void service_done(Unit *u) {
 
         assert(s);
 
-        free(s->pid_file);
-        s->pid_file = NULL;
-
-        free(s->status_text);
-        s->status_text = NULL;
-
-        free(s->reboot_arg);
-        s->reboot_arg = NULL;
+        s->pid_file = mfree(s->pid_file);
+        s->status_text = mfree(s->status_text);
+        s->reboot_arg = mfree(s->reboot_arg);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
@@ -313,8 +308,7 @@ static void service_done(Unit *u) {
 
         if (s->bus_name)  {
                 unit_unwatch_bus_name(u, s->bus_name);
-                free(s->bus_name);
-                s->bus_name = NULL;
+                s->bus_name = mfree(s->bus_name);
         }
 
         s->bus_endpoint_fd = safe_close(s->bus_endpoint_fd);
@@ -341,7 +335,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd) {
+static int service_add_fd_store(Service *s, int fd, const char *name) {
         ServiceFDStore *fs;
         int r;
 
@@ -368,9 +362,15 @@ static int service_add_fd_store(Service *s, int fd) {
 
         fs->fd = fd;
         fs->service = s;
+        fs->fdname = strdup(name ?: "stored");
+        if (!fs->fdname) {
+                free(fs);
+                return -ENOMEM;
+        }
 
         r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
         if (r < 0) {
+                free(fs->fdname);
                 free(fs);
                 return r;
         }
@@ -383,7 +383,7 @@ static int service_add_fd_store(Service *s, int fd) {
         return 1;
 }
 
-static int service_add_fd_store_set(Service *s, FDSet *fds) {
+static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
         int r;
 
         assert(s);
@@ -398,7 +398,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds) {
                 if (fd < 0)
                         break;
 
-                r = service_add_fd_store(s, fd);
+                r = service_add_fd_store(s, fd, name);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
                 if (r > 0) {
@@ -488,6 +488,12 @@ static int service_verify(Service *s) {
                 log_unit_error(UNIT(s), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
                 return -EINVAL;
         }
+
+        if (s->usb_function_descriptors && !s->usb_function_strings)
+                log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
+
+        if (!s->usb_function_descriptors && s->usb_function_strings)
+                log_unit_warning(UNIT(s), "Service has USBFunctionStrings= setting, but no USBFunctionDescriptors=. Ignoring.");
 
         return 0;
 }
@@ -702,13 +708,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
 
-        if (s->n_fd_store_max > 0) {
+        if (s->n_fd_store_max > 0)
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
                         "%sFile Descriptor Store Current: %u\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
-        }
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
@@ -886,7 +891,6 @@ static void service_set_state(Service *s, ServiceState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
-        s->reload_result = SERVICE_SUCCESS;
 }
 
 static int service_coldplug(Unit *u) {
@@ -959,62 +963,79 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
-static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
+static int service_collect_fds(Service *s, int **fds, char ***fd_names) {
+        _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        unsigned rn_fds = 0;
-        Iterator i;
-        int r;
-        Unit *u;
+        int rn_fds = 0, r;
 
         assert(s);
         assert(fds);
-        assert(n_fds);
+        assert(fd_names);
 
-        if (s->socket_fd >= 0)
-                return 0;
+        if (s->socket_fd >= 0) {
 
-        SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
-                int *cfds;
-                unsigned cn_fds;
-                Socket *sock;
+                /* Pass the per-connection socket */
 
-                if (u->type != UNIT_SOCKET)
-                        continue;
+                rfds = new(int, 1);
+                if (!rfds)
+                        return -ENOMEM;
+                rfds[0] = s->socket_fd;
 
-                sock = SOCKET(u);
+                rfd_names = strv_new("connection", NULL);
+                if (!rfd_names)
+                        return -ENOMEM;
 
-                r = socket_collect_fds(sock, &cfds, &cn_fds);
-                if (r < 0)
-                        return r;
+                rn_fds = 1;
+        } else {
+                Iterator i;
+                Unit *u;
 
-                if (cn_fds <= 0) {
-                        free(cfds);
-                        continue;
-                }
+                /* Pass all our configured sockets for singleton services */
 
-                if (!rfds) {
-                        rfds = cfds;
-                        rn_fds = cn_fds;
-                } else {
-                        int *t;
+                SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
+                        _cleanup_free_ int *cfds = NULL;
+                        Socket *sock;
+                        int cn_fds;
 
-                        t = realloc(rfds, (rn_fds + cn_fds) * sizeof(int));
-                        if (!t) {
-                                free(cfds);
-                                return -ENOMEM;
+                        if (u->type != UNIT_SOCKET)
+                                continue;
+
+                        sock = SOCKET(u);
+
+                        cn_fds = socket_collect_fds(sock, &cfds);
+                        if (cn_fds < 0)
+                                return cn_fds;
+
+                        if (cn_fds <= 0)
+                                continue;
+
+                        if (!rfds) {
+                                rfds = cfds;
+                                rn_fds = cn_fds;
+
+                                cfds = NULL;
+                        } else {
+                                int *t;
+
+                                t = realloc(rfds, (rn_fds + cn_fds) * sizeof(int));
+                                if (!t)
+                                        return -ENOMEM;
+
+                                memcpy(t + rn_fds, cfds, cn_fds * sizeof(int));
+
+                                rfds = t;
+                                rn_fds += cn_fds;
                         }
 
-                        memcpy(t + rn_fds, cfds, cn_fds * sizeof(int));
-                        rfds = t;
-                        rn_fds += cn_fds;
-
-                        free(cfds);
-
+                        r = strv_extend_n(&rfd_names, socket_fdname(sock), cn_fds);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         if (s->n_fd_store > 0) {
                 ServiceFDStore *fs;
+                char **nl;
                 int *t;
 
                 t = realloc(rfds, (rn_fds + s->n_fd_store) * sizeof(int));
@@ -1022,15 +1043,32 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                         return -ENOMEM;
 
                 rfds = t;
-                LIST_FOREACH(fd_store, fs, s->fd_store)
-                        rfds[rn_fds++] = fs->fd;
+
+                nl = realloc(rfd_names, (rn_fds + s->n_fd_store + 1) * sizeof(char*));
+                if (!nl)
+                        return -ENOMEM;
+
+                rfd_names = nl;
+
+                LIST_FOREACH(fd_store, fs, s->fd_store) {
+                        rfds[rn_fds] = fs->fd;
+                        rfd_names[rn_fds] = strdup(strempty(fs->fdname));
+                        if (!rfd_names[rn_fds])
+                                return -ENOMEM;
+
+                        rn_fds++;
+                }
+
+                rfd_names[rn_fds] = NULL;
         }
 
         *fds = rfds;
-        *n_fds = rn_fds;
+        *fd_names = rfd_names;
 
         rfds = NULL;
-        return 0;
+        rfd_names = NULL;
+
+        return rn_fds;
 }
 
 static int service_spawn(
@@ -1044,15 +1082,13 @@ static int service_spawn(
                 bool is_control,
                 pid_t *_pid) {
 
-        pid_t pid;
-        int r;
-        int *fds = NULL;
-        _cleanup_free_ int *fdsbuf = NULL;
-        unsigned n_fds = 0, n_env = 0;
+        _cleanup_strv_free_ char **argv = NULL, **final_env = NULL, **our_env = NULL, **fd_names = NULL;
         _cleanup_free_ char *bus_endpoint_path = NULL;
-        _cleanup_strv_free_ char
-                **argv = NULL, **final_env = NULL, **our_env = NULL;
+        _cleanup_free_ int *fds = NULL;
+        unsigned n_fds = 0, n_env = 0;
         const char *path;
+        pid_t pid;
+
         ExecParameters exec_params = {
                 .apply_permissions   = apply_permissions,
                 .apply_chroot        = apply_chroot,
@@ -1060,6 +1096,8 @@ static int service_spawn(
                 .bus_endpoint_fd     = -1,
                 .selinux_context_net = s->socket_fd_selinux_context_net
         };
+
+        int r;
 
         assert(s);
         assert(c);
@@ -1080,16 +1118,11 @@ static int service_spawn(
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (s->socket_fd >= 0) {
-                        fds = &s->socket_fd;
-                        n_fds = 1;
-                } else {
-                        r = service_collect_fds(s, &fdsbuf, &n_fds);
-                        if (r < 0)
-                                goto fail;
+                r = service_collect_fds(s, &fds, &fd_names);
+                if (r < 0)
+                        goto fail;
 
-                        fds = fdsbuf;
-                }
+                n_fds = r;
         }
 
         if (timeout > 0) {
@@ -1127,7 +1160,7 @@ static int service_spawn(
                         goto fail;
                 }
 
-        if (UNIT_DEREF(s->accept_socket)) {
+        if (s->socket_fd >= 0) {
                 union sockaddr_union sa;
                 socklen_t salen = sizeof(sa);
 
@@ -1193,6 +1226,7 @@ static int service_spawn(
 
         exec_params.argv = argv;
         exec_params.fds = fds;
+        exec_params.fd_names = fd_names;
         exec_params.n_fds = n_fds;
         exec_params.environment = final_env;
         exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
@@ -1780,6 +1814,7 @@ static void service_enter_reload(Service *s) {
         assert(s);
 
         service_unwatch_control_pid(s);
+        s->reload_result = SERVICE_SUCCESS;
 
         s->control_command = s->exec_command[SERVICE_EXEC_RELOAD];
         if (s->control_command) {
@@ -1939,8 +1974,7 @@ static int service_start(Unit *u) {
         s->forbid_restart = false;
         s->reset_cpu_usage = true;
 
-        free(s->status_text);
-        s->status_text = NULL;
+        s->status_text = mfree(s->status_text);
         s->status_errno = 0;
 
         s->notify_state = NOTIFY_UNKNOWN;
@@ -2056,13 +2090,16 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         }
 
         LIST_FOREACH(fd_store, fs, s->fd_store) {
+                _cleanup_free_ char *c = NULL;
                 int copy;
 
                 copy = fdset_put_dup(fds, fs->fd);
                 if (copy < 0)
                         return copy;
 
-                unit_serialize_item_format(u, f, "fd-store-fd", "%i", copy);
+                c = cescape(fs->fdname);
+
+                unit_serialize_item_format(u, f, "fd-store-fd", "%i %s", copy, strempty(c));
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -2192,12 +2229,24 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->bus_endpoint_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "fd-store-fd")) {
+                const char *fdv;
+                size_t pf;
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                pf = strcspn(value, WHITESPACE);
+                fdv = strndupa(value, pf);
+
+                if (safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
                 else {
-                        r = service_add_fd_store(s, fd);
+                        _cleanup_free_ char *t = NULL;
+                        const char *fdn;
+
+                        fdn = value + pf;
+                        fdn += strspn(fdn, WHITESPACE);
+                        (void) cunescape(fdn, 0, &t);
+
+                        r = service_add_fd_store(s, fd, t);
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add fd to store: %m");
                         else if (r > 0)
@@ -2746,6 +2795,8 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_RELOAD:
                 log_unit_warning(UNIT(s), "Reload operation timed out. Stopping.");
+                service_unwatch_control_pid(s);
+                service_kill_control_processes(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
@@ -2946,13 +2997,19 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         }
 
         /* Interpret WATCHDOG= */
-        if (strv_find(tags, "WATCHDOG=1")) {
+        if (strv_find(tags, "WATCHDOG=1"))
                 service_reset_watchdog(s);
-        }
 
-        /* Add the passed fds to the fd store */
         if (strv_find(tags, "FDSTORE=1")) {
-                service_add_fd_store_set(s, fds);
+                const char *name;
+
+                name = strv_find_startswith(tags, "FDNAME=");
+                if (name && !fdname_is_valid(name)) {
+                        log_unit_warning(u, "Passed FDNAME= name is invalid, ignoring.");
+                        name = NULL;
+                }
+
+                service_add_fd_store_set(s, fds, name);
         }
 
         /* Notify clients about changed status or main pid */
@@ -3095,27 +3152,6 @@ static int service_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
 
         return unit_kill_common(u, who, signo, s->main_pid, s->control_pid, error);
 }
-
-static const char* const service_state_table[_SERVICE_STATE_MAX] = {
-        [SERVICE_DEAD] = "dead",
-        [SERVICE_START_PRE] = "start-pre",
-        [SERVICE_START] = "start",
-        [SERVICE_START_POST] = "start-post",
-        [SERVICE_RUNNING] = "running",
-        [SERVICE_EXITED] = "exited",
-        [SERVICE_RELOAD] = "reload",
-        [SERVICE_STOP] = "stop",
-        [SERVICE_STOP_SIGABRT] = "stop-sigabrt",
-        [SERVICE_STOP_SIGTERM] = "stop-sigterm",
-        [SERVICE_STOP_SIGKILL] = "stop-sigkill",
-        [SERVICE_STOP_POST] = "stop-post",
-        [SERVICE_FINAL_SIGTERM] = "final-sigterm",
-        [SERVICE_FINAL_SIGKILL] = "final-sigkill",
-        [SERVICE_FAILED] = "failed",
-        [SERVICE_AUTO_RESTART] = "auto-restart",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",

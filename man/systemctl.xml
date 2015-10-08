@@ -101,10 +101,14 @@
         <term><option>--state=</option></term>
 
         <listitem>
-        <para>The argument should be a comma-separated list of unit
-        LOAD, SUB, or ACTIVE states. When listing units, show only
-        those in specified states. Use <option>--state=failed</option>
-        to show only failed units.</para>
+          <para>The argument should be a comma-separated list of unit
+          LOAD, SUB, or ACTIVE states. When listing units, show only
+          those in specified states. Use <option>--state=failed</option>
+          to show only failed units.</para>
+
+          <para>As a special case, if one of the arguments is
+          <option>help</option>, a list of allowed values will be
+          printed and the program will exit.</para>
         </listitem>
       </varlistentry>
 
@@ -292,6 +296,17 @@
         dependencies will still be honoured.</para>
         </listitem>
 
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fail</option></term>
+
+        <listitem>
+          <para>Shorthand for <option>--job-mode=</option>fail.</para>
+          <para>When used with the <command>kill</command> command,
+          if no units were killed, the operation results in an error.
+          </para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1109,9 +1124,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
               <tgroup cols='3'>
                 <thead>
                   <row>
-                    <entry>Printed string</entry>
-                    <entry>Meaning</entry>
-                    <entry>Return value</entry>
+                    <entry>Name</entry>
+                    <entry>Description</entry>
+                    <entry>Exit Code</entry>
                   </row>
                 </thead>
                 <tbody>
@@ -1126,7 +1141,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   <row>
                     <entry><literal>linked</literal></entry>
                     <entry morerows='1'>Made available through a symlink to the unit file (permanently or just in <filename>/run</filename>).</entry>
-                    <entry morerows='1'>1</entry>
+                    <entry morerows='1'>&gt; 0</entry>
                   </row>
                   <row>
                     <entry><literal>linked-runtime</literal></entry>
@@ -1134,7 +1149,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   <row>
                     <entry><literal>masked</literal></entry>
                     <entry morerows='1'>Disabled entirely (permanently or just in <filename>/run</filename>).</entry>
-                    <entry morerows='1'>1</entry>
+                    <entry morerows='1'>&gt; 0</entry>
                   </row>
                   <row>
                     <entry><literal>masked-runtime</literal></entry>
@@ -1152,7 +1167,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   <row>
                     <entry><literal>disabled</literal></entry>
                     <entry>Unit file is not enabled.</entry>
-                    <entry>1</entry>
+                    <entry>&gt; 0</entry>
                   </row>
                 </tbody>
               </tgroup>
@@ -1463,22 +1478,25 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Checks whether the system is operational. This
-            returns success when the system is fully up and running,
-            meaning not in startup, shutdown or maintenance
-            mode. Failure is returned otherwise. In addition, the
+            returns success (exit code 0) when the system is fully up
+            and running, specifically not in startup, shutdown or
+            maintenance mode, and with no failed services. Failure is
+            returned otherwise (exit code non-zero). In addition, the
             current state is printed in a short string to standard
             output, see table below. Use <option>--quiet</option> to
             suppress this output.</para>
 
             <table>
-              <title>Manager Operational States</title>
-              <tgroup cols='2'>
-                <colspec colname='name' />
-                <colspec colname='description' />
+              <title><command>is-system-running</command> output</title>
+              <tgroup cols='3'>
+                <colspec colname='name'/>
+                <colspec colname='description'/>
+                <colspec colname='exit-code'/>
                 <thead>
                   <row>
                     <entry>Name</entry>
                     <entry>Description</entry>
+                    <entry>Exit Code</entry>
                   </row>
                 </thead>
                 <tbody>
@@ -1488,32 +1506,53 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                     <filename>basic.target</filename> is reached
                     or the <varname>maintenance</varname> state entered.
                     </para></entry>
+                    <entry>&gt; 0</entry>
                   </row>
                   <row>
                     <entry><varname>starting</varname></entry>
                     <entry><para>Late bootup, before the job queue
                     becomes idle for the first time, or one of the
                     rescue targets are reached.</para></entry>
+                    <entry>&gt; 0</entry>
                   </row>
                   <row>
                     <entry><varname>running</varname></entry>
                     <entry><para>The system is fully
                     operational.</para></entry>
+                    <entry>0</entry>
                   </row>
                   <row>
                     <entry><varname>degraded</varname></entry>
                     <entry><para>The system is operational but one or more
                     units failed.</para></entry>
+                    <entry>&gt; 0</entry>
                   </row>
                   <row>
                     <entry><varname>maintenance</varname></entry>
                     <entry><para>The rescue or emergency target is
                     active.</para></entry>
+                    <entry>&gt; 0</entry>
                   </row>
                   <row>
                     <entry><varname>stopping</varname></entry>
                     <entry><para>The manager is shutting
                     down.</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>offline</varname></entry>
+                    <entry><para>The manager is not
+                    running. Specifically, this is the operational
+                    state if an incompatible program is running as
+                    system manager (PID 1).</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>unknown</varname></entry>
+                    <entry><para>The operational state could not be
+                    determined, due to lack of resources or another
+                    error cause.</para></entry>
+                    <entry>&gt; 0</entry>
                   </row>
                 </tbody>
               </tgroup>
@@ -1622,13 +1661,17 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>exit</command></term>
+          <term><command>exit <optional><replaceable>EXIT_CODE</replaceable></optional></command></term>
 
           <listitem>
             <para>Ask the systemd manager to quit. This is only
             supported for user service managers (i.e. in conjunction
-            with the <option>--user</option> option) and will fail
-            otherwise.</para>
+            with the <option>--user</option> option) or in containers
+            and is equivalent to <command>poweroff</command> otherwise.</para>
+
+            <para>The systemd manager can exit with a non-zero exit
+            code if the optional argument
+            <replaceable>EXIT_CODE</replaceable> is given.</para>
           </listitem>
         </varlistentry>
 

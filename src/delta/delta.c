@@ -21,21 +21,20 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
 #include <getopt.h>
+#include <string.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #include "hashmap.h"
-#include "util.h"
-#include "path-util.h"
 #include "log.h"
 #include "pager.h"
-#include "build.h"
-#include "strv.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static const char prefixes[] =
         "/etc\0"
@@ -107,7 +106,7 @@ static int notify_override_masked(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s     %s %s %s\n",
-               ansi_highlight_red(), "[MASKED]", ansi_highlight_off(),
+               ansi_highlight_red(), "[MASKED]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -117,7 +116,7 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s %s %s\n",
-               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight_off(),
+               ansi_highlight_green(), "[EQUIVALENT]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -127,7 +126,7 @@ static int notify_override_redirected(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s %s %s\n",
-               ansi_highlight(), "[REDIRECTED]", ansi_highlight_off(),
+               ansi_highlight(), "[REDIRECTED]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -137,7 +136,7 @@ static int notify_override_overridden(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s %s %s\n",
-               ansi_highlight(), "[OVERRIDDEN]", ansi_highlight_off(),
+               ansi_highlight(), "[OVERRIDDEN]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -147,7 +146,7 @@ static int notify_override_extended(const char *top, const char *bottom) {
                return 0;
 
         printf("%s%s%s   %s %s %s\n",
-               ansi_highlight(), "[EXTENDED]", ansi_highlight_off(),
+               ansi_highlight(), "[EXTENDED]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -544,9 +543,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

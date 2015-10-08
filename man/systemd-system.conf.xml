@@ -51,14 +51,14 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/system.conf</filename></para>
-    <para><filename>/etc/systemd/system.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/system.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
-    <para><filename>/etc/systemd/user.conf</filename></para>
-    <para><filename>/etc/systemd/user.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/user.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
+    <para><filename>/etc/systemd/system.conf</filename>,
+    <filename>/etc/systemd/system.conf.d/*.conf</filename>,
+    <filename>/run/systemd/system.conf.d/*.conf</filename>,
+    <filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
+    <para><filename>/etc/systemd/user.conf</filename>,
+    <filename>/etc/systemd/user.conf.d/*.conf</filename>,
+    <filename>/run/systemd/user.conf.d/*.conf</filename>,
+    <filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -90,9 +90,10 @@
         <term><varname>LogColor=</varname></term>
         <term><varname>LogLocation=</varname></term>
         <term><varname>DumpCore=yes</varname></term>
+        <term><varname>CrashChangeVT=no</varname></term>
         <term><varname>CrashShell=no</varname></term>
+        <term><varname>CrashReboot=no</varname></term>
         <term><varname>ShowStatus=yes</varname></term>
-        <term><varname>CrashChVT=1</varname></term>
         <term><varname>DefaultStandardOutput=journal</varname></term>
         <term><varname>DefaultStandardError=inherit</varname></term>
 
@@ -305,12 +306,14 @@
         <term><varname>DefaultCPUAccounting=</varname></term>
         <term><varname>DefaultBlockIOAccounting=</varname></term>
         <term><varname>DefaultMemoryAccounting=</varname></term>
+        <term><varname>DefaultTasksAccounting=</varname></term>
 
         <listitem><para>Configure the default resource accounting
         settings, as configured per-unit by
         <varname>CPUAccounting=</varname>,
-        <varname>BlockIOAccounting=</varname> and
-        <varname>MemoryAccounting=</varname>. See
+        <varname>BlockIOAccounting=</varname>,
+        <varname>MemoryAccounting=</varname> and
+        <varname>TasksAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings.</para></listitem>
       </varlistentry>

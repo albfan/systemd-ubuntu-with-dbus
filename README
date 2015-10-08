@@ -122,7 +122,7 @@ REQUIREMENTS:
 
         glibc >= 2.16
         libcap
-        libmount >= 2.20 (from util-linux)
+        libmount >= 2.27 (from util-linux)
         libseccomp >= 1.0.0 (optional)
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
@@ -144,7 +144,7 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.26 required
+        util-linux >= v2.27 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
         dracut (optional)
         PolicyKit (optional)
@@ -161,7 +161,6 @@ REQUIREMENTS:
         gperf
         python (optional)
         python-lxml (optional, but required to build the indices)
-        sphinx (optional)
 
         The build system is initialized with ./autogen.sh. A tar ball
         can be created with:
@@ -172,12 +171,6 @@ REQUIREMENTS:
         dynamically changing hostnames, the hostname stays resolvable
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
-
-        To build HTML documentation for python-systemd using sphinx,
-        please first install systemd (using 'make install'), and then
-        invoke sphinx-build with 'make sphinx-<target>', with <target>
-        being 'html' or 'latexpdf'. If using DESTDIR for installation,
-        pass the same DESTDIR to 'make sphinx-html' invocation.
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group
@@ -244,9 +237,9 @@ SYSV INIT.D SCRIPTS:
         needs to look like, and provide an implementation at the marked places.
 
 WARNINGS:
-        systemd will warn you during boot if /etc/mtab is not a
-        symlink to /proc/mounts. Please ensure that /etc/mtab is a
-        proper symlink.
+        systemd will freeze execution during boot if /etc/mtab exists
+        but is not a symlink to /proc/mounts. Please ensure that
+        /etc/mtab is a proper symlink.
 
         systemd will warn you during boot if /usr is on a different
         file system than /. While in systemd itself very little will

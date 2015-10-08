@@ -102,7 +102,6 @@ MANPAGES += \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
 	man/systemd-journald.service.8 \
-	man/systemd-machine-id-commit.1 \
 	man/systemd-machine-id-commit.service.8 \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-notify.1 \
@@ -292,6 +291,8 @@ MANPAGES_ALIAS += \
 	man/sd_bus_open_system_remote.3 \
 	man/sd_bus_open_user.3 \
 	man/sd_bus_path_decode.3 \
+	man/sd_bus_path_decode_many.3 \
+	man/sd_bus_path_encode_many.3 \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
@@ -354,6 +355,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_set_data_threshold.3 \
 	man/sd_journal_test_cursor.3 \
 	man/sd_journal_wait.3 \
+	man/sd_listen_fds_with_names.3 \
 	man/sd_machine_get_ifindices.3 \
 	man/sd_notifyf.3 \
 	man/sd_pid_notify.3 \
@@ -578,6 +580,8 @@ man/sd_bus_open_system_machine.3: man/sd_bus_default.3
 man/sd_bus_open_system_remote.3: man/sd_bus_default.3
 man/sd_bus_open_user.3: man/sd_bus_default.3
 man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
+man/sd_bus_path_decode_many.3: man/sd_bus_path_encode.3
+man/sd_bus_path_encode_many.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
@@ -640,6 +644,7 @@ man/sd_journal_sendv.3: man/sd_journal_print.3
 man/sd_journal_set_data_threshold.3: man/sd_journal_get_data.3
 man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
+man/sd_listen_fds_with_names.3: man/sd_listen_fds.3
 man/sd_machine_get_ifindices.3: man/sd_machine_get_class.3
 man/sd_notifyf.3: man/sd_notify.3
 man/sd_pid_notify.3: man/sd_notify.3
@@ -1124,6 +1129,12 @@ man/sd_bus_open_user.html: man/sd_bus_default.html
 man/sd_bus_path_decode.html: man/sd_bus_path_encode.html
 	$(html-alias)
 
+man/sd_bus_path_decode_many.html: man/sd_bus_path_encode.html
+	$(html-alias)
+
+man/sd_bus_path_encode_many.html: man/sd_bus_path_encode.html
+	$(html-alias)
+
 man/sd_bus_ref.html: man/sd_bus_new.html
 	$(html-alias)
 
@@ -1308,6 +1319,9 @@ man/sd_journal_test_cursor.html: man/sd_journal_get_cursor.html
 	$(html-alias)
 
 man/sd_journal_wait.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_listen_fds_with_names.html: man/sd_listen_fds.html
 	$(html-alias)
 
 man/sd_machine_get_ifindices.html: man/sd_machine_get_class.html
@@ -1798,11 +1812,16 @@ endif
 
 if ENABLE_RFKILL
 MANPAGES += \
-	man/systemd-rfkill@.service.8
+	man/systemd-rfkill.service.8
 MANPAGES_ALIAS += \
-	man/systemd-rfkill.8
-man/systemd-rfkill.8: man/systemd-rfkill@.service.8
-man/systemd-rfkill.html: man/systemd-rfkill@.service.html
+	man/systemd-rfkill.8 \
+	man/systemd-rfkill.socket.8
+man/systemd-rfkill.8: man/systemd-rfkill.service.8
+man/systemd-rfkill.socket.8: man/systemd-rfkill.service.8
+man/systemd-rfkill.html: man/systemd-rfkill.service.html
+	$(html-alias)
+
+man/systemd-rfkill.socket.html: man/systemd-rfkill.service.html
 	$(html-alias)
 
 endif
@@ -2341,7 +2360,6 @@ EXTRA_DIST += \
 	man/systemd-localed.service.xml \
 	man/systemd-logind.service.xml \
 	man/systemd-machine-id-commit.service.xml \
-	man/systemd-machine-id-commit.xml \
 	man/systemd-machine-id-setup.xml \
 	man/systemd-machined.service.xml \
 	man/systemd-modules-load.service.xml \
@@ -2354,7 +2372,7 @@ EXTRA_DIST += \
 	man/systemd-random-seed.service.xml \
 	man/systemd-remount-fs.service.xml \
 	man/systemd-resolved.service.xml \
-	man/systemd-rfkill@.service.xml \
+	man/systemd-rfkill.service.xml \
 	man/systemd-run.xml \
 	man/systemd-sleep.conf.xml \
 	man/systemd-socket-proxyd.xml \

@@ -19,24 +19,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
+#include <sched.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
-#include "systemd/sd-id128.h"
+#include "sd-id128.h"
 
-#include "machine-id-setup.h"
-#include "macro.h"
-#include "util.h"
-#include "mkdir.h"
-#include "log.h"
-#include "virt.h"
 #include "fileio.h"
+#include "log.h"
+#include "macro.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "util.h"
+#include "virt.h"
+#include "machine-id-setup.h"
 
 static int shorten_uuid(char destination[34], const char source[36]) {
         unsigned i, j;
@@ -108,7 +109,7 @@ static int generate_machine_id(char id[34], const char *root) {
         unsigned char *p;
         sd_id128_t buf;
         char  *q;
-        const char *vm_id, *dbus_machine_id;
+        const char *dbus_machine_id;
 
         assert(id);
 
@@ -133,8 +134,8 @@ static int generate_machine_id(char id[34], const char *root) {
                 /* If that didn't work, see if we are running in a container,
                  * and a machine ID was passed in via $container_uuid the way
                  * libvirt/LXC does it */
-                r = detect_container(NULL);
-                if (r > 0) {
+
+                if (detect_container() > 0) {
                         _cleanup_free_ char *e = NULL;
 
                         r = getenv_for_pid(1, "container_uuid", &e);
@@ -146,26 +147,24 @@ static int generate_machine_id(char id[34], const char *root) {
                                 }
                         }
 
-                } else {
+                } else if (detect_vm() == VIRTUALIZATION_KVM) {
+
                         /* If we are not running in a container, see if we are
                          * running in qemu/kvm and a machine ID was passed in
                          * via -uuid on the qemu/kvm command line */
 
-                        r = detect_vm(&vm_id);
-                        if (r > 0 && streq(vm_id, "kvm")) {
-                                char uuid[36];
+                        char uuid[36];
 
-                                fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-                                if (fd >= 0) {
-                                        r = loop_read_exact(fd, uuid, 36, false);
-                                        safe_close(fd);
+                        fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                        if (fd >= 0) {
+                                r = loop_read_exact(fd, uuid, 36, false);
+                                safe_close(fd);
 
+                                if (r >= 0) {
+                                        r = shorten_uuid(id, uuid);
                                         if (r >= 0) {
-                                                r = shorten_uuid(id, uuid);
-                                                if (r >= 0) {
-                                                        log_info("Initializing machine ID from KVM UUID.");
-                                                        return 0;
-                                                }
+                                                log_info("Initializing machine ID from KVM UUID.");
+                                                return 0;
                                         }
                                 }
                         }

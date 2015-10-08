@@ -48,6 +48,19 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
         return k;
 }
 
+DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key) {
+        assert(key);
+
+        return dns_resource_key_new(key->class, DNS_TYPE_CNAME, DNS_RESOURCE_KEY_NAME(key));
+}
+
+DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
+        assert(key);
+        assert(cname);
+
+        return dns_resource_key_new(key->class, key->type, cname->cname.name);
+}
+
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
         DnsResourceKey *k;
 
@@ -133,15 +146,14 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
 }
 
-static unsigned long dns_resource_key_hash_func(const void *i, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
         const DnsResourceKey *k = i;
-        unsigned long ul;
 
-        ul = dns_name_hash_func(DNS_RESOURCE_KEY_NAME(k), hash_key);
-        ul = ul * hash_key[0] + ul + k->class;
-        ul = ul * hash_key[1] + ul + k->type;
+        assert(k);
 
-        return ul;
+        dns_name_hash_func(DNS_RESOURCE_KEY_NAME(k), state);
+        siphash24_compress(&k->class, sizeof(k->class), state);
+        siphash24_compress(&k->type, sizeof(k->type), state);
 }
 
 static int dns_resource_key_compare_func(const void *a, const void *b) {

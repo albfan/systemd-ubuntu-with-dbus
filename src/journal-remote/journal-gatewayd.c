@@ -24,9 +24,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
-
 #include <microhttpd.h>
-
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
@@ -34,15 +32,15 @@
 #include "sd-journal.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
-#include "log.h"
-#include "util.h"
+
 #include "bus-util.h"
+#include "fileio.h"
+#include "hostname-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
-#include "build.h"
-#include "fileio.h"
 #include "sigbus.h"
-#include "hostname-util.h"
+#include "util.h"
 
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
@@ -105,8 +103,7 @@ static void request_meta_free(
 
         sd_journal_close(m->journal);
 
-        if (m->tmp)
-                fclose(m->tmp);
+        safe_fclose(m->tmp);
 
         free(m->cursor);
         free(m);
@@ -337,10 +334,8 @@ static int request_parse_range(
                 return -ENOMEM;
 
         m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
-        if (isempty(m->cursor)) {
-                free(m->cursor);
-                m->cursor = NULL;
-        }
+        if (isempty(m->cursor))
+                m->cursor = mfree(m->cursor);
 
         return 0;
 }
@@ -912,9 +907,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_KEY:
                         if (arg_key_pem) {
@@ -1017,7 +1010,22 @@ int main(int argc, char *argv[]) {
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL }};
                 int opts_pos = 2;
-                int flags = MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG;
+
+                /* We force MHD_USE_PIPE_FOR_SHUTDOWN here, in order
+                 * to make sure libmicrohttpd doesn't use shutdown()
+                 * on our listening socket, which would break socket
+                 * re-activation. See
+                 *
+                 * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
+                 * https://github.com/systemd/systemd/pull/1286
+                 */
+
+                int flags =
+                        MHD_USE_DEBUG |
+                        MHD_USE_DUAL_STACK |
+                        MHD_USE_PIPE_FOR_SHUTDOWN |
+                        MHD_USE_POLL |
+                        MHD_USE_THREAD_PER_CONNECTION;
 
                 if (n > 0)
                         opts[opts_pos++] = (struct MHD_OptionItem)

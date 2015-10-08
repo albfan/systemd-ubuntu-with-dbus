@@ -17,7 +17,7 @@ struct ConfigPerfItem;
 %%
 m4_dnl Define the context options only once
 m4_define(`EXEC_CONTEXT_CONFIG_ITEMS',
-`$1.WorkingDirectory,            config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.working_directory)
+`$1.WorkingDirectory,            config_parse_working_directory,     0,                             offsetof($1, exec_context)
 $1.RootDirectory,                config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.root_directory)
 $1.User,                         config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.user)
 $1.Group,                        config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.group)
@@ -124,7 +124,10 @@ $1.StartupBlockIOWeight,         config_parse_blockio_weight,        0,         
 $1.BlockIODeviceWeight,          config_parse_blockio_device_weight, 0,                             offsetof($1, cgroup_context)
 $1.BlockIOReadBandwidth,         config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
 $1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
-$1.Delegate,                     config_parse_bool,                  0,                             offsetof($1, cgroup_context.delegate)'
+$1.TasksAccounting,              config_parse_bool,                  0,                             offsetof($1, cgroup_context.tasks_accounting)
+$1.TasksMax,                     config_parse_tasks_max,             0,                             offsetof($1, cgroup_context)
+$1.Delegate,                     config_parse_bool,                  0,                             offsetof($1, cgroup_context.delegate)
+$1.NetClass,                     config_parse_netclass,              0,                             offsetof($1, cgroup_context)'
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
@@ -231,6 +234,8 @@ Service.FileDescriptorStoreMax,  config_parse_unsigned,              0,         
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 Service.BusPolicy,               config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)
+Service.USBFunctionDescriptors,  config_parse_path,                  0,                             offsetof(Service, usb_function_descriptors)
+Service.USBFunctionStrings,      config_parse_path,                  0,                             offsetof(Service, usb_function_strings)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -242,6 +247,7 @@ Socket.ListenFIFO,               config_parse_socket_listen,         SOCKET_FIFO
 Socket.ListenNetlink,            config_parse_socket_listen,         SOCKET_SOCKET,                 0
 Socket.ListenSpecial,            config_parse_socket_listen,         SOCKET_SPECIAL,                0
 Socket.ListenMessageQueue,       config_parse_socket_listen,         SOCKET_MQUEUE,                 0
+Socket.ListenUSBFunction,        config_parse_socket_listen,         SOCKET_USB_FUNCTION,           0
 Socket.BindIPv6Only,             config_parse_socket_bind,           0,                             0,
 Socket.Backlog,                  config_parse_unsigned,              0,                             offsetof(Socket, backlog)
 Socket.BindToDevice,             config_parse_socket_bindtodevice,   0,                             0
@@ -255,6 +261,7 @@ Socket.SocketGroup,              config_parse_unit_string_printf,    0,         
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)
 Socket.DirectoryMode,            config_parse_mode,                  0,                             offsetof(Socket, directory_mode)
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
+Socket.Writable,                 config_parse_bool,                  0,                             offsetof(Socket, writable)
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)
 Socket.KeepAliveTimeSec,         config_parse_sec,                   0,                             offsetof(Socket, keep_alive_time)
@@ -280,6 +287,7 @@ Socket.MessageQueueMaxMessages,  config_parse_long,                  0,         
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
 Socket.RemoveOnStop,             config_parse_bool,                  0,                             offsetof(Socket, remove_on_stop)
 Socket.Symlinks,                 config_parse_unit_path_strv_printf, 0,                             offsetof(Socket, symlinks)
+Socket.FileDescriptorName,       config_parse_fdname,                0,                             0
 Socket.Service,                  config_parse_socket_service,        0,                             0
 m4_ifdef(`HAVE_SMACK',
 `Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)

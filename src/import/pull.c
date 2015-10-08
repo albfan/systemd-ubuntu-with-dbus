@@ -22,21 +22,22 @@
 #include <getopt.h>
 
 #include "sd-event.h"
+
 #include "event-util.h"
-#include "verbs.h"
-#include "build.h"
-#include "signal-util.h"
 #include "hostname-util.h"
-#include "machine-image.h"
 #include "import-util.h"
-#include "pull-tar.h"
-#include "pull-raw.h"
+#include "machine-image.h"
 #include "pull-dkr.h"
+#include "pull-raw.h"
+#include "pull-tar.h"
+#include "signal-util.h"
+#include "verbs.h"
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
+static bool arg_settings = true;
 
 static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         log_notice("Transfer aborted.");
@@ -118,7 +119,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = tar_pull_start(pull, url, local, arg_force, arg_verify);
+        r = tar_pull_start(pull, url, local, arg_force, arg_verify, arg_settings);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -204,7 +205,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = raw_pull_start(pull, url, local, arg_force, arg_verify);
+        r = raw_pull_start(pull, url, local, arg_force, arg_verify, arg_settings);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -331,8 +332,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --force                  Force creation of image\n"
-               "     --verify=                Verify downloaded image, one of: 'no',\n"
-               "                              'checksum', 'signature'.\n"
+               "     --verify=MODE            Verify downloaded image, one of: 'no',\n"
+               "                              'checksum', 'signature'\n"
+               "     --settings=BOOL          Download settings file with image\n"
                "     --image-root=PATH        Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
@@ -352,6 +354,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DKR_INDEX_URL,
                 ARG_IMAGE_ROOT,
                 ARG_VERIFY,
+                ARG_SETTINGS,
         };
 
         static const struct option options[] = {
@@ -361,10 +364,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
                 { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
+                { "settings",        required_argument, NULL, ARG_SETTINGS        },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -377,9 +381,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help(0, NULL, NULL);
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_FORCE:
                         arg_force = true;
@@ -405,6 +407,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
+                        break;
+
+                case ARG_SETTINGS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --settings= parameter '%s'", optarg);
+
+                        arg_settings = r;
                         break;
 
                 case '?':
