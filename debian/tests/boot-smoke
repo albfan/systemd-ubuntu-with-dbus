@@ -20,6 +20,10 @@ if [ -z "$ADT_REBOOT_MARK" ]; then
     fi
 else
     journalctl -ab > $ADT_ARTIFACTS/journal.txt
+    echo "checking for failed unmounts"
+    if journalctl | grep "Failed unmounting"; then
+        exit 1
+    fi
     echo "checking for connection timeouts"
     if journalctl | grep "Connection timed out"; then
         exit 1

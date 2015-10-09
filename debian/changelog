@@ -2,6 +2,8 @@ systemd (227-2) UNRELEASED; urgency=medium
 
   * Revert "sd_pid_notify_with_fds: fix computing msg_controllen", it causes
     connection errors from various services on boot. (Closes: #801354)
+  * debian/tests/boot-smoke: Check for failed unmounts. This reproduces
+    #801361 (but not in a minimal VM, just in a desktop one).
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 09 Oct 2015 11:21:14 +0200
 
