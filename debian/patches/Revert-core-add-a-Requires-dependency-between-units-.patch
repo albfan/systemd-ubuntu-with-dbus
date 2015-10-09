@@ -1,0 +1,36 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 9 Oct 2015 12:28:02 +0200
+Subject: Revert "core: add a "Requires=" dependency between units and the
+ slices they are located in"
+
+This causes user systemd instances to try and unmount system mounts (and
+succeed if you login as root).
+
+This reverts commit 8c8da0e0cb498245c765732cf9caa081a70c560f.
+
+https://github.com/systemd/systemd/issues/1507
+Closes: #801361
+---
+ src/core/unit.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 74a9e22..74deacc 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1129,12 +1129,12 @@ static int unit_add_slice_dependencies(Unit *u) {
+                 return 0;
+ 
+         if (UNIT_ISSET(u->slice))
+-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT_DEREF(u->slice), true);
++                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+ 
+-        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
++        if (streq(u->id, SPECIAL_ROOT_SLICE))
+                 return 0;
+ 
+-        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, NULL, true);
++        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_ROOT_SLICE, NULL, true);
+ }
+ 
+ static int unit_add_mount_dependencies(Unit *u) {

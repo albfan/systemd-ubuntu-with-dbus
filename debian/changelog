@@ -4,6 +4,10 @@ systemd (227-2) UNRELEASED; urgency=medium
     connection errors from various services on boot. (Closes: #801354)
   * debian/tests/boot-smoke: Check for failed unmounts. This reproduces
     #801361 (but not in a minimal VM, just in a desktop one).
+  * Revert "core: add a "Requires=" dependency between units and the
+    slices they are located in". This causes user systemd instances to try and
+    unmount system mounts (and succeed if you login as root).
+    (Closes: #801361)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 09 Oct 2015 11:21:14 +0200
 

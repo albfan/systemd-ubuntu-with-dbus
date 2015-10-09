@@ -36,3 +36,4 @@ fsckd-daemon-for-inter-fsckd-communication.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
 Revert-core-one-step-back-again-for-nspawn-we-actual.patch
 Revert-sd_pid_notify_with_fds-fix-computing-msg_cont.patch
+Revert-core-add-a-Requires-dependency-between-units-.patch
