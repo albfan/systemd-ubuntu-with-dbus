@@ -32,6 +32,9 @@ systemd (227-3) UNRELEASED; urgency=medium
   * Re-add bits which call SELinux in systemd-user pam service.
     (Closes: #804565)
 
+  [ Felipe Sateler ]
+  * Add libnss-resolve package. (Closes: #798905)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
 systemd (227-2) unstable; urgency=medium
