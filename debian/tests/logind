@@ -21,7 +21,7 @@ echo " * process is in session cgroup"
 grep 'systemd:.*session.*scope' /proc/self/cgroup
 echo " * daemon is started"
 # should start at boot, not with D-BUS activation
-pidof systemd-logind > /dev/null
+LOGINDPID=$(pidof systemd-logind)
 
 # loginctl should succeed
 echo " * loginctl succeeds"
@@ -73,6 +73,24 @@ sleep 30
 evemu-event $LID_DEV --sync --type 5 --code 0 --value 1
 wait_suspend 2
 evemu-event $LID_DEV --sync --type 5 --code 0 --value 0
+
+P=$(pidof systemd-logind)
+[ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
+
+echo " * scheduled shutdown with wall message"
+shutdown 2>&1
+sleep 5
+shutdown -c
+# logind should still be running
+P=$(pidof systemd-logind)
+[ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
+
+echo " * scheduled shutdown without wall message"
+shutdown --no-wall 2>&1
+sleep 5
+shutdown -c --no-wall
+P=$(pidof systemd-logind)
+[ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
 
 # ACL tests
 if ! echo "$OUT" | grep -q "seat0"; then

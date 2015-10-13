@@ -2,6 +2,8 @@ systemd (225-1ubuntu8) UNRELEASED; urgency=medium
 
   * logind: Fix another crash when setting wall messages on timed shutdown.
     (LP: #1495178)
+  * debian/tests/logind: Add tests for scheduled shutdown with and without
+    wall message.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 13 Oct 2015 09:40:00 +0200
 
