@@ -1,3 +1,10 @@
+systemd (227-3) UNRELEASED; urgency=medium
+
+  * debian/tests/logind: Add tests for scheduled shutdown with and without
+    wall message.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
+
 systemd (227-2) unstable; urgency=medium
 
   * Revert "sd_pid_notify_with_fds: fix computing msg_controllen", it causes
