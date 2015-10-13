@@ -1,3 +1,10 @@
+systemd (225-1ubuntu8) UNRELEASED; urgency=medium
+
+  * logind: Fix another crash when setting wall messages on timed shutdown.
+    (LP: #1495178)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 13 Oct 2015 09:40:00 +0200
+
 systemd (225-1ubuntu7) wily; urgency=medium
 
   * Don't restart logind on upgrades any more. This kills X.org (#798097)

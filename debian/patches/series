@@ -1,6 +1,7 @@
 ## Cherry-picked from upstream
 login-fix-NULL-deref-on-wall_message.patch
 logind-make-scope-of-wall-message-handling-smaller.patch
+logind-when-parsing-a-boolean-via-sd-bus-the-type-mu.patch
 Add-microphone-mute-keymap-for-Dell-Precision.patch
 
 ## Debian specific patches
