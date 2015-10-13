@@ -13,10 +13,10 @@ Bug-Ubuntu: https://launchpad.net/bugs/1500992
  2 files changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/man/systemd.network.xml b/man/systemd.network.xml
-index 2fb4733..a83309d 100644
+index e8a164d..0b4b5d9 100644
 --- a/man/systemd.network.xml
 +++ b/man/systemd.network.xml
-@@ -370,7 +370,7 @@
+@@ -369,7 +369,7 @@
            sysctl options of the network interface (see <ulink
            url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
            for details about sysctl options). Defaults to
@@ -26,10 +26,10 @@ index 2fb4733..a83309d 100644
           <para>Note: unless this option is turned on, or set to <literal>kernel</literal>,
            no IP forwarding is done on this interface, even if this is
 diff --git a/src/network/networkd-network.c b/src/network/networkd-network.c
-index ee14401..4cc6619 100644
+index 6587ea9..d5d4f2b 100644
 --- a/src/network/networkd-network.c
 +++ b/src/network/networkd-network.c
-@@ -118,6 +118,7 @@ static int network_load_one(Manager *manager, const char *filename) {
+@@ -114,6 +114,7 @@ static int network_load_one(Manager *manager, const char *filename) {
          network->llmnr = RESOLVE_SUPPORT_YES;
  
          network->link_local = ADDRESS_FAMILY_IPV6;
