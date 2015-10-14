@@ -4,6 +4,8 @@ systemd (227-3) UNRELEASED; urgency=medium
     wall message.
   * Import upstream fix for not unmounting system mounts (#801361) and drop
     our revert patch.
+  * debian/tests/boot-smoke: Apply check for failed unmounts only to user
+    systemd processes, i. e. not to pid 1.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
