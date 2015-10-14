@@ -2,4 +2,11 @@ rm_conffile /etc/bash_completion.d/systemctl-bash-completion.sh 204-1~ systemd
 rm_conffile /etc/bash_completion.d/systemd-bash-completion.sh 204-1~ systemd
 mv_conffile /etc/systemd/systemd-logind.conf /etc/systemd/logind.conf 204-1~ systemd
 mv_conffile /etc/systemd/systemd-journald.conf /etc/systemd/journald.conf 204-1~ systemd
-rm_conffile /etc/dbus-1/system.d/org.freedesktop.machine1.conf 224-2~ systemd
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.hostname1.conf 227-3~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.locale1.conf 227-3~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.login1.conf 227-3~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.machine1.conf 224-2~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.network1.conf 227-3~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.resolve1.conf 227-3~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.systemd1.conf 227-3~
+rm_conffile /etc/dbus-1/system.d/org.freedesktop.timedate1.conf 227-3~

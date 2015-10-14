@@ -1,5 +1,3 @@
-etc/dbus-1/system.d/org.freedesktop.import1.conf
-etc/dbus-1/system.d/org.freedesktop.machine1.conf
 bin/machinectl
 lib/systemd/import-pubring.gpg
 lib/systemd/systemd-machined
@@ -20,6 +18,8 @@ lib/systemd/system/dbus-org.freedesktop.import1.service
 lib/systemd/system/dbus-org.freedesktop.machine1.service
 usr/bin/systemd-nspawn
 usr/lib/tmpfiles.d/systemd-nspawn.conf
+usr/share/dbus-1/system.d/org.freedesktop.import1.conf
+usr/share/dbus-1/system.d/org.freedesktop.machine1.conf
 usr/share/dbus-1/system-services/org.freedesktop.import1.service
 usr/share/dbus-1/system-services/org.freedesktop.machine1.service
 usr/share/man/man*/*nspawn*

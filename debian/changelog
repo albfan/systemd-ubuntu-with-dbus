@@ -6,6 +6,9 @@ systemd (227-3) UNRELEASED; urgency=medium
     our revert patch.
   * debian/tests/boot-smoke: Apply check for failed unmounts only to user
     systemd processes, i. e. not to pid 1.
+  * Install D-Bus policies into /usr/share/dbus-1/system.d/ instead of
+    /etc/dbus-1, to get rid of some conffiles. Bump D-Bus dependencies to >=
+    1.9.18 which started supporting this.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
