@@ -1,5 +1,7 @@
 ## Cherry-picked from upstream
 core-ignore-.slice-and-init.scope-when-isolating.patch
+sd-daemon-simply-code-simplification.patch
+sd-daemon-wipe-out-memory-before-using-CMSG_NXTHDR.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
