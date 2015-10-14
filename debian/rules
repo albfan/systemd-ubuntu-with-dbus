@@ -24,7 +24,6 @@ CONFFLAGS = \
 	--with-sysvrcnd-path=/etc \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
-	--with-dbuspolicydir=/usr/share/dbus-1/system.d/ \
 	--enable-split-usr \
 	--disable-compat-libs \
 	--disable-qrencode \
