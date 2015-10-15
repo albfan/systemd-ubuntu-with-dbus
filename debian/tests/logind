@@ -80,7 +80,7 @@ P=$(pidof systemd-logind)
 echo " * scheduled shutdown with wall message"
 shutdown 2>&1
 sleep 5
-shutdown -c
+shutdown -c || true
 # logind should still be running
 P=$(pidof systemd-logind)
 [ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
@@ -88,7 +88,7 @@ P=$(pidof systemd-logind)
 echo " * scheduled shutdown without wall message"
 shutdown --no-wall 2>&1
 sleep 5
-shutdown -c --no-wall
+shutdown -c --no-wall || true
 P=$(pidof systemd-logind)
 [ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
 
