@@ -2,15 +2,18 @@ From: Michael Biebl <biebl@debian.org>
 Date: Wed, 20 Aug 2014 23:52:47 +0200
 Subject: Stop syslog.socket when entering emergency mode
 
-When rsyslog is installed, the syslog.socket is active when entering
-emergency mode. This triggers the start of rsyslog.service along with
-its dependencies. Since sysinit.target conflicts with emergency.target,
-this breaks the emergency mode.
-As a workaround, add a Conflicts=syslog.socket to emergency.service to
-make sure the socket is stopped when emergency.service is started.
+When rsyslog is installed, the syslog.socket is active when entering emergency
+mode. Any log message then triggers the start of rsyslog.service along with its
+dependencies such as local-fs.target and sysinit.target. As these might fail
+themselves (e. g. faulty /etc/fstab), this breaks the emergency mode.
 
-Note: This issue is specific to v208 and is not reproducible with v214,
-so this patch should be dropped again when packaging newer releases.
+This causes syslog.socket to fail with "Failed to queue service startup job:
+Transition is destructive".
+
+Add Conflicts=syslog.socket to emergency.service to make sure the socket is
+stopped when emergency.service is started.
+
+(This is a consequence of Re-enable-journal-forwarding-to-syslog.patch)
 
 Closes: #755581
 ---
