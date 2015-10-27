@@ -9,6 +9,8 @@ systemd (227-3) UNRELEASED; urgency=medium
   * Drop Fix-usr-remount-failure-for-split-usr.patch. Jessie has a new enough
     initramfs-tools already, and this was just an error message, not breaking
     the boot.
+  * Drop debian-fixup.service in favor of using a tmpfiles.d clause, which is
+    faster.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
