@@ -16,6 +16,7 @@ stopped when emergency.service is started.
 (This is a consequence of Re-enable-journal-forwarding-to-syslog.patch)
 
 Closes: #755581
+Forwarded: https://github.com/systemd/systemd/issues/266
 ---
  units/emergency.service.in | 1 +
  1 file changed, 1 insertion(+)
