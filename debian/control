@@ -63,7 +63,6 @@ Depends: ${shlibs:Depends},
          util-linux (>= 2.27),
          mount (>= 2.26),
          sysv-rc,
-         udev,
          adduser,
          libcap2-bin
 Breaks: lvm2 (<< 2.02.104-1),
