@@ -3,9 +3,10 @@ Date: Wed, 20 Aug 2014 23:52:47 +0200
 Subject: Stop syslog.socket when entering emergency mode
 
 When rsyslog is installed, the syslog.socket is active when entering emergency
-mode. Any log message then triggers the start of rsyslog.service along with its
-dependencies such as local-fs.target and sysinit.target. As these might fail
-themselves (e. g. faulty /etc/fstab), this breaks the emergency mode.
+mode. Any log message then triggers the start of rsyslog.service (or other
+implementation) along with its dependencies such as local-fs.target and
+sysinit.target. As these might fail themselves (e. g. faulty /etc/fstab), this
+breaks the emergency mode.
 
 This causes syslog.socket to fail with "Failed to queue service startup job:
 Transition is destructive".
