@@ -21,8 +21,8 @@ systemd (227-3) UNRELEASED; urgency=medium
     within a container, so this allows us to trim down the footprint by not
     installing the udev package. As the udev package has Priority: important,
     it is still installed by default though.
-  * Include the status of the udev package when filing a bug against systemd,
-    and vice versa.
+  * Include the status of the udev package when filing a bug report against
+    systemd, and vice versa.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
