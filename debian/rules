@@ -12,7 +12,7 @@ else
     DEFAULT_NTP_SERVERS = 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
 endif
 
-ifneq (,$(findstring noudeb,$(DEB_BUILD_OPTIONS)))
+ifneq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 export DEB_BUILD_PROFILES += noudeb
 endif
 
@@ -46,7 +46,7 @@ CONFFLAGS_deb = \
 	--enable-efi \
 	PYTHON=python3
 
-ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
+ifeq (, $(filter stage1, $(DEB_BUILD_PROFILES)))
 CONFFLAGS_deb += \
 	--enable-audit \
 	--enable-libcryptsetup \
@@ -190,7 +190,7 @@ endif
 	rm debian/systemd/lib/systemd/system/local-fs.target.wants/tmp.mount
 
 	# files shipped by cryptsetup
-ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
+ifeq (, $(filter stage1, $(DEB_BUILD_PROFILES)))
 	rm debian/systemd/usr/share/man/man5/crypttab.5
 endif
 
@@ -216,7 +216,7 @@ endif
 		install --mode=644 debian/extra/rules-ubuntu/*.rules debian/udev/lib/udev/rules.d/; \
 	fi
 
-ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter nocheck, $(DEB_BUILD_OPTIONS)))
 	echo "Checking that executables don't link to libraries in /usr..."
 	set -e; for e in debian/systemd/lib/systemd/systemd* debian/udev/lib/systemd/systemd*; do \
 	    echo " $$e"; \
@@ -256,7 +256,7 @@ override_dh_strip:
 
 # tests require /etc/machine-id to be present
 override_dh_auto_test:
-ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
+ifeq (, $(filter nocheck, $(DEB_BUILD_OPTIONS)))
 	# some tests hang under fakeroot, so disable fakeroot
 	env -u LD_PRELOAD make -C build-deb check || ( \
 		cd build-deb; \

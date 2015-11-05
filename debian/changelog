@@ -23,6 +23,8 @@ systemd (227-3) UNRELEASED; urgency=medium
     it is still installed by default though.
   * Include the status of the udev package when filing a bug report against
     systemd, and vice versa.
+  * Use filter instead of findstring, since findstring also matches
+    substrings and we only want direct matches.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
