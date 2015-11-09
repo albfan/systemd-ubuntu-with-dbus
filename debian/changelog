@@ -26,6 +26,8 @@ systemd (227-3) UNRELEASED; urgency=medium
   * Use filter instead of findstring, since findstring also matches
     substrings and we only want direct matches.
   * systemd.bug-script: Fix typo. (Closes: #804512)
+  * Re-add bits which call SELinux in systemd-user pam service.
+    (Closes: #804565)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 

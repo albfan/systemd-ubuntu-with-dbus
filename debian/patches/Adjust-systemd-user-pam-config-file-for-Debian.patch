@@ -5,24 +5,24 @@ Subject: Adjust systemd-user pam config file for Debian
 This pam config file is used by libpam-systemd/systemd-logind when
 launching systemd user instances.
 ---
- src/login/systemd-user.m4 | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ src/login/systemd-user.m4 | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/src/login/systemd-user.m4 b/src/login/systemd-user.m4
-index 7933508..6b21de6 100644
+index 7933508..f35e779 100644
 --- a/src/login/systemd-user.m4
 +++ b/src/login/systemd-user.m4
-@@ -2,10 +2,6 @@
+@@ -2,10 +2,11 @@
  #
  # Used by systemd --user instances.
  
 -account  include system-auth
--
--m4_ifdef(`HAVE_SELINUX',
--session  required pam_selinux.so close
--session  required pam_selinux.so nottys open
--)m4_dnl
--session  include system-auth
 +@include common-account
+ 
+ m4_ifdef(`HAVE_SELINUX',
+ session  required pam_selinux.so close
+ session  required pam_selinux.so nottys open
+ )m4_dnl
+-session  include system-auth
 +@include common-session-noninteractive
 +session optional pam_systemd.so
