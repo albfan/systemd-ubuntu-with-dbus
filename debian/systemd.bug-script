@@ -6,7 +6,7 @@ Providing additional information can help diagnose problems with systemd.
 Specifically, this would include:
 - fstab configuration (copy of /etc/fstab).
 - local modifications of unit files (output of systemd-delta).
-- state of running services and units (output of systemd-analzye dump).
+- state of running services and units (output of systemd-analyze dump).
 - enabled/disabled state of installed services.
 If this information is not relevant for your bug report or you have privacy
 concerns, please choose no.

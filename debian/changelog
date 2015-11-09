@@ -25,6 +25,7 @@ systemd (227-3) UNRELEASED; urgency=medium
     systemd, and vice versa.
   * Use filter instead of findstring, since findstring also matches
     substrings and we only want direct matches.
+  * systemd.bug-script: Fix typo. (Closes: #804512)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 13 Oct 2015 11:03:21 +0200
 
