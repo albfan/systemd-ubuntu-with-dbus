@@ -2,6 +2,9 @@
 core-ignore-.slice-and-init.scope-when-isolating.patch
 sd-daemon-simply-code-simplification.patch
 sd-daemon-wipe-out-memory-before-using-CMSG_NXTHDR.patch
+sd-daemon-increase-sd_notify-socket-buffer-size.patch
+sd-daemon-verify-NOTIFY_SOCKET-path-length.patch
+journald-never-block-when-sending-messages-on-NOTIFY.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -36,4 +39,3 @@ syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
 Revert-core-one-step-back-again-for-nspawn-we-actual.patch
-Revert-sd_pid_notify_with_fds-fix-computing-msg_cont.patch

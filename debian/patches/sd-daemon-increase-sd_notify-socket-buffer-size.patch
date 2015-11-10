@@ -1,0 +1,58 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 30 Oct 2015 11:27:29 +0100
+Subject: sd-daemon: increase sd_notify() socket buffer size
+
+Let's make sure we don't start blocking on sd_notify() earlier than
+necessary, let's bump the socket buffer sizes to 8M.
+
+We already do something similar for our logging socket buffers, hence
+apply a similar bump here.
+---
+ src/core/manager.c                   | 4 ++++
+ src/libsystemd/sd-daemon/sd-daemon.c | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 526d4d1..36af00d 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -75,6 +75,8 @@
+ #include "watchdog.h"
+ #include "manager.h"
+ 
++#define NOTIFY_RCVBUF_SIZE (8*1024*1024)
++
+ /* Initial delay and the interval for printing status messages about running jobs */
+ #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
+ #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
+@@ -678,6 +680,8 @@ static int manager_setup_notify(Manager *m) {
+                 if (fd < 0)
+                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
+ 
++                fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
++
+                 if (m->running_as == MANAGER_SYSTEM)
+                         m->notify_socket = strdup("/run/systemd/notify");
+                 else {
+diff --git a/src/libsystemd/sd-daemon/sd-daemon.c b/src/libsystemd/sd-daemon/sd-daemon.c
+index ae534ba..d2f10cd 100644
+--- a/src/libsystemd/sd-daemon/sd-daemon.c
++++ b/src/libsystemd/sd-daemon/sd-daemon.c
+@@ -40,6 +40,8 @@
+ 
+ #include "sd-daemon.h"
+ 
++#define SNDBUF_SIZE (8*1024*1024)
++
+ static void unsetenv_all(bool unset_environment) {
+ 
+         if (!unset_environment)
+@@ -436,6 +438,8 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
+                 goto finish;
+         }
+ 
++        fd_inc_sndbuf(fd, SNDBUF_SIZE);
++
+         iovec.iov_len = strlen(state);
+ 
+         strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));

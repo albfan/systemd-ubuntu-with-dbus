@@ -15,6 +15,9 @@ systemd (227-3) UNRELEASED; urgency=medium
   * Drop Order-remote-fs.target-after-local-fs.target.patch. It's mostly
     academic and only applies to the already known-broken situation that rcS
     init.d scripts depend on $remote_fs.
+  * Replace reversion of sd_pid_notify_with_fds() msg_controllen fix with
+    proper upstream fix to never block on sending messages on NOTIFY_SOCKET
+    socket.
 
   [ Michael Biebl ]
   * Drop dependency on udev from the systemd package. We don't need udev
