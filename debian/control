@@ -154,7 +154,9 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd
-Conflicts: apport
+Conflicts: core-dump-handler
+Replaces: core-dump-handler
+Provides: core-dump-handler
 Description: tools for storing and retrieving coredumps
  This package provides systemd tools for storing and retrieving coredumps:
   * systemd-coredump
