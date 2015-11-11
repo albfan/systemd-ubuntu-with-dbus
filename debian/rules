@@ -253,13 +253,18 @@ override_dh_autoreconf:
 override_dh_strip:
 	dh_strip --dbg-package=systemd-dbg
 
-# tests require /etc/machine-id to be present
 override_dh_auto_test:
 ifeq (, $(filter nocheck, $(DEB_BUILD_OPTIONS)))
 	# some tests hang under fakeroot, so disable fakeroot
+	# temporarily show kernel version and /etc/hosts, for debugging what
+	# they are failing on
 	env -u LD_PRELOAD make -C build-deb check || ( \
 		cd build-deb; \
-		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done)
+		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done; \
+		echo "==== /etc/hosts ==="; cat /etc/hosts; \
+		echo "==== kernel version ==="; cat /proc/version; \
+		echo "==== machine id ==="; cat /etc/machine-id; \
+		exit 1)
 endif
 
 %:

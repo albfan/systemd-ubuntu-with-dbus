@@ -29,7 +29,6 @@ Make-run-lock-tmpfs-an-API-fs.patch
 Include-additional-directories-in-ProtectSystem.patch
 udev-re-enable-mount-propagation-for-udevd.patch
 Re-enable-journal-forwarding-to-syslog.patch
-Disable-tests-which-fail-on-buildds.patch
 Make-sd_login_monitor_new-work-for-logind-without-sy.patch
 Don-t-enable-audit-by-default.patch
 util-Add-hidden-suffixes-for-ucf.patch

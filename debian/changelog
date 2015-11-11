@@ -20,6 +20,10 @@ systemd (227-3) UNRELEASED; urgency=medium
     socket.
   * Drop check for missing /etc/machine-id on "make check" failure; this isn't
     happening on current buildds any more.
+  * Drop Disable-tests-which-fail-on-buildds.patch, to re-evaluate what still
+    fails and needs fixing. On failure, show kernel version and /etc/hosts
+    to be able to debug them better. The next upload will make the necessary
+    adjustments to fix package builds again.
 
   [ Michael Biebl ]
   * Drop dependency on udev from the systemd package. We don't need udev
