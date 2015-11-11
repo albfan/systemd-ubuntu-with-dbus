@@ -18,6 +18,8 @@ systemd (227-3) UNRELEASED; urgency=medium
   * Replace reversion of sd_pid_notify_with_fds() msg_controllen fix with
     proper upstream fix to never block on sending messages on NOTIFY_SOCKET
     socket.
+  * Drop check for missing /etc/machine-id on "make check" failure; this isn't
+    happening on current buildds any more.
 
   [ Michael Biebl ]
   * Drop dependency on udev from the systemd package. We don't need udev
