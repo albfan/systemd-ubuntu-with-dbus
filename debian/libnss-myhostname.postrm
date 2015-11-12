@@ -3,6 +3,12 @@ set -e
 
 # This code was taken from libnss-myhostname
 remove_nss_entry() {
+    refcount=$(dpkg-query -f '${db:Status-Abbrev} ${binary:Package}\n' \
+        -W libnss-myhostname | grep '^i' | wc -l)
+    if [ "$refcount" -gt 0 ] ; then
+        # there are other instances, do nothing
+        return
+    fi
     echo "Checking NSS setup..."
     # abort if /etc/nsswitch.conf does not exist
     if ! [ -e /etc/nsswitch.conf ]; then

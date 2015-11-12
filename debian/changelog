@@ -6,6 +6,8 @@ systemd (227-4) UNRELEASED; urgency=medium
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
+  * libnss-my{machines,hostname}.postrm: do not remove entries from
+    nsswitch.conf if there are packages from other architectures remaining.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 12 Nov 2015 17:25:12 +0100
 
