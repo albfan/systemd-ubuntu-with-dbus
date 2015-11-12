@@ -248,7 +248,7 @@ autoreconf:
 	autoreconf -f -i
 
 override_dh_autoreconf:
-	dh_autoreconf debian/rules -- autoreconf
+	dh_autoreconf --as-needed debian/rules -- autoreconf
 
 override_dh_strip:
 	dh_strip --dbg-package=systemd-dbg
