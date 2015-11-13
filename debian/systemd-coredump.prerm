@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = remove ]; then
+    # disable systemd-coredump on removal
+    if [ -w /proc/sys/kernel/core_pattern ]; then
+        echo core > /proc/sys/kernel/core_pattern
+    fi
+fi
+
+#DEBHELPER#
