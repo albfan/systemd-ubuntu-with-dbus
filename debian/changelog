@@ -3,6 +3,10 @@ systemd (227-4) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * debian/rules: Configure with --as-needed to avoid unnecessary binary
     dependencies.
+  * systemd-networkd-resolvconf-update.service: Increase StartLimitBurst, as
+    this might be legitimately called several times in quick succession. If
+    that part of the "networkd" autopkgtest fails, show the journal log for
+    that service for easier debugging.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
