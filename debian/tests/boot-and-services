@@ -411,6 +411,38 @@ SystemCallFilter=access
             self.assertNotIn(f.read().strip().encode('ASCII'), out)
 
 
+class CoredumpTest(unittest.TestCase):
+    '''Check systemd-coredump'''
+
+    def test_bash_crash(self):
+        subprocess.call("ulimit -c unlimited; bash -c 'kill -SEGV $$'", shell=True,
+                       cwd='/tmp', stderr=subprocess.DEVNULL)
+
+        # with systemd-coredump installed we should get the core dumps in
+        # systemd's dir
+        timeout = 50
+        while timeout > 0:
+            cores = glob('/var/lib/systemd/coredump/core.bash.*')
+            if cores:
+                break
+            time.sleep(0.1)
+            timeout -= 1
+        self.assertNotEqual(cores, [])
+        self.assertEqual(glob('/tmp/core*'), [])
+
+        # we should also get a message and stack trace in journal
+        timeout = 50
+        while timeout > 0:
+            journal = subprocess.check_output(['journalctl', '/lib/systemd/systemd-coredump'])
+            if b'dumped core' in journal:
+                break
+            time.sleep(0.1)
+            timeout -= 1
+        self.assertRegex(journal, b'Process.*bash.*dumped core')
+        self.assertIn(b'Stack trace', journal)
+        self.assertRegex(journal, b'#[0-9] .* main.*bash')
+
+
 def pre_boot_setup():
     '''Test setup before rebooting testbed'''
 
