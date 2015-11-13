@@ -22,6 +22,7 @@ systemd (228-2ubuntu2) UNRELEASED; urgency=medium
     - Put session scopes into all cgroup controllers. This makes unprivileged
       user LXC containers work under systemd. (LP: #1346734)
     - Change systemd-sysv's conflicts to upstart-sysv. (LP: #1422681)
+    - Build using libseccomp on powerpc and ppc64el (See Debian #800818).
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 13 Nov 2015 08:45:51 +0100
 
