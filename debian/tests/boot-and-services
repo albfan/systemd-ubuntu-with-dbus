@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import shutil
 import time
+import re
 from glob import glob
 
 
@@ -416,7 +417,7 @@ class CoredumpTest(unittest.TestCase):
 
     def test_bash_crash(self):
         subprocess.call("ulimit -c unlimited; bash -c 'kill -SEGV $$'", shell=True,
-                       cwd='/tmp', stderr=subprocess.DEVNULL)
+                        cwd='/tmp', stderr=subprocess.DEVNULL)
 
         # with systemd-coredump installed we should get the core dumps in
         # systemd's dir
@@ -434,7 +435,7 @@ class CoredumpTest(unittest.TestCase):
         timeout = 50
         while timeout > 0:
             journal = subprocess.check_output(['journalctl', '/lib/systemd/systemd-coredump'])
-            if b'dumped core' in journal:
+            if re.search(b'Process.*bash.*dumped core', journal):
                 break
             time.sleep(0.1)
             timeout -= 1
