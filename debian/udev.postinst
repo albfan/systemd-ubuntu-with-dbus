@@ -9,13 +9,6 @@ supported_kernel() {
   return 0
 }
 
-tempdir() {
-  local dir=$(tempfile --prefix=udev.)
-  rm $dir
-  mkdir $dir
-  echo $dir
-}
-
 chrooted() {
   if [ "$(stat -c %d/%i /)" = "$(stat -Lc %d/%i /proc/1/root 2>/dev/null)" ];
   then
