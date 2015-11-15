@@ -150,6 +150,8 @@ logind-handle-runtime-dir-without-CAP_SYS_ADMIN.patch
 sd-bus-create-clean-error-when-a-property-Set-call-w.patch
 manager-do-not-print-anything-while-passwords-are-be.patch
 manager-pass-correct-errno-to-strerror.patch
+shared-add-path_compare-an-ordering-path-comparison.patch
+core-namespace-fix-path-sorting.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
