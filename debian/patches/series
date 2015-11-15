@@ -155,6 +155,7 @@ core-namespace-fix-path-sorting.patch
 cryptsetup-Fix-timeout-on-dm-device.patch
 core-only-set-the-kernel-s-timezone-when-the-RTC-runs-in-.patch
 delta-Fix-broken-separator-support.patch
+sd-dhcp-client-make-request-broadcasts-configurable.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
