@@ -3,6 +3,10 @@ systemd (215-17+deb8u3) UNRELEASED; urgency=medium
   * Fix namespace breakage due to incorrect path sorting. (Closes: #787758)
   * Don't timeout after 90 seconds when no password was entered for cryptsetup
     devices. (Closes: #802897)
+  * Only set the kernel's timezone when the RTC runs in local time. Otherwise,
+    every daylight saving time change or time zone change by travelling will
+    make the time jump, and the local time might jump backwards which creates
+    unsolvable problems with file timestamps. (Closes: #759319)
 
  -- Michael Biebl <biebl@debian.org>  Mon, 16 Nov 2015 17:49:20 +0100
 
