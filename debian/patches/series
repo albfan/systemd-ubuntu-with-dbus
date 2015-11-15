@@ -154,6 +154,7 @@ shared-add-path_compare-an-ordering-path-comparison.patch
 core-namespace-fix-path-sorting.patch
 cryptsetup-Fix-timeout-on-dm-device.patch
 core-only-set-the-kernel-s-timezone-when-the-RTC-runs-in-.patch
+delta-Fix-broken-separator-support.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
