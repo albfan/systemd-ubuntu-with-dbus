@@ -12,6 +12,8 @@ systemd (227-4) UNRELEASED; urgency=medium
     reboot.
   * debian/tests/networkd: Check for systemd-networkd-wait-online in /usr as
     well, for usage in other distros.
+  * debian/tests/logind: Skip suspend test if the kernel does not support
+    suspend.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
