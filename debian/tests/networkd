@@ -22,6 +22,15 @@ class TestNetworkd(unittest.TestCase):
         # avoid "Failed to open /dev/tty" errors in containers
         os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
 
+        # determine path to systemd-networkd-wait-online
+        for p in ['/usr/lib/systemd/systemd-networkd-wait-online',
+                  '/lib/systemd/systemd-networkd-wait-online']:
+            if os.path.exists(p):
+                self.networkd_wait_online = p
+                break
+        else:
+            self.fail('systemd-networkd-wait-online not found')
+
     def tearDown(self):
         self.shutdown_iface()
         if os.path.exists(self.config):
@@ -83,8 +92,8 @@ DHCP=yes''' % self.iface)
             subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
             self.create_iface(ipv6=ipv6)
 
-        subprocess.check_call(['/lib/systemd/systemd-networkd-wait-online',
-                               '--interface', self.iface, '--timeout=10'])
+        subprocess.check_call([self.networkd_wait_online, '--interface',
+                               self.iface, '--timeout=10'])
 
         try:
             if ipv6:

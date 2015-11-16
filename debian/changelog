@@ -10,6 +10,8 @@ systemd (227-4) UNRELEASED; urgency=medium
   * debian/tests/boot-and-services: Add test case for systemd-coredump.
   * Add systemd-coredump postinst/prerm to enable/disable this without a
     reboot.
+  * debian/tests/networkd: Check for systemd-networkd-wait-online in /usr as
+    well, for usage in other distros.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
