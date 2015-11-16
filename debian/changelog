@@ -14,6 +14,7 @@ systemd (227-4) UNRELEASED; urgency=medium
     well, for usage in other distros.
   * debian/tests/logind: Skip suspend test if the kernel does not support
     suspend.
+  * debian/tests/logind: Split tests into functions.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.

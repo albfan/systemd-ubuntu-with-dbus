@@ -1,6 +1,16 @@
 #!/bin/sh
 set -e
 
+test_started() {
+    echo " * daemon is started"
+    # should start at boot, not with D-BUS activation
+    LOGINDPID=$(pidof systemd-logind)
+
+    # loginctl should succeed
+    echo " * loginctl succeeds"
+    LOGINCTL_OUT=`loginctl`
+}
+
 # args: <timeout>
 wait_suspend() {
     timeout=$1
@@ -69,100 +79,102 @@ test_suspend_on_lid() {
     evemu-event $LID_DEV --sync --type 5 --code 0 --value 1
     wait_suspend 2
     evemu-event $LID_DEV --sync --type 5 --code 0 --value 0
+
+    P=$(pidof systemd-logind)
+    [ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
 }
 
-echo " * XDG_SESSION_ID=$XDG_SESSION_ID"
-if grep 'systemd:.*session.*scope' /proc/self/cgroup; then
-    echo " * process is in session cgroup"
-else
-    echo "FAIL: process is not in session cgroup"
-    echo "/proc/self/cgroup:"
-    cat /proc/self/cgroup
-    loginctl
-    loginctl show-session "$XDG_SESSION_ID"
-    exit 1
-fi
+test_shutdown() {
+    echo " * scheduled shutdown with wall message"
+    shutdown 2>&1
+    sleep 5
+    shutdown -c || true
+    # logind should still be running
+    P=$(pidof systemd-logind)
+    [ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
 
-echo " * daemon is started"
-# should start at boot, not with D-BUS activation
-LOGINDPID=$(pidof systemd-logind)
+    echo " * scheduled shutdown without wall message"
+    shutdown --no-wall 2>&1
+    sleep 5
+    shutdown -c --no-wall || true
+    P=$(pidof systemd-logind)
+    [ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
+    echo " * XDG_SESSION_ID=$XDG_SESSION_ID"
+    if grep 'systemd:.*session.*scope' /proc/self/cgroup; then
+        echo " * process is in session cgroup"
+    else
+        echo "FAIL: process is not in session cgroup"
+        echo "/proc/self/cgroup:"
+        cat /proc/self/cgroup
+        loginctl
+        loginctl show-session "$XDG_SESSION_ID"
+        exit 1
+    fi
+}
 
-# loginctl should succeed
-echo " * loginctl succeeds"
-OUT=`loginctl`
+test_acl() {
+    # ACL tests
+    if ! echo "$LOGINCTL_OUT" | grep -q "seat0"; then
+        echo " * Skipping ACL tests, as there is no seat"
+        return
+    fi
 
-test_suspend_on_lid
+    # determine user
+    USER=`echo "$OUT" | grep seat0 | awk '{print $3}'`
+    echo "seat user: $USER"
 
-P=$(pidof systemd-logind)
-[ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
+    # scsi_debug should not be loaded yet
+    ! test -d /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block
 
-echo " * scheduled shutdown with wall message"
-shutdown 2>&1
-sleep 5
-shutdown -c || true
-# logind should still be running
-P=$(pidof systemd-logind)
-[ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
-
-echo " * scheduled shutdown without wall message"
-shutdown --no-wall 2>&1
-sleep 5
-shutdown -c --no-wall || true
-P=$(pidof systemd-logind)
-[ "$P" = "$LOGINDPID" ] || { echo "logind crashed" >&2; exit 1; }
-
-# ACL tests
-if ! echo "$OUT" | grep -q "seat0"; then
-    echo "Skipping ACL tests, as there is no seat"
-    exit 0
-fi
-
-# determine user
-USER=`echo "$OUT" | grep seat0 | awk '{print $3}'`
-echo "seat user: $USER"
-
-# scsi_debug should not be loaded yet
-! test -d /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block
-
-# we use scsi_debug to create new devices which we can put ACLs on
-# tell udev about the tagging, so that logind can pick it up
-cat <<EOF > /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
+    # we use scsi_debug to create new devices which we can put ACLs on
+    # tell udev about the tagging, so that logind can pick it up
+    cat <<EOF > /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
 SUBSYSTEM=="block", ATTRS{model}=="scsi_debug*", TAG+="uaccess"
 EOF
-sync
-udevadm control --reload
+    sync
+    udevadm control --reload
 
-echo " * coldplug: logind started with existing device"
-killall systemd-logind
-modprobe scsi_debug
-while ! dev=/dev/`ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null`; do sleep 0.1; done
-test -b $dev
-echo "got block device $dev"
-udevadm settle
-# trigger logind
-loginctl > /dev/null
-sleep 1
-if getfacl -p $dev | grep -q "user:$USER:rw-"; then
-    echo "$dev has ACL for user $USER"
-else
-    echo "$dev has no ACL for user $USER:" >&2
-    getfacl -p $dev >&2
-    exit 1
-fi
+    echo " * coldplug: logind started with existing device"
+    killall systemd-logind
+    modprobe scsi_debug
+    while ! dev=/dev/`ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null`; do sleep 0.1; done
+    test -b $dev
+    echo "got block device $dev"
+    udevadm settle
+    # trigger logind
+    loginctl > /dev/null
+    sleep 1
+    if getfacl -p $dev | grep -q "user:$USER:rw-"; then
+        echo "$dev has ACL for user $USER"
+    else
+        echo "$dev has no ACL for user $USER:" >&2
+        getfacl -p $dev >&2
+        exit 1
+    fi
 
-rmmod scsi_debug
+    rmmod scsi_debug
 
-echo " * hotplug: new device appears while logind is running"
-modprobe scsi_debug
-while ! dev=/dev/`ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block`; do sleep 0.1; done
-test -b $dev
-echo "got block device $dev"
-udevadm settle
-sleep 1
-if getfacl -p $dev | grep -q "user:$USER:rw-"; then
-    echo "$dev has ACL for user $USER"
-else
-    echo "$dev has no ACL for user $USER:" >&2
-    getfacl -p $dev >&2
-    exit 1
-fi
+    echo " * hotplug: new device appears while logind is running"
+    modprobe scsi_debug
+    while ! dev=/dev/`ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block`; do sleep 0.1; done
+    test -b $dev
+    echo "got block device $dev"
+    udevadm settle
+    sleep 1
+    if getfacl -p $dev | grep -q "user:$USER:rw-"; then
+        echo "$dev has ACL for user $USER"
+    else
+        echo "$dev has no ACL for user $USER:" >&2
+        getfacl -p $dev >&2
+        exit 1
+    fi
+}
+
+#
+# main
+#
+
+test_started
+test_suspend_on_lid
+test_shutdown
+test_acl
