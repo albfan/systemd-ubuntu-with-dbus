@@ -36,6 +36,8 @@ class ServicesTest(unittest.TestCase):
             failed = [f for f in failed if 'apparmor.service' not in f]
         # ignore thermald as it doesn't start in most virtual envs
         failed = [f for f in failed if 'thermald' not in f]
+        # console-setup.service fails on devices without keyboard (LP: #1516591)
+        failed = [f for f in failed if 'console-setup' not in f]
         self.assertEqual(failed, [])
 
     def test_lightdm(self):
