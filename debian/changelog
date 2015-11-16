@@ -1,4 +1,4 @@
-systemd (215-17+deb8u3) UNRELEASED; urgency=medium
+systemd (215-17+deb8u3) stable; urgency=medium
 
   * Fix namespace breakage due to incorrect path sorting. (Closes: #787758)
   * Don't timeout after 90 seconds when no password was entered for cryptsetup
@@ -13,7 +13,7 @@ systemd (215-17+deb8u3) UNRELEASED; urgency=medium
     RequestBroadcast=. This is a backport from upstream which doesn't change
     the default setting. (Closes: #797894)
 
- -- Michael Biebl <biebl@debian.org>  Mon, 16 Nov 2015 17:49:20 +0100
+ -- Michael Biebl <biebl@debian.org>  Mon, 16 Nov 2015 18:08:32 +0100
 
 systemd (215-17+deb8u2) stable; urgency=medium
 
