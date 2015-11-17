@@ -24,6 +24,7 @@ systemd (227-4) UNRELEASED; urgency=medium
     fast), "DHCP=all, IPv4 only" (which will require a longer timeout due to
     waiting 12s for a potential IPv6 RA reply), and "DHCP=ipv4" (which should
     always be fast).
+  * debian/tests/networkd: Fix UnicodeDecodeError under 'C' locale.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.

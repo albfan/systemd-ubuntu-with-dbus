@@ -123,22 +123,21 @@ DHCP=%s
             self.assertRegex(out, b'inet 192.168.5.\d+/.* scope global dynamic')
 
             # check networkctl state
-            out = subprocess.check_output(['networkctl'], universal_newlines=True)
-            self.assertRegex(out, '%s\s+ether\s+routable\s+unmanaged' % self.if_router)
-            self.assertRegex(out, '%s\s+ether\s+routable\s+configured' % self.iface)
+            out = subprocess.check_output(['networkctl'])
+            self.assertRegex(out, ('%s\s+ether\s+routable\s+unmanaged' % self.if_router).encode())
+            self.assertRegex(out, ('%s\s+ether\s+routable\s+configured' % self.iface).encode())
 
-            out = subprocess.check_output(['networkctl', 'status', self.iface],
-                                          universal_newlines=True)
-            self.assertRegex(out, 'Type:\s+ether')
-            self.assertRegex(out, 'State:\s+routable.*configured')
-            self.assertRegex(out, 'Address:\s+192.168.5.\d+')
+            out = subprocess.check_output(['networkctl', 'status', self.iface])
+            self.assertRegex(out, b'Type:\s+ether')
+            self.assertRegex(out, b'State:\s+routable.*configured')
+            self.assertRegex(out, b'Address:\s+192.168.5.\d+')
             if ipv6:
-                self.assertRegex(out, '2600::')
+                self.assertRegex(out, b'2600::')
             else:
-                self.assertNotIn('2600::', out)
-            self.assertRegex(out, 'fe80::')
-            self.assertRegex(out, 'Gateway:\s+192.168.5.1')
-            self.assertRegex(out, 'DNS:\s+192.168.5.1')
+                self.assertNotIn(b'2600::', out)
+            self.assertRegex(out, b'fe80::')
+            self.assertRegex(out, b'Gateway:\s+192.168.5.1')
+            self.assertRegex(out, b'DNS:\s+192.168.5.1')
         except AssertionError:
             # show dnsmasq log on failure
             with open(self.dnsmasq_log) as f:
