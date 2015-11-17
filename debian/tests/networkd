@@ -142,7 +142,7 @@ DHCP=%s
             # show networkd status, journal, and dnsmasq log on failure
             print()
             subprocess.call(['networkctl', 'status', self.iface])
-            subprocess.call(['journalctl', '-u', 'systemd-networkd.service'])
+            subprocess.call(['journalctl', '-b', '--no-pager', '-u', 'systemd-networkd.service'])
             with open(self.dnsmasq_log) as f:
                 sys.stdout.write('\n\n----- dnsmasq log ----\n%s\n------\n\n' % f.read())
             raise
