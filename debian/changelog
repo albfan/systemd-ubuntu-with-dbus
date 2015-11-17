@@ -17,6 +17,8 @@ systemd (227-4) UNRELEASED; urgency=medium
   * debian/tests/logind: Split tests into functions.
   * debian/tests/boot-and-services: Ignore failures of console-setup.service,
     to work around LP: #1516591.
+  * debian/tests/control: Restrict boot-smoke test to isolation-machine, it
+    does not currently work well in LXC.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.

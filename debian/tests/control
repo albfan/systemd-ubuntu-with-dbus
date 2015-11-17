@@ -36,7 +36,7 @@ Restrictions: needs-root, isolation-machine, breaks-testbed
 
 Tests: boot-smoke
 Depends: systemd-sysv, network-manager, policykit-1, lightdm
-Restrictions: needs-recommends, needs-root, isolation-container, allow-stderr
+Restrictions: needs-recommends, needs-root, isolation-machine, allow-stderr
 
 Tests: systemd-fsckd
 Depends: systemd-sysv, python3, plymouth
