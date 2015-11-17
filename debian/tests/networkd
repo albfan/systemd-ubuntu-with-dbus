@@ -94,10 +94,10 @@ DHCP=%s
             subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
             self.create_iface(ipv6=ipv6)
 
-        subprocess.check_call([self.networkd_wait_online, '--interface',
-                               self.iface, '--timeout=%i' % online_timeout])
-
         try:
+            subprocess.check_call([self.networkd_wait_online, '--interface',
+                                   self.iface, '--timeout=%i' % online_timeout])
+
             if ipv6:
                 # check iface state and IP 6 address; FIXME: we need to wait a bit
                 # longer, as the iface is "configured" already with IPv4
@@ -138,10 +138,13 @@ DHCP=%s
             self.assertRegex(out, b'fe80::')
             self.assertRegex(out, b'Gateway:\s+192.168.5.1')
             self.assertRegex(out, b'DNS:\s+192.168.5.1')
-        except AssertionError:
-            # show dnsmasq log on failure
+        except (AssertionError, subprocess.CalledProcessError):
+            # show networkd status, journal, and dnsmasq log on failure
+            print()
+            subprocess.call(['networkctl', 'status', self.iface])
+            subprocess.call(['journalctl', '-u', 'systemd-networkd.service'])
             with open(self.dnsmasq_log) as f:
-                sys.stderr.write('\n\n----- dnsmasq log ----\n%s\n------\n' % f.read())
+                sys.stdout.write('\n\n----- dnsmasq log ----\n%s\n------\n\n' % f.read())
             raise
 
         # verify resolv.conf if it gets dynamically managed
