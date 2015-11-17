@@ -76,12 +76,14 @@ class TestNetworkd(unittest.TestCase):
             self.dnsmasq.wait()
             self.dnsmasq = None
 
-    def do_test(self, coldplug=True, ipv6=False):
+    def do_test(self, coldplug=True, ipv6=False, extra_opts='',
+                online_timeout=5, dhcp_mode='yes'):
         with open(self.config, 'w') as f:
             f.write('''[Match]
 Name=%s
 [Network]
-DHCP=yes''' % self.iface)
+DHCP=%s
+%s''' % (self.iface, dhcp_mode, extra_opts))
 
         if coldplug:
             # create interface first, then start networkd
@@ -93,12 +95,12 @@ DHCP=yes''' % self.iface)
             self.create_iface(ipv6=ipv6)
 
         subprocess.check_call([self.networkd_wait_online, '--interface',
-                               self.iface, '--timeout=10'])
+                               self.iface, '--timeout=%i' % online_timeout])
 
         try:
             if ipv6:
                 # check iface state and IP 6 address; FIXME: we need to wait a bit
-                # longer, as the iface is "configure" already with IPv4
+                # longer, as the iface is "configured" already with IPv4
                 timeout = 10
                 while timeout > 0:
                     out = subprocess.check_output(['ip', '-6', 'a', 'show', 'dev', self.iface])
@@ -158,14 +160,34 @@ DHCP=yes''' % self.iface)
             # check post-down.d hook
             self.shutdown_iface()
 
-    def test_coldplug_dhcp_ip4(self):
-        self.do_test(coldplug=True, ipv6=False)
+    def test_coldplug_dhcp_yes_ip4(self):
+        # With IPv4 only we have a 12s timeout on RA, so we need to wait longer
+        self.do_test(coldplug=True, ipv6=False, online_timeout=15)
+
+    def test_coldplug_dhcp_yes_ip4_no_ra(self):
+        # with disabling RA explicitly things should be fast
+        self.do_test(coldplug=True, ipv6=False,
+                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+
+    def test_coldplug_dhcp_ipv4_only(self):
+        # with only IPv4 we should not wait for IPv6 RA
+        self.do_test(coldplug=True, ipv6=False, dhcp_mode='ipv4')
 
     def test_coldplug_dhcp_ip6(self):
         self.do_test(coldplug=True, ipv6=True)
 
     def test_hotplug_dhcp_ip4(self):
-        self.do_test(coldplug=False, ipv6=False)
+        # With IPv4 only we have a 12s timeout on RA, so we need to wait longer
+        self.do_test(coldplug=False, ipv6=False, online_timeout=15)
+
+    def test_hotplug_dhcp_ip4_no_ra(self):
+        # with disabling RA explicitly things should be fast
+        self.do_test(coldplug=False, ipv6=False,
+                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+
+    def test_hotplug_dhcp_ip4_only(self):
+        # with only IPv4 we should not wait for IPv6 RA
+        self.do_test(coldplug=False, ipv6=False, dhcp_mode='ipv4')
 
     def test_hotplug_dhcp_ip6(self):
         self.do_test(coldplug=False, ipv6=True)

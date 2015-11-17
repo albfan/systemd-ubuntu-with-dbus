@@ -19,6 +19,11 @@ systemd (227-4) UNRELEASED; urgency=medium
     to work around LP: #1516591.
   * debian/tests/control: Restrict boot-smoke test to isolation-machine, it
     does not currently work well in LXC.
+  * debian/tests/networkd: Shorten default online timeout to 5s. Add new
+    test cases for "DHCP=all, IPv4 only, disabling RA" (which should always be
+    fast), "DHCP=all, IPv4 only" (which will require a longer timeout due to
+    waiting 12s for a potential IPv6 RA reply), and "DHCP=ipv4" (which should
+    always be fast).
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
