@@ -1,0 +1,38 @@
+From: Tom Gundersen <teg@jklm.no>
+Date: Wed, 18 Nov 2015 14:21:06 +0100
+Subject: networkd: dhcp4 - dirty link when the lease changes
+
+Without this commit, we risk not picking up DNS addresses
+as soon as they are available.
+---
+ src/network/networkd-dhcp4.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/network/networkd-dhcp4.c b/src/network/networkd-dhcp4.c
+index b9c60a3..48e3d84 100644
+--- a/src/network/networkd-dhcp4.c
++++ b/src/network/networkd-dhcp4.c
+@@ -255,6 +255,7 @@ static int dhcp_lease_lost(Link *link) {
+         }
+ 
+         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
++        link_dirty(link);
+         link->dhcp4_configured = false;
+ 
+         return 0;
+@@ -331,6 +332,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
+         sd_dhcp_lease_unref(link->dhcp_lease);
+         link->dhcp4_configured = false;
+         link->dhcp_lease = sd_dhcp_lease_ref(lease);
++        link_dirty(link);
+ 
+         r = sd_dhcp_lease_get_address(lease, &address);
+         if (r < 0)
+@@ -408,6 +410,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
+                            NULL);
+ 
+         link->dhcp_lease = sd_dhcp_lease_ref(lease);
++        link_dirty(link);
+ 
+         if (link->network->dhcp_mtu) {
+                 uint16_t mtu;

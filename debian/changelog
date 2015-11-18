@@ -11,6 +11,7 @@ systemd (228-1) UNRELEASED; urgency=medium
     - journald: Never accept fds from file systems with mandatory locking.
       (LP: #1514141)
     - Put nspawn containers in correct slice. (LP: #1455828)
+  * Cherry-pick some networkd fixes from trunk to fix regressions from 228.
   * debian/rules: Configure with --as-needed to avoid unnecessary binary
     dependencies.
   * systemd-networkd-resolvconf-update.service: Increase StartLimitBurst, as
