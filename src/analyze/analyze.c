@@ -27,12 +27,16 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "glob-util.h"
 #include "hashmap.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -1062,29 +1066,23 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
         assert(bus);
         assert(u);
 
-        if (arg_dot == DEP_ORDER ||arg_dot == DEP_ALL) {
+        if (IN_SET(arg_dot, DEP_ORDER, DEP_ALL)) {
                 r = graph_one_property(bus, u, "After", "green", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
-        if (arg_dot == DEP_REQUIRE ||arg_dot == DEP_ALL) {
+        if (IN_SET(arg_dot, DEP_REQUIRE, DEP_ALL)) {
                 r = graph_one_property(bus, u, "Requires", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Requisite", "darkblue", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
                 r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
                 r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }

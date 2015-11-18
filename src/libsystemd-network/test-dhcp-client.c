@@ -24,14 +24,16 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "sd-event.h"
-#include "event-util.h"
-
-#include "dhcp-identifier.h"
-#include "dhcp-protocol.h"
-#include "dhcp-internal.h"
 #include "sd-dhcp-client.h"
+#include "sd-event.h"
+
+#include "alloc-util.h"
+#include "dhcp-identifier.h"
+#include "dhcp-internal.h"
+#include "dhcp-protocol.h"
+#include "event-util.h"
+#include "fd-util.h"
+#include "util.h"
 
 static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
 

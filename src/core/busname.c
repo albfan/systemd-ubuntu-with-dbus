@@ -21,17 +21,23 @@
 
 #include <sys/mman.h>
 
-#include "special.h"
-#include "formats-util.h"
-#include "signal-util.h"
-#include "bus-kernel.h"
+#include "alloc-util.h"
 #include "bus-internal.h"
-#include "bus-util.h"
-#include "kdbus.h"
+#include "bus-kernel.h"
 #include "bus-policy.h"
-#include "service.h"
-#include "dbus-busname.h"
+#include "bus-util.h"
 #include "busname.h"
+#include "dbus-busname.h"
+#include "fd-util.h"
+#include "formats-util.h"
+#include "kdbus.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "service.h"
+#include "signal-util.h"
+#include "special.h"
+#include "string-table.h"
+#include "string-util.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,
@@ -358,10 +364,9 @@ static int busname_coldplug(Unit *u) {
         if (n->deserialized_state == n->state)
                 return 0;
 
-        if (IN_SET(n->deserialized_state, BUSNAME_MAKING, BUSNAME_SIGTERM, BUSNAME_SIGKILL)) {
-
-                if (n->control_pid <= 0)
-                        return -EBADMSG;
+        if (n->control_pid > 0 &&
+            pid_is_unwaited(n->control_pid) &&
+            IN_SET(n->deserialized_state, BUSNAME_MAKING, BUSNAME_SIGTERM, BUSNAME_SIGKILL)) {
 
                 r = unit_watch_pid(UNIT(n), n->control_pid);
                 if (r < 0)
@@ -585,7 +590,13 @@ static void busname_enter_running(BusName *n) {
                 }
 
         if (!pending) {
-                r = manager_add_job(UNIT(n)->manager, JOB_START, UNIT_DEREF(n->service), JOB_REPLACE, true, &error, NULL);
+                if (!UNIT_ISSET(n->service)) {
+                        log_unit_error(UNIT(n), "Service to activate vanished, refusing activation.");
+                        r = -ENOENT;
+                        goto fail;
+                }
+
+                r = manager_add_job(UNIT(n)->manager, JOB_START, UNIT_DEREF(n->service), JOB_REPLACE, &error, NULL);
                 if (r < 0)
                         goto fail;
         }
@@ -656,6 +667,7 @@ static int busname_stop(Unit *u) {
 
 static int busname_serialize(Unit *u, FILE *f, FDSet *fds) {
         BusName *n = BUSNAME(u);
+        int r;
 
         assert(n);
         assert(f);
@@ -667,15 +679,9 @@ static int busname_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (n->control_pid > 0)
                 unit_serialize_item_format(u, f, "control-pid", PID_FMT, n->control_pid);
 
-        if (n->starter_fd >= 0) {
-                int copy;
-
-                copy = fdset_put_dup(fds, n->starter_fd);
-                if (copy < 0)
-                        return copy;
-
-                unit_serialize_item_format(u, f, "starter-fd", "%i", copy);
-        }
+        r = unit_serialize_item_fd(u, f, fds, "starter-fd", n->starter_fd);
+        if (r < 0)
+                return r;
 
         return 0;
 }

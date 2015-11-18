@@ -42,9 +42,9 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=4
 LIBUDEV_AGE=6
 
-LIBSYSTEMD_CURRENT=12
+LIBSYSTEMD_CURRENT=13
 LIBSYSTEMD_REVISION=0
-LIBSYSTEMD_AGE=12
+LIBSYSTEMD_AGE=13
 
 # The following four libraries only exist for compatibility reasons,
 # their version info should not be bumped anymore
@@ -616,7 +616,8 @@ EXTRA_DIST += \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
-	units/systemd-update-done.service.in
+	units/systemd-update-done.service.in \
+    units/tmp.mount.m4
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
@@ -724,8 +725,8 @@ SOURCE_XML_FILES = ${patsubst %,$(top_srcdir)/%,$(filter-out man/systemd.directi
 # This target should only be run manually. It recreates Makefile-man.am
 # file in the source directory based on all man/*.xml files. Run it after
 # adding, removing, or changing the conditional in a man page.
-update-man-list: $(top_srcdir)/tools/make-man-rules.py $(XML_GLOB)
-	$(AM_V_GEN)$(PYTHON) $^ > $(top_srcdir)/Makefile-man.tmp
+update-man-list: $(top_srcdir)/tools/make-man-rules.py $(XML_GLOB) man/custom-entities.ent
+	$(AM_V_GEN)$(PYTHON) $< $(XML_GLOB) > $(top_srcdir)/Makefile-man.tmp
 	$(AM_V_at)mv $(top_srcdir)/Makefile-man.tmp $(top_srcdir)/Makefile-man.am
 	@echo "Makefile-man.am has been regenerated"
 
@@ -761,10 +762,11 @@ noinst_LTLIBRARIES += \
 
 libbasic_la_SOURCES = \
 	src/basic/missing.h \
-	src/basic/capability.c \
-	src/basic/capability.h \
+	src/basic/capability-util.c \
+	src/basic/capability-util.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
+	src/basic/stdio-util.h \
 	src/basic/hostname-util.h \
 	src/basic/hostname-util.c \
 	src/basic/unit-name.c \
@@ -780,6 +782,42 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/io-util.c \
+	src/basic/io-util.h \
+	src/basic/string-util.c \
+	src/basic/string-util.h \
+	src/basic/fd-util.c \
+	src/basic/fd-util.h \
+	src/basic/parse-util.c \
+	src/basic/parse-util.h \
+	src/basic/user-util.c \
+	src/basic/user-util.h \
+	src/basic/rlimit-util.c \
+	src/basic/rlimit-util.h \
+	src/basic/dirent-util.c \
+	src/basic/dirent-util.h \
+	src/basic/xattr-util.c \
+	src/basic/xattr-util.h \
+	src/basic/chattr-util.c \
+	src/basic/chattr-util.h \
+	src/basic/proc-cmdline.c \
+	src/basic/proc-cmdline.h \
+	src/basic/fs-util.c \
+	src/basic/fs-util.h \
+	src/basic/syslog-util.c \
+	src/basic/syslog-util.h \
+	src/basic/stat-util.c \
+	src/basic/stat-util.h \
+	src/basic/mount-util.c \
+	src/basic/mount-util.h \
+	src/basic/hexdecoct.c \
+	src/basic/hexdecoct.h \
+	src/basic/glob-util.h \
+	src/basic/glob-util.c \
+	src/basic/extract-word.c \
+	src/basic/extract-word.h \
+	src/basic/escape.c \
+	src/basic/escape.h \
 	src/basic/cpu-set-util.c \
 	src/basic/cpu-set-util.h \
 	src/basic/lockfile-util.c \
@@ -790,8 +828,11 @@ libbasic_la_SOURCES = \
 	src/basic/time-util.h \
 	src/basic/locale-util.c \
 	src/basic/locale-util.h \
+	src/basic/umask-util.h \
 	src/basic/signal-util.c \
 	src/basic/signal-util.h \
+	src/basic/string-table.c \
+	src/basic/string-table.h \
 	src/basic/mempool.c \
 	src/basic/mempool.h \
 	src/basic/hashmap.c \
@@ -806,6 +847,8 @@ libbasic_la_SOURCES = \
 	src/basic/fdset.h \
 	src/basic/prioq.c \
 	src/basic/prioq.h \
+	src/basic/web-util.c \
+	src/basic/web-util.h \
 	src/basic/strv.c \
 	src/basic/strv.h \
 	src/basic/env-util.c \
@@ -837,6 +880,7 @@ libbasic_la_SOURCES = \
 	src/basic/in-addr-util.c \
 	src/basic/in-addr-util.h \
 	src/basic/ether-addr-util.h \
+	src/basic/ether-addr-util.c \
 	src/basic/replace-var.c \
 	src/basic/replace-var.h \
 	src/basic/clock-util.c \
@@ -863,8 +907,8 @@ libbasic_la_SOURCES = \
 	src/basic/login-util.c \
 	src/basic/cap-list.c \
 	src/basic/cap-list.h \
-	src/basic/audit.c \
-	src/basic/audit.h \
+	src/basic/audit-util.c \
+	src/basic/audit-util.h \
 	src/basic/xml.c \
 	src/basic/xml.h \
 	src/basic/json.c \
@@ -898,7 +942,10 @@ libbasic_la_SOURCES = \
 	src/basic/rm-rf.c \
 	src/basic/rm-rf.h \
 	src/basic/copy.c \
-	src/basic/copy.h
+	src/basic/copy.h \
+	src/basic/alloc-util.h \
+	src/basic/alloc-util.c \
+	src/basic/formats-util.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -919,7 +966,6 @@ libbasic_la_CFLAGS = \
 libbasic_la_LIBADD = \
 	$(SELINUX_LIBS) \
 	$(CAP_LIBS) \
-	-ldl \
 	-lrt \
 	-lm
 
@@ -939,7 +985,6 @@ libshared_la_SOURCES = \
 	src/shared/architecture.h \
 	src/shared/efivars.c \
 	src/shared/efivars.h \
-	src/shared/formats-util.h \
 	src/shared/fstab-util.c \
 	src/shared/fstab-util.h \
 	src/shared/sleep-config.c \
@@ -1093,8 +1138,6 @@ libcore_la_SOURCES = \
 	src/core/bus-policy.h \
 	src/core/target.c \
 	src/core/target.h \
-	src/core/snapshot.c \
-	src/core/snapshot.h \
 	src/core/device.c \
 	src/core/device.h \
 	src/core/mount.c \
@@ -1133,8 +1176,6 @@ libcore_la_SOURCES = \
 	src/core/dbus-busname.h \
 	src/core/dbus-target.c \
 	src/core/dbus-target.h \
-	src/core/dbus-snapshot.c \
-	src/core/dbus-snapshot.h \
 	src/core/dbus-device.c \
 	src/core/dbus-device.h \
 	src/core/dbus-mount.c \
@@ -1229,7 +1270,7 @@ BUILT_SOURCES += \
 	$(gperf_gperf_m4_sources:-gperf.gperf.m4=-gperf-nulstr.c) \
 	$(gperf_gperf_sources:-gperf.gperf=-gperf.c) \
 	$(gperf_txt_sources:-list.txt=-from-name.h) \
-	$(gperf_txt_sources:-list.txt=-to-name.h)
+	$(filter-out %keyboard-keys-to-name.h,$(gperf_txt_sources:-list.txt=-to-name.h))
 
 CLEANFILES += \
 	$(gperf_txt_sources:-list.txt=-from-name.gperf)
@@ -1358,7 +1399,8 @@ nodist_rpmmacros_DATA = \
 
 EXTRA_DIST += \
 	src/core/systemd.pc.in \
-	src/core/macros.systemd.in
+	src/core/macros.systemd.in \
+	src/core/triggers.systemd.in
 
 # ------------------------------------------------------------------------------
 
@@ -1402,6 +1444,10 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-string-util \
+	test-extract-word \
+	test-parse-util \
+	test-user-util \
 	test-hostname-util \
 	test-process-util \
 	test-terminal-util \
@@ -1448,7 +1494,8 @@ tests += \
 	test-verbs \
 	test-af-list \
 	test-arphrd-list \
-	test-dns-domain
+	test-dns-domain \
+	test-install-root
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1457,7 +1504,7 @@ EXTRA_DIST += \
 	test/c.service \
 	test/daughter.service \
 	test/d.service \
-	test/end.service.in \
+	test/end.service \
 	test/e.service \
 	test/f.service \
 	test/grandchild.service \
@@ -1467,7 +1514,6 @@ EXTRA_DIST += \
 	test/h.service \
 	test/parent-deep.slice \
 	test/parent.slice \
-	test/paths.target \
 	test/sched_idle_bad.service \
 	test/sched_idle_ok.service \
 	test/sched_rr_bad.service \
@@ -1481,43 +1527,62 @@ EXTRA_DIST += \
 	test/testsuite.target \
 	test/timers.target \
 	test/unstoppable.service \
-	test/path-changed.service \
-	test/path-directorynotempty.service \
-	test/path-existsglob.service \
-	test/path-exists.service \
-	test/path-makedirectory.service \
-	test/path-modified.service \
-	test/path-mycustomunit.service \
-	test/path-service.service \
-	test/path-changed.path \
-	test/path-directorynotempty.path \
-	test/path-existsglob.path \
-	test/path-exists.path \
-	test/path-makedirectory.path \
-	test/path-modified.path \
-	test/path-unit.path \
-	test/exec-environment-empty.service \
-	test/exec-environment-multiple.service \
-	test/exec-environment.service \
-	test/exec-group.service \
-	test/exec-ignoresigpipe-no.service \
-	test/exec-ignoresigpipe-yes.service \
-	test/exec-personality-x86-64.service \
-	test/exec-personality-x86.service \
-	test/exec-personality-s390.service \
-	test/exec-privatedevices-no.service \
-	test/exec-privatedevices-yes.service \
-	test/exec-privatetmp-no.service \
-	test/exec-privatetmp-yes.service \
-	test/exec-systemcallerrornumber.service \
-	test/exec-systemcallfilter-failing2.service \
-	test/exec-systemcallfilter-failing.service \
-	test/exec-systemcallfilter-not-failing2.service \
-	test/exec-systemcallfilter-not-failing.service \
-	test/exec-user.service \
-	test/exec-workingdirectory.service \
-	test/exec-umask-0177.service \
-	test/exec-umask-default.service \
+	test/test-path/paths.target \
+	test/test-path/basic.target \
+	test/test-path/sysinit.target \
+	test/test-path/path-changed.service \
+	test/test-path/path-directorynotempty.service \
+	test/test-path/path-existsglob.service \
+	test/test-path/path-exists.service \
+	test/test-path/path-makedirectory.service \
+	test/test-path/path-modified.service \
+	test/test-path/path-mycustomunit.service \
+	test/test-path/path-service.service \
+	test/test-path/path-changed.path \
+	test/test-path/path-directorynotempty.path \
+	test/test-path/path-existsglob.path \
+	test/test-path/path-exists.path \
+	test/test-path/path-makedirectory.path \
+	test/test-path/path-modified.path \
+	test/test-path/path-unit.path \
+	test/test-execute/exec-environment-empty.service \
+	test/test-execute/exec-environment-multiple.service \
+	test/test-execute/exec-environment.service \
+	test/test-execute/exec-passenvironment-absent.service \
+	test/test-execute/exec-passenvironment-empty.service \
+	test/test-execute/exec-passenvironment-repeated.service \
+	test/test-execute/exec-passenvironment.service \
+	test/test-execute/exec-group.service \
+	test/test-execute/exec-ignoresigpipe-no.service \
+	test/test-execute/exec-ignoresigpipe-yes.service \
+	test/test-execute/exec-personality-x86-64.service \
+	test/test-execute/exec-personality-x86.service \
+	test/test-execute/exec-personality-s390.service \
+	test/test-execute/exec-privatedevices-no.service \
+	test/test-execute/exec-privatedevices-yes.service \
+	test/test-execute/exec-privatetmp-no.service \
+	test/test-execute/exec-privatetmp-yes.service \
+	test/test-execute/exec-systemcallerrornumber.service \
+	test/test-execute/exec-systemcallfilter-failing2.service \
+	test/test-execute/exec-systemcallfilter-failing.service \
+	test/test-execute/exec-systemcallfilter-not-failing2.service \
+	test/test-execute/exec-systemcallfilter-not-failing.service \
+	test/test-execute/exec-user.service \
+	test/test-execute/exec-workingdirectory.service \
+	test/test-execute/exec-umask-0177.service \
+	test/test-execute/exec-umask-default.service \
+	test/test-execute/exec-privatenetwork-yes.service \
+	test/test-execute/exec-environmentfile.service \
+	test/test-execute/exec-oomscoreadjust-positive.service \
+	test/test-execute/exec-oomscoreadjust-negative.service \
+	test/test-execute/exec-ioschedulingclass-best-effort.service \
+	test/test-execute/exec-ioschedulingclass-idle.service \
+	test/test-execute/exec-ioschedulingclass-none.service \
+	test/test-execute/exec-ioschedulingclass-realtime.service \
+	test/test-execute/exec-capabilityboundingset-invert.service \
+	test/test-execute/exec-capabilityboundingset-merge.service \
+	test/test-execute/exec-capabilityboundingset-reset.service \
+	test/test-execute/exec-capabilityboundingset-simple.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
@@ -1686,6 +1751,30 @@ test_util_SOURCES = \
 test_util_LDADD = \
 	libshared.la
 
+test_string_util_SOURCES = \
+	src/test/test-string-util.c
+
+test_string_util_LDADD = \
+	libshared.la
+
+test_extract_word_SOURCES = \
+	src/test/test-extract-word.c
+
+test_extract_word_LDADD = \
+	libshared.la
+
+test_parse_util_SOURCES = \
+	src/test/test-parse-util.c
+
+test_parse_util_LDADD = \
+	libshared.la
+
+test_user_util_SOURCES = \
+	src/test/test-user-util.c
+
+test_user_util_LDADD = \
+	libshared.la
+
 test_hostname_util_SOURCES = \
 	src/test/test-hostname-util.c
 
@@ -1747,6 +1836,12 @@ test_verbs_SOURCES = \
 	src/test/test-verbs.c
 
 test_verbs_LDADD = \
+	libshared.la
+
+test_install_root_SOURCES = \
+	src/test/test-install-root.c
+
+test_install_root_LDADD = \
 	libshared.la
 
 test_namespace_LDADD = \
@@ -3215,10 +3310,9 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-dhcp-lease.h \
 	src/systemd/sd-ipv4ll.h \
 	src/systemd/sd-ipv4acd.h \
-	src/systemd/sd-icmp6-nd.h \
+	src/systemd/sd-ndisc.h \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
-	src/systemd/sd-pppoe.h \
 	src/systemd/sd-lldp.h \
 	src/libsystemd-network/sd-dhcp-client.c \
 	src/libsystemd-network/sd-dhcp-server.c \
@@ -3234,10 +3328,11 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/sd-ipv4acd.c \
 	src/libsystemd-network/arp-util.h \
 	src/libsystemd-network/arp-util.c \
-	src/libsystemd-network/sd-pppoe.c \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
-	src/libsystemd-network/sd-icmp6-nd.c \
+	src/libsystemd-network/sd-ndisc.c \
+	src/libsystemd-network/icmp6-util.h \
+	src/libsystemd-network/icmp6-util.c \
 	src/libsystemd-network/sd-dhcp6-client.c \
 	src/libsystemd-network/dhcp6-internal.h \
 	src/libsystemd-network/dhcp6-protocol.h \
@@ -3313,23 +3408,15 @@ test_acd_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
-test_pppoe_SOURCES = \
-	src/systemd/sd-pppoe.h \
-	src/libsystemd-network/test-pppoe.c
-
-test_pppoe_LDADD = \
-	libsystemd-network.la \
-	libshared.la
-
-test_icmp6_rs_SOURCES = \
+test_ndisc_rs_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
-	src/systemd/sd-icmp6-nd.h \
-	src/libsystemd-network/dhcp6-internal.h \
-	src/libsystemd-network/test-icmp6-rs.c \
+	src/systemd/sd-ndisc.h \
+	src/libsystemd-network/icmp6-util.h \
+	src/libsystemd-network/test-ndisc-rs.c \
 	src/libsystemd-network/dhcp-identifier.h \
 	src/libsystemd-network/dhcp-identifier.c
 
-test_icmp6_rs_LDADD = \
+test_ndisc_rs_LDADD = \
 	libsystemd-network.la \
 	libudev.la \
 	libshared.la
@@ -3361,12 +3448,9 @@ tests += \
 	test-dhcp-client \
 	test-dhcp-server \
 	test-ipv4ll \
-	test-icmp6-rs \
+	test-ndisc-rs \
 	test-dhcp6-client \
 	test-lldp
-
-manual_tests += \
-	test-pppoe
 
 # ------------------------------------------------------------------------------
 include_HEADERS += \
@@ -3483,16 +3567,13 @@ noinst_LTLIBRARIES += \
 
 src/udev/keyboard-keys-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9K]/ { if ($$2 != "KEY_MAX") { print $$2 } }' > $@
 
 src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
 
 src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
-
-src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys-list.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 
 gperf_txt_sources += \
 	src/udev/keyboard-keys-list.txt
@@ -3520,7 +3601,6 @@ libudev_core_la_SOURCES = \
 
 nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-from-name.h \
-	src/udev/keyboard-keys-to-name.h \
 	src/udev/net/link-config-gperf.c
 
 gperf_gperf_sources += \
@@ -3831,6 +3911,7 @@ endif
 if HAVE_GNUTLS
 systemd_journal_remote_LDADD += \
 	$(GNUTLS_LIBS)
+endif
 
 # systemd-journal-remote make sense mostly with full crypto stack
 dist_systemunit_DATA += \
@@ -3845,7 +3926,6 @@ journal-remote-install-hook: journal-install-hook
 	-chmod 755 $(DESTDIR)/var/log/journal/remote
 
 INSTALL_EXEC_HOOKS += journal-remote-install-hook
-endif
 
 nodist_pkgsysconf_DATA += \
 	src/journal-remote/journal-remote.conf
@@ -4184,6 +4264,7 @@ dist_catalog_DATA = \
 	catalog/systemd.pl.catalog \
 	catalog/systemd.pt_BR.catalog \
 	catalog/systemd.ru.catalog \
+	catalog/systemd.zh_CN.catalog \
 	catalog/systemd.zh_TW.catalog \
 	catalog/systemd.catalog
 
@@ -5148,7 +5229,8 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libshared.la
+	libshared.la \
+        -ldl
 
 lib_LTLIBRARIES += \
 	libnss_resolve.la
@@ -5234,6 +5316,7 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
 	src/network/networkd-dhcp6.c \
+	src/network/networkd-ndisc.c \
 	src/network/networkd-network.h \
 	src/network/networkd-network.c \
 	src/network/networkd-network-bus.c \
@@ -5798,7 +5881,7 @@ sysctl.d/%: sysctl.d/%.in
 %.conf: %.conf.in
 	$(SED_PROCESS)
 
-src/core/macros.%: src/core/macros.%.in
+src/core/%.systemd: src/core/%.systemd.in
 	$(SED_PROCESS)
 
 src/%.policy.in: src/%.policy.in.in
@@ -6107,9 +6190,9 @@ hwdb-update:
 	( cd $(top_srcdir)/hwdb && \
 	wget -O usb.ids 'http://www.linux-usb.org/usb.ids' && \
 	wget -O pci.ids 'http://pci-ids.ucw.cz/v2.2/pci.ids' && \
-	wget -O ma-large.txt 'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-L&format=txt' && \
-	wget -O ma-medium.txt 'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-M&format=txt' && \
-	wget -O ma-small.txt 'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-S&format=txt' && \
+	wget -O ma-large.txt 'http://standards.ieee.org/develop/regauth/oui/oui.txt' && \
+	wget -O ma-medium.txt 'http://standards.ieee.org/develop/regauth/oui28/mam.txt' && \
+	wget -O ma-small.txt 'http://standards.ieee.org/develop/regauth/oui36/oui36.txt' && \
 	./ids-update.pl )
 
 .PHONY: built-sources

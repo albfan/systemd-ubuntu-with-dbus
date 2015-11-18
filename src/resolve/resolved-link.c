@@ -22,9 +22,13 @@
 #include <net/if.h>
 
 #include "sd-network.h"
-#include "strv.h"
+
+#include "alloc-util.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "resolved-link.h"
+#include "string-util.h"
+#include "strv.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;

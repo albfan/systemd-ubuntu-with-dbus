@@ -22,12 +22,15 @@
 
 #include <sys/ioctl.h>
 
+#include "sd-dhcp-server.h"
+
+#include "alloc-util.h"
+#include "dhcp-internal.h"
+#include "dhcp-server-internal.h"
+#include "fd-util.h"
 #include "in-addr-util.h"
 #include "siphash24.h"
-
-#include "sd-dhcp-server.h"
-#include "dhcp-server-internal.h"
-#include "dhcp-internal.h"
+#include "string-util.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
@@ -93,7 +96,7 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
         return 0;
 }
 
-bool sd_dhcp_server_is_running(sd_dhcp_server *server) {
+int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         assert_return(server, false);
 
         return !!server->receive_message;
@@ -750,7 +753,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                         siphash24_init(&state, HASH_KEY.bytes);
                         client_id_hash_func(&req->client_id, &state);
-                        siphash24_finalize((uint8_t*)&hash, &state);
+                        hash = htole64(siphash24_finalize(&state));
                         next_offer = hash % server->pool_size;
 
                         for (i = 0; i < server->pool_size; i++) {

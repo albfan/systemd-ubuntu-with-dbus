@@ -19,14 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <string.h>
 #include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "utf8.h"
-#include "virt.h"
+#include "alloc-util.h"
+#include "dirent-util.h"
 #include "efivars.h"
+#include "fd-util.h"
+#include "io-util.h"
+#include "parse-util.h"
+#include "stdio-util.h"
+#include "utf8.h"
+#include "util.h"
+#include "virt.h"
 
 #ifdef ENABLE_EFI
 

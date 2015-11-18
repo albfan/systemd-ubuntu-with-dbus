@@ -33,6 +33,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
@@ -40,6 +41,7 @@
 #include "copy.h"
 #include "env-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "log.h"
@@ -47,6 +49,7 @@
 #include "macro.h"
 #include "mkdir.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -57,6 +60,7 @@
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
+#include "web-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -1092,9 +1096,10 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         container_path = copy_from ? argv[2] : dest;
 
         if (!path_is_absolute(host_path)) {
-                abs_host_path = path_make_absolute_cwd(host_path);
-                if (!abs_host_path)
-                        return log_oom();
+                r = path_make_absolute_cwd(host_path, &abs_host_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make path absolute: %m");
+
                 host_path = abs_host_path;
         }
 
@@ -1110,10 +1115,8 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                         argv[1],
                         copy_from ? container_path : host_path,
                         copy_from ? host_path : container_path);
-        if (r < 0) {
-                log_error("Failed to copy: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to copy: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1173,7 +1176,7 @@ static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int process_forward(sd_event *event, PTYForward **forward, int master, bool ignore_vhangup, const char *name) {
+static int process_forward(sd_event *event, PTYForward **forward, int master, PTYForwardFlags flags, const char *name) {
         char last_char = 0;
         bool machine_died;
         int ret = 0, r;
@@ -1192,7 +1195,7 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
-        r = pty_forward_new(event, master, ignore_vhangup, false, forward);
+        r = pty_forward_new(event, master, flags, forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
@@ -1203,7 +1206,7 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
         pty_forward_get_last_char(*forward, &last_char);
 
         machine_died =
-                ignore_vhangup &&
+                (flags & PTY_FORWARD_IGNORE_VHANGUP) &&
                 pty_forward_get_ignore_vhangup(*forward) == 0;
 
         *forward = pty_forward_free(*forward);
@@ -1286,7 +1289,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, true, machine);
+        return process_forward(event, &forward, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
 static int shell_machine(int argc, char *argv[], void *userdata) {
@@ -1390,7 +1393,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, false, machine);
+        return process_forward(event, &forward, master, 0, machine);
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {
@@ -2382,7 +2385,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         uint64_t limit;
         int r;
 
-        if (streq(argv[argc-1], "-"))
+        if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
                 limit = (uint64_t) -1;
         else {
                 r = parse_size(argv[argc-1], 1024, &limit);

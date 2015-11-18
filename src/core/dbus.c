@@ -19,29 +19,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/epoll.h>
 #include <errno.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
-#include "log.h"
-#include "strv.h"
-#include "mkdir.h"
-#include "missing.h"
-#include "dbus-unit.h"
-#include "dbus-job.h"
-#include "dbus-manager.h"
-#include "dbus-execute.h"
-#include "dbus-kill.h"
-#include "dbus-cgroup.h"
-#include "special.h"
-#include "dbus.h"
-#include "bus-util.h"
-#include "bus-error.h"
+
+#include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "strxcpyx.h"
+#include "bus-error.h"
 #include "bus-internal.h"
+#include "bus-util.h"
+#include "dbus-cgroup.h"
+#include "dbus-execute.h"
+#include "dbus-job.h"
+#include "dbus-kill.h"
+#include "dbus-manager.h"
+#include "dbus-unit.h"
+#include "dbus.h"
+#include "fd-util.h"
+#include "log.h"
+#include "missing.h"
+#include "mkdir.h"
 #include "selinux-access.h"
+#include "special.h"
+#include "string-util.h"
+#include "strv.h"
+#include "strxcpyx.h"
+#include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
 
@@ -172,7 +177,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
                 goto failed;
         }
 
-        r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, &error, NULL);
+        r = manager_add_job(m, JOB_START, u, JOB_REPLACE, &error, NULL);
         if (r < 0)
                 goto failed;
 
@@ -777,9 +782,9 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                 return r;
 
         HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
-                r = unit_install_bus_match(bus, u, name);
+                r = unit_install_bus_match(u, bus, name);
                 if (r < 0)
-                        log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal: %m");
+                        log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
         }
 
         r = sd_bus_add_match(

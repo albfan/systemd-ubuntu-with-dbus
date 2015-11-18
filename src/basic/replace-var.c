@@ -21,10 +21,11 @@
 
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
-#include "util.h"
 #include "replace-var.h"
-#include "def.h"
+#include "string-util.h"
+#include "util.h"
 
 /*
  * Generic infrastructure for replacing @FOO@ style variables in

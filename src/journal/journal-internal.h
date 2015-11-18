@@ -25,14 +25,14 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include "systemd/sd-id128.h"
-
-#include "journal-def.h"
-#include "list.h"
-#include "hashmap.h"
-#include "set.h"
-#include "journal-file.h"
+#include "sd-id128.h"
 #include "sd-journal.h"
+
+#include "hashmap.h"
+#include "journal-def.h"
+#include "journal-file.h"
+#include "list.h"
+#include "set.h"
 
 typedef struct Match Match;
 typedef struct Location Location;
@@ -121,7 +121,7 @@ struct sd_journal {
         Hashmap *directories_by_path;
         Hashmap *directories_by_wd;
 
-        Set *errors;
+        Hashmap *errors;
 };
 
 char *journal_make_match_string(sd_journal *j);

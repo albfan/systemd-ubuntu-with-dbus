@@ -21,8 +21,9 @@
 
 #include <seccomp.h>
 
-#include "util.h"
 #include "seccomp-util.h"
+#include "string-util.h"
+#include "util.h"
 
 const char* seccomp_arch_to_string(uint32_t c) {
 

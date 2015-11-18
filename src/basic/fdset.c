@@ -19,28 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 
+#include "sd-daemon.h"
+
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fdset.h"
+#include "macro.h"
+#include "parse-util.h"
 #include "set.h"
 #include "util.h"
-#include "macro.h"
-#include "fdset.h"
-#include "sd-daemon.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
-
-/* Make sure we can distinguish fd 0 and NULL */
-#define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
-#define PTR_TO_FD(p) (PTR_TO_INT(p)-1)
 
 FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
-int fdset_new_array(FDSet **ret, int *fds, unsigned n_fds) {
+int fdset_new_array(FDSet **ret, const int *fds, unsigned n_fds) {
         unsigned i;
         FDSet *s;
         int r;

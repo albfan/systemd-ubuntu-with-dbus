@@ -17,24 +17,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <string.h>
-#include <stdio.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <linux/if_infiniband.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <linux/if_infiniband.h>
 
-#include "util.h"
-#include "random-util.h"
+#include "sd-dhcp-client.h"
+
+#include "alloc-util.h"
 #include "async.h"
-
-#include "dhcp-protocol.h"
+#include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
-#include "dhcp-identifier.h"
-#include "sd-dhcp-client.h"
+#include "dhcp-protocol.h"
+#include "random-util.h"
+#include "string-util.h"
+#include "util.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
@@ -1265,8 +1267,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "lease expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                        lifetime_timeout - time_now, 0));
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_timeout - time_now, USEC_PER_SEC));
 
         /* don't arm earlier timeouts if this has already expired */
         if (lifetime_timeout <= time_now)
@@ -1292,8 +1293,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "T2 expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                        t2_timeout - time_now, 0));
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, t2_timeout - time_now, USEC_PER_SEC));
 
         /* don't arm earlier timeout if this has already expired */
         if (t2_timeout <= time_now)
@@ -1318,8 +1318,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "T1 expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                        t1_timeout - time_now, 0));
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, t1_timeout - time_now, USEC_PER_SEC));
 
         return 0;
 }
@@ -1518,7 +1517,7 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                 expected_hlen = ETH_ALEN;
                 expected_chaddr = (const struct ether_addr *) &client->mac_addr;
         } else {
-               /* Non-ethernet links expect zero chaddr */
+               /* Non-Ethernet links expect zero chaddr */
                expected_hlen = 0;
                expected_chaddr = &zero_mac;
         }

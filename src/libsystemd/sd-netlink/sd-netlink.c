@@ -19,17 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
 #include <poll.h>
-
-#include "missing.h"
-#include "macro.h"
-#include "util.h"
-#include "hashmap.h"
+#include <sys/socket.h>
 
 #include "sd-netlink.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "hashmap.h"
+#include "macro.h"
+#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
+#include "socket-util.h"
+#include "util.h"
 
 static int sd_netlink_new(sd_netlink **ret) {
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
@@ -183,9 +186,10 @@ sd_netlink *sd_netlink_unref(sd_netlink *rtnl) {
                 sd_event_unref(rtnl->event);
 
                 while ((f = rtnl->match_callbacks)) {
-                        LIST_REMOVE(match_callbacks, rtnl->match_callbacks, f);
-                        free(f);
+                        sd_netlink_remove_match(rtnl, f->type, f->callback, f->userdata);
                 }
+
+                hashmap_free(rtnl->broadcast_group_refs);
 
                 safe_close(rtnl->fd);
                 free(rtnl);
@@ -856,25 +860,32 @@ int sd_netlink_add_match(sd_netlink *rtnl,
 
         switch (type) {
                 case RTM_NEWLINK:
-                case RTM_SETLINK:
-                case RTM_GETLINK:
                 case RTM_DELLINK:
-                        r = socket_join_broadcast_group(rtnl, RTNLGRP_LINK);
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_LINK);
                         if (r < 0)
                                 return r;
 
                         break;
                 case RTM_NEWADDR:
-                case RTM_GETADDR:
                 case RTM_DELADDR:
-                        r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV4_IFADDR);
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_IFADDR);
                         if (r < 0)
                                 return r;
 
-                        r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV6_IFADDR);
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_IFADDR);
                         if (r < 0)
                                 return r;
 
+                        break;
+                case RTM_NEWROUTE:
+                case RTM_DELROUTE:
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_ROUTE);
+                        if (r < 0)
+                                return r;
+
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_ROUTE);
+                        if (r < 0)
+                                return r;
                         break;
                 default:
                         return -EOPNOTSUPP;
@@ -892,22 +903,49 @@ int sd_netlink_remove_match(sd_netlink *rtnl,
                          sd_netlink_message_handler_t callback,
                          void *userdata) {
         struct match_callback *c;
+        int r;
 
         assert_return(rtnl, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        /* we should unsubscribe from the broadcast groups at this point, but it is not so
-           trivial for a few reasons: the refcounting is a bit of a mess and not obvious
-           how it will look like after we add genetlink support, and it is also not possible
-           to query what broadcast groups were subscribed to when we inherit the socket to get
-           the initial refcount. The latter could indeed be done for the first 32 broadcast
-           groups (which incidentally is all we currently support in .socket units anyway),
-           but we better not rely on only ever using 32 groups. */
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks)
                 if (c->callback == callback && c->type == type && c->userdata == userdata) {
                         LIST_REMOVE(match_callbacks, rtnl->match_callbacks, c);
                         free(c);
+
+                        switch (type) {
+                                case RTM_NEWLINK:
+                                case RTM_DELLINK:
+                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_LINK);
+                                        if (r < 0)
+                                                return r;
+
+                                        break;
+                                case RTM_NEWADDR:
+                                case RTM_DELADDR:
+                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV4_IFADDR);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV6_IFADDR);
+                                        if (r < 0)
+                                                return r;
+
+                                        break;
+                                case RTM_NEWROUTE:
+                                case RTM_DELROUTE:
+                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV4_ROUTE);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV6_ROUTE);
+                                        if (r < 0)
+                                                return r;
+                                        break;
+                                default:
+                                        return -EOPNOTSUPP;
+                        }
 
                         return 1;
                 }

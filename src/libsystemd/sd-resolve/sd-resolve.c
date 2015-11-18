@@ -19,24 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <signal.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <errno.h>
-#include <resolv.h>
-#include <stdint.h>
-#include <pthread.h>
-#include <sys/prctl.h>
 #include <poll.h>
+#include <pthread.h>
+#include <resolv.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/prctl.h>
+#include <unistd.h>
 
-#include "util.h"
+#include "sd-resolve.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "io-util.h"
 #include "list.h"
-#include "socket-util.h"
 #include "missing.h"
 #include "resolve-util.h"
-#include "sd-resolve.h"
+#include "socket-util.h"
+#include "util.h"
 
 #define WORKERS_MIN 1U
 #define WORKERS_MAX 16U
@@ -580,12 +584,8 @@ static void resolve_free(sd_resolve *resolve) {
         }
 
         /* Now terminate them and wait until they are gone. */
-        for (i = 0; i < resolve->n_valid_workers; i++) {
-                for (;;) {
-                        if (pthread_join(resolve->workers[i], NULL) != EINTR)
-                                break;
-                }
-        }
+        for (i = 0; i < resolve->n_valid_workers; i++)
+                pthread_join(resolve->workers[i], NULL);
 
         /* Close all communication channels */
         for (i = 0; i < _FD_MAX; i++)

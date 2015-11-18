@@ -23,22 +23,25 @@
 
 #ifdef HAVE_SELINUX
 
-#include <stdio.h>
 #include <errno.h>
-#include <selinux/selinux.h>
 #include <selinux/avc.h>
+#include <selinux/selinux.h>
+#include <stdio.h>
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
 
 #include "sd-bus.h"
-#include "bus-util.h"
-#include "util.h"
-#include "log.h"
-#include "selinux-util.h"
+
+#include "alloc-util.h"
 #include "audit-fd.h"
-#include "strv.h"
+#include "bus-util.h"
+#include "log.h"
 #include "path-util.h"
+#include "selinux-util.h"
+#include "stdio-util.h"
+#include "strv.h"
+#include "util.h"
 
 static bool initialized = false;
 
@@ -177,17 +180,6 @@ static int mac_selinux_access_init(sd_bus_error *error) {
         return 0;
 }
 #endif
-
-void mac_selinux_access_free(void) {
-
-#ifdef HAVE_SELINUX
-        if (!initialized)
-                return;
-
-        avc_destroy();
-        initialized = false;
-#endif
-}
 
 /*
    This function communicates with the kernel to check whether or not it should

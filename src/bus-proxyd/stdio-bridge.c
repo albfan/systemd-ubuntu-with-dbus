@@ -27,9 +27,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-bus.h"
+#include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "def.h"
@@ -37,6 +38,7 @@
 #include "log.h"
 #include "proxy.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static char *arg_address = NULL;

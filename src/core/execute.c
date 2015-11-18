@@ -53,45 +53,53 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "alloc-util.h"
+#ifdef HAVE_APPARMOR
+#include "apparmor-util.h"
+#endif
 #include "async.h"
 #include "barrier.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "execute.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
+#include "io-util.h"
 #include "ioprio.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
 #include "securebits.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "unit.h"
+#include "user-util.h"
 #include "util.h"
 #include "utmp-wtmp.h"
-
-#ifdef HAVE_APPARMOR
-#include "apparmor-util.h"
-#endif
-
-#ifdef HAVE_SECCOMP
-#include "seccomp-util.h"
-#endif
-
-#include "execute.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -359,12 +367,28 @@ static int fixup_output(ExecOutput std_output, int socket_fd) {
         return std_output;
 }
 
-static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty_stdin) {
+static int setup_input(
+                const ExecContext *context,
+                const ExecParameters *params,
+                int socket_fd) {
+
         ExecInput i;
 
         assert(context);
+        assert(params);
 
-        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
+        if (params->stdin_fd >= 0) {
+                if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
+                        return -errno;
+
+                /* Try to make this the controlling tty, if it is a tty, and reset it */
+                (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
+                (void) reset_terminal_fd(STDIN_FILENO, true);
+
+                return STDIN_FILENO;
+        }
+
+        i = fixup_input(context->std_input, socket_fd, params->apply_tty_stdin);
 
         switch (i) {
 
@@ -401,16 +425,40 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(Unit *unit, const ExecContext *context, int fileno, int socket_fd, const char *ident, bool apply_tty_stdin, uid_t uid, gid_t gid) {
+static int setup_output(
+                Unit *unit,
+                const ExecContext *context,
+                const ExecParameters *params,
+                int fileno,
+                int socket_fd,
+                const char *ident,
+                uid_t uid, gid_t gid) {
+
         ExecOutput o;
         ExecInput i;
         int r;
 
         assert(unit);
         assert(context);
+        assert(params);
         assert(ident);
 
-        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
+        if (fileno == STDOUT_FILENO && params->stdout_fd >= 0) {
+
+                if (dup2(params->stdout_fd, STDOUT_FILENO) < 0)
+                        return -errno;
+
+                return STDOUT_FILENO;
+        }
+
+        if (fileno == STDERR_FILENO && params->stderr_fd >= 0) {
+                if (dup2(params->stderr_fd, STDERR_FILENO) < 0)
+                        return -errno;
+
+                return STDERR_FILENO;
+        }
+
+        i = fixup_input(context->std_input, socket_fd, params->apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
 
         if (fileno == STDERR_FILENO) {
@@ -503,9 +551,9 @@ static int chown_terminal(int fd, uid_t uid) {
         return 0;
 }
 
-static int setup_confirm_stdio(int *_saved_stdin,
-                               int *_saved_stdout) {
-        int fd = -1, saved_stdin, saved_stdout = -1, r;
+static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
+        _cleanup_close_ int fd = -1, saved_stdin = -1, saved_stdout = -1;
+        int r;
 
         assert(_saved_stdin);
         assert(_saved_stdout);
@@ -515,10 +563,8 @@ static int setup_confirm_stdio(int *_saved_stdin,
                 return -errno;
 
         saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3);
-        if (saved_stdout < 0) {
-                r = errno;
-                goto fail;
-        }
+        if (saved_stdout < 0)
+                return -errno;
 
         fd = acquire_terminal(
                         "/dev/console",
@@ -526,39 +572,33 @@ static int setup_confirm_stdio(int *_saved_stdin,
                         false,
                         false,
                         DEFAULT_CONFIRM_USEC);
-        if (fd < 0) {
-                r = fd;
-                goto fail;
-        }
+        if (fd < 0)
+                return fd;
 
         r = chown_terminal(fd, getuid());
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (dup2(fd, STDIN_FILENO) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        r = reset_terminal_fd(fd, true);
+        if (r < 0)
+                return r;
 
-        if (dup2(fd, STDOUT_FILENO) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (dup2(fd, STDIN_FILENO) < 0)
+                return -errno;
+
+        if (dup2(fd, STDOUT_FILENO) < 0)
+                return -errno;
 
         if (fd >= 2)
                 safe_close(fd);
+        fd = -1;
 
         *_saved_stdin = saved_stdin;
         *_saved_stdout = saved_stdout;
 
+        saved_stdin = saved_stdout = -1;
+
         return 0;
-
-fail:
-        safe_close(saved_stdout);
-        safe_close(saved_stdin);
-        safe_close(fd);
-
-        return r;
 }
 
 _printf_(1, 2) static int write_confirm_message(const char *format, ...) {
@@ -578,9 +618,7 @@ _printf_(1, 2) static int write_confirm_message(const char *format, ...) {
         return 0;
 }
 
-static int restore_confirm_stdio(int *saved_stdin,
-                                 int *saved_stdout) {
-
+static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
         int r = 0;
 
         assert(saved_stdin);
@@ -596,8 +634,8 @@ static int restore_confirm_stdio(int *saved_stdin,
                 if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
                         r = -errno;
 
-        safe_close(*saved_stdin);
-        safe_close(*saved_stdout);
+        *saved_stdin = safe_close(*saved_stdin);
+        *saved_stdout = safe_close(*saved_stdout);
 
         return r;
 }
@@ -1294,6 +1332,34 @@ static int build_environment(
         return 0;
 }
 
+static int build_pass_environment(const ExecContext *c, char ***ret) {
+        _cleanup_strv_free_ char **pass_env = NULL;
+        size_t n_env = 0, n_bufsize = 0;
+        char **i;
+
+        STRV_FOREACH(i, c->pass_environment) {
+                _cleanup_free_ char *x = NULL;
+                char *v;
+
+                v = getenv(*i);
+                if (!v)
+                        continue;
+                x = strjoin(*i, "=", v, NULL);
+                if (!x)
+                        return -ENOMEM;
+                if (!GREEDY_REALLOC(pass_env, n_bufsize, n_env + 2))
+                        return -ENOMEM;
+                pass_env[n_env++] = x;
+                pass_env[n_env] = NULL;
+                x = NULL;
+        }
+
+        *ret = pass_env;
+        pass_env = NULL;
+
+        return 0;
+}
+
 static bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -1324,6 +1390,44 @@ static bool exec_needs_mount_namespace(
         return false;
 }
 
+static int close_remaining_fds(
+                const ExecParameters *params,
+                ExecRuntime *runtime,
+                int socket_fd,
+                int *fds, unsigned n_fds) {
+
+        unsigned n_dont_close = 0;
+        int dont_close[n_fds + 7];
+
+        assert(params);
+
+        if (params->stdin_fd >= 0)
+                dont_close[n_dont_close++] = params->stdin_fd;
+        if (params->stdout_fd >= 0)
+                dont_close[n_dont_close++] = params->stdout_fd;
+        if (params->stderr_fd >= 0)
+                dont_close[n_dont_close++] = params->stderr_fd;
+
+        if (socket_fd >= 0)
+                dont_close[n_dont_close++] = socket_fd;
+        if (n_fds > 0) {
+                memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
+                n_dont_close += n_fds;
+        }
+
+        if (params->bus_endpoint_fd >= 0)
+                dont_close[n_dont_close++] = params->bus_endpoint_fd;
+
+        if (runtime) {
+                if (runtime->netns_storage_socket[0] >= 0)
+                        dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
+                if (runtime->netns_storage_socket[1] >= 0)
+                        dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
+        }
+
+        return close_all_fds(dont_close, n_dont_close);
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -1336,11 +1440,9 @@ static int exec_child(
                 char **files_env,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL, *wd;
-        unsigned n_dont_close = 0;
-        int dont_close[n_fds + 4];
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r;
@@ -1380,22 +1482,7 @@ static int exec_child(
 
         log_forget_fds();
 
-        if (socket_fd >= 0)
-                dont_close[n_dont_close++] = socket_fd;
-        if (n_fds > 0) {
-                memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
-                n_dont_close += n_fds;
-        }
-        if (params->bus_endpoint_fd >= 0)
-                dont_close[n_dont_close++] = params->bus_endpoint_fd;
-        if (runtime) {
-                if (runtime->netns_storage_socket[0] >= 0)
-                        dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
-                if (runtime->netns_storage_socket[1] >= 0)
-                        dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
-        }
-
-        r = close_all_fds(dont_close, n_dont_close);
+        r = close_remaining_fds(params, runtime, socket_fd, fds, n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return r;
@@ -1451,21 +1538,21 @@ static int exec_child(
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
         if (socket_fd >= 0)
-                fd_nonblock(socket_fd, false);
+                (void) fd_nonblock(socket_fd, false);
 
-        r = setup_input(context, socket_fd, params->apply_tty_stdin);
+        r = setup_input(context, params, socket_fd);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
                 return r;
         }
 
-        r = setup_output(unit, context, STDOUT_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, params, STDOUT_FILENO, socket_fd, basename(command->path), uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return r;
         }
 
-        r = setup_output(unit, context, STDERR_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, params, STDERR_FILENO, socket_fd, basename(command->path), uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return r;
@@ -1869,9 +1956,16 @@ static int exec_child(
                 return r;
         }
 
-        final_env = strv_env_merge(5,
+        r = build_pass_environment(context, &pass_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return r;
+        }
+
+        final_env = strv_env_merge(6,
                                    params->environment,
                                    our_env,
+                                   pass_env,
                                    context->environment,
                                    files_env,
                                    pam_env,
@@ -2029,6 +2123,7 @@ void exec_context_done(ExecContext *c) {
 
         c->environment = strv_free(c->environment);
         c->environment_files = strv_free(c->environment_files);
+        c->pass_environment = strv_free(c->pass_environment);
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
@@ -2263,7 +2358,7 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
-        char **e;
+        char **e, **d;
         unsigned i;
 
         assert(c);
@@ -2298,6 +2393,14 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         STRV_FOREACH(e, c->environment_files)
                 fprintf(f, "%sEnvironmentFile: %s\n", prefix, *e);
+
+        STRV_FOREACH(e, c->pass_environment)
+                fprintf(f, "%sPassEnvironment: %s\n", prefix, *e);
+
+        fprintf(f, "%sRuntimeDirectoryMode: %04o\n", prefix, c->runtime_directory_mode);
+
+        STRV_FOREACH(d, c->runtime_directory)
+                fprintf(f, "%sRuntimeDirectory: %s\n", prefix, *d);
 
         if (c->nice_set)
                 fprintf(f,

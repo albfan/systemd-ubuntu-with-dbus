@@ -29,8 +29,9 @@
 
 #include "fileio.h"
 #include "log.h"
-#include "util.h"
+#include "string-util.h"
 #include "sysctl-util.h"
+#include "util.h"
 
 char *sysctl_normalize(char *s) {
         char *n;

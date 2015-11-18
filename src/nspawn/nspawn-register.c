@@ -21,12 +21,12 @@
 
 #include "sd-bus.h"
 
-#include "util.h"
-#include "strv.h"
-#include "bus-util.h"
 #include "bus-error.h"
-
+#include "bus-util.h"
 #include "nspawn-register.h"
+#include "stat-util.h"
+#include "strv.h"
+#include "util.h"
 
 int register_machine(
                 const char *machine_name,
@@ -39,7 +39,8 @@ int register_machine(
                 unsigned n_mounts,
                 int kill_signal,
                 char **properties,
-                bool keep_unit) {
+                bool keep_unit,
+                const char *service) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
@@ -61,7 +62,7 @@ int register_machine(
                                 "sayssusai",
                                 machine_name,
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
-                                "nspawn",
+                                service,
                                 "container",
                                 (uint32_t) pid,
                                 strempty(directory),
@@ -86,7 +87,7 @@ int register_machine(
                                 "sayssusai",
                                 machine_name,
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
-                                "nspawn",
+                                service,
                                 "container",
                                 (uint32_t) pid,
                                 strempty(directory),
@@ -103,6 +104,10 @@ int register_machine(
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
+
+                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", 8192);
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
                 if (r < 0)
