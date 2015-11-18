@@ -28,6 +28,7 @@ systemd (227-4) UNRELEASED; urgency=medium
   * debian/tests/networkd: Show networkctl and journal output on failure.
   * debian/tests/networkd: Fix bytes vs. string TypeError in the IPv6 polling.
     (LP: #1516009)
+  * debian/tests/networkd: Show contents of test .network file on failure.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
