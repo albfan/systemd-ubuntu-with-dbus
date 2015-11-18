@@ -4,14 +4,14 @@ Subject: util: Add hidden suffixes for ucf
 
 Bug-Debian: https://bugs.debian.org/775903
 ---
- src/basic/util.c | 3 +++
+ src/basic/path-util.c | 3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/src/basic/util.c b/src/basic/util.c
-index 2855993..a055ea2 100644
---- a/src/basic/util.c
-+++ b/src/basic/util.c
-@@ -1927,6 +1927,9 @@ _pure_ static bool hidden_file_allow_backup(const char *filename) {
+diff --git a/src/basic/path-util.c b/src/basic/path-util.c
+index ec90c43..ce38acf 100644
+--- a/src/basic/path-util.c
++++ b/src/basic/path-util.c
+@@ -778,6 +778,9 @@ bool hidden_file_allow_backup(const char *filename) {
                  endswith(filename, ".dpkg-bak") ||
                  endswith(filename, ".dpkg-backup") ||
                  endswith(filename, ".dpkg-remove") ||

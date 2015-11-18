@@ -14,10 +14,10 @@ Bug-Debian: https://bugs.debian.org/777601
  2 files changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
-index 95fc2b9..a9124f5 100644
+index f7fc2c2..0cb5b57 100644
 --- a/src/basic/cgroup-util.c
 +++ b/src/basic/cgroup-util.c
-@@ -1851,8 +1851,6 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
+@@ -1862,8 +1862,6 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
  
                  if (mask & bit)
                          (void) cg_create(n, path);
@@ -27,10 +27,10 @@ index 95fc2b9..a9124f5 100644
  
          return 0;
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index 0c790c3..5858c86 100644
+index d122175..6124a85 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -1165,7 +1165,7 @@ void unit_prune_cgroup(Unit *u) {
+@@ -1171,7 +1171,7 @@ void unit_prune_cgroup(Unit *u) {
  
          is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
  

@@ -1,6 +1,16 @@
-systemd (227-4) UNRELEASED; urgency=medium
+systemd (228-1) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
+  * New upstream release:
+    - Fix journald killing by watchdog. (Closes: #805042)
+    - Drop check for /etc/mtab. (Closes: #802025)
+    - Follow unit file symlinks in /usr, but not /etc when looking for
+      [Install] data, to avoid getting confused by Aliases. (Closes: #719695)
+    - journalctl: introduce short options for --since and --until.
+      (Closes: #801390)
+    - journald: Never accept fds from file systems with mandatory locking.
+      (LP: #1514141)
+    - Put nspawn containers in correct slice. (LP: #1455828)
   * debian/rules: Configure with --as-needed to avoid unnecessary binary
     dependencies.
   * systemd-networkd-resolvconf-update.service: Increase StartLimitBurst, as

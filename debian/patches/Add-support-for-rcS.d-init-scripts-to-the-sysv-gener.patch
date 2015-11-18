@@ -12,7 +12,7 @@ adjustments to the test suite.
  4 files changed, 38 insertions(+), 10 deletions(-)
 
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index 78bad4d..8e6ced0 100644
+index 54e7c49..54db78d 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
 @@ -333,6 +333,11 @@
@@ -28,10 +28,10 @@ index 78bad4d..8e6ced0 100644
        </varlistentry>
        <varlistentry>
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
-index 4560392..6bc4de7 100644
+index 665579c..71cffe1 100644
 --- a/src/insserv-generator/insserv-generator.c
 +++ b/src/insserv-generator/insserv-generator.c
-@@ -62,7 +62,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -65,7 +65,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */
@@ -41,18 +41,18 @@ index 4560392..6bc4de7 100644
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index e16d439..9e9ac51 100644
+index 2b71b48..83ac94e 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
-@@ -38,6 +38,7 @@
- #include "install.h"
+@@ -45,6 +45,7 @@
+ #include "util.h"
  
  typedef enum RunlevelType {
 +        RUNLEVEL_SYSINIT,
          RUNLEVEL_UP,
          RUNLEVEL_DOWN
  } RunlevelType;
-@@ -47,6 +48,9 @@ static const struct {
+@@ -54,6 +55,9 @@ static const struct {
          const char *target;
          const RunlevelType type;
  } rcnd_table[] = {
@@ -62,7 +62,7 @@ index e16d439..9e9ac51 100644
          /* Standard SysV runlevels for start-up */
          { "rc1.d",  SPECIAL_RESCUE_TARGET,     RUNLEVEL_UP },
          { "rc2.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
-@@ -71,6 +75,7 @@ typedef struct SysvStub {
+@@ -78,6 +82,7 @@ typedef struct SysvStub {
          char *name;
          char *path;
          char *description;
@@ -70,16 +70,16 @@ index e16d439..9e9ac51 100644
          int sysv_start_priority;
          char *pid_file;
          char **before;
-@@ -190,6 +195,8 @@ static int generate_unit_file(SysvStub *s) {
-                 "Description=%s\n",
-                 s->path, s->description);
+@@ -204,6 +209,8 @@ static int generate_unit_file(SysvStub *s) {
+         if (s->description)
+                 fprintf(f, "Description=%s\n", s->description);
  
 +        if (s->sysinit)
 +                fprintf(f, "DefaultDependencies=no\n");
          if (!isempty(before))
                  fprintf(f, "Before=%s\n", before);
          if (!isempty(after))
-@@ -203,11 +210,12 @@ static int generate_unit_file(SysvStub *s) {
+@@ -217,11 +224,12 @@ static int generate_unit_file(SysvStub *s) {
                  "\n[Service]\n"
                  "Type=forking\n"
                  "Restart=no\n"
@@ -93,7 +93,7 @@ index e16d439..9e9ac51 100644
                  yes_no(!s->pid_file));
  
          if (s->pid_file)
-@@ -267,16 +275,22 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -285,16 +293,22 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */
@@ -117,8 +117,8 @@ index e16d439..9e9ac51 100644
 +                "dbus",                 "dbus.socket",
          };
  
-         char *filename_no_sh, *e, *r;
-@@ -700,6 +714,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
+         char *filename_no_sh, *e, *m;
+@@ -725,6 +739,11 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
                  if (s->has_lsb && other->has_lsb)
                          continue;
  
@@ -130,7 +130,7 @@ index e16d439..9e9ac51 100644
                  if (other->sysv_start_priority < s->sysv_start_priority) {
                          r = strv_extend(&s->after, other->name);
                          if (r < 0)
-@@ -860,8 +879,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
+@@ -884,8 +903,12 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                  }
  
                                  if (de->d_name[0] == 'S')  {
@@ -139,11 +139,11 @@ index e16d439..9e9ac51 100644
 +                                                service->sysv_start_priority = a*10 + b;
 +                                        }
  
--                                        if (rcnd_table[i].type == RUNLEVEL_UP) {
-+                                        if (rcnd_table[i].type == RUNLEVEL_UP && !service->sysinit) {
-                                                 service->sysv_start_priority =
-                                                         MAX(a*10 + b, service->sysv_start_priority);
-                                         }
+-                                        if (rcnd_table[i].type == RUNLEVEL_UP)
++                                        if (rcnd_table[i].type == RUNLEVEL_UP && !service->sysinit)
+                                                 service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
+ 
+                                         r = set_ensure_allocated(&runlevel_services[i], NULL);
 diff --git a/test/sysv-generator-test.py b/test/sysv-generator-test.py
 index 721e53a..4f01e8c 100644
 --- a/test/sysv-generator-test.py

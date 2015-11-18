@@ -17,7 +17,7 @@ conf.d snippet.
  3 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 4464fe5..032c41a 100644
+index a9690e8..4ff8f29 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
 @@ -315,7 +315,7 @@
@@ -30,10 +30,10 @@ index 4464fe5..032c41a 100644
          <literal>systemd.journald.forward_to_syslog=</literal>,
          <literal>systemd.journald.forward_to_kmsg=</literal>,
 diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
-index 9761ffd..1483cf5 100644
+index 7d11a56..7fd572c 100644
 --- a/src/journal/journald-server.c
 +++ b/src/journal/journald-server.c
-@@ -1582,6 +1582,7 @@ int server_init(Server *s) {
+@@ -1701,6 +1701,7 @@ int server_init(Server *s) {
          s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
          s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
  

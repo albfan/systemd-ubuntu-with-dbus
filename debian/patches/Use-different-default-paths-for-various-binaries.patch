@@ -12,12 +12,12 @@ paths.  Closes: #721347
  1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 5e3cdd6..fc1d7a4 100644
+index ec30ff1..7866359 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -95,18 +95,18 @@ AC_PROG_AWK
+@@ -94,18 +94,18 @@ AC_PROG_AWK
+ 
  AC_PATH_PROG([M4], [m4])
- AC_PATH_PROG([XSLTPROC], [xsltproc])
  
 -AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
 -AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
@@ -41,7 +41,7 @@ index 5e3cdd6..fc1d7a4 100644
  
  AC_PATH_PROG([MOUNT_PATH], [mount], [/usr/bin/mount], [$PATH:/usr/sbin:/sbin])
  AC_PATH_PROG([UMOUNT_PATH], [umount], [/usr/bin/umount], [$PATH:/usr/sbin:/sbin])
-@@ -1234,13 +1234,13 @@ AC_ARG_WITH(kbd-loadkeys,
+@@ -1233,13 +1233,13 @@ AC_ARG_WITH(kbd-loadkeys,
          AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                  [Path to loadkeys]),
          [KBD_LOADKEYS="$withval"],

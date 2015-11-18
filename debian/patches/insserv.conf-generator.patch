@@ -19,13 +19,13 @@ It has the following modifications:
 ---
  Makefile.am                               |   8 +
  src/insserv-generator/Makefile            |  28 +++
- src/insserv-generator/insserv-generator.c | 330 ++++++++++++++++++++++++++++++
- 3 files changed, 366 insertions(+)
+ src/insserv-generator/insserv-generator.c | 333 ++++++++++++++++++++++++++++++
+ 3 files changed, 369 insertions(+)
  create mode 100644 src/insserv-generator/Makefile
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 8646e55..26a3f23 100644
+index 437905c..ad193e4 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -410,6 +410,7 @@ rootlibexec_PROGRAMS += \
@@ -36,7 +36,7 @@ index 8646e55..26a3f23 100644
  	systemd-getty-generator \
  	systemd-fstab-generator \
  	systemd-system-update-generator \
-@@ -2388,6 +2389,13 @@ systemd_delta_LDADD = \
+@@ -2483,6 +2484,13 @@ systemd_delta_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------
@@ -86,10 +86,10 @@ index 0000000..9d07505
 +.PHONY: all clean
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
 new file mode 100644
-index 0000000..4560392
+index 0000000..665579c
 --- /dev/null
 +++ b/src/insserv-generator/insserv-generator.c
-@@ -0,0 +1,330 @@
+@@ -0,0 +1,333 @@
 +/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 +
 +/***
@@ -122,6 +122,9 @@ index 0000000..4560392
 +#include "unit-name.h"
 +#include "special.h"
 +#include "path-util.h"
++#include "string-util.h"
++#include "fd-util.h"
++#include "alloc-util.h"
 +#include "util.h"
 +#include "strv.h"
 +

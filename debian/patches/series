@@ -1,10 +1,4 @@
 ## Cherry-picked from upstream
-core-ignore-.slice-and-init.scope-when-isolating.patch
-sd-daemon-simply-code-simplification.patch
-sd-daemon-wipe-out-memory-before-using-CMSG_NXTHDR.patch
-sd-daemon-increase-sd_notify-socket-buffer-size.patch
-sd-daemon-verify-NOTIFY_SOCKET-path-length.patch
-journald-never-block-when-sending-messages-on-NOTIFY.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

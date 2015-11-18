@@ -46,19 +46,19 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  Makefile.am                        |  14 +
  man/systemd-fsckd.service.xml      | 162 +++++++++
  po/POTFILES.in                     |   1 +
- src/fsckd/fsckd.c                  | 680 +++++++++++++++++++++++++++++++++++++
+ src/fsckd/fsckd.c                  | 685 +++++++++++++++++++++++++++++++++++++
  units/systemd-fsck-root.service.in |   2 +
  units/systemd-fsck@.service.in     |   3 +-
  units/systemd-fsckd.service.in     |  17 +
  units/systemd-fsckd.socket         |  15 +
- 9 files changed, 905 insertions(+), 1 deletion(-)
+ 9 files changed, 910 insertions(+), 1 deletion(-)
  create mode 100644 man/systemd-fsckd.service.xml
  create mode 100644 src/fsckd/fsckd.c
  create mode 100644 units/systemd-fsckd.service.in
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index 1ff85d7..3480489 100644
+index c792c89..ed86dfb 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
 @@ -93,6 +93,7 @@ MANPAGES += \
@@ -69,7 +69,7 @@ index 1ff85d7..3480489 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -369,6 +370,8 @@ MANPAGES_ALIAS += \
+@@ -368,6 +369,8 @@ MANPAGES_ALIAS += \
  	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -87,7 +87,7 @@ index 1ff85d7..3480489 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -1363,6 +1368,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1364,6 +1369,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index 1ff85d7..3480489 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -2343,6 +2354,7 @@ EXTRA_DIST += \
+@@ -2347,6 +2358,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,7 +109,7 @@ index 1ff85d7..3480489 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index deed50a..33410b7 100644
+index 94f7313..b9e0e75 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
@@ -144,7 +144,7 @@ index deed50a..33410b7 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2367,6 +2371,16 @@ systemd_fsck_LDADD = \
+@@ -2465,6 +2469,16 @@ systemd_fsck_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------
@@ -340,10 +340,10 @@ index f33c53f..4b8ef2e 100644
 +src/fsckd/fsckd.c
 diff --git a/src/fsckd/fsckd.c b/src/fsckd/fsckd.c
 new file mode 100644
-index 0000000..e170d7f
+index 0000000..347dead
 --- /dev/null
 +++ b/src/fsckd/fsckd.c
-@@ -0,0 +1,680 @@
+@@ -0,0 +1,685 @@
 +/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 +
 +/***
@@ -388,7 +388,12 @@ index 0000000..e170d7f
 +#include "list.h"
 +#include "macro.h"
 +#include "socket-util.h"
++#include "fd-util.h"
++#include "string-util.h"
++#include "io-util.h"
 +#include "util.h"
++#include "alloc-util.h"
++#include "locale-util.h"
 +
 +#define FSCKD_SOCKET_PATH "/run/systemd/fsck.progress"
 +#define IDLE_TIME_SECONDS 30
