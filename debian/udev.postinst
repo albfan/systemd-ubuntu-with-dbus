@@ -173,8 +173,6 @@ case "$1" in
 	  rm /etc/udev/kernel-upgrade
 	elif can_start_udevd; then
           handle_service_rename
-	  rm -f /run/systemd/system/systemd-udevd.service
-	  rm -f /run/systemd/system/udev.service
           # This is necessary for the handle_service_rename case, but does not
           # hurt in general (invoke-rc.d does it, too).
 	  if [ -d /run/systemd/system ] ; then

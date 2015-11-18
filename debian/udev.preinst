@@ -173,14 +173,6 @@ END
   exit 1
 }
 
-mask_systemd_service() {
-  if [ -x '/bin/systemctl' -a -d '/run/systemd/system/' ]; then
-    ln -sf /dev/null /run/systemd/system/systemd-udevd.service
-    ln -sf /dev/null /run/systemd/system/udev.service
-    systemctl daemon-reload || true
-  fi
-}
-
 check_version() {
   # $2 is non-empty when installing from the "config-files" state
   [ "$2" ] || return 0
@@ -211,7 +203,6 @@ case "$1" in
 
     upgrade|abort-upgrade)
     check_version "$@"
-    mask_systemd_service
     ;;
 
     *)
