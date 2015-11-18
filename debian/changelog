@@ -22,7 +22,7 @@ systemd (227-4) UNRELEASED; urgency=medium
   * debian/tests/networkd: Add new test cases for "DHCP=all, IPv4 only,
     disabling RA" (which should always be fast), "DHCP=all, IPv4 only" (which
     will require a longer timeout due to waiting 12s for a potential IPv6 RA
-    reply), and "DHCP=ipv4" (which should always be fast).
+    reply), and "DHCP=ipv4" (with and without RA).
   * debian/tests/networkd: Fix UnicodeDecodeError under 'C' locale.
   * debian/tests/networkd: Show networkctl and journal output on failure.
   * debian/tests/networkd: Fix bytes vs. string TypeError in the IPv6 polling.
