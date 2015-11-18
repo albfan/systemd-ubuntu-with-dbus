@@ -106,7 +106,7 @@ class TestNetworkd(unittest.TestCase):
             self.dnsmasq = None
 
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
-                online_timeout=5, dhcp_mode='yes'):
+                online_timeout=10, dhcp_mode='yes'):
         with open(self.config, 'w') as f:
             f.write('''[Match]
 Name=%s
