@@ -10,11 +10,16 @@ chrooted() {
 }
 
 kill_udevd() {
-    start-stop-daemon --stop --name systemd-udevd --user root --oknodo --quiet --retry 5
+  if [ -d /run/systemd/system ]; then
+    systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket
+    systemctl stop systemd-udevd.service
+  else
+    invoke-rc.d udev stop
+  fi
 }
 
 case "$1" in
-    remove|deconfigure|failed-upgrade)
+    remove)
     if ! chrooted; then
       kill_udevd
     fi
