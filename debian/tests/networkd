@@ -104,7 +104,7 @@ DHCP=%s
                 timeout = 10
                 while timeout > 0:
                     out = subprocess.check_output(['ip', '-6', 'a', 'show', 'dev', self.iface])
-                    if b'state UP' in out and 'scope global' in out:
+                    if b'state UP' in out and b'scope global' in out:
                         break
                     time.sleep(1)
                     timeout -= 1
