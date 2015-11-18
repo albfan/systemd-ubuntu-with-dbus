@@ -40,6 +40,8 @@ systemd (228-1) UNRELEASED; urgency=medium
   * debian/tests/networkd: Show contents of test .network file on failure.
   * debian/tests/networkd: Skip if networkd is already running (safer when
     running on real systems), and add copyright header.
+  * Bump util-linux dependencies to >= 2.27.1 to ensure that the mount monitor
+    ignores /etc/mtab.
 
   [ Felipe Sateler ]
   * Enable elfutils support for getting stack traces for systemd-coredump.
