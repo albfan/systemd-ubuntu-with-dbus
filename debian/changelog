@@ -48,6 +48,11 @@ systemd (228-1) UNRELEASED; urgency=medium
   * libnss-my{machines,hostname}.postrm: do not remove entries from
     nsswitch.conf if there are packages from other architectures remaining.
 
+  [ Michael Biebl ]
+  * Drop systemd-setup-dgram-qlen.service. This has been made obsolete by
+    upstream commit 1985486 which bumps net.unix.max_dgram_qlen to 512 early
+    during boot.
+
  -- Martin Pitt <mpitt@debian.org>  Thu, 12 Nov 2015 17:25:12 +0100
 
 systemd (227-3) unstable; urgency=medium
