@@ -1,4 +1,4 @@
-systemd (228-1) UNRELEASED; urgency=medium
+systemd (228-1) unstable; urgency=medium
 
   [ Martin Pitt ]
   * New upstream release:
@@ -61,7 +61,7 @@ systemd (228-1) UNRELEASED; urgency=medium
     - Stop masking systemd-udevd.service and udev.service during upgrades. We
       restart the udev daemon in postinst, so those masks seem unnecessary.
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 12 Nov 2015 17:25:12 +0100
+ -- Martin Pitt <mpitt@debian.org>  Wed, 18 Nov 2015 16:11:59 +0100
 
 systemd (227-3) unstable; urgency=medium
 
