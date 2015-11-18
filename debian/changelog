@@ -53,6 +53,13 @@ systemd (228-1) UNRELEASED; urgency=medium
   * Drop systemd-setup-dgram-qlen.service. This has been made obsolete by
     upstream commit 1985486 which bumps net.unix.max_dgram_qlen to 512 early
     during boot.
+  * Various cleanups to the udev maintainer scripts:
+    - Remove unused tempdir() function.
+    - Properly stop udev daemon on remove.
+    - Stop killing udev daemon on failed upgrades and drop the corresponding
+      starts from preinst.
+    - Stop masking systemd-udevd.service and udev.service during upgrades. We
+      restart the udev daemon in postinst, so those masks seem unnecessary.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 12 Nov 2015 17:25:12 +0100
 
