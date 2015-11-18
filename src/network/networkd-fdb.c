@@ -19,15 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/if.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
-#include "util.h"
 #include "netlink-util.h"
-
-#include "networkd.h"
 #include "networkd-fdb.h"
+#include "networkd.h"
+#include "util.h"
 
 /* create a new FDB entry or get an existing one. */
 int fdb_entry_new_static(Network *const network,

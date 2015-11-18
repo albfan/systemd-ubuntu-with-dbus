@@ -24,21 +24,26 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
-#include "strv.h"
-#include "path-util.h"
-#include "unit-name.h"
-#include "bus-util.h"
-#include "bus-common-errors.h"
-#include "cgroup-util.h"
+
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "bus-common-errors.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "process-util.h"
 #include "hostname-util.h"
+#include "image-dbus.h"
+#include "machine-dbus.h"
 #include "machine-image.h"
 #include "machine-pool.h"
-#include "image-dbus.h"
 #include "machined.h"
-#include "machine-dbus.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "stdio-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "user-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,
@@ -79,7 +84,7 @@ static int property_get_pool_usage(
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
-                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         usage = q.referenced;
         }
 
@@ -115,7 +120,7 @@ static int property_get_pool_limit(
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
-                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         size = q.referenced_max;
         }
 
@@ -193,6 +198,9 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
+
+        if (pid < 0)
+                return -EINVAL;
 
         if (pid == 0) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
@@ -831,7 +839,9 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
 
-        r = btrfs_quota_limit("/var/lib/machines", limit);
+        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
+
+        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, limit);
         if (r == -ENOTTY)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
@@ -1498,7 +1508,7 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         assert(pid >= 1);
         assert(machine);
 
-        mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        mm = hashmap_get(m->machine_leaders, PID_TO_PTR(pid));
         if (!mm) {
                 _cleanup_free_ char *unit = NULL;
 

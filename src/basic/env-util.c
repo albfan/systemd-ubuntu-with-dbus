@@ -22,11 +22,14 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "def.h"
+#include "env-util.h"
+#include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
-#include "env-util.h"
-#include "def.h"
 
 #define VALID_CHARS_ENV_NAME                    \
         DIGITS LETTERS                          \
@@ -129,6 +132,21 @@ bool strv_env_is_valid(char **e) {
                 k = strcspn(*p, "=");
                 STRV_FOREACH(q, p + 1)
                         if (strneq(*p, *q, k) && (*q)[k] == '=')
+                                return false;
+        }
+
+        return true;
+}
+
+bool strv_env_name_is_valid(char **l) {
+        char **p, **q;
+
+        STRV_FOREACH(p, l) {
+                if (!env_name_is_valid(*p))
+                        return false;
+
+                STRV_FOREACH(q, p + 1)
+                        if (streq(*p, *q))
                                 return false;
         }
 
@@ -591,4 +609,14 @@ char **replace_env_argv(char **argv, char **env) {
 
         ret[k] = NULL;
         return ret;
+}
+
+int getenv_bool(const char *p) {
+        const char *e;
+
+        e = getenv(p);
+        if (!e)
+                return -ENXIO;
+
+        return parse_boolean(e);
 }

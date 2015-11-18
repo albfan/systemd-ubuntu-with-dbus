@@ -23,18 +23,24 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "bus-util.h"
 #include "busctl-introspect.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static bool arg_no_pager = false;

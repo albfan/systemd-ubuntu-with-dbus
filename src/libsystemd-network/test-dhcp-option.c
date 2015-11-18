@@ -1,15 +1,15 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#include <stdio.h>
-#include <stdbool.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "util.h"
-#include "macro.h"
-
-#include "dhcp-protocol.h"
+#include "alloc-util.h"
 #include "dhcp-internal.h"
+#include "dhcp-protocol.h"
+#include "macro.h"
+#include "util.h"
 
 struct option_desc {
         uint8_t sname[64];

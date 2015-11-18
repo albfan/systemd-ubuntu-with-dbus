@@ -4,6 +4,7 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
+LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 
@@ -179,12 +180,17 @@ EOF
 }
 
 install_execs() {
-    # install any Execs from the service files
-    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/lib/systemd/system/*.service \
-        | while read i; do
-        i=${i##Exec*=}; i=${i##-}
-        inst $i
-    done
+    ddebug "install any Execs from the service files"
+    (
+    export PKG_CONFIG_PATH=$TEST_BASE_DIR/../src/core/
+    systemdsystemunitdir=$(pkg-config --variable=systemdsystemunitdir systemd)
+    systemduserunitdir=$(pkg-config --variable=systemduserunitdir systemd)
+    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
+         | while read i; do
+         i=${i##Exec*=}; i=${i##-}
+         inst $i
+     done
+    )
 }
 
 generate_module_dependencies() {
@@ -220,6 +226,7 @@ install_config_files() {
     inst /etc/sysconfig/init
     inst /etc/passwd
     inst /etc/shadow
+    inst /etc/login.defs
     inst /etc/group
     inst /etc/shells
     inst /etc/nsswitch.conf
@@ -260,21 +267,26 @@ install_dbus() {
     inst $ROOTLIBDIR/system/dbus.service
 
     find \
-        /etc/dbus-1 -xtype f \
+        /etc/dbus-1 /usr/share/dbus-1 -xtype f \
         | while read file; do
         inst $file
     done
 }
 
 install_pam() {
+    (
+    [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null && find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
     find \
         /etc/pam.d \
         /etc/security \
         /lib64/security \
         /lib/security -xtype f \
-        | while read file; do
+    ) | while read file; do
         inst $file
     done
+
+    [[ "$LOOKS_LIKE_DEBIAN" ]] &&
+        cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
 }
 
 install_keymaps() {
@@ -305,7 +317,7 @@ install_terminfo() {
 
 setup_testsuite() {
     cp $TEST_BASE_DIR/testsuite.target $initdir/etc/systemd/system/
-    sed "s#@SYSTEMCTL@#$(type -P systemctl)#g" $TEST_BASE_DIR/end.service.in > $initdir/etc/systemd/system/end.service
+    cp $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/
 
     mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
     ln -fs $TEST_BASE_DIR/testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service

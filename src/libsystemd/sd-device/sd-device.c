@@ -19,23 +19,28 @@
 ***/
 
 #include <ctype.h>
-#include <sys/types.h>
 #include <net/if.h>
-
-#include "util.h"
-#include "macro.h"
-#include "path-util.h"
-#include "strxcpyx.h"
-#include "fileio.h"
-#include "hashmap.h"
-#include "set.h"
-#include "strv.h"
+#include <sys/types.h>
 
 #include "sd-device.h"
 
-#include "device-util.h"
-#include "device-private.h"
+#include "alloc-util.h"
 #include "device-internal.h"
+#include "device-private.h"
+#include "device-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "hashmap.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "set.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "strxcpyx.h"
+#include "util.h"
 
 int device_new_aux(sd_device **ret) {
         _cleanup_device_unref_ sd_device *device = NULL;
@@ -351,12 +356,9 @@ int device_set_ifindex(sd_device *device, const char *_ifindex) {
         assert(device);
         assert(_ifindex);
 
-        r = safe_atoi(_ifindex, &ifindex);
+        r = parse_ifindex(_ifindex, &ifindex);
         if (r < 0)
                 return r;
-
-        if (ifindex <= 0)
-                return -EINVAL;
 
         r = device_add_property_internal(device, "IFINDEX", _ifindex);
         if (r < 0)
@@ -627,11 +629,9 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 struct ifreq ifr = {};
                 int ifindex;
 
-                r = safe_atoi(&id[1], &ifr.ifr_ifindex);
+                r = parse_ifindex(&id[1], &ifr.ifr_ifindex);
                 if (r < 0)
                         return r;
-                else if (ifr.ifr_ifindex <= 0)
-                        return -EINVAL;
 
                 sk = socket(PF_INET, SOCK_DGRAM, 0);
                 if (sk < 0)

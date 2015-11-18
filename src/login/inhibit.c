@@ -27,12 +27,15 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static const char* arg_what = "idle:sleep:shutdown";

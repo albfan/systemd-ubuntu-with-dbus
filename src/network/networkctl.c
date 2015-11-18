@@ -28,15 +28,20 @@
 #include "sd-netlink.h"
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "arphrd-list.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "hwdb-util.h"
 #include "lldp.h"
 #include "local-addresses.h"
+#include "locale-util.h"
 #include "netlink-util.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "socket-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -515,7 +520,7 @@ static int link_status_one(
         assert(rtnl);
         assert(name);
 
-        if (safe_atoi(name, &ifindex) >= 0 && ifindex > 0)
+        if (parse_ifindex(name, &ifindex) >= 0)
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
         else {
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
@@ -904,12 +909,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        const char *state, *word;
-
         double ttl = -1;
         uint32_t capability;
         int i, r, c, j;
-        size_t ll;
+        const char *p;
         char **s;
 
         pager_open_if_enabled();
@@ -950,14 +953,19 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         return -ENOMEM;
 
                 STRV_FOREACH(s, l) {
-                        FOREACH_WORD_QUOTED(word, ll, *s, state) {
-                                _cleanup_free_ char *t = NULL, *a = NULL, *b = NULL;
 
-                                t = strndup(word, ll);
-                                if (!t)
-                                        return -ENOMEM;
+                        p = *s;
+                        for (;;) {
+                                _cleanup_free_ char *a = NULL, *b = NULL, *word = NULL;
 
-                                r = split_pair(t, "=", &a, &b);
+                                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse LLDP syntax \"%s\": %m", *s);
+
+                                if (r == 0)
+                                        break;
+
+                                r = split_pair(word, "=", &a, &b);
                                 if (r < 0)
                                         continue;
 

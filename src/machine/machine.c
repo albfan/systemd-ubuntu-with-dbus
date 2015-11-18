@@ -19,23 +19,31 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include "sd-messages.h"
 
-#include "util.h"
-#include "mkdir.h"
-#include "hashmap.h"
-#include "fileio.h"
-#include "special.h"
-#include "unit-name.h"
-#include "bus-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
-#include "machine.h"
-#include "machine-dbus.h"
+#include "bus-util.h"
+#include "escape.h"
+#include "extract-word.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "hashmap.h"
+#include "machine-dbus.h"
+#include "machine.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "special.h"
+#include "string-table.h"
+#include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
@@ -98,7 +106,7 @@ void machine_free(Machine *m) {
                 m->manager->host_machine = NULL;
 
         if (m->leader > 0)
-                (void) hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+                (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader), m);
 
         sd_bus_message_unref(m->create_message);
 
@@ -306,19 +314,26 @@ int machine_load(Machine *m) {
         }
 
         if (netif) {
-                size_t l, allocated = 0, nr = 0;
-                const char *word, *state;
+                size_t allocated = 0, nr = 0;
+                const char *p;
                 int *ni = NULL;
 
-                FOREACH_WORD(word, l, netif, state) {
-                        char buf[l+1];
+                p = netif;
+                for(;;) {
+                        _cleanup_free_ char *word = NULL;
                         int ifi;
 
-                        *(char*) (mempcpy(buf, word, l)) = 0;
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r == 0)
+                                break;
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse NETIF: %s", netif);
+                                break;
+                        }
 
-                        if (safe_atoi(buf, &ifi) < 0)
-                                continue;
-                        if (ifi <= 0)
+                        if (parse_ifindex(word, &ifi) < 0)
                                 continue;
 
                         if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
@@ -387,7 +402,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         if (m->started)
                 return 0;
 
-        r = hashmap_put(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+        r = hashmap_put(m->manager->machine_leaders, PID_TO_PTR(m->leader), m);
         if (r < 0)
                 return r;
 
@@ -538,7 +553,7 @@ int machine_kill(Machine *m, KillWho who, int signo) {
                 return 0;
         }
 
-        /* Otherwise make PID 1 do it for us, for the entire cgroup */
+        /* Otherwise, make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
@@ -565,6 +580,25 @@ int machine_openpt(Machine *m, int flags) {
                         return -EINVAL;
 
                 return openpt_in_namespace(m->leader, flags);
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+int machine_open_terminal(Machine *m, const char *path, int mode) {
+        assert(m);
+
+        switch (m->class) {
+
+        case MACHINE_HOST:
+                return open_terminal(path, mode);
+
+        case MACHINE_CONTAINER:
+                if (m->leader <= 0)
+                        return -EINVAL;
+
+                return open_terminal_in_namespace(m->leader, path, mode);
 
         default:
                 return -EOPNOTSUPP;

@@ -99,6 +99,7 @@ struct ExecRuntime {
 struct ExecContext {
         char **environment;
         char **environment_files;
+        char **pass_environment;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory;
@@ -208,23 +209,22 @@ struct ExecContext {
 
 struct ExecParameters {
         char **argv;
+        char **environment;
 
         int *fds;
         char **fd_names;
         unsigned n_fds;
 
-        char **environment;
+        bool apply_permissions:1;
+        bool apply_chroot:1;
+        bool apply_tty_stdin:1;
 
-        bool apply_permissions;
-        bool apply_chroot;
-        bool apply_tty_stdin;
+        bool confirm_spawn:1;
+        bool selinux_context_net:1;
 
-        bool confirm_spawn;
-        bool selinux_context_net;
-
+        bool cgroup_delegate:1;
         CGroupMask cgroup_supported;
         const char *cgroup_path;
-        bool cgroup_delegate;
 
         const char *runtime_prefix;
 
@@ -234,6 +234,10 @@ struct ExecParameters {
 
         char *bus_endpoint_path;
         int bus_endpoint_fd;
+
+        int stdin_fd;
+        int stdout_fd;
+        int stderr_fd;
 };
 
 int exec_spawn(Unit *unit,
