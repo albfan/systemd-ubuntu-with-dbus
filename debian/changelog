@@ -2,6 +2,8 @@ systemd (228-2) UNRELEASED; urgency=medium
 
   * Remove wrong endianess conversion in test-siphash24 to fix FTBFS on
     big-endian machines.
+  * Bump libseccomp-dev build dependency to indicate required versions for
+    backporting to jessie. (Closes: #805497)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 08:17:41 +0100
 
