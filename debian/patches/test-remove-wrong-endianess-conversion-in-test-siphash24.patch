@@ -1,0 +1,44 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Thu, 19 Nov 2015 07:50:56 +0100
+Subject: test: remove wrong endianess conversion in test-siphash24
+
+Commit 933f9caee changed the returned result of siphash24_finalize() from
+little-endian to native. Follow suit in test-siphash24 and drop the endianess
+conversion there as well, so that this succeeds on big-endian machines again.
+
+Fixes #1946.
+---
+ src/test/test-siphash24.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/test/test-siphash24.c b/src/test/test-siphash24.c
+index a571a95..c20be99 100644
+--- a/src/test/test-siphash24.c
++++ b/src/test/test-siphash24.c
+@@ -30,7 +30,7 @@ static int do_test(const uint8_t *in, size_t len, const uint8_t *key) {
+         unsigned i, j;
+ 
+         out = siphash24(in, len, key);
+-        assert_se(out == htole64(0xa129ca6149be45e5));
++        assert_se(out == 0xa129ca6149be45e5);
+ 
+         /* verify the internal state as given in the above paper */
+         siphash24_init(&state, key);
+@@ -44,7 +44,7 @@ static int do_test(const uint8_t *in, size_t len, const uint8_t *key) {
+         assert_se(state.v2 == 0x634cb3577b01fd3d);
+         assert_se(state.v3 == 0xa5224d6f55c7d9c8);
+         out = siphash24_finalize(&state);
+-        assert_se(out == htole64(0xa129ca6149be45e5));
++        assert_se(out == 0xa129ca6149be45e5);
+         assert_se(state.v0 == 0xf6bcd53893fecff1);
+         assert_se(state.v1 == 0x54b9964c7ea0d937);
+         assert_se(state.v2 == 0x1b38329c099bb55a);
+@@ -59,7 +59,7 @@ static int do_test(const uint8_t *in, size_t len, const uint8_t *key) {
+                         siphash24_compress(&in[i], j - i, &state);
+                         siphash24_compress(&in[j], len - j, &state);
+                         out = siphash24_finalize(&state);
+-                        assert_se(out == htole64(0xa129ca6149be45e5));
++                        assert_se(out == 0xa129ca6149be45e5);
+                 }
+         }
+         return 0;
