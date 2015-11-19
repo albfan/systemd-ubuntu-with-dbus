@@ -262,7 +262,7 @@ ifeq (, $(filter nocheck, $(DEB_BUILD_OPTIONS)))
 	env -u LD_PRELOAD make -C build-deb check || ( \
 		cd build-deb; \
 		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done; \
-		if dpkg --compare-versions $$(uname -r) gt 3.13; then \
+		if linux-version compare "$$(uname -r)" ge 3.13; then \
 		    exit 1; \
 		else \
 		    echo "Ignoring test failure under too old kernel $$(uname -r)"; \
