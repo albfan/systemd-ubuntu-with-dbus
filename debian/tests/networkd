@@ -31,18 +31,19 @@ import time
 import unittest
 import tempfile
 import subprocess
+import shutil
 
 networkd_active = subprocess.call(['systemctl', 'is-active', '--quiet',
                                    'systemd-networkd']) == 0
+have_dnsmasq = shutil.which('dnsmasq')
+
 
 @unittest.skipIf(networkd_active,
                  'networkd is already active')
-class TestNetworkd(unittest.TestCase):
-    @classmethod
+class ClientTestBase:
     def setUp(self):
         self.iface = 'test_eth42'
         self.if_router = 'router_eth42'
-        self.dnsmasq = None
         self.workdir_obj = tempfile.TemporaryDirectory()
         self.workdir = self.workdir_obj.name
         self.config = '/run/systemd/network/test_eth42.network'
@@ -69,41 +70,17 @@ class TestNetworkd(unittest.TestCase):
     def create_iface(self, ipv6=False):
         '''Create test interface with DHCP server behind it'''
 
-        # add veth pair
-        subprocess.check_call(['ip', 'link', 'add', 'name', self.iface, 'type',
-                               'veth', 'peer', 'name', self.if_router])
-
-        # give our router an IP
-        subprocess.check_call(['ip', 'a', 'flush', 'dev', self.if_router])
-        subprocess.check_call(['ip', 'a', 'add', '192.168.5.1/24', 'dev', self.if_router])
-        if ipv6:
-            subprocess.check_call(['ip', 'a', 'add', '2600::1/64', 'dev', self.if_router])
-        subprocess.check_call(['ip', 'link', 'set', self.if_router, 'up'])
-
-        # add DHCP server
-        self.dnsmasq_log = os.path.join(self.workdir, 'dnsmasq.log')
-        lease_file = os.path.join(self.workdir, 'dnsmasq.leases')
-        if ipv6:
-            extra_opts = ['--enable-ra', '--dhcp-range=2600::10,2600::20']
-        else:
-            extra_opts = []
-        self.dnsmasq = subprocess.Popen(
-            ['dnsmasq', '--keep-in-foreground', '--log-queries',
-             '--log-facility=' + self.dnsmasq_log, '--conf-file=/dev/null',
-             '--dhcp-leasefile=' + lease_file, '--bind-interfaces',
-             '--interface=' + self.if_router, '--except-interface=lo',
-             '--dhcp-range=192.168.5.10,192.168.5.200'] + extra_opts)
+        raise NotImplementedError('must be implemented by a subclass')
 
     def shutdown_iface(self):
         '''Remove test interface and stop DHCP server'''
 
-        if self.if_router:
-            subprocess.check_call(['ip', 'link', 'del', 'dev', self.if_router])
-            self.if_router = None
-        if self.dnsmasq:
-            self.dnsmasq.kill()
-            self.dnsmasq.wait()
-            self.dnsmasq = None
+        raise NotImplementedError('must be implemented by a subclass')
+
+    def print_server_log(self):
+        '''Print DHCP server log for debugging failures'''
+
+        raise NotImplementedError('must be implemented by a subclass')
 
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
                 online_timeout=10, dhcp_mode='yes'):
@@ -168,15 +145,14 @@ DHCP=%s
             self.assertRegex(out, b'Gateway:\s+192.168.5.1')
             self.assertRegex(out, b'DNS:\s+192.168.5.1')
         except (AssertionError, subprocess.CalledProcessError):
-            # show networkd status, journal, and dnsmasq log on failure
+            # show networkd status, journal, and DHCP server log on failure
             with open(self.config) as f:
                 print('\n---- %s ----\n%s' % (self.config, f.read()))
             print('---- networkctl status %s ----' % self.iface)
             subprocess.call(['networkctl', 'status', self.iface])
             print('---- networkd journal ----')
             subprocess.call(['journalctl', '-b', '--no-pager', '-u', 'systemd-networkd.service'])
-            with open(self.dnsmasq_log) as f:
-                sys.stdout.write('\n\n---- dnsmasq log ----\n%s\n------\n\n' % f.read())
+            self.print_server_log()
             raise
 
         # verify resolv.conf if it gets dynamically managed
@@ -222,6 +198,60 @@ DHCP=%s
 
     def test_hotplug_dhcp_ip6(self):
         self.do_test(coldplug=False, ipv6=True)
+
+
+@unittest.skipUnless(have_dnsmasq, 'dnsmasq not installed')
+class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
+    '''Test networkd client against dnsmasq'''
+
+    def setUp(self):
+        super().setUp()
+        self.dnsmasq = None
+
+    def create_iface(self, ipv6=False):
+        '''Create test interface with DHCP server behind it'''
+
+        # add veth pair
+        subprocess.check_call(['ip', 'link', 'add', 'name', self.iface, 'type',
+                               'veth', 'peer', 'name', self.if_router])
+
+        # give our router an IP
+        subprocess.check_call(['ip', 'a', 'flush', 'dev', self.if_router])
+        subprocess.check_call(['ip', 'a', 'add', '192.168.5.1/24', 'dev', self.if_router])
+        if ipv6:
+            subprocess.check_call(['ip', 'a', 'add', '2600::1/64', 'dev', self.if_router])
+        subprocess.check_call(['ip', 'link', 'set', self.if_router, 'up'])
+
+        # add DHCP server
+        self.dnsmasq_log = os.path.join(self.workdir, 'dnsmasq.log')
+        lease_file = os.path.join(self.workdir, 'dnsmasq.leases')
+        if ipv6:
+            extra_opts = ['--enable-ra', '--dhcp-range=2600::10,2600::20']
+        else:
+            extra_opts = []
+        self.dnsmasq = subprocess.Popen(
+            ['dnsmasq', '--keep-in-foreground', '--log-queries',
+             '--log-facility=' + self.dnsmasq_log, '--conf-file=/dev/null',
+             '--dhcp-leasefile=' + lease_file, '--bind-interfaces',
+             '--interface=' + self.if_router, '--except-interface=lo',
+             '--dhcp-range=192.168.5.10,192.168.5.200'] + extra_opts)
+
+    def shutdown_iface(self):
+        '''Remove test interface and stop DHCP server'''
+
+        if self.if_router:
+            subprocess.check_call(['ip', 'link', 'del', 'dev', self.if_router])
+            self.if_router = None
+        if self.dnsmasq:
+            self.dnsmasq.kill()
+            self.dnsmasq.wait()
+            self.dnsmasq = None
+
+    def print_server_log(self):
+        '''Print DHCP server log for debugging failures'''
+
+        with open(self.dnsmasq_log) as f:
+            sys.stdout.write('\n\n---- dnsmasq log ----\n%s\n------\n\n' % f.read())
 
 
 if __name__ == '__main__':

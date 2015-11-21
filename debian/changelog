@@ -4,6 +4,8 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/rules: Remove temporary debug output from test failures again. All
     Debian buildd kernels are recent enough now, but add a check for kernels
     older than 3.13 and ignore test failures for those.
+  * debian/tests/networkd: Factor out dnsmasq specific test "router" setup, so
+    that we can test against other implementations.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
