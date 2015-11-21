@@ -7,6 +7,7 @@ systemd (228-3) UNRELEASED; urgency=medium
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
+    (Closes: #805631)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 12:09:17 +0100
 
