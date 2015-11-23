@@ -8,6 +8,7 @@ systemd (228-3) UNRELEASED; urgency=medium
     that we can test against other implementations.
   * debian/tests/networkd: Add router setup using an (isolated) networkd
     process for configuring the veths and DHCP server.
+  * debian/tests/networkd: On failure, only show journal for current test.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

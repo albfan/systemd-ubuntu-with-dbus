@@ -61,11 +61,26 @@ class ClientTestBase:
         else:
             self.fail('systemd-networkd-wait-online not found')
 
+        # get current journal cursor
+        out = subprocess.check_output(['journalctl', '-b', '--quiet',
+                                       '--no-pager', '-n0', '--show-cursor'],
+                                      universal_newlines=True)
+        self.assertTrue(out.startswith('-- cursor:'))
+        self.journal_cursor = out.split()[-1]
+
     def tearDown(self):
         self.shutdown_iface()
         if os.path.exists(self.config):
             os.unlink(self.config)
         subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+
+    def show_journal(self, unit):
+        '''Show journal of given unit since start of the test'''
+
+        print('---- %s ----' % unit)
+        sys.stdout.flush()
+        subprocess.call(['journalctl', '-b', '--no-pager', '--quiet',
+                         '--cursor', self.journal_cursor, '-u', unit])
 
     def create_iface(self, ipv6=False):
         '''Create test interface with DHCP server behind it'''
@@ -156,9 +171,7 @@ DHCP=%s
             print('---- networkctl status %s ----' % self.iface)
             sys.stdout.flush()
             subprocess.call(['networkctl', 'status', self.iface])
-            print('---- networkd journal ----')
-            sys.stdout.flush()
-            subprocess.call(['journalctl', '-b', '--no-pager', '-u', 'systemd-networkd.service'])
+            self.show_journal('systemd-networkd.service')
             self.print_server_log()
             raise
 
@@ -170,7 +183,7 @@ DHCP=%s
                         break
                 time.sleep(0.1)
             else:
-                subprocess.call(['journalctl', '-b', '--no-pager', '-u', 'systemd-networkd-resolvconf-update.service'])
+                self.show_journal('systemd-networkd-resolvconf-update.service')
                 self.fail('nameserver 192.168.5.1 not found in /etc/resolv.conf')
 
         if not coldplug:
@@ -341,8 +354,7 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ { s/^.*=//
     def print_server_log(self):
         '''Print DHCP server log for debugging failures'''
 
-        print('--- networkd server journal ----')
-        subprocess.call(['journalctl', '-b', '--no-pager', '-u', 'networkd-test-router.service'])
+        self.show_journal('networkd-test-router.service')
 
     @unittest.skip('networkd does not have DHCPv6 server support')
     def test_hotplug_dhcp_ip6(self):
