@@ -11,6 +11,9 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/tests/networkd: On failure, only show journal for current test.
   * systemd-networkd-resolvconf-update.service: Wait for getting a name
     server, not just for getting online.
+  * debian/tests/boot-and-services: Wait until bash crash stack trace is in
+    the journal before asserting on it. Also relax RE to work on non-x86
+    architectures.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

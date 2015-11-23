@@ -437,13 +437,14 @@ class CoredumpTest(unittest.TestCase):
         timeout = 50
         while timeout > 0:
             journal = subprocess.check_output(['journalctl', '/lib/systemd/systemd-coredump'])
-            if re.search(b'Process.*bash.*dumped core', journal):
+            if re.search(b'Process.*bash.*dumped core', journal) and \
+               re.search(b'#[0-9] .*bash', journal):
                 break
             time.sleep(0.1)
             timeout -= 1
         self.assertRegex(journal, b'Process.*bash.*dumped core')
         self.assertIn(b'Stack trace', journal)
-        self.assertRegex(journal, b'#[0-9] .* main.*bash')
+        self.assertRegex(journal, b'#[0-9] .*bash')
 
 
 def pre_boot_setup():
