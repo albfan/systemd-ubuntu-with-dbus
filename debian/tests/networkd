@@ -179,8 +179,13 @@ DHCP=%s
         if os.path.islink('/etc/resolv.conf'):
             for timeout in range(50):
                 with open('/etc/resolv.conf') as f:
-                    if 'nameserver 192.168.5.1\n' in f.read():
-                        break
+                    contents = f.read()
+                if 'nameserver 192.168.5.1\n' in contents:
+                    break
+                # resolv.conf can have at most three nameservers; if we already
+                # have three different ones, that's also okay
+                if contents.count('nameserver ') >= 3:
+                    break
                 time.sleep(0.1)
             else:
                 self.show_journal('systemd-networkd-resolvconf-update.service')

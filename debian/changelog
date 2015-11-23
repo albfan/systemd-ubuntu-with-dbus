@@ -14,6 +14,8 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/tests/boot-and-services: Wait until bash crash stack trace is in
     the journal before asserting on it. Also relax RE to work on non-x86
     architectures.
+  * debian/tests/networkd: If /etc/resolv.conf already has three nameservers,
+    accept that too (as then the additional test one can't be added any more).
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
