@@ -7,6 +7,6 @@ After=resolvconf.service
 [Service]
 Type=oneshot
 StartLimitBurst=20
-# we need to wait for "online" here, as we might be triggered several times in short succession during restarting networkd
-ExecStart=/bin/sh -c 'if /lib/systemd/systemd-networkd-wait-online --timeout=30; then sed -n "/^DNS=/ { s/^DNS=/nameserver /; p}" /run/systemd/netif/state | /sbin/resolvconf -a networkd; fi'
+# we might be triggered several times in short succession during restarting networkd, so wait until we get a DNS entry
+ExecStart=/bin/sh -c 'for timeout in `seq 30`; do out=$(sed -n "/^DNS=/ { s/^DNS=/nameserver /; p}" /run/systemd/netif/state); [ -z "$out" ] || break; sleep 1; done; echo "$out" | /sbin/resolvconf -a networkd'
 
