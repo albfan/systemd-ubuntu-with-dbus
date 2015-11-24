@@ -24,7 +24,11 @@ systemd (228-3) UNRELEASED; urgency=medium
   * Make sure all swap units are ordered before the swap target. This avoids
     that swap devices are being stopped prematurely during shutdown.
     (Closes: #805133)
-
+  * Drop unneeded /etc/X11/xinit/xinitrc.d/50-systemd-user.sh from the package
+    and clean up the conffile on upgrades. We have the dbus-user-session
+    package in Debian to properly enable the D-Bus user-session mode which
+    also takes care of updating the systemd --user environment.
+    (Closes: #795761)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 12:09:17 +0100
 

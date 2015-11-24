@@ -159,6 +159,7 @@ override_dh_install:
 	rm -rf debian/install/*/usr/lib/rpm/
 	rm -rf debian/install/*/etc/kernel/
 	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
+	rm -f debian/install/*/etc/X11/xinit/xinitrc.d/50-systemd-user.sh
 	find debian/install/ -name '*.la' -delete
 	# remove files related to factory-reset feature
 	find debian/install/ \( -name 'systemd-update-done*' -o \
