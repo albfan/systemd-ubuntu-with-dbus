@@ -1,8 +1,11 @@
+## Cherry-picked from upstream
 networkd-ndisc-revert-to-letting-the-kernel-handle-NDisc.patch
 networkd-dhcp4-dirty-link-when-the-lease-changes.patch
 test-remove-wrong-endianess-conversion-in-test-siphash24.patch
 basic-fix-build-on-architectures-with-small-long.patch
 make-sure-all-swap-units-are-ordered-before-the-swap-targ.patch
+
+## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
