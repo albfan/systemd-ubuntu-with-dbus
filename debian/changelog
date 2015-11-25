@@ -59,6 +59,9 @@ systemd (228-3) UNRELEASED; urgency=medium
   * Drop networking.service.d/systemd.conf. The ifupdown package now ships a
     proper service file so this drop-in file is no longer necessary.
 
+  [ Andreas Henriksson ]
+  * Fix LSB init hook to not reload masked services. (Closes: #804882)
+
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 12:09:17 +0100
 
 systemd (228-2) unstable; urgency=medium
