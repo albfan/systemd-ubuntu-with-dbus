@@ -17,6 +17,9 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/tests/networkd: If /etc/resolv.conf already has three nameservers,
     accept that too (as then the additional test one can't be added any more).
   * Fix FTBFS on x32. Thanks Helmut Grohne! (Closes: #805910)
+  * debian/tests/networkd: For IPv6 tests, also wait for IPv4 address to
+    arrive; s-n-wait-online already exits after getting an IPv6 address, but
+    we verify both.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
