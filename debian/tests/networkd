@@ -298,7 +298,7 @@ mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
 mount -t tmpfs none /run/systemd/network
 mount -t tmpfs none /run/systemd/netif
-mount -t tmpfs none /run/dbus
+[ ! -e /run/dbus ] || mount -t tmpfs none /run/dbus
 # create router/client veth pair
 cat << EOF > /run/systemd/network/test.netdev
 [NetDev]
