@@ -20,6 +20,9 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/tests/networkd: For IPv6 tests, also wait for IPv4 address to
     arrive; s-n-wait-online already exits after getting an IPv6 address, but
     we verify both.
+  * debian/tests/boot-and-services: Don't check for "Requesting system
+    poweroff" log message in nspawn test, current upstream master does not
+    write that any more. Instead check for "Stopped Container c1".
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
