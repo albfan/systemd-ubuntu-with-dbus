@@ -14,6 +14,10 @@ Tests: unit-config
 Depends: systemd, python3
 Restrictions: needs-root, allow-stderr
 
+Tests: storage
+Depends: systemd, python3, cryptsetup-bin
+Restrictions: needs-root, isolation-machine
+
 Tests: networkd
 Depends: systemd-sysv, python3, dnsmasq-base
 Restrictions: needs-root, isolation-container
