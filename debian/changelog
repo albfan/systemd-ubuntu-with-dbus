@@ -25,6 +25,8 @@ systemd (228-3) UNRELEASED; urgency=medium
     write that any more. Instead check for "Stopped Container c1".
   * Add "storage" autopkgtest. Initially this covers some basic use cases with
     LUKS cryptsetup devices.
+  * Add acl build dependency (for <!nocheck>). Current upstream master now
+    needs it for some test cases.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
