@@ -62,6 +62,8 @@
 /dev/null /lib/systemd/system/sendsigs.service
 /dev/null /lib/systemd/system/halt.service
 /dev/null /lib/systemd/system/reboot.service
+/dev/null /lib/systemd/system/rc.service
+/dev/null /lib/systemd/system/rcS.service
 
 # The motd SysV init script is no longer required to create the dynamic part of
 # /etc/motd to display the uname information as pam_exec is used for that now.
