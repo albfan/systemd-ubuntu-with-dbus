@@ -47,7 +47,7 @@ systemd (228-3) UNRELEASED; urgency=medium
 
 systemd (228-2) unstable; urgency=medium
 
-  * Remove wrong endianess conversion in test-siphash24 to fix FTBFS on
+  * Remove wrong endianness conversion in test-siphash24 to fix FTBFS on
     big-endian machines.
   * Bump libseccomp-dev build dependency to indicate required versions for
     backporting to jessie. (Closes: #805497)
@@ -1875,7 +1875,7 @@ systemd (215-3) experimental; urgency=medium
 systemd (215-2) experimental; urgency=medium
 
   * debian/patches/always-check-for-__BYTE_ORDER-__BIG_ENDIAN-when-chec.patch
-    + Added. Fix checking of system endianess. Fixes FTBFS on powerpc
+    + Added. Fix checking of system endianness. Fixes FTBFS on powerpc
   * debian/patches/timesyncd-when-we-don-t-know-anything-about-the-netw.patch:
     + Let timesyncd go online even if networkd isn't running (from upstream
       git) (Closes: #760087)
