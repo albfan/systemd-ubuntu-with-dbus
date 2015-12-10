@@ -1,4 +1,4 @@
-systemd (228-2ubuntu2) UNRELEASED; urgency=medium
+systemd (228-2ubuntu2) xenial; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Hack to support system-image read-only /etc, and modify files in
@@ -37,7 +37,7 @@ systemd (228-2ubuntu2) UNRELEASED; urgency=medium
     - Break lvm (<< 2.02.133-1ubuntu1) and remove our dummy /etc/init.d/lvm2
       on upgrades, as it's shipped by lvm2 now.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 13 Nov 2015 08:45:51 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Dec 2015 16:56:42 +0100
 
 systemd (228-3) UNRELEASED; urgency=medium
 
