@@ -30,7 +30,6 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/extra/initramfs-tools/scripts/init-bottom/udev: Use "rm -rf"
     instead of "nuke". The latter does not exist any more in current
     initramfs-tools.
-  * debian/udev.prerm: Add missing "deconfigure" action.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
@@ -43,6 +42,7 @@ systemd (228-3) UNRELEASED; urgency=medium
     package in Debian to properly enable the D-Bus user-session mode which
     also takes care of updating the systemd --user environment.
     (Closes: #795761)
+  * Stop testing for unknown arguments in udev maintainer scripts.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 12:09:17 +0100
 

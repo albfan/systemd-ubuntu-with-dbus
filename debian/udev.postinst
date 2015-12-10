@@ -186,17 +186,9 @@ case "$1" in
     update_initramfs
     ;;
 
-    abort-upgrade|abort-remove|abort-deconfigure)
-    ;;
-
     triggered)
     update_hwdb
     exit 0
-    ;;
-
-    *)
-    echo "$0 called with unknown argument '$1'" >&2
-    exit 1
     ;;
 esac
 
