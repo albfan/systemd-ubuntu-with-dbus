@@ -27,6 +27,9 @@ systemd (228-3) UNRELEASED; urgency=medium
     LUKS cryptsetup devices.
   * Add acl build dependency (for <!nocheck>). Current upstream master now
     needs it for some test cases.
+  * debian/extra/initramfs-tools/scripts/init-bottom/udev: Use "rm -rf"
+    instead of "nuke". The latter does not exist any more in current
+    initramfs-tools.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
