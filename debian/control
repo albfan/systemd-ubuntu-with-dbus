@@ -297,6 +297,7 @@ Breaks: consolekit (<< 0.4.6-1),
         kmod (<< 14),
         plymouth (<< 0.9.0-7),
         bash-completion (<< 1:2.1),
+        lvm2 (<< 2.02.133-1ubuntu1),
         systemd (<< 224-2)
 Replaces: bash-completion (<< 1:2.1),
           systemd (<< 224-2)
