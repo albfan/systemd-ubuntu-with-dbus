@@ -311,6 +311,7 @@ Breaks: consolekit (<< 0.4.6-1),
         systemd (<< 224-2),
         ifupdown (<< 0.8.5~),
         lvm2 (<< 2.02.133-1ubuntu1),
+        mdadm (<< 3.3-2ubuntu3),
 Replaces: bash-completion (<< 1:2.1),
           systemd (<< 224-2)
 Description: /dev/ and hotplug management daemon

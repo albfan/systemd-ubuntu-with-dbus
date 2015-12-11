@@ -17,6 +17,8 @@ systemd (229-4ubuntu1) UNRELEASED; urgency=medium
     - Provide shutdown fallback for upstart. (LP: #1370329)
     - Break lvm (<< 2.02.133-1ubuntu1) and remove our dummy /etc/init.d/lvm2
       on upgrades, as it's shipped by lvm2 now.
+    - Make udev break on mdadm << 3.3-2ubuntu3, as udev's init script dropped
+      the "Provides: raid-mdadm".
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:13:25 +0200
 
