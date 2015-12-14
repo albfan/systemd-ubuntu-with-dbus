@@ -30,6 +30,8 @@ systemd (228-3) UNRELEASED; urgency=medium
   * debian/extra/initramfs-tools/scripts/init-bottom/udev: Use "rm -rf"
     instead of "nuke". The latter does not exist any more in current
     initramfs-tools.
+  * Ignore test failures during "make check" if /etc/machine-id is missing
+    (like in ancient local schroots). (Closes: #807884)
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

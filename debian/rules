@@ -263,6 +263,7 @@ ifeq (, $(filter nocheck, $(DEB_BUILD_OPTIONS)))
 	env -u LD_PRELOAD make -C build-deb check || ( \
 		cd build-deb; \
 		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done; \
+		if [ ! -e /etc/machine-id ]; then echo "/etc/machine-id missing, ignoring test failures"; exit 0; fi; \
 		if linux-version compare "$$(uname -r)" ge 3.13; then \
 		    exit 1; \
 		else \
