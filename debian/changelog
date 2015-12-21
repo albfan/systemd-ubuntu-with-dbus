@@ -45,6 +45,8 @@ systemd (228-3) UNRELEASED; urgency=medium
     also takes care of updating the systemd --user environment.
     (Closes: #795761)
   * Stop testing for unknown arguments in udev maintainer scripts.
+  * Drop networking.service.d/systemd.conf. The ifupdown package now ships a
+    proper service file so this drop-in file is no longer necessary.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 12:09:17 +0100
 
