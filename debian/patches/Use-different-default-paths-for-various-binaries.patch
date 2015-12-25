@@ -12,8 +12,6 @@ Closes: #721347
  configure.ac | 14 +++++++-------
  1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/configure.ac b/configure.ac
-index 5fd73c5..8455142 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -94,16 +94,16 @@ AC_PROG_AWK
@@ -38,19 +36,3 @@ index 5fd73c5..8455142 100644
  
  AC_PATH_PROG([SULOGIN], [sulogin], [/usr/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
  
-@@ -1251,13 +1251,13 @@ AC_ARG_WITH(kbd-loadkeys,
-         AS_HELP_STRING([--with-kbd-loadkeys=PATH],
-                 [Path to loadkeys]),
-         [KBD_LOADKEYS="$withval"],
--        [KBD_LOADKEYS="/usr/bin/loadkeys"])
-+        [KBD_LOADKEYS="/bin/loadkeys"])
- 
- AC_ARG_WITH(kbd-setfont,
-         AS_HELP_STRING([--with-kbd-setfont=PATH],
-                 [Path to setfont]),
-         [KBD_SETFONT="$withval"],
--        [KBD_SETFONT="/usr/bin/setfont"])
-+        [KBD_SETFONT="/bin/setfont"])
- 
- AC_DEFINE_UNQUOTED(KBD_LOADKEYS, ["$KBD_LOADKEYS"], [Path of loadkeys])
- AC_DEFINE_UNQUOTED(KBD_SETFONT, ["$KBD_SETFONT"], [Path of setfont])

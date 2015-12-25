@@ -33,6 +33,8 @@ CONFFLAGS = \
 	--with-sysvinit-path=/etc/init.d \
 	--with-sysvrcnd-path=/etc \
 	--with-debug-shell=/bin/bash \
+	--with-kbd-loadkeys=/bin/loadkeys \
+	--with-kbd-setfont=/bin/setfont \
 	--with-telinit=/lib/sysvinit/telinit \
 	--enable-split-usr \
 	--disable-compat-libs \
