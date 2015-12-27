@@ -36,6 +36,9 @@ systemd (228-3) UNRELEASED; urgency=medium
     "cdrw", "dvd", or "dvdrw" symlink to avoid changing links on device
     events. (Closes: #774080). Drop the rule for the "cdrom" symlink as that
     is already created in 60-cdrom_id.rules.
+  * Eliminate "hotplug.functions" udev helper and put the logging functions
+    directly into net.agent. This simplifies the migration of the latter to
+    ifupdown.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

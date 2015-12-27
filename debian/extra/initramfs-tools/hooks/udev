@@ -50,7 +50,6 @@ for rules in /etc/udev/rules.d/*.rules; do
   fi
 done
 
-cp /lib/udev/hotplug.functions $DESTDIR/lib/udev/
 for program in ata_id scsi_id; do
   copy_exec /lib/udev/$program /lib/udev
 done

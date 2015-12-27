@@ -3,7 +3,31 @@
 # run /sbin/{ifup,ifdown} with the --allow=hotplug option.
 #
 
-. /lib/udev/hotplug.functions
+PATH='/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin'
+
+if [ -x /usr/bin/logger ]; then
+	LOGGER=/usr/bin/logger
+elif [ -x /bin/logger ]; then
+	LOGGER=/bin/logger
+else
+	unset LOGGER
+fi
+
+# for diagnostics
+if [ -t 1 -a -z "$LOGGER" ] || [ ! -e '/dev/log' ]; then
+	mesg() {
+		echo "$@" >&2
+	}
+elif [ -t 1 ]; then
+	mesg() {
+		echo "$@"
+		$LOGGER -t "${0##*/}[$$]" "$@"
+	}
+else
+	mesg() {
+		$LOGGER -t "${0##*/}[$$]" "$@"
+	}
+fi
 
 if [ -z "$INTERFACE" ]; then
     mesg "Bad net.agent invocation: \$INTERFACE is not set"
@@ -45,7 +69,7 @@ net_ifup() {
 
     local out=$(ps -C ifup ho args)
     if [ "${out%$INTERFACE*}" != "$out" ]; then
-        debug_mesg "Already ifup-ing interface $INTERFACE"
+        mesg "Already ifup-ing interface $INTERFACE"
         exit 0
     fi
 
@@ -65,7 +89,7 @@ net_ifdown() {
 
     local out=$(ps -C ifdown ho args)
     if [ "${out%$INTERFACE*}" != "$out" ]; then
-	debug_mesg "Already ifdown-ing interface $INTERFACE"
+	mesg "Already ifdown-ing interface $INTERFACE"
 	exit 0
     fi
 
@@ -96,7 +120,7 @@ case "$ACTION" in
     ;;
 
     *)
-    debug_mesg "NET $ACTION event not supported"
+    mesg "NET $ACTION event not supported"
     exit 1
     ;;
 esac
