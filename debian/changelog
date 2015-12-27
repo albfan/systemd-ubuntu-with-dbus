@@ -32,6 +32,10 @@ systemd (228-3) UNRELEASED; urgency=medium
     initramfs-tools.
   * Ignore test failures during "make check" if /etc/machine-id is missing
     (like in ancient local schroots). (Closes: #807884)
+  * debian/extra/rules/80-debian-compat.rules: Remember which device got the
+    "cdrw", "dvd", or "dvdrw" symlink to avoid changing links on device
+    events. (Closes: #774080). Drop the rule for the "cdrom" symlink as that
+    is already created in 60-cdrom_id.rules.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.
