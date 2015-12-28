@@ -43,6 +43,8 @@ systemd (228-3) UNRELEASED; urgency=medium
     paths, only keep /lib/systemd/{system*,network}. (Closes: #808997)
   * debian/udev.README.Debian: Fix typo and slight wording improvement.
     (Closes: #809513)
+  * Drop net.agent, 80-networking.rules, and ifup@.service. These moved to
+    ifupdown 0.8.5 now. Add Breaks: to earlier versions.
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

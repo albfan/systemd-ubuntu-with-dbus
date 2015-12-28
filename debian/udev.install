@@ -21,5 +21,4 @@ usr/share/pkgconfig/udev.pc
 ../../extra/rules/*.rules lib/udev/rules.d/
 #../../extra/*.hwdb lib/udev/hwdb.d/
 ../../extra/fbdev-blacklist.conf etc/modprobe.d/
-../../extra/udev-helpers/* lib/udev/
 ../../extra/*.link lib/systemd/network/

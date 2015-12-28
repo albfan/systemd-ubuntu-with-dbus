@@ -98,15 +98,6 @@ interfaces. These can be customized in two different ways:
    policy, and /lib/systemd/network/01-mac-for-usb.link makes it use MAC based
    names for USB devices.
 
-Hotplugged Network Interfaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-After receiving events about network interfaces, net.agent will call
-ifupdown using the --allow=hotplug option. This makes the program act
-only on interfaces marked with the "allow-hotplug" statement.
-E.g: "allow-hotplug eth0" instead of the usual "auto eth0".
-Under SysVinit, the loopback interface must always be configured with "auto
-lo". Under systemd it is not necessary to explicitly configure "lo".
-
 Using udev with LDAP or NIS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If the rules files reference usernames or groups not present in the
