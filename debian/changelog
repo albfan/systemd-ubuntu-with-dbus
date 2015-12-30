@@ -39,6 +39,8 @@ systemd (228-3) UNRELEASED; urgency=medium
   * Eliminate "hotplug.functions" udev helper and put the logging functions
     directly into net.agent. This simplifies the migration of the latter to
     ifupdown.
+  * Adjust manpages to keep /usr/lib/systemd/{user*,boot,ntp-units.d,modules*}
+    paths, only keep /lib/systemd/{system*,network}. (Closes: #808997)
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

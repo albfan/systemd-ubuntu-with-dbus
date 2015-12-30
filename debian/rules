@@ -134,7 +134,7 @@ endif
 	# fix paths in manpages; manually check the remaining /usr occurrences
 	# occasionally, with filtering out paths which are known to be in /usr:
 	# grep -r /usr debian/install/deb/usr/share/man/|egrep -v '/usr/local|os.*release|factory|zoneinfo|tmpfiles|kernel|foo|machines|sysctl|dbus|include|binfmt'
-	find debian/install/deb/usr/share/man/ -type f | xargs sed -ri 's_/usr(/lib/systemd|/lib/udev|/lib/modules-load.d|/lib/modules\\-load|/lib[^/]|/lib/[^a-z])_\1_g'
+	find debian/install/deb/usr/share/man/ -type f | xargs sed -ri 's_/usr(/lib/systemd/system|/lib/systemd/network|/lib/udev|/lib[^/]|/lib/[^a-z])_\1_g'
 
 override_dh_auto_clean:
 	dh_auto_clean --builddirectory=build-deb
