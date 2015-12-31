@@ -41,6 +41,8 @@ systemd (228-3) UNRELEASED; urgency=medium
     ifupdown.
   * Adjust manpages to keep /usr/lib/systemd/{user*,boot,ntp-units.d,modules*}
     paths, only keep /lib/systemd/{system*,network}. (Closes: #808997)
+  * debian/udev.README.Debian: Fix typo and slight wording improvement.
+    (Closes: #809513)
 
   [ Michael Biebl ]
   * Bump Build-Depends on libdw-dev to (>= 0.158) as per configure.ac.

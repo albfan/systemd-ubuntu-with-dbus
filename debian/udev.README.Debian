@@ -51,7 +51,7 @@ First, determine all relevant network interface names: those in
 /etc/udev/rules.d/70-persistent-net.rules, or if that does not exist (in
 virtual machines), in "ip link" or /sys/class/net/.
 
-Then for all of thse use a command like
+Then for every interface name use a command like
 
   grep -r eth0 /etc
 
