@@ -1,4 +1,4 @@
-systemd (228-3) UNRELEASED; urgency=medium
+systemd (228-3) unstable; urgency=medium
 
   [ Martin Pitt ]
   * debian/rules: Remove temporary debug output from test failures again. All
@@ -64,7 +64,7 @@ systemd (228-3) UNRELEASED; urgency=medium
   [ Andreas Henriksson ]
   * Fix LSB init hook to not reload masked services. (Closes: #804882)
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 19 Nov 2015 12:09:17 +0100
+ -- Martin Pitt <mpitt@debian.org>  Sat, 02 Jan 2016 17:42:56 +0100
 
 systemd (228-2) unstable; urgency=medium
 
