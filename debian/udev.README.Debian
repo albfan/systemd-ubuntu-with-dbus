@@ -19,14 +19,14 @@ covered by the old 75-persistent-net-generator.rules will keep their interface
 names, see below.
 
 You can disable these stable names and go back to the kernel-provided ones
-(which don't have a stable order) by either
+(which don't have a stable order) in one of two ways:
 
-  - putting "net.ifnames=0" into the kernel command line (e. g. in
-    /etc/default/grub's GRUB_CMDLINE_LINUX_DEFAULT), or
+  - Put "net.ifnames=0" into the kernel command line (e. g. in
+    /etc/default/grub's GRUB_CMDLINE_LINUX_DEFAULT, then run "update-grub").
 
-  - ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules
-
-In both cases you *must* rebuild the initrd with "update-initramfs -u".
+  - Disable the default *.link rules with
+    "ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules"
+    and rebuild the initrd with "update-initramfs -u".
 
 See this page for more information:
 http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/

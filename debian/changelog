@@ -1,7 +1,7 @@
 systemd (228-4) UNRELEASED; urgency=medium
 
-  * debian/udev.README.Debian: Add alternative way of disabling ifnames, and
-    point out that you must rebuild the initrd. (Closes: #809339)
+  * debian/udev.README.Debian: Add alternative way of disabling ifnames.
+    (Closes: #809339)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 Jan 2016 12:40:58 +0100
 
