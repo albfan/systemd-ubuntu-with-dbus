@@ -2,6 +2,8 @@ systemd (228-4) UNRELEASED; urgency=medium
 
   * debian/udev.README.Debian: Add alternative way of disabling ifnames.
     (Closes: #809339)
+  * Put back /lib/udev/hotplug.functions, until the three remaining packages
+    that use it stop doing so. (Closes: #810114)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 05 Jan 2016 12:40:58 +0100
 
