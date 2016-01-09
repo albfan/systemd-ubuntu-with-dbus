@@ -104,6 +104,9 @@ interfaces. These can be customized in two different ways:
    policy, and /lib/systemd/network/01-mac-for-usb.link makes it use MAC based
    names for USB devices.
 
+Any of the above changes require an initrd update with "update-initramfs -u" to
+get effective.
+
 Using udev with LDAP or NIS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If the rules files reference usernames or groups not present in the
