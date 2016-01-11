@@ -1,4 +1,4 @@
-systemd (228-4) UNRELEASED; urgency=medium
+systemd (228-4) unstable; urgency=medium
 
   * debian/udev.README.Debian: Add alternative way of disabling ifnames.
     (Closes: #809339)
@@ -7,7 +7,7 @@ systemd (228-4) UNRELEASED; urgency=medium
   * debian/udev.README.Debian: Point out that any change to interface naming
     rules requires an initrd update.
 
- -- Martin Pitt <mpitt@debian.org>  Tue, 05 Jan 2016 12:40:58 +0100
+ -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 07:12:40 +0100
 
 systemd (228-3) unstable; urgency=medium
 
