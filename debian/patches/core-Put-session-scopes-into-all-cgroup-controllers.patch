@@ -22,14 +22,14 @@ https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt for details.
 
 https://launchpad.net/bugs/1346734
 ---
- src/basic/cgroup-util.c | 56 ++++++++++++++++++++++++++++++++++++++++++++++++-
- src/basic/cgroup-util.h | 20 ++++++++++++------
+ src/basic/cgroup-util.c | 57 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ src/basic/cgroup-util.h | 21 ++++++++++++------
  src/core/cgroup.c       |  9 ++++++++
  src/core/scope.c        | 15 +++++++++++++
- 4 files changed, 93 insertions(+), 7 deletions(-)
+ 4 files changed, 95 insertions(+), 7 deletions(-)
 
 diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
-index 8b49701..e00fe3f 100644
+index 8b49701..0a33e6b 100644
 --- a/src/basic/cgroup-util.c
 +++ b/src/basic/cgroup-util.c
 @@ -612,6 +612,27 @@ int cg_create(const char *controller, const char *path) {
@@ -60,7 +60,7 @@ index 8b49701..e00fe3f 100644
  int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
          int r, q;
  
-@@ -1724,7 +1745,13 @@ static const char mask_names[] =
+@@ -1724,7 +1745,14 @@ static const char mask_names[] =
          "cpuacct\0"
          "blkio\0"
          "memory\0"
@@ -71,11 +71,12 @@ index 8b49701..e00fe3f 100644
 +        "net_cls\0"
 +        "net_prio\0"
 +        "freezer\0"
-+        "perf_event\0";
++        "perf_event\0"
++        "pids\0";
  
  int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path) {
          CGroupControllerMask bit = 1;
-@@ -1751,6 +1778,33 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
+@@ -1751,6 +1779,33 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
          return 0;
  }
  
@@ -110,10 +111,10 @@ index 8b49701..e00fe3f 100644
          CGroupControllerMask bit = 1;
          const char *n;
 diff --git a/src/basic/cgroup-util.h b/src/basic/cgroup-util.h
-index fd72e9e..977e7aa 100644
+index fd72e9e..a2cb269 100644
 --- a/src/basic/cgroup-util.h
 +++ b/src/basic/cgroup-util.h
-@@ -30,12 +30,18 @@
+@@ -30,12 +30,19 @@
  
  /* A bit mask of well known cgroup controllers */
  typedef enum CGroupControllerMask {
@@ -134,11 +135,12 @@ index fd72e9e..977e7aa 100644
 +        CGROUP_NET_PRIO = (1 << 8),
 +        CGROUP_FREEZER = (1 << 9),
 +        CGROUP_PERF_EVENT = (1 << 10),
-+        _CGROUP_CONTROLLER_MASK_ALL = (1 << 11) - 1
++        CGROUP_PERF_PIDS = (1 << 11),
++        _CGROUP_CONTROLLER_MASK_ALL = (1 << 12) - 1
  } CGroupControllerMask;
  
  /*
-@@ -80,6 +86,7 @@ int cg_rmdir(const char *controller, const char *path);
+@@ -80,6 +87,7 @@ int cg_rmdir(const char *controller, const char *path);
  int cg_delete(const char *controller, const char *path);
  
  int cg_create(const char *controller, const char *path);
@@ -146,7 +148,7 @@ index fd72e9e..977e7aa 100644
  int cg_attach(const char *controller, const char *path, pid_t pid);
  int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
  int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
-@@ -129,6 +136,7 @@ int cg_slice_to_path(const char *unit, char **ret);
+@@ -129,6 +137,7 @@ int cg_slice_to_path(const char *unit, char **ret);
  typedef const char* (*cg_migrate_callback_t)(CGroupControllerMask mask, void *userdata);
  
  int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);

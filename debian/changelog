@@ -1,3 +1,10 @@
+systemd (225-1ubuntu10) UNRELEASED; urgency=medium
+
+  * Add "pids" cgroup controller to user LXC support patch. Fixes running with
+    newer kernels. (LP: #1533833)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 18 Jan 2016 17:38:20 +0100
+
 systemd (225-1ubuntu9) wily; urgency=medium
 
   * debian/tests/logind: Ignore non-zero exit code of shutdown -c in the new
