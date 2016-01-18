@@ -2,9 +2,7 @@ systemd (228-5) UNRELEASED; urgency=medium
 
   * Drop systemd-vconsole-setup.service: It has never been installed/used in
     Debian and is not necessary for Ubuntu any more.
-  * Use /etc/halt.local instead of /usr/sbin/halt.local for
-    halt-local.service. This has never been documented in Debian, but
-    /usr/sbin is a bad place for this and this corresponds to /etc/rc.local.
+  * Drop halt-local.service. This has never been documented/used in Debian.
     (LP: #1532553)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100

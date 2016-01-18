@@ -24,7 +24,6 @@ CONFFLAGS = \
 	--with-sysvrcnd-path=/etc \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
-	--with-rc-local-script-path-stop=/etc/halt.local \
 	--enable-split-usr \
 	--disable-compat-libs \
 	--disable-qrencode \
@@ -161,6 +160,7 @@ override_dh_install:
 	rm -rf debian/install/*/etc/kernel/
 	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
 	rm -f debian/install/*/etc/X11/xinit/xinitrc.d/50-systemd-user.sh
+	rm -f debian/install/*/lib/systemd/system/halt-local.service
 	find debian/install/ -name '*.la' -delete
 	# remove files related to factory-reset feature
 	find debian/install/ \( -name 'systemd-update-done*' -o \
