@@ -18,6 +18,10 @@ udevadm control --exit
 mount -n -o move /dev ${rootmnt}/dev
 
 # create a temporary symlink to the final /dev for other initramfs scripts
-rm -rf /dev
+if command -v nuke >/dev/null; then
+    nuke /dev
+else
+    rm -rf /dev
+fi
 ln -s ${rootmnt}/dev /dev
 

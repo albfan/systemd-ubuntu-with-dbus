@@ -4,6 +4,9 @@ systemd (228-5) UNRELEASED; urgency=medium
     Debian and is not necessary for Ubuntu any more.
   * Drop halt-local.service. This has never been documented/used in Debian.
     (LP: #1532553)
+  * debian/extra/initramfs-tools/scripts/init-bottom/udev: Prefer "nuke"
+    again, it comes from klibc-utils. But fall back to "rm" if it does not
+    exist.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
