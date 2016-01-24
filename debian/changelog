@@ -7,6 +7,9 @@ systemd (228-5) UNRELEASED; urgency=medium
   * debian/extra/initramfs-tools/scripts/init-bottom/udev: Prefer "nuke"
     again, it comes from klibc-utils. But fall back to "rm" if it does not
     exist.
+  * systemd-timesyncd.service.d/disable-with-time-daemon.conf: Also don't run
+    if /usr/sbin/VBoxService exists, as virtualbox-guest-utils already
+    provides time synchronization with the host. (Closes: #812522)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
