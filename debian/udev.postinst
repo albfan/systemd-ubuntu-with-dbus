@@ -88,6 +88,12 @@ Driver=virtio_net
 NamePolicy=onboard kernel
 EOF
   fi
+
+  # this is being written under upstart, but not under systemd; clean up
+  # obsolete files
+  if [ -d /run/systemd/system ]; then
+      rm -f /var/log/udev
+  fi
 }
 
 update_hwdb() {
