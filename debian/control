@@ -4,7 +4,6 @@ Priority: optional
 Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
 Uploaders: Michael Biebl <biebl@debian.org>,
            Marco d'Itri <md@linux.it>,
-           Michael Stapelberg <stapelberg@debian.org>,
            Sjoerd Simons <sjoerd@debian.org>,
            Martin Pitt <mpitt@debian.org>
 Standards-Version: 3.9.6

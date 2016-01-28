@@ -11,6 +11,8 @@ systemd (228-5) UNRELEASED; urgency=medium
   * systemd-timesyncd.service.d/disable-with-time-daemon.conf: Also don't run
     if /usr/sbin/VBoxService exists, as virtualbox-guest-utils already
     provides time synchronization with the host. (Closes: #812522)
+  * Drop Michael Stapelberg from Uploaders:, he stopped maintenance long ago.
+    Thanks Michael for your great work in the past!
 
   [ Michael Biebl ]
   * Drop support for the /etc/udev/disabled flag file. This was a workaround
