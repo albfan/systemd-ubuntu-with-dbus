@@ -1,5 +1,6 @@
 systemd (228-5) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Drop systemd-vconsole-setup.service: It has never been installed/used in
     Debian and is not necessary for Ubuntu any more.
   * Drop halt-local.service. This has never been documented/used in Debian.
@@ -10,6 +11,13 @@ systemd (228-5) UNRELEASED; urgency=medium
   * systemd-timesyncd.service.d/disable-with-time-daemon.conf: Also don't run
     if /usr/sbin/VBoxService exists, as virtualbox-guest-utils already
     provides time synchronization with the host. (Closes: #812522)
+
+  [ Michael Biebl ]
+  * Drop support for the /etc/udev/disabled flag file. This was a workaround
+    for udev failing to install with debootstrap because it didn't use
+    invoke-rc.d and therefor was not compliant with policy-rc.d. See #520742
+    for further details. This is no longer the case, so supporting that file
+    only leads to confusion about its purpose.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 

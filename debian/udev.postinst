@@ -52,11 +52,6 @@ can_start_udevd() {
     return 1
   fi
 
-  if [ -e /etc/udev/disabled ]; then
-    echo "/etc/udev/disabled has been detected, udev not started."
-    return 1
-  fi
-
   return 0
 }
 
