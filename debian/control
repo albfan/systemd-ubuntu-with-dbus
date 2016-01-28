@@ -64,7 +64,6 @@ Depends: ${shlibs:Depends},
          libsystemd0 (= ${binary:Version}),
          util-linux (>= 2.27.1),
          mount (>= 2.26),
-         sysv-rc,
          adduser,
          libcap2-bin
 Breaks: lvm2 (<< 2.02.104-1),
@@ -93,7 +92,9 @@ Multi-Arch: foreign
 Section: admin
 Priority: important
 Conflicts: sysvinit-core,
-           upstart
+           upstart,
+           openrc,
+           file-rc,
 Replaces: sysvinit (<< 2.88dsf-44~),
           sysvinit-core,
           upstart

@@ -13,6 +13,12 @@ systemd (228-5) UNRELEASED; urgency=medium
     provides time synchronization with the host. (Closes: #812522)
   * Drop Michael Stapelberg from Uploaders:, he stopped maintenance long ago.
     Thanks Michael for your great work in the past!
+  * Replace "sysv-rc" dependency with Conflicts: openrc, file-rc. The
+    rationale from #739679 still applies, but with the moving of
+    {invoke,update}-rc.d to init-system-helpers we don't actually need
+    anything from sysv-rc any more other than the assumption that SysV init
+    scripts are enabled in /etc/rc?.d/ for the SysV generator to work (and
+    file-rc and openrc don't do that).
 
   [ Michael Biebl ]
   * Drop support for the /etc/udev/disabled flag file. This was a workaround
