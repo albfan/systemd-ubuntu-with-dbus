@@ -71,6 +71,8 @@ Breaks: lvm2 (<< 2.02.104-1),
         apparmor (<< 2.9.2-1),
         systemd-shim (<< 8-2),
         ifupdown (<< 0.8.5~),
+        systemd (<< 228-5),
+Replaces: systemd (<< 228-5),
 Conflicts: klogd
 Description: system and service manager
  systemd is a system and service manager for Linux. It provides aggressive

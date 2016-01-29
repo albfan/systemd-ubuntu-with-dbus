@@ -29,6 +29,9 @@ systemd (228-5) UNRELEASED; urgency=medium
   * Retrigger cleanup of org.freedesktop.machine1.conf and
     hwclock-save.service now that dpkg has been fixed to correctly pass the
     old version to postinst on upgrade. (Closes: #802545)
+  * Only ship *.link files as part of the udev package. The *.network files
+    are solely used by systemd-networkd and should therefor be shipped by the
+    systemd package. (Closes: #808237)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
