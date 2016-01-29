@@ -194,7 +194,8 @@ Multi-Arch: same
 Section: admin
 Priority: extra
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
 Breaks: systemd (<< 222-1)
 Replaces: systemd (<< 222-1)
 Description: nss module providing fallback resolution for the current hostname
@@ -216,7 +217,8 @@ Multi-Arch: same
 Section: admin
 Priority: extra
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
 Breaks: systemd (<< 222-1)
 Replaces: systemd (<< 222-1)
 Description: nss module to resolve hostnames for local container instances
@@ -230,12 +232,14 @@ Description: nss module to resolve hostnames for local container instances
 Package: libnss-resolve
 Architecture: linux-any
 Multi-Arch: same
-Replaces: systemd (<< 227-3)
-Breaks: systemd (<< 227-3)
 Section: admin
 Priority: extra
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}, systemd
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         systemd,
+Breaks: systemd (<< 227-3)
+Replaces: systemd (<< 227-3)
 Description: nss module to resolve names via systemd-resolved
  nss-resolve is a plugin for the GNU Name Service Switch (NSS) functionality
  of the GNU C Library (glibc) providing DNS and LLMNR resolution to programs via
