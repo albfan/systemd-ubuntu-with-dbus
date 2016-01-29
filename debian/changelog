@@ -21,6 +21,8 @@ systemd (228-5) UNRELEASED; urgency=medium
     file-rc and openrc don't do that).
   * debian/tests/timedated: Verify /etc/localtime symlink. Skip verifying the
     /etc/timezone file (which is Debian specific) if $TEST_UPSTREAM is set.
+  * debian/tests/localed-locale: Check /etc/locale.conf if $TEST_UPSTREAM is
+    set.
 
   [ Michael Biebl ]
   * Drop support for the /etc/udev/disabled flag file. This was a workaround
