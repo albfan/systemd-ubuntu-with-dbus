@@ -141,7 +141,7 @@ if [ -n "$2" ]; then
 fi
 
 # Cleanup hwclock-save.service, which was shipped in jessie.
-if dpkg --compare-versions "$2" lt-nl "219-8"; then
+if dpkg --compare-versions "$2" lt-nl "228-5~"; then
    for t in reboot halt poweroff ; do
        rm -f /etc/systemd/system/${t}.target.wants/hwclock-save.service
        rmdir --ignore-fail-on-non-empty /etc/systemd/system/${t}.target.wants 2> /dev/null || true

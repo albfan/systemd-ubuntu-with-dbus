@@ -26,6 +26,9 @@ systemd (228-5) UNRELEASED; urgency=medium
     invoke-rc.d and therefor was not compliant with policy-rc.d. See #520742
     for further details. This is no longer the case, so supporting that file
     only leads to confusion about its purpose.
+  * Retrigger cleanup of org.freedesktop.machine1.conf and
+    hwclock-save.service now that dpkg has been fixed to correctly pass the
+    old version to postinst on upgrade. (Closes: #802545)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
