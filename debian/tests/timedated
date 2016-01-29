@@ -11,9 +11,12 @@ assert_in "Local time:" "`timedatectl --no-pager`"
 
 # change timezone
 assert_eq "`timedatectl --no-pager set-timezone Europe/Moscow 2>&1`" ""
-assert_eq "`cat /etc/timezone`" "Europe/Moscow"
+assert_eq "`readlink /etc/localtime | sed 's#^.*zoneinfo/##'`" "Europe/Moscow"
+[ -n "$TEST_UPSTREAM" ] || assert_eq "`cat /etc/timezone`" "Europe/Moscow"
 assert_in "Time.*zone: Europe/Moscow (MSK, +" "`timedatectl --no-pager`"
 
 # reset timezone to original
 assert_eq "`timedatectl  --no-pager set-timezone $ORIG_TZ 2>&1`" ""
-assert_eq "`cat /etc/timezone`" "$ORIG_TZ"
+assert_eq "`readlink /etc/localtime | sed 's#^.*zoneinfo/##'`" "$ORIG_TZ"
+[ -n "$TEST_UPSTREAM" ] || assert_eq "`cat /etc/timezone`" "$ORIG_TZ"
+
