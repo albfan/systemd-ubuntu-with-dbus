@@ -124,11 +124,11 @@ Architecture: linux-any
 Multi-Arch: foreign
 Section: admin
 Priority: optional
-Conflicts: systemd (<< 224-2)
-Replaces: systemd (<< 224-2)
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd
+Breaks: systemd (<< 224-2)
+Replaces: systemd (<< 224-2)
 Description: systemd container/nspawn tools
  This package provides systemd's tools for nspawn and container/VM management:
   * systemd-nspawn
