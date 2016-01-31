@@ -75,6 +75,8 @@ class ServicesTest(unittest.TestCase):
         self.assertNotEqual(b'', out)
         self.active_unit('systemd-logind')
 
+    @unittest.skipIf('TEST_UPSTREAM' in os.environ,
+                     'Forwarding to rsyslog is a Debian patch')
     def test_rsyslog(self):
         out = subprocess.check_output(['ps', 'u', '-C', 'rsyslogd'])
         self.assertIn(b'bin/rsyslogd', out)
@@ -115,6 +117,8 @@ class ServicesTest(unittest.TestCase):
             self.assertEqual(status, 3, status_out)
             self.assertNotEqual(findmnt, 0)
 
+    @unittest.skipIf('TEST_UPSTREAM' in os.environ,
+                     'Debian specific configuration, N/A for upstream')
     def test_tmp_cleanup(self):
         # systemd-tmpfiles-clean.timer only runs 15 mins after boot, shortcut
         # it
@@ -352,6 +356,8 @@ ExecStart=/bin/sleep 500
         subprocess.check_call(['systemctl', 'stop', self.service])
         self.assertNoControllers()
 
+    @unittest.skipIf('TEST_UPSTREAM' in os.environ,
+                     'fix not applied upstream')
     def test_custom_cgroup_cleanup(self):
         '''cgroup cleanup does not touch manually created cgroups'''
 
@@ -469,6 +475,15 @@ def pre_boot_setup():
         Identifier "test"
         Driver "dummy"
 EndSection''')
+
+    # FIXME: sort this out upstream
+    if 'TEST_UPSTREAM' in os.environ:
+        # https://github.com/systemd/systemd/pull/2491
+        subprocess.check_call(['sed', '-i', 's/root lock/root root/',
+                               '/usr/lib/tmpfiles.d/legacy.conf'])
+        # https://github.com/systemd/systemd/issues/2492
+        subprocess.check_call(['sed', '-ri', 's/,(d:)?group:wheel.*//',
+                               '/usr/lib/tmpfiles.d/systemd.conf'])
 
 
 if __name__ == '__main__':
