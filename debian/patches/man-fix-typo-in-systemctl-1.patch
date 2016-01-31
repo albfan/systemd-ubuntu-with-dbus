@@ -1,0 +1,22 @@
+From: Michael Biebl <biebl@debian.org>
+Date: Mon, 21 Dec 2015 11:54:41 +0100
+Subject: man: fix typo in systemctl(1)
+
+(cherry-picked from commit 4559a7218c3c39b1d34ec25626e8dccb310ffb95)
+---
+ man/systemctl.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index 755a74f..9c8eaab 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -832,7 +832,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+             output. If you are looking for computer-parsable output,
+             use <command>show</command> instead. By default, this
+             function only shows 10 lines of output and ellipsizes
+-            lines to fit in the terminal window. This can be changes
++            lines to fit in the terminal window. This can be changed
+             with <option>--lines</option> and <option>--full</option>,
+             see above. In addition, <command>journalctl
+             --unit=<replaceable>NAME</replaceable></command> or

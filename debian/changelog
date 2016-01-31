@@ -32,6 +32,13 @@ systemd (228-5) UNRELEASED; urgency=medium
   * Only ship *.link files as part of the udev package. The *.network files
     are solely used by systemd-networkd and should therefor be shipped by the
     systemd package. (Closes: #808237)
+  * Cherry-pick a few fixes from upstream:
+    - Fix unaligned access in initialize_srand(). (Closes: #812928)
+    - Don't run kmod-static-nodes.service if module list is empty. This
+      requires kmod v23. (Closes: #810367)
+    - Fix typo in systemctl(1). (Closes: #807462)
+    - Fix systemd-nspawn --link-journal=host to not fail if the directory
+      already exists. (Closes: #808222)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
