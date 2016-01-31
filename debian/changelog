@@ -25,6 +25,8 @@ systemd (228-5) UNRELEASED; urgency=medium
     set.
   * debian/tests/localed-x11-keymap: Test /etc/X11/xorg.conf.d/00-keyboard.conf
     if $TEST_UPSTREAM is set.
+  * debian/tests/boot-and-services: Check for reaching graphical.target
+    instead of default.target, as the latter is a session systemd state only.
 
   [ Michael Biebl ]
   * Drop support for the /etc/udev/disabled flag file. This was a workaround

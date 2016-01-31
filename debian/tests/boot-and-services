@@ -84,7 +84,7 @@ class ServicesTest(unittest.TestCase):
         # has kernel messages
         self.assertRegex(log, 'kernel:.*[cC]ommand line:')
         # has init messages
-        self.assertRegex(log, 'systemd.*Reached target Default')
+        self.assertRegex(log, 'systemd.*Reached target Graphical Interface')
         # has other services
         self.assertRegex(log, 'NetworkManager.*:')
 
@@ -154,7 +154,7 @@ class JournalTest(unittest.TestCase):
         # has kernel messages
         self.assertRegex(out, b'kernel:.*[cC]ommand line:')
         # has init messages
-        self.assertRegex(out, b'systemd.*Reached target Default')
+        self.assertRegex(out, b'systemd.*Reached target Graphical Interface')
         # has other services
         self.assertRegex(out, b'NetworkManager.*:.*starting')
 
