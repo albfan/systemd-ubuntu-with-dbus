@@ -94,6 +94,12 @@ EOF
   if [ -d /run/systemd/system ]; then
       rm -f /var/log/udev
   fi
+
+  # transition existing interface names on s390x for #1526808
+  if dpkg --compare-versions "$2" lt-nl "228-4ubuntu2" &&
+      [ "$(dpkg --print-architecture)" = "s390x" ]; then
+    sed 's/enccw[0.]*/enc/' -i /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null || true
+  fi
 }
 
 update_hwdb() {
