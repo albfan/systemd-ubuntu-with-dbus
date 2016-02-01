@@ -18,7 +18,7 @@ Start-logind-on-demand-via-libpam-systemd.patch
 Update-localed-to-use-the-Debian-config-files.patch
 Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
 Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
-Fix-up-tmpfiles.d-permissions-properly.patch
+tmpfiles-drop-run-lock-lockdev.patch
 Revert-udev-network-device-renaming-immediately-give.patch
 Use-different-default-paths-for-various-binaries.patch
 insserv.conf-generator.patch

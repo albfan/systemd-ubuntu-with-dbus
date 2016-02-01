@@ -476,15 +476,6 @@ def pre_boot_setup():
         Driver "dummy"
 EndSection''')
 
-    # FIXME: sort this out upstream
-    if 'TEST_UPSTREAM' in os.environ:
-        # https://github.com/systemd/systemd/pull/2491
-        subprocess.check_call(['sed', '-i', 's/root lock/root root/',
-                               '/usr/lib/tmpfiles.d/legacy.conf'])
-        # https://github.com/systemd/systemd/issues/2492
-        subprocess.check_call(['sed', '-ri', 's/,(d:)?group:wheel.*//',
-                               '/usr/lib/tmpfiles.d/systemd.conf'])
-
 
 if __name__ == '__main__':
     if not os.getenv('ADT_REBOOT_MARK'):

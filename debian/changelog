@@ -28,8 +28,16 @@ systemd (228-5) UNRELEASED; urgency=medium
   * debian/tests/boot-and-services: Check for reaching graphical.target
     instead of default.target, as the latter is a session systemd state only.
   * debian/tests/boot-and-services: Skip tests which are known to fail/not
-    applicable with testing upstream builds. In that mode, fix the groups in
-    tmpfiles.d files which don't exist on Debian (to be fixed upstream).
+    applicable with testing upstream builds.
+  * Drop Fix-up-tmpfiles.d-permissions-properly.patch:
+    - /run/lock is already created differently by
+      Make-run-lock-tmpfs-an-API-fs.patch, and contradicts to that.
+    - /run/lock/lockdev/ isn't being used anywhere and will be dropped
+      upstream soon; apply that patch separately as
+      tmpfiles-drop-run-lock-lockdev.patch.
+    - Move dropping of "group:wheel" (which has never existed in Debian) into
+      debian/rules, to also catch occurrences in other parts of the file which
+      the static patch would overlook.
 
   [ Michael Biebl ]
   * Drop support for the /etc/udev/disabled flag file. This was a workaround
