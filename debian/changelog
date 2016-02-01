@@ -32,9 +32,8 @@ systemd (228-5) UNRELEASED; urgency=medium
   * Drop Fix-up-tmpfiles.d-permissions-properly.patch:
     - /run/lock is already created differently by
       Make-run-lock-tmpfs-an-API-fs.patch, and contradicts to that.
-    - /run/lock/lockdev/ isn't being used anywhere and will be dropped
-      upstream soon; apply that patch separately as
-      tmpfiles-drop-run-lock-lockdev.patch.
+    - /run/lock/lockdev/ isn't being used anywhere and got dropped
+      upstream; backport the patch (tmpfiles-drop-run-lock-lockdev.patch).
     - Move dropping of "group:wheel" (which has never existed in Debian) into
       debian/rules, to also catch occurrences in other parts of the file which
       the static patch would overlook.

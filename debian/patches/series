@@ -8,6 +8,7 @@ nspawn-make-sure-link-journal-host-may-be-used-twice-in-a.patch
 man-fix-typo-in-systemctl-1.patch
 basic-getauxval-AT_RANDOM-is-apparently-not-necessarily-a.patch
 kmod-static-nodes-don-t-run-if-module-list-is-empty.patch
+tmpfiles-drop-run-lock-lockdev.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -18,7 +19,6 @@ Start-logind-on-demand-via-libpam-systemd.patch
 Update-localed-to-use-the-Debian-config-files.patch
 Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
 Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
-tmpfiles-drop-run-lock-lockdev.patch
 Revert-udev-network-device-renaming-immediately-give.patch
 Use-different-default-paths-for-various-binaries.patch
 insserv.conf-generator.patch
