@@ -10,6 +10,7 @@ basic-getauxval-AT_RANDOM-is-apparently-not-necessarily-a.patch
 kmod-static-nodes-don-t-run-if-module-list-is-empty.patch
 tmpfiles-drop-run-lock-lockdev.patch
 Fix-typo-on-logind-dbus.c.patch
+udev-net_id-for-ccw-bus-shorten-the-identifier-and-stip-l.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
