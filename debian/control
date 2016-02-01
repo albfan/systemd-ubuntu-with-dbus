@@ -94,12 +94,12 @@ Multi-Arch: foreign
 Section: admin
 Priority: important
 Conflicts: sysvinit-core,
-           upstart,
+           ${conflicts:upstart},
            openrc,
            file-rc,
 Replaces: sysvinit (<< 2.88dsf-44~),
           sysvinit-core,
-          upstart
+          ${conflicts:upstart},
 Pre-Depends: systemd
 Depends: ${shlibs:Depends},
          ${misc:Depends}

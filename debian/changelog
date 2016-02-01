@@ -42,6 +42,8 @@ systemd (228-5) UNRELEASED; urgency=medium
   * debian/rules: If $TEST_UPSTREAM is set (when building/testing upstream
     master instead of distro packages), don't fail on non-installed new files
     or new library symbols.
+  * Determine systemd-sysv's Conflicts: on build time depending on whether
+    building on Ubuntu (upstart-sysv) or Debian (upstart).
 
   [ Michael Biebl ]
   * Drop support for the /etc/udev/disabled flag file. This was a workaround
