@@ -57,6 +57,8 @@ systemd (228-5) UNRELEASED; urgency=medium
     - Fix typo in systemctl(1). (Closes: #807462)
     - Fix systemd-nspawn --link-journal=host to not fail if the directory
       already exists. (Closes: #808222)
+    - Fix a typo in logind-dbus.c. The polkit action is named
+      org.freedesktop.login1.power-off, not org.freedesktop.login1.poweroff.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 

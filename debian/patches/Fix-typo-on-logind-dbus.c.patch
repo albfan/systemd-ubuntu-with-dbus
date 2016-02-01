@@ -1,0 +1,33 @@
+From: Joost Bremmer <toost.b@gmail.com>
+Date: Sat, 19 Dec 2015 12:46:09 +0100
+Subject: Fix typo on logind-dbus.c
+
+method_schedule_shutdown referenced org.freedesktop.login1.poweroff*
+which is never registered in polkit.
+
+Now refers to org.freedesktop.login1.power-off*
+
+Signed-off-by: Joost Bremmer <toost.b@gmail.com>
+
+(cherry-picked from commit 0671d7f4636e2fb634f0fbad9c61fd1feb738023)
+---
+ src/login/logind-dbus.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
+index e507a19..8273676 100644
+--- a/src/login/logind-dbus.c
++++ b/src/login/logind-dbus.c
+@@ -1944,9 +1944,9 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
+                 action_multiple_sessions = "org.freedesktop.login1.halt-multiple-sessions";
+                 action_ignore_inhibit = "org.freedesktop.login1.halt-ignore-inhibit";
+         } else if (streq(type, "poweroff")) {
+-                action = "org.freedesktop.login1.poweroff";
+-                action_multiple_sessions = "org.freedesktop.login1.poweroff-multiple-sessions";
+-                action_ignore_inhibit = "org.freedesktop.login1.poweroff-ignore-inhibit";
++                action = "org.freedesktop.login1.power-off";
++                action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
++                action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
+         } else
+                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
+ 
