@@ -12,6 +12,16 @@ else
     DEFAULT_NTP_SERVERS = 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
 endif
 
+# fail on missing files and symbols changes on distro builds, but not if we
+# build/test upstream master
+ifeq ($(TEST_UPSTREAM),)
+    DH_INSTALL_MISSING = --fail-missing
+    GENSYMBOLS_LEVEL = 4
+else
+    DH_INSTALL_MISSING = --list-missing
+    GENSYMBOLS_LEVEL = 1
+endif
+
 ifneq (, $(filter noudeb, $(DEB_BUILD_OPTIONS)))
 export DEB_BUILD_PROFILES += noudeb
 endif
@@ -179,7 +189,7 @@ endif
 	# fix location of NSS modules
 	cd debian/install/deb/; for f in usr/lib/*/libnss_*; do mv $$f $${f#usr/}; done
 
-	dh_install --remaining-packages --sourcedir=debian/install/deb --fail-missing
+	dh_install --remaining-packages --sourcedir=debian/install/deb $(DH_INSTALL_MISSING)
 
 	# Make sure the runlevel services are known by systemd so their targets
 	# get launched. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
@@ -245,8 +255,8 @@ override_dh_shlibdeps:
 	dh_shlibdeps --remaining-packages
 
 override_dh_makeshlibs:
-	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb -- -c4
-	dh_makeshlibs --remaining-packages -- -c4
+	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb -- -c$(GENSYMBOLS_LEVEL)
+	dh_makeshlibs --remaining-packages -- -c$(GENSYMBOLS_LEVEL)
 
 autoreconf:
 	intltoolize -f -c
