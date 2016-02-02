@@ -68,6 +68,9 @@ systemd (228-5) UNRELEASED; urgency=medium
       org.freedesktop.login1.power-off, not org.freedesktop.login1.poweroff.
     - Don't log an EIO error in gpt-auto-generator if blkid finds something
       which is not a partition table. (Closes: #765586)
+  * Only skip the filesystem check for /usr if the /run/initramfs/fsck-usr
+    flag file exists. Otherwise we break booting with dracut which uses
+    systemd inside the initramfs. (Closes: #810748)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
