@@ -11,6 +11,7 @@ kmod-static-nodes-don-t-run-if-module-list-is-empty.patch
 tmpfiles-drop-run-lock-lockdev.patch
 Fix-typo-on-logind-dbus.c.patch
 udev-net_id-for-ccw-bus-shorten-the-identifier-and-stip-l.patch
+gpt-auto-don-t-log-an-EIO-error-if-blkid-finds-something-.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
