@@ -73,6 +73,10 @@ systemd (228-5) UNRELEASED; urgency=medium
   * Only skip the filesystem check for /usr if the /run/initramfs/fsck-usr
     flag file exists. Otherwise we break booting with dracut which uses
     systemd inside the initramfs. (Closes: #810748)
+  * Update the instructions in README.Debian for creating /var/log/journal.
+    They are now in line with the documentation in the systemd-journald(8) man
+    page and ensure that ACLs and group permissions are properly set.
+    (Closes: #800947, #805617)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 
