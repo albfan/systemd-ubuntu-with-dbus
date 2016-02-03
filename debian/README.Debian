@@ -6,7 +6,7 @@ To enable persistent logging, create /var/log/journal:
   mkdir -p /var/log/journal
   systemd-tmpfiles --create --prefix /var/log/journal
 
-systemd will make the journal files owned by the "systemd-journald" group and
+systemd will make the journal files owned by the "systemd-journal" group and
 add an ACL for read permissions for users in the "adm" group.
 To grant a user read access to the system journal, add them to one of the two
 groups.
