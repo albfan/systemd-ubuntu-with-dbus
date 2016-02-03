@@ -1,4 +1,4 @@
-systemd (228-5) UNRELEASED; urgency=medium
+systemd (228-5) unstable; urgency=medium
 
   [ Martin Pitt ]
   * Drop systemd-vconsole-setup.service: It has never been installed/used in
@@ -81,7 +81,7 @@ systemd (228-5) UNRELEASED; urgency=medium
     longer necessary as invoke-rc.d and init-system-helpers take care of this
     nowadays.
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
+ -- Martin Pitt <mpitt@debian.org>  Wed, 03 Feb 2016 10:09:46 +0100
 
 systemd (228-4) unstable; urgency=medium
 
