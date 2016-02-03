@@ -77,6 +77,9 @@ systemd (228-5) UNRELEASED; urgency=medium
     They are now in line with the documentation in the systemd-journald(8) man
     page and ensure that ACLs and group permissions are properly set.
     (Closes: #800947, #805617)
+  * Drop "systemctl daemon-reload" from lsb init-functions hook. This is no
+    longer necessary as invoke-rc.d and init-system-helpers take care of this
+    nowadays.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 11 Jan 2016 14:00:11 +0100
 

@@ -4,13 +4,6 @@
 _use_systemctl=0
 if [ -d /run/systemd/system ]; then
 
-    if [ -n "${DPKG_MAINTSCRIPT_PACKAGE:-}" ]; then
-    # If we are called by a maintainer script, chances are good that a
-    # new or updated sysv init script was installed.  Reload daemon to
-    # pick up any changes.
-        systemctl daemon-reload || true
-    fi
-
     prog=${0##*/}
     service="${prog%.sh}.service"
 
