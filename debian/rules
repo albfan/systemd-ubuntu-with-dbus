@@ -8,10 +8,8 @@ VERSION = $(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/.*: //p')
 
 ifeq ($(shell dpkg-vendor --query vendor),Ubuntu)
     DEFAULT_NTP_SERVERS = ntp.ubuntu.com
-    CONFLICTS_UPSTART = upstart-sysv, upstart (<< 1.13.2-0ubuntu10~)
 else
     DEFAULT_NTP_SERVERS = 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
-    CONFLICTS_UPSTART = upstart
 endif
 
 # fail on missing files and symbols changes on distro builds, but not if we
@@ -269,9 +267,6 @@ override_dh_autoreconf:
 
 override_dh_strip:
 	dh_strip --dbg-package=systemd-dbg
-
-override_dh_gencontrol:
-	dh_gencontrol -- -V'conflicts:upstart=$(CONFLICTS_UPSTART)'
 
 override_dh_auto_test:
 ifeq (, $(filter nocheck, $(DEB_BUILD_OPTIONS)))

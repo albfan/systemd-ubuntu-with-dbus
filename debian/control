@@ -94,12 +94,14 @@ Multi-Arch: foreign
 Section: admin
 Priority: important
 Conflicts: sysvinit-core,
-           ${conflicts:upstart},
+           upstart (<< 1.13.2-0ubuntu10~),
+           upstart-sysv,
            openrc,
            file-rc,
 Replaces: sysvinit (<< 2.88dsf-44~),
           sysvinit-core,
-          ${conflicts:upstart},
+          upstart (<< 1.13.2-0ubuntu10~),
+          upstart-sysv,
 Pre-Depends: systemd
 Depends: ${shlibs:Depends},
          ${misc:Depends}
