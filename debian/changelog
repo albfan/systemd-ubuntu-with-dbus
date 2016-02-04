@@ -22,6 +22,8 @@ systemd (229-4ubuntu1) UNRELEASED; urgency=medium
     - Clean up /var/log/udev on upgrade (which is written under upstart, but
       not under systemd). (LP: #1537211)
     - Migrate existing s390x network configuration to new names. (LP: #1526808)
+    - systemd.postinst: Bump Version comparison for migrating the UTC setting
+      from /etc/default/rcS to /etc/adjtime, to run it for upgrades to 16.04.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:13:25 +0200
 

@@ -42,7 +42,7 @@ if dpkg --compare-versions "$2" lt "218-11~"; then
 fi
 
 # Do a one-time migration of the local time setting
-if dpkg --compare-versions "$2" lt "33-1"; then
+if dpkg --compare-versions "$2" lt "228-5ubuntu3"; then
     if [ -f /etc/default/rcS ]; then
         . /etc/default/rcS
     fi
