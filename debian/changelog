@@ -1,11 +1,11 @@
-systemd (228-6) UNRELEASED; urgency=medium
+systemd (228-6) unstable; urgency=medium
 
   * Make-run-lock-tmpfs-an-API-fs.patch: Drop /run/lock from
     tmpfiles.d/legacy.conf to avoid the latter clobbering the permissions of
     /run/lock. Fixes fallout from cleanup in -5 that resulted /run/lock to
     have 0755 permissions instead of 1777. (LP: #1541775)
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 04 Feb 2016 11:45:23 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 04 Feb 2016 11:46:54 +0100
 
 systemd (228-5) unstable; urgency=medium
 
