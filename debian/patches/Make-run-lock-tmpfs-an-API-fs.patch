@@ -7,10 +7,13 @@ reasons. To avoid user processes filling up /run, we mount a separate
 tmpfs for /run/lock. As this directory needs to be available during
 early boot, we make it an API fs.
 
+Drop it from tmpfiles.d/legacy.conf to not clobber the permissions.
+
 Closes: #751392
 ---
  src/core/mount-setup.c | 2 ++
- 1 file changed, 2 insertions(+)
+ tmpfiles.d/legacy.conf | 1 -
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/mount-setup.c b/src/core/mount-setup.c
 index 2b8d590..36c9616 100644
@@ -25,3 +28,15 @@ index 2b8d590..36c9616 100644
          { "cgroup",      "/sys/fs/cgroup",            "cgroup",     "__DEVEL__sane_behavior",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
            cg_is_unified_wanted, MNT_FATAL|MNT_IN_CONTAINER },
          { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755",                MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+diff --git a/tmpfiles.d/legacy.conf b/tmpfiles.d/legacy.conf
+index 62e2ae0..ea5e735 100644
+--- a/tmpfiles.d/legacy.conf
++++ b/tmpfiles.d/legacy.conf
+@@ -10,7 +10,6 @@
+ # These files are considered legacy and are unnecessary on legacy-free
+ # systems.
+ 
+-d /run/lock 0755 root root -
+ L /var/lock - - - - ../run/lock
+ 
+ # /run/lock/subsys is used for serializing SysV service execution, and
