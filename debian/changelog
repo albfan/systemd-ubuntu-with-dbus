@@ -10,6 +10,23 @@ systemd (228-7) UNRELEASED; urgency=medium
   * Use-different-default-paths-for-various-binaries.patch: Drop path changes
     for setcap (which is already a build dep and not used at all) and sulogin
     (which is now in util-linux).
+  * Remove obsolete udev maintainer script checks:
+    - Drop check for kernel >= 2.6.32, which released in 2009.
+    - Drop restarting of some daemons due to the devtmpfs migration, which
+      happened before the above kernel even.
+    - Drop support for forcing upgrades on kernels known not to work via
+      /etc/udev/kernel-upgrade. Don't pretend that this would help, as users
+      could end up with a non-bootable system. Always fail early in preinst
+      when it's still possible to install a working kernel.
+    - Drop postinst test for "running in containers" -- it's actually possible
+      to run udev in containers if you mount /sys r/w and you know what you
+      are doing. Also, the init.d script and systemd service do that check
+      again.
+    - Keep the kernel feature and chroot checks, as these are still useful.
+      Simplify check_kernel_features() by eliminating some variables.
+    - Drop debconf templates. Two of them are obsolete, and having
+      CONFIG_SYSFS_DEPRECATED is now so implausible that this doesn't warrant
+      the overhead and translator efforts.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Feb 2016 22:43:55 +0100
 

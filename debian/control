@@ -288,7 +288,7 @@ Section: admin
 Priority: important
 Architecture: linux-any
 Multi-Arch: foreign
-Pre-Depends: debconf (>= 1.4.69) | debconf-2.0, ${misc:Pre-Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          adduser,
