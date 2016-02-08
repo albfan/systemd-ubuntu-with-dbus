@@ -19,7 +19,6 @@ core-do-not-warn-about-Wants-depencencies-on-masked-units.patch
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
-timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
 Make-logind-hostnamed-localed-timedated-D-Bus-activa.patch
 Start-logind-on-demand-via-libpam-systemd.patch
 Update-localed-to-use-the-Debian-config-files.patch
