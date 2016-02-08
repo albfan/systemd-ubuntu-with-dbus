@@ -132,7 +132,7 @@ class FsckdTest(unittest.TestCase):
             self.reboot()
         else:
             self.assertFsckdStop()
-            self.assertProcessKilled()
+            self.assertTrue(self.was_running('process-killer'))
             self.assertFsckProceeded()
             self.assertFalse(self.is_active_unit('plymouth-start'))
             self.assertSystemRunning()

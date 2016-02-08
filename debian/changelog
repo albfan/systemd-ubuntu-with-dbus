@@ -1,3 +1,11 @@
+systemd (228-7) UNRELEASED; urgency=medium
+
+  * debian/tests/systemd-fsckd: Tame overly strict test for failed plymouth
+    unit, which is a race condition with plymouthd auto-stopping.
+    (LP: #1543144)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 08 Feb 2016 22:43:55 +0100
+
 systemd (228-6) unstable; urgency=medium
 
   * Make-run-lock-tmpfs-an-API-fs.patch: Drop /run/lock from
