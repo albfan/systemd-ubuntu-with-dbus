@@ -5,17 +5,18 @@ Subject: Use different default paths for various binaries
 Since Debian hasn't done the usr-merge (yet), various binaries are still
 installed in / and not /usr.
 Update the defaults in configure.ac so we don't have to build-depend on
-quota, libcap2-bin, procps, kmod and kexec-tools just to get the correct
-paths.  Closes: #721347
+quota, procps, kmod and kexec-tools just to get the correct paths.
+
+Closes: #721347
 ---
- configure.ac | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ configure.ac | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index ec30ff1..7866359 100644
+index ec30ff1..b112983 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -94,18 +94,18 @@ AC_PROG_AWK
+@@ -94,16 +94,16 @@ AC_PROG_AWK
  
  AC_PATH_PROG([M4], [m4])
  
@@ -24,8 +25,7 @@ index ec30ff1..7866359 100644
 +AC_PATH_PROG([QUOTAON], [quotaon], [/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
 +AC_PATH_PROG([QUOTACHECK], [quotacheck], [/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
  
--AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap], [$PATH:/usr/sbin:/sbin])
-+AC_PATH_PROG([SETCAP], [setcap], [/sbin/setcap], [$PATH:/usr/sbin:/sbin])
+ AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap], [$PATH:/usr/sbin:/sbin])
  
 -AC_PATH_PROG([KILL], [kill], [/usr/bin/kill], [$PATH:/usr/sbin:/sbin])
 +AC_PATH_PROG([KILL], [kill], [/bin/kill], [$PATH:/usr/sbin:/sbin])
@@ -36,11 +36,8 @@ index ec30ff1..7866359 100644
 -AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec], [$PATH:/usr/sbin:/sbin])
 +AC_PATH_PROG([KEXEC], [kexec], [/sbin/kexec], [$PATH:/usr/sbin:/sbin])
  
--AC_PATH_PROG([SULOGIN], [sulogin], [/usr/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
-+AC_PATH_PROG([SULOGIN], [sulogin], [/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
+ AC_PATH_PROG([SULOGIN], [sulogin], [/usr/sbin/sulogin], [$PATH:/usr/sbin:/sbin])
  
- AC_PATH_PROG([MOUNT_PATH], [mount], [/usr/bin/mount], [$PATH:/usr/sbin:/sbin])
- AC_PATH_PROG([UMOUNT_PATH], [umount], [/usr/bin/umount], [$PATH:/usr/sbin:/sbin])
 @@ -1233,13 +1233,13 @@ AC_ARG_WITH(kbd-loadkeys,
          AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                  [Path to loadkeys]),
