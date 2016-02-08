@@ -14,6 +14,7 @@ udev-net_id-for-ccw-bus-shorten-the-identifier-and-stip-l.patch
 gpt-auto-don-t-log-an-EIO-error-if-blkid-finds-something-.patch
 tmpfiles-also-set-acls-on-var-log-journal.patch
 tmpfiles-set-acls-on-system.journal-explicitly.patch
+core-do-not-warn-about-Wants-depencencies-on-masked-units.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
