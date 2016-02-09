@@ -27,8 +27,6 @@ class FakeDriveTestBase(unittest.TestCase):
         devs = os.listdir(sys_dirs[0])
         assert len(devs) == 1
         self.device = '/dev/' + devs[0]
-        self.password = 'pwd%i' % random.randint(1000, 10000)
-        self.password_agent = None
 
     def tearDown(self):
         subprocess.check_call(['systemctl', 'daemon-reload'])
