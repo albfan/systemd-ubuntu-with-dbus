@@ -29,6 +29,8 @@ systemd (228-7) UNRELEASED; urgency=medium
       the overhead and translator efforts.
   * Drop debian/tests/ifupdown-hotplug. The units moved into ifupdown, so the
     test should go there too (see #814312).
+  * debian/tests/control: Reorder tests and add a comment which ones should
+    not be run for an upstream build.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Feb 2016 22:43:55 +0100
 
