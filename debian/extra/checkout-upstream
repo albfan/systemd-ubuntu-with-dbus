@@ -14,7 +14,7 @@ if [ -z "${TEST_UPSTREAM:-}" ]; then
     exit 1
 fi
 if [ -n "${UPSTREAM_PULL_REQUEST:-}" ]; then
-    FETCH="git fetch -fu --depth=1 origin refs/pull/$UPSTREAM_PULL_REQUEST/head:pr"
+    FETCH="git fetch -fu origin refs/pull/$UPSTREAM_PULL_REQUEST/head:pr"
     CO='git checkout pr'
     DESC="PR #$UPSTREAM_PULL_REQUEST"
 elif [ -n "${UPSTREAM_HEAD:-}" ]; then
@@ -28,7 +28,7 @@ fi
 
 mkdir -p debian/tmp
 (cd debian/tmp
- git clone --depth=1 https://github.com/systemd/systemd.git upstream
+ git clone https://github.com/systemd/systemd.git upstream
  cd upstream
  $FETCH
  $CO)
