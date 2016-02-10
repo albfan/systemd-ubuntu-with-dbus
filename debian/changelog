@@ -31,6 +31,8 @@ systemd (228-7) UNRELEASED; urgency=medium
     test should go there too (see #814312).
   * debian/tests/control: Reorder tests and add a comment which ones should
     not be run for an upstream build.
+  * debian/tests/control: Rearrange tests and avoid removing test dependencies
+    to minimize testbed resets.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Feb 2016 22:43:55 +0100
 
