@@ -149,6 +149,9 @@ endif
 	find debian/install/deb/usr/lib/tmpfiles.d/ -type f | xargs sed -ri 's/,(d:)?group:wheel:[^,]+//'
 
 override_dh_auto_clean:
+ifneq (, $(TEST_UPSTREAM))
+	debian/extra/checkout-upstream
+endif
 	dh_auto_clean --builddirectory=build-deb
 ifeq (, $(filter noudeb, $(DEB_BUILD_PROFILES)))
 	dh_auto_clean --builddirectory=build-udeb
