@@ -2,6 +2,9 @@
 set -e
 
 if [ "$1" = configure ]; then
+    adduser --quiet --system --group --no-create-home --home /run/systemd \
+        --gecos "systemd Time Synchronization" systemd-timesync
+
     # enable systemd-coredump right after package installation
     /lib/systemd/systemd-sysctl /usr/lib/sysctl.d/50-coredump.conf || true
 fi

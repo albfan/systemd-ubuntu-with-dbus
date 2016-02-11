@@ -8,6 +8,7 @@ systemd (229-1) UNRELEASED; urgency=medium
     - Do not warn about Wants depencencies on masked units. (LP: #1543282)
   * debian/systemd.install: Ship the new systemd-resolve.
   * libsystemd0.symbols: Add new symbols from this release.
+  * systemd-coredump.postinst: Create systemd-coredump system user.
   * debian/tests/systemd-fsckd: Tame overly strict test for failed plymouth
     unit, which is a race condition with plymouthd auto-stopping.
     (LP: #1543144)
