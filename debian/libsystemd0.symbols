@@ -11,6 +11,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  LIBSYSTEMD_222@LIBSYSTEMD_222 222
  LIBSYSTEMD_226@LIBSYSTEMD_226 226
  LIBSYSTEMD_227@LIBSYSTEMD_227 227
+ LIBSYSTEMD_229@LIBSYSTEMD_229 229
  sd_booted@LIBSYSTEMD_209 0
  sd_bus_add_fallback@LIBSYSTEMD_221 221
  sd_bus_add_fallback_vtable@LIBSYSTEMD_221 221
@@ -322,6 +323,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_journal_add_match@LIBSYSTEMD_209 0
  sd_journal_close@LIBSYSTEMD_209 0
  sd_journal_enumerate_data@LIBSYSTEMD_209 0
+ sd_journal_enumerate_fields@LIBSYSTEMD_229 229
  sd_journal_enumerate_unique@LIBSYSTEMD_209 0
  sd_journal_flush_matches@LIBSYSTEMD_209 0
  sd_journal_get_catalog@LIBSYSTEMD_209 0
@@ -337,6 +339,8 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_journal_get_realtime_usec@LIBSYSTEMD_209 0
  sd_journal_get_timeout@LIBSYSTEMD_209 0
  sd_journal_get_usage@LIBSYSTEMD_209 0
+ sd_journal_has_persistent_files@LIBSYSTEMD_229 229
+ sd_journal_has_runtime_files@LIBSYSTEMD_229 229
  sd_journal_next@LIBSYSTEMD_209 0
  sd_journal_next_skip@LIBSYSTEMD_209 0
  sd_journal_open@LIBSYSTEMD_209 0
@@ -355,6 +359,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_journal_query_unique@LIBSYSTEMD_209 0
  sd_journal_reliable_fd@LIBSYSTEMD_209 0
  sd_journal_restart_data@LIBSYSTEMD_209 0
+ sd_journal_restart_fields@LIBSYSTEMD_229 229
  sd_journal_restart_unique@LIBSYSTEMD_209 0
  sd_journal_seek_cursor@LIBSYSTEMD_209 0
  sd_journal_seek_head@LIBSYSTEMD_209 0
