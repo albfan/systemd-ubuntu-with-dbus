@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -27,6 +25,7 @@
 #include "dbus-timer.h"
 #include "fs-util.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -330,13 +329,45 @@ static usec_t monotonic_to_boottime(usec_t t) {
                 return 0;
 }
 
+static void add_random(Timer *t, usec_t *v) {
+        char s[FORMAT_TIMESPAN_MAX];
+        usec_t add;
+
+        assert(t);
+        assert(*v);
+
+        if (t->random_usec == 0)
+                return;
+        if (*v == USEC_INFINITY)
+                return;
+
+        add = random_u64() % t->random_usec;
+
+        if (*v + add < *v) /* overflow */
+                *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
+        else
+                *v += add;
+
+        log_unit_info(UNIT(t), "Adding %s random time.", format_timespan(s, sizeof(s), add, 0));
+}
+
 static void timer_enter_waiting(Timer *t, bool initial) {
         bool found_monotonic = false, found_realtime = false;
         usec_t ts_realtime, ts_monotonic;
         usec_t base = 0;
         bool leave_around = false;
         TimerValue *v;
+        Unit *trigger;
         int r;
+
+        assert(t);
+
+        trigger = UNIT_TRIGGER(UNIT(t));
+        if (!trigger) {
+                log_unit_error(UNIT(t), "Unit to trigger vanished.");
+                timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
+                return;
+        }
 
         /* If we shall wake the system we use the boottime clock
          * rather than the monotonic clock. */
@@ -396,7 +427,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         case TIMER_UNIT_ACTIVE:
                                 leave_around = true;
-                                base = UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic;
+                                base = trigger->inactive_exit_timestamp.monotonic;
 
                                 if (base <= 0)
                                         base = t->last_trigger.monotonic;
@@ -408,7 +439,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         case TIMER_UNIT_INACTIVE:
                                 leave_around = true;
-                                base = UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic;
+                                base = trigger->inactive_enter_timestamp.monotonic;
 
                                 if (base <= 0)
                                         base = t->last_trigger.monotonic;
@@ -452,6 +483,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 char buf[FORMAT_TIMESPAN_MAX];
                 usec_t left;
 
+                add_random(t, &t->next_elapse_monotonic_or_boottime);
+
                 left = t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0;
                 log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), left, 0));
 
@@ -486,6 +519,9 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
         if (found_realtime) {
                 char buf[FORMAT_TIMESTAMP_MAX];
+
+                add_random(t, &t->next_elapse_realtime);
+
                 log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
                 if (t->realtime_event_source) {
@@ -525,7 +561,8 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Unit *trigger;
         int r;
 
         assert(t);
@@ -534,7 +571,14 @@ static void timer_enter_running(Timer *t) {
         if (unit_stop_pending(UNIT(t)))
                 return;
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_TRIGGER(UNIT(t)), JOB_REPLACE, &error, NULL);
+        trigger = UNIT_TRIGGER(UNIT(t));
+        if (!trigger) {
+                log_unit_error(UNIT(t), "Unit to trigger vanished.");
+                timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
+                return;
+        }
+
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
         if (r < 0)
                 goto fail;
 
@@ -554,12 +598,16 @@ fail:
 static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
         TimerValue *v;
+        Unit *trigger;
 
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
-        if (UNIT_TRIGGER(u)->load_state != UNIT_LOADED)
+        trigger = UNIT_TRIGGER(u);
+        if (!trigger || trigger->load_state != UNIT_LOADED) {
+                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
                 return -ENOENT;
+        }
 
         t->last_trigger = DUAL_TIMESTAMP_NULL;
 

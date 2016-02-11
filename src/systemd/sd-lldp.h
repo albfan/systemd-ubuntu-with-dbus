@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosdlldphfoo
 #define foosdlldphfoo
 
@@ -23,10 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
 #include <inttypes.h>
+#include <net/ethernet.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -47,7 +46,7 @@ typedef struct sd_lldp_packet sd_lldp_packet;
 typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
 
 int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
-void sd_lldp_free(sd_lldp *lldp);
+sd_lldp* sd_lldp_unref(sd_lldp *lldp);
 
 int sd_lldp_start(sd_lldp *lldp);
 int sd_lldp_stop(sd_lldp *lldp);
@@ -79,6 +78,9 @@ sd_lldp_packet *sd_lldp_packet_unref(sd_lldp_packet *tlv);
 int sd_lldp_packet_get_destination_type(sd_lldp_packet *tlv, int *dest);
 
 int sd_lldp_get_packets(sd_lldp *lldp, sd_lldp_packet ***tlvs);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp, sd_lldp_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp_packet, sd_lldp_packet_unref);
 
 _SD_END_DECLARATIONS;
 

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -25,9 +23,10 @@
 
 #include "bus-util.h"
 #include "manager.h"
+#include "test-helper.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL;
         FILE *serial = NULL;
@@ -38,8 +37,8 @@ int main(int argc, char *argv[]) {
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
         r = manager_new(MANAGER_USER, true, &m);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT, -ENOEXEC)) {
-                printf("Skipping test: manager_new: %s", strerror(-r));
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -40,6 +38,7 @@ static int test_cgroup_mask(void) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
+        assert_se(r >= 0);
 
         /* Turn off all kinds of default accouning, so that we can
          * verify the masks resulting of our configuration and nothing

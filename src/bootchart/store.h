@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -25,6 +23,7 @@
 ***/
 
 #include <dirent.h>
+
 #include "bootchart.h"
 
 double gettime_ns(void);

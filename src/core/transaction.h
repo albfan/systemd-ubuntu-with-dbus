@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,10 +21,10 @@
 
 typedef struct Transaction Transaction;
 
-#include "unit.h"
-#include "manager.h"
-#include "job.h"
 #include "hashmap.h"
+#include "job.h"
+#include "manager.h"
+#include "unit.h"
 
 struct Transaction {
         /* Jobs to be added */

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -22,6 +20,7 @@
 #pragma once
 
 #include "sd-event.h"
+
 #include "journal-remote-write.h"
 
 typedef enum {

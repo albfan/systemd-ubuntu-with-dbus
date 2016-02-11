@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -233,7 +231,7 @@ static int have_ask_password(void) {
 
                 errno = 0;
                 de = readdir(dir);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return -errno;
                 if (!de)
                         return false;
@@ -379,6 +377,9 @@ static int enable_special_signals(Manager *m) {
         _cleanup_close_ int fd = -1;
 
         assert(m);
+
+        if (m->test_run)
+                return 0;
 
         /* Enable that we get SIGINT on control-alt-del. In containers
          * this will fail with EPERM (older) or EINVAL (newer), so
@@ -594,8 +595,6 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
         m->ask_password_inotify_fd = -1;
         m->have_ask_password = -EINVAL; /* we don't know */
         m->first_boot = -1;
-
-        m->cgroup_netclass_registry_last = CGROUP_NETCLASS_FIXED_MAX;
 
         m->test_run = test_run;
 
@@ -980,13 +979,11 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
 
-        hashmap_free(m->cgroup_netclass_registry);
-
         free(m->switch_root);
         free(m->switch_root_init);
 
         for (i = 0; i < _RLIMIT_MAX; i++)
-                free(m->rlimit[i]);
+                m->rlimit[i] = mfree(m->rlimit[i]);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
         hashmap_free(m->units_requiring_mounts_for);
@@ -1257,7 +1254,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
 }
 
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Job **ret) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);
@@ -1700,7 +1697,7 @@ static int manager_dispatch_sigchld(Manager *m) {
 }
 
 static int manager_start_target(Manager *m, const char *name, JobMode mode) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         log_debug("Activating special unit %s", name);
@@ -1885,23 +1882,21 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         switch (sfsi.ssi_signo - SIGRTMIN) {
 
                         case 20:
-                                log_debug("Enabling showing of status.");
                                 manager_set_show_status(m, SHOW_STATUS_YES);
                                 break;
 
                         case 21:
-                                log_debug("Disabling showing of status.");
                                 manager_set_show_status(m, SHOW_STATUS_NO);
                                 break;
 
                         case 22:
                                 log_set_max_level(LOG_DEBUG);
-                                log_notice("Setting log level to debug.");
+                                log_info("Setting log level to debug.");
                                 break;
 
                         case 23:
                                 log_set_max_level(LOG_INFO);
-                                log_notice("Setting log level to info.");
+                                log_info("Setting log level to info.");
                                 break;
 
                         case 24:
@@ -2576,6 +2571,10 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         manager_coldplug(m);
 
+        /* Sync current state of bus names with our set of listening units */
+        if (m->api_bus)
+                manager_sync_bus_names(m, m->api_bus);
+
         assert(m->n_reloading > 0);
         m->n_reloading--;
 
@@ -2918,6 +2917,8 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         assert(m);
 
         for (i = 0; i < _RLIMIT_MAX; i++) {
+                m->rlimit[i] = mfree(m->rlimit[i]);
+
                 if (!default_rlimit[i])
                         continue;
 
@@ -2961,6 +2962,9 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
+        if (m->show_status != mode)
+                log_debug("%s showing of status.",
+                          mode == SHOW_STATUS_NO ? "Disabling" : "Enabling");
         m->show_status = mode;
 
         if (mode > 0)
@@ -3087,18 +3091,18 @@ ManagerState manager_state(Manager *m) {
 
         /* Is the special shutdown target queued? If so, we are in shutdown state */
         u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if (u && u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))
+        if (u && u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_RELOAD_OR_START))
                 return MANAGER_STOPPING;
 
         /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
         u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
         if (u && (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)) ||
-                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))))
+                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_RELOAD_OR_START))))
                 return MANAGER_MAINTENANCE;
 
         u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
         if (u && (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)) ||
-                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))))
+                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_RELOAD_OR_START))))
                 return MANAGER_MAINTENANCE;
 
         /* Are there any failed units? If so, we are in degraded mode */

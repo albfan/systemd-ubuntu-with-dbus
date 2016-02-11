@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -21,10 +19,19 @@
 
 #pragma once
 
-#include <stdarg.h>
 #include <microhttpd.h>
+#include <stdarg.h>
 
 #include "macro.h"
+
+/* Compatiblity with libmicrohttpd < 0.9.38 */
+#ifndef MHD_HTTP_NOT_ACCEPTABLE
+#define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
+#endif
+
+#if MHD_VERSION < 0x00094203
+#define MHD_create_response_from_fd_at_offset64 MHD_create_response_from_fd_at_offset
+#endif
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 

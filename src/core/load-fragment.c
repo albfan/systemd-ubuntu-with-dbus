@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -38,6 +36,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "cgroup.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
@@ -53,6 +52,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
@@ -421,6 +421,37 @@ int config_parse_socket_listen(const char *unit,
         return 0;
 }
 
+int config_parse_socket_protocol(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
+        Socket *s;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        s = SOCKET(data);
+
+        if (streq(rvalue, "udplite"))
+                s->socket_protocol = IPPROTO_UDPLITE;
+        else if (streq(rvalue, "sctp"))
+                s->socket_protocol = IPPROTO_SCTP;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Socket protocol not supported, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 int config_parse_socket_bind(const char *unit,
                              const char *filename,
                              unsigned line,
@@ -543,7 +574,9 @@ int config_parse_exec(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *cmd = NULL;
         ExecCommand **e = data;
+        Unit *u = userdata;
         const char *p;
         bool semicolon;
         int r;
@@ -552,6 +585,7 @@ int config_parse_exec(
         assert(lvalue);
         assert(rvalue);
         assert(e);
+        assert(u);
 
         e += ltype;
         rvalue += strspn(rvalue, WHITESPACE);
@@ -562,7 +596,13 @@ int config_parse_exec(
                 return 0;
         }
 
-        p = rvalue;
+        r = unit_full_printf(u, rvalue, &cmd);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        p = cmd;
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
                 bool separate_argv0 = false, ignore = false;
@@ -993,7 +1033,7 @@ int config_parse_exec_secure_bits(const char *unit,
         return 0;
 }
 
-int config_parse_bounding_set(
+int config_parse_capability_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1005,8 +1045,8 @@ int config_parse_bounding_set(
                 void *data,
                 void *userdata) {
 
-        uint64_t *capability_bounding_set_drop = data;
-        uint64_t capability_bounding_set, sum = 0;
+        uint64_t *capability_set = data;
+        uint64_t sum = 0, initial = 0;
         bool invert = false;
         const char *p;
 
@@ -1020,10 +1060,9 @@ int config_parse_bounding_set(
                 rvalue++;
         }
 
-        /* Note that we store this inverted internally, since the
-         * kernel wants it like this. But we actually expose it
-         * non-inverted everywhere to have a fully normalized
-         * interface. */
+        if (strcmp(lvalue, "CapabilityBoundingSet") == 0)
+                initial = CAP_ALL; /* initialized to all bits on */
+        /* else "AmbientCapabilities" initialized to all bits off */
 
         p = rvalue;
         for (;;) {
@@ -1042,18 +1081,21 @@ int config_parse_bounding_set(
 
                 cap = capability_from_name(word);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", word);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding/ambient set, ignoring: %s", word);
                         continue;
                 }
 
                 sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
         }
 
-        capability_bounding_set = invert ? ~sum : sum;
-        if (*capability_bounding_set_drop != 0 && capability_bounding_set != 0)
-                *capability_bounding_set_drop = ~(~*capability_bounding_set_drop | capability_bounding_set);
+        sum = invert ? ~sum : sum;
+
+        if (sum == 0 || *capability_set == initial)
+                /* "" or uninitialized data -> replace */
+                *capability_set = sum;
         else
-                *capability_bounding_set_drop = ~capability_bounding_set;
+                /* previous data -> merge */
+                *capability_set |= sum;
 
         return 0;
 }
@@ -1070,8 +1112,7 @@ int config_parse_limit(
                 void *data,
                 void *userdata) {
 
-        struct rlimit **rl = data;
-        rlim_t v;
+        struct rlimit **rl = data, d = {};
         int r;
 
         assert(filename);
@@ -1079,184 +1120,24 @@ int config_parse_limit(
         assert(rvalue);
         assert(data);
 
-        rl += ltype;
-
-        if (streq(rvalue, "infinity"))
-                v = RLIM_INFINITY;
-        else {
-                uint64_t u;
-
-                /* setrlimit(2) suggests rlim_t is always 64bit on Linux. */
-                assert_cc(sizeof(rlim_t) == sizeof(uint64_t));
-
-                r = safe_atou64(rvalue, &u);
-                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
-                        r = -ERANGE;
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                v = (rlim_t) u;
+        r = rlimit_parse(ltype, rvalue, &d);
+        if (r == -EILSEQ) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Soft resource limit chosen higher than hard limit, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                return 0;
         }
 
-        if (!*rl) {
-                *rl = new(struct rlimit, 1);
-                if (!*rl)
+        if (rl[ltype])
+                *rl[ltype] = d;
+        else {
+                rl[ltype] = newdup(struct rlimit, &d, 1);
+                if (!rl[ltype])
                         return log_oom();
         }
 
-        (*rl)->rlim_cur = (*rl)->rlim_max = v;
-        return 0;
-}
-
-int config_parse_bytes_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data;
-        rlim_t bytes;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        rl += ltype;
-
-        if (streq(rvalue, "infinity"))
-                bytes = RLIM_INFINITY;
-        else {
-                uint64_t u;
-
-                r = parse_size(rvalue, 1024, &u);
-                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
-                        r = -ERANGE;
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                bytes = (rlim_t) u;
-        }
-
-        if (!*rl) {
-                *rl = new(struct rlimit, 1);
-                if (!*rl)
-                        return log_oom();
-        }
-
-        (*rl)->rlim_cur = (*rl)->rlim_max = bytes;
-        return 0;
-}
-
-int config_parse_sec_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data;
-        rlim_t seconds;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        rl += ltype;
-
-        if (streq(rvalue, "infinity"))
-                seconds = RLIM_INFINITY;
-        else {
-                usec_t t;
-
-                r = parse_sec(rvalue, &t);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (t == USEC_INFINITY)
-                        seconds = RLIM_INFINITY;
-                else
-                        seconds = (rlim_t) (DIV_ROUND_UP(t, USEC_PER_SEC));
-        }
-
-        if (!*rl) {
-                *rl = new(struct rlimit, 1);
-                if (!*rl)
-                        return log_oom();
-        }
-
-        (*rl)->rlim_cur = (*rl)->rlim_max = seconds;
-        return 0;
-}
-
-
-int config_parse_usec_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data;
-        rlim_t useconds;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        rl += ltype;
-
-        if (streq(rvalue, "infinity"))
-                useconds = RLIM_INFINITY;
-        else {
-                usec_t t;
-
-                r = parse_time(rvalue, &t, 1);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (t == USEC_INFINITY)
-                        useconds = RLIM_INFINITY;
-                else
-                        useconds = (rlim_t) t;
-        }
-
-        if (!*rl) {
-                *rl = new(struct rlimit, 1);
-                if (!*rl)
-                        return log_oom();
-        }
-
-        (*rl)->rlim_cur = (*rl)->rlim_max = useconds;
         return 0;
 }
 
@@ -1305,38 +1186,28 @@ int config_parse_exec_mount_flags(const char *unit,
                                   void *data,
                                   void *userdata) {
 
-        ExecContext *c = data;
-        const char *word, *state;
-        size_t l;
+
         unsigned long flags = 0;
+        ExecContext *c = data;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD_SEPARATOR(word, l, rvalue, ", ", state) {
-                _cleanup_free_ char *t;
-
-                t = strndup(word, l);
-                if (!t)
-                        return log_oom();
-
-                if (streq(t, "shared"))
-                        flags = MS_SHARED;
-                else if (streq(t, "slave"))
-                        flags = MS_SLAVE;
-                else if (streq(t, "private"))
-                        flags = MS_PRIVATE;
-                else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
-                        return 0;
-                }
+        if (streq(rvalue, "shared"))
+                flags = MS_SHARED;
+        else if (streq(rvalue, "slave"))
+                flags = MS_SLAVE;
+        else if (streq(rvalue, "private"))
+                flags = MS_PRIVATE;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
+                return 0;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         c->mount_flags = flags;
+
         return 0;
 }
 
@@ -1670,7 +1541,7 @@ int config_parse_socket_service(
                 void *data,
                 void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *p = NULL;
         Socket *s = data;
         Unit *x;
@@ -1840,18 +1711,20 @@ int config_parse_bus_name(
         return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
-int config_parse_service_timeout(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
+int config_parse_service_timeout(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Service *s = userdata;
+        usec_t usec;
         int r;
 
         assert(filename);
@@ -1859,16 +1732,63 @@ int config_parse_service_timeout(const char *unit,
         assert(rvalue);
         assert(s);
 
-        r = config_parse_sec(unit, filename, line, section, section_line, lvalue, ltype,
-                             rvalue, data, userdata);
-        if (r < 0)
-                return r;
+        /* This is called for three cases: TimeoutSec=, TimeoutStopSec= and TimeoutStartSec=. */
 
-        if (streq(lvalue, "TimeoutSec")) {
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
+         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
+         * all other timeouts. */
+        if (usec <= 0)
+                usec = USEC_INFINITY;
+
+        if (!streq(lvalue, "TimeoutStopSec")) {
                 s->start_timeout_defined = true;
-                s->timeout_stop_usec = s->timeout_start_usec;
-        } else if (streq(lvalue, "TimeoutStartSec"))
-                s->start_timeout_defined = true;
+                s->timeout_start_usec = usec;
+        }
+
+        if (!streq(lvalue, "TimeoutStartSec"))
+                s->timeout_stop_usec = usec;
+
+        return 0;
+}
+
+int config_parse_sec_fix_0(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *usec = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(usec);
+
+        /* This is pretty much like config_parse_sec(), except that this treats a time of 0 as infinity, for
+         * compatibility with older versions of systemd where 0 instead of infinity was used as indicator to turn off a
+         * timeout. */
+
+        r = parse_sec(rvalue, usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (*usec <= 0)
+                *usec = USEC_INFINITY;
 
         return 0;
 }
@@ -1885,7 +1805,7 @@ int config_parse_busname_service(
                 void *data,
                 void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         BusName *n = data;
         int r;
         Unit *x;
@@ -3242,47 +3162,6 @@ int config_parse_blockio_bandwidth(
         return 0;
 }
 
-int config_parse_netclass(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CGroupContext *c = data;
-        unsigned v;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (streq(rvalue, "auto")) {
-                c->netclass_type = CGROUP_NETCLASS_TYPE_AUTO;
-                return 0;
-        }
-
-        r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Netclass '%s' invalid. Ignoring.", rvalue);
-                return 0;
-        }
-
-        if (v > CGROUP_NETCLASS_FIXED_MAX)
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Fixed netclass %" PRIu32 " out of allowed range (0-%d). Applying anyway.", v, (uint32_t) CGROUP_NETCLASS_FIXED_MAX);
-
-        c->netclass_id = v;
-        c->netclass_type = CGROUP_NETCLASS_TYPE_FIXED;
-
-        return 0;
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
 
 int config_parse_job_mode_isolate(
@@ -3973,7 +3852,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_log_level,             "LEVEL" },
                 { config_parse_exec_capabilities,     "CAPABILITIES" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
-                { config_parse_bounding_set,          "BOUNDINGSET" },
+                { config_parse_capability_set,        "BOUNDINGSET" },
                 { config_parse_limit,                 "LIMIT" },
                 { config_parse_unit_deps,             "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },

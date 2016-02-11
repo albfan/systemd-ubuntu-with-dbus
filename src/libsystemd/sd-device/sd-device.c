@@ -43,7 +43,7 @@
 #include "util.h"
 
 int device_new_aux(sd_device **ret) {
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
         assert(ret);
 
@@ -222,7 +222,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 }
 
 _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -494,7 +494,7 @@ static int handle_uevent_line(sd_device *device, const char *key, const char *va
 
 int device_read_uevent_file(sd_device *device) {
         _cleanup_free_ char *uevent = NULL;
-        const char *syspath, *key, *value, *major = NULL, *minor = NULL;
+        const char *syspath, *key = NULL, *value = NULL, *major = NULL, *minor = NULL;
         char *path;
         size_t uevent_len;
         unsigned i;
@@ -624,7 +624,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
         case 'n':
         {
-                _cleanup_device_unref_ sd_device *device = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 _cleanup_close_ int sk = -1;
                 struct ifreq ifr = {};
                 int ifindex;

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -112,29 +110,27 @@ static void busname_done(Unit *u) {
         n->timer_event_source = sd_event_source_unref(n->timer_event_source);
 }
 
-static int busname_arm_timer(BusName *n) {
+static int busname_arm_timer(BusName *n, usec_t usec) {
         int r;
 
         assert(n);
 
-        if (n->timeout_usec <= 0) {
-                n->timer_event_source = sd_event_source_unref(n->timer_event_source);
-                return 0;
-        }
-
         if (n->timer_event_source) {
-                r = sd_event_source_set_time(n->timer_event_source, now(CLOCK_MONOTONIC) + n->timeout_usec);
+                r = sd_event_source_set_time(n->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(n->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(n)->manager->event,
                         &n->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + n->timeout_usec, 0,
+                        usec, 0,
                         busname_dispatch_timer, n);
         if (r < 0)
                 return r;
@@ -372,7 +368,7 @@ static int busname_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = busname_arm_timer(n);
+                r = busname_arm_timer(n, usec_add(u->state_change_timestamp.monotonic, n->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -397,7 +393,7 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
         pid_t pid;
         int r;
 
-        r = busname_arm_timer(n);
+        r = busname_arm_timer(n, usec_add(now(CLOCK_MONOTONIC), n->timeout_usec));
         if (r < 0)
                 goto fail;
 
@@ -475,7 +471,7 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
         }
 
         if (r > 0) {
-                r = busname_arm_timer(n);
+                r = busname_arm_timer(n, usec_add(now(CLOCK_MONOTONIC), n->timeout_usec));
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(n), r, "Failed to arm timer: %m");
                         goto fail;
@@ -557,7 +553,7 @@ fail:
 }
 
 static void busname_enter_running(BusName *n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool pending = false;
         Unit *other;
         Iterator i;
@@ -947,7 +943,6 @@ static void busname_reset_failed(Unit *u) {
 
 static void busname_trigger_notify(Unit *u, Unit *other) {
         BusName *n = BUSNAME(u);
-        Service *s;
 
         assert(n);
         assert(other);
@@ -955,36 +950,43 @@ static void busname_trigger_notify(Unit *u, Unit *other) {
         if (!IN_SET(n->state, BUSNAME_RUNNING, BUSNAME_LISTENING))
                 return;
 
+        if (other->start_limit_hit) {
+                busname_enter_dead(n, BUSNAME_FAILURE_SERVICE_START_LIMIT_HIT);
+                return;
+        }
+
         if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
                 return;
 
-        s = SERVICE(other);
-
-        if (s->state == SERVICE_FAILED && s->result == SERVICE_FAILURE_START_LIMIT)
-                busname_enter_dead(n, BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT);
-        else if (IN_SET(s->state,
-                        SERVICE_DEAD, SERVICE_FAILED,
-                        SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                        SERVICE_STOP_POST, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                        SERVICE_AUTO_RESTART))
+        if (IN_SET(SERVICE(other)->state,
+                   SERVICE_DEAD, SERVICE_FAILED,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                   SERVICE_AUTO_RESTART))
                 busname_enter_listening(n);
+
+        if (SERVICE(other)->state == SERVICE_RUNNING)
+                busname_set_state(n, BUSNAME_RUNNING);
 }
 
 static int busname_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, BUSNAME(u)->control_pid, error);
 }
 
-static int busname_get_timeout(Unit *u, uint64_t *timeout) {
+static int busname_get_timeout(Unit *u, usec_t *timeout) {
         BusName *n = BUSNAME(u);
+        usec_t t;
         int r;
 
         if (!n->timer_event_source)
                 return 0;
 
-        r = sd_event_source_get_time(n->timer_event_source, timeout);
+        r = sd_event_source_get_time(n->timer_event_source, &t);
         if (r < 0)
                 return r;
+        if (t == USEC_INFINITY)
+                return 0;
 
+        *timeout = t;
         return 1;
 }
 
@@ -1004,7 +1006,7 @@ static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
         [BUSNAME_FAILURE_EXIT_CODE] = "exit-code",
         [BUSNAME_FAILURE_SIGNAL] = "signal",
         [BUSNAME_FAILURE_CORE_DUMP] = "core-dump",
-        [BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT] = "service-failed-permanent",
+        [BUSNAME_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(busname_result, BusNameResult);

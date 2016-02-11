@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,6 +21,7 @@
 
 #include <endian.h>
 
+#include "macro.h"
 #include "util.h"
 
 /* A cleaned up architecture definition. We don't want to get lost in

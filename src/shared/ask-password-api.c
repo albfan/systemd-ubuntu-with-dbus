@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -21,13 +19,22 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/uio.h>
 #include <sys/un.h>
 #include <termios.h>
 #include <unistd.h>
@@ -38,6 +45,8 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "io-util.h"
+#include "log.h"
+#include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "random-util.h"
@@ -46,7 +55,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "umask-util.h"
+#include "utf8.h"
 #include "util.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
@@ -59,7 +70,7 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 
         serial = request_key("user", keyname, NULL, 0);
         if (serial == -1)
-                return -errno;
+                return negative_errno();
 
         *ret = serial;
         return 0;
@@ -201,8 +212,8 @@ int ask_password_tty(
                 char **ret) {
 
         struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX], *x;
-        size_t p = 0;
+        char passphrase[LINE_MAX + 1] = {}, *x;
+        size_t p = 0, codepoint = 0;
         int r;
         _cleanup_close_ int ttyfd = -1, notify = -1;
         struct pollfd pollfd[2];
@@ -366,8 +377,13 @@ int ask_password_tty(
 
                         passphrase[p++] = c;
 
-                        if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0)
-                                loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                        if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
+                                n = utf8_encoded_valid_unichar(passphrase + codepoint);
+                                if (n >= 0) {
+                                        codepoint = p;
+                                        loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                                }
+                        }
 
                         dirty = true;
                 }

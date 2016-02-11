@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,11 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stddef.h>
+
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "fileio.h"
 #include "parse-util.h"
-#include "util.h"
 
 bool mac_apparmor_use(void) {
         static int cached_use = -1;

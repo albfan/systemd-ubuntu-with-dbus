@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -74,7 +72,7 @@ int bus_send_queued_message(Manager *m) {
 }
 
 static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *cgroup, *me;
         Manager *m = userdata;
         uid_t sender_uid;
@@ -146,8 +144,8 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int signal_activation_request(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *name;
         Unit *u;
@@ -245,7 +243,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         }
 
         if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
@@ -304,7 +302,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(path);
 
         if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 pid_t pid;
 
@@ -617,7 +615,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 }
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int nfd = -1;
         Manager *m = userdata;
         sd_id128_t id;
@@ -734,9 +732,11 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         return 0;
 }
 
-static int bus_list_names(Manager *m, sd_bus *bus) {
+int manager_sync_bus_names(Manager *m, sd_bus *bus) {
         _cleanup_strv_free_ char **names = NULL;
-        char **i;
+        const char *name;
+        Iterator i;
+        Unit *u;
         int r;
 
         assert(m);
@@ -746,15 +746,55 @@ static int bus_list_names(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get initial list of names: %m");
 
-        /* This is a bit hacky, we say the owner of the name is the
-         * name itself, because we don't want the extra traffic to
-         * figure out the real owner. */
-        STRV_FOREACH(i, names) {
-                Unit *u;
+        /* We have to synchronize the current bus names with the
+         * list of active services. To do this, walk the list of
+         * all units with bus names. */
+        HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
+                Service *s = SERVICE(u);
 
-                u = hashmap_get(m->watch_bus, *i);
-                if (u)
-                        UNIT_VTABLE(u)->bus_name_owner_change(u, *i, NULL, *i);
+                assert(s);
+
+                if (!streq_ptr(s->bus_name, name)) {
+                        log_unit_warning(u, "Bus name has changed from %s → %s, ignoring.", s->bus_name, name);
+                        continue;
+                }
+
+                /* Check if a service's bus name is in the list of currently
+                 * active names */
+                if (strv_contains(names, name)) {
+                        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                        const char *unique;
+
+                        /* If it is, determine its current owner */
+                        r = sd_bus_get_name_creds(bus, name, SD_BUS_CREDS_UNIQUE_NAME, &creds);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to get bus name owner %s: %m", name);
+                                continue;
+                        }
+
+                        r = sd_bus_creds_get_unique_name(creds, &unique);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to get unique name for %s: %m", name);
+                                continue;
+                        }
+
+                        /* Now, let's compare that to the previous bus owner, and
+                         * if it's still the same, all is fine, so just don't
+                         * bother the service. Otherwise, the name has apparently
+                         * changed, so synthesize a name owner changed signal. */
+
+                        if (!streq_ptr(unique, s->bus_name_owner))
+                                UNIT_VTABLE(u)->bus_name_owner_change(u, name, s->bus_name_owner, unique);
+                } else {
+                        /* So, the name we're watching is not on the bus.
+                         * This either means it simply hasn't appeared yet,
+                         * or it was lost during the daemon reload.
+                         * Check if the service has a stored name owner,
+                         * and synthesize a name loss signal in this case. */
+
+                        if (s->bus_name_owner)
+                                UNIT_VTABLE(u)->bus_name_owner_change(u, name, s->bus_name_owner, NULL);
+                }
         }
 
         return 0;
@@ -808,14 +848,16 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register name: %m");
 
-        bus_list_names(m, bus);
+        r = manager_sync_bus_names(m, bus);
+        if (r < 0)
+                return r;
 
         log_debug("Successfully connected to API bus.");
         return 0;
 }
 
 static int bus_init_api(Manager *m) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->api_bus)
@@ -883,7 +925,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 }
 
 static int bus_init_system(Manager *m) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->system_bus)

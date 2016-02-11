@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -40,6 +38,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
@@ -565,9 +564,9 @@ static void display(Hashmap *a) {
         }
 
         if (arg_cpu_type == CPU_PERCENT)
-                snprintf(buffer, sizeof(buffer), "%6s", "%CPU");
+                xsprintf(buffer, "%6s", "%CPU");
         else
-                snprintf(buffer, sizeof(buffer), "%*s", maxtcpu, "CPU Time");
+                xsprintf(buffer, "%*s", maxtcpu, "CPU Time");
 
         rows = lines();
         if (rows <= 10)
@@ -841,8 +840,8 @@ static const char* counting_what(void) {
 }
 
 static int get_cgroup_root(char **ret) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *unit = NULL, *path = NULL;
         const char *m;
         int r;

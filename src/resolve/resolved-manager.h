@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -22,30 +20,32 @@
 ***/
 
 #include "sd-event.h"
-#include "sd-network.h"
 #include "sd-netlink.h"
-#include "list.h"
+#include "sd-network.h"
+
 #include "hashmap.h"
+#include "list.h"
+#include "ordered-set.h"
+#include "resolve-util.h"
 
 typedef struct Manager Manager;
-typedef enum Support Support;
-
-enum Support {
-        SUPPORT_NO,
-        SUPPORT_YES,
-        SUPPORT_RESOLVE,
-        _SUPPORT_MAX,
-        _SUPPORT_INVALID = -1
-};
 
 #include "resolved-dns-query.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-trust-anchor.h"
 #include "resolved-link.h"
+
+#define MANAGER_SEARCH_DOMAINS_MAX 32
+#define MANAGER_DNS_SERVERS_MAX 32
 
 struct Manager {
         sd_event *event;
 
-        Support llmnr_support;
+        ResolveSupport llmnr_support;
+        ResolveSupport mdns_support;
+        DnssecMode dnssec_mode;
 
         /* Network */
         Hashmap *links;
@@ -67,10 +67,19 @@ struct Manager {
         /* Unicast dns */
         LIST_HEAD(DnsServer, dns_servers);
         LIST_HEAD(DnsServer, fallback_dns_servers);
+        unsigned n_dns_servers; /* counts both main and fallback */
         DnsServer *current_dns_server;
 
-        bool read_resolv_conf;
+        LIST_HEAD(DnsSearchDomain, search_domains);
+        unsigned n_search_domains;
+        bool permit_domain_search;
+
+        bool need_builtin_fallbacks:1;
+
+        bool read_resolv_conf:1;
         usec_t resolv_conf_mtime;
+
+        DnsTrustAnchor trust_anchor;
 
         LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;
@@ -85,6 +94,13 @@ struct Manager {
         sd_event_source *llmnr_ipv6_udp_event_source;
         sd_event_source *llmnr_ipv4_tcp_event_source;
         sd_event_source *llmnr_ipv6_tcp_event_source;
+
+        /* mDNS */
+        int mdns_ipv4_fd;
+        int mdns_ipv6_fd;
+
+        sd_event_source *mdns_ipv4_event_source;
+        sd_event_source *mdns_ipv6_event_source;
 
         /* dbus */
         sd_bus *bus;
@@ -104,6 +120,14 @@ struct Manager {
         sd_bus_slot *prepare_for_sleep_slot;
 
         sd_event_source *sigusr1_event_source;
+
+        unsigned n_transactions_total;
+        unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
+
+        /* Data from /etc/hosts */
+        Set* etc_hosts_by_address;
+        Hashmap* etc_hosts_by_name;
+        usec_t etc_hosts_last, etc_hosts_mtime;
 };
 
 /* Manager */
@@ -112,13 +136,6 @@ int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);
 
 int manager_start(Manager *m);
-int manager_read_resolv_conf(Manager *m);
-int manager_write_resolv_conf(Manager *m);
-
-DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
-DnsServer *manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
-DnsServer *manager_get_dns_server(Manager *m);
-void manager_next_dns_server(Manager *m);
 
 uint32_t manager_find_mtu(Manager *m);
 
@@ -137,13 +154,18 @@ DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
 
 void manager_verify_all(Manager *m);
 
-void manager_flush_dns_servers(Manager *m, DnsServerType t);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 #define EXTRA_CMSG_SPACE 1024
 
 int manager_is_own_hostname(Manager *m, const char *name);
 
-const char* support_to_string(Support p) _const_;
-int support_from_string(const char *s) _pure_;
+int manager_compile_dns_servers(Manager *m, OrderedSet **servers);
+int manager_compile_search_domains(Manager *m, OrderedSet **domains);
+
+DnssecMode manager_get_dnssec_mode(Manager *m);
+bool manager_dnssec_supported(Manager *m);
+
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
+
+bool manager_routable(Manager *m, int family);

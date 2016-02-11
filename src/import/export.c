@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -24,7 +22,6 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "event-util.h"
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
@@ -76,7 +73,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
 
 static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -1;
@@ -155,7 +152,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
 
 static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -1;

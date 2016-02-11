@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -22,11 +20,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <linux/watchdog.h>
 
 #include "fd-util.h"
 #include "log.h"
+#include "time-util.h"
 #include "watchdog.h"
 
 static int watchdog_fd = -1;

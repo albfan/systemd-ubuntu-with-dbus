@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,9 +17,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <string.h>
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "import-util.h"
+#include "log.h"
+#include "macro.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -153,58 +156,6 @@ int raw_strip_suffixes(const char *p, char **ret) {
         q = NULL;
 
         return 0;
-}
-
-bool dkr_digest_is_valid(const char *digest) {
-        /* 7 chars for prefix, 64 chars for the digest itself */
-        if (strlen(digest) != 71)
-                return false;
-
-        return startswith(digest, "sha256:") && in_charset(digest + 7, "0123456789abcdef");
-}
-
-bool dkr_ref_is_valid(const char *ref) {
-        const char *colon;
-
-        if (isempty(ref))
-                return false;
-
-        colon = strchr(ref, ':');
-        if (!colon)
-                return filename_is_valid(ref);
-
-        return dkr_digest_is_valid(ref);
-}
-
-bool dkr_name_is_valid(const char *name) {
-        const char *slash, *p;
-
-        if (isempty(name))
-                return false;
-
-        slash = strchr(name, '/');
-        if (!slash)
-                return false;
-
-        if (!filename_is_valid(slash + 1))
-                return false;
-
-        p = strndupa(name, slash - name);
-        if (!filename_is_valid(p))
-                return false;
-
-        return true;
-}
-
-bool dkr_id_is_valid(const char *id) {
-
-        if (!filename_is_valid(id))
-                return false;
-
-        if (!in_charset(id, "0123456789abcdef"))
-                return false;
-
-        return true;
 }
 
 int import_assign_pool_quota_and_warn(const char *path) {

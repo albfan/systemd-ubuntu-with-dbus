@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -27,6 +25,7 @@
 #include "bus-error.h"
 #include "terminal-util.h"
 #include "transaction.h"
+#include "dbus-unit.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
@@ -860,29 +859,11 @@ int transaction_add_job_and_dependencies(
         if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_MASKED))
                 return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
-        if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
-                if (unit->load_error == -ENOENT || unit->manager->test_run)
-                        return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                                 "Unit %s failed to load: %s.",
-                                                 unit->id,
-                                                 strerror(-unit->load_error));
-                else
-                        return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                                 "Unit %s failed to load: %s. "
-                                                 "See system logs and 'systemctl status %s' for details.",
-                                                 unit->id,
-                                                 strerror(-unit->load_error),
-                                                 unit->id);
+        if (type != JOB_STOP) {
+                r = bus_unit_check_load_state(unit, e);
+                if (r < 0)
+                        return r;
         }
-
-        if (type != JOB_STOP && unit->load_state == UNIT_NOT_FOUND)
-                return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                         "Unit %s failed to load: %s.",
-                                         unit->id, strerror(-unit->load_error));
-
-        if (type != JOB_STOP && unit->load_state == UNIT_MASKED)
-                return sd_bus_error_setf(e, BUS_ERROR_UNIT_MASKED,
-                                         "Unit %s is masked.", unit->id);
 
         if (!unit_job_is_applicable(unit, type))
                 return sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,
@@ -929,7 +910,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -939,7 +920,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_BINDS_TO], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -949,9 +930,10 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_WANTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
+                                        /* unit masked, job type not applicable and unit not found are not considered as errors. */
                                         log_unit_full(dep,
-                                                      r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
-                                                      "Cannot add dependency job, ignoring: %s",
+                                                      IN_SET(r, -ESHUTDOWN, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                      r, "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
                                         sd_bus_error_free(e);
                                 }
@@ -960,7 +942,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUISITE], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -970,7 +952,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_CONFLICTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, true, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -1015,7 +997,7 @@ int transaction_add_job_and_dependencies(
 
                                         r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
                                         if (r < 0) {
-                                                if (r != -EBADR)
+                                                if (r != -EBADR) /* job type not applicable */
                                                         goto fail;
 
                                                 sd_bus_error_free(e);
@@ -1026,7 +1008,13 @@ int transaction_add_job_and_dependencies(
                 if (type == JOB_RELOAD) {
 
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_RELOAD, dep, ret, false, false, false, ignore_order, e);
+                                JobType nt;
+
+                                nt = job_type_collapse(JOB_TRY_RELOAD, dep);
+                                if (nt == JOB_NOP)
+                                        continue;
+
+                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_unit_warning(dep,
                                                          "Cannot add dependency reload job, ignoring: %s",

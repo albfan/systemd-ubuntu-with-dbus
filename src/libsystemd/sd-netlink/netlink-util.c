@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
  This file is part of systemd.
 
@@ -25,7 +23,7 @@
 #include "netlink-util.h"
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);
@@ -55,7 +53,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
 
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
                              const struct ether_addr *mac, unsigned mtu) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);

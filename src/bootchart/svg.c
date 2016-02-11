@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -37,6 +35,7 @@
 #include "fileio.h"
 #include "list.h"
 #include "macro.h"
+#include "stdio-util.h"
 #include "store.h"
 #include "svg.h"
 #include "utf8.h"
@@ -171,7 +170,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
 
                 strncpy(rootbdev, &c[10], sizeof(rootbdev) - 1);
                 rootbdev[3] = '\0';
-                snprintf(filename, sizeof(filename), "/sys/block/%s/device/model", rootbdev);
+                xsprintf(filename, "/sys/block/%s/device/model", rootbdev);
 
                 r = read_one_line_file(filename, &model);
                 if (r < 0)

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -51,6 +49,7 @@
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -98,7 +97,9 @@ Unit *unit_new(Manager *m, size_t size) {
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
         u->cgroup_inotify_wd = -1;
+        u->job_timeout = USEC_INFINITY;
 
+        RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
         return u;
@@ -457,7 +458,6 @@ static void unit_free_requires_mounts_for(Unit *u) {
 static void unit_done(Unit *u) {
         ExecContext *ec;
         CGroupContext *cc;
-        int r;
 
         assert(u);
 
@@ -474,10 +474,6 @@ static void unit_done(Unit *u) {
         cc = unit_get_cgroup_context(u);
         if (cc)
                 cgroup_context_done(cc);
-
-        r = unit_remove_from_netclass_cgroup(u);
-        if (r < 0)
-                log_warning_errno(r, "Unable to remove unit from netclass group: %m");
 }
 
 void unit_free(Unit *u) {
@@ -556,6 +552,8 @@ void unit_free(Unit *u) {
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
+
+        free(u->reboot_arg);
 
         unit_ref_unset(&u->slice);
 
@@ -868,6 +866,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         Iterator i;
         const char *prefix2;
         char
+                timestamp0[FORMAT_TIMESTAMP_MAX],
                 timestamp1[FORMAT_TIMESTAMP_MAX],
                 timestamp2[FORMAT_TIMESTAMP_MAX],
                 timestamp3[FORMAT_TIMESTAMP_MAX],
@@ -889,6 +888,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
+                "%s\nState Change Timestamp: %s\n"
                 "%s\tInactive Exit Timestamp: %s\n"
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
@@ -906,6 +906,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
+                prefix, strna(format_timestamp(timestamp0, sizeof(timestamp0), u->state_change_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->inactive_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
@@ -946,7 +947,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         STRV_FOREACH(j, u->dropin_paths)
                 fprintf(f, "%s\tDropIn Path: %s\n", prefix, *j);
 
-        if (u->job_timeout > 0)
+        if (u->job_timeout != USEC_INFINITY)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
 
         if (u->job_timeout_action != FAILURE_ACTION_NONE)
@@ -1257,14 +1258,6 @@ int unit_load(Unit *u) {
                 }
 
                 unit_update_cgroup_members_masks(u);
-
-                /* If we are reloading, we need to wait for the deserializer
-                 * to restore the net_cls ids that have been set previously */
-                if (u->manager->n_reloading <= 0) {
-                        r = unit_add_to_netclass_cgroup(u);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
@@ -1412,7 +1405,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         format = unit_get_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        snprintf(buf, sizeof(buf), format, unit_description(u));
+        xsprintf(buf, format, unit_description(u));
         REENABLE_WARNING;
 
         mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
@@ -1441,22 +1434,35 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
         unit_status_print_starting_stopping(u, t);
 }
 
+static int unit_start_limit_test(Unit *u) {
+        assert(u);
+
+        if (ratelimit_test(&u->start_limit)) {
+                u->start_limit_hit = false;
+                return 0;
+        }
+
+        log_unit_warning(u, "Start request repeated too quickly.");
+        u->start_limit_hit = true;
+
+        return failure_action(u->manager, u->start_limit_action, u->reboot_arg);
+}
+
 /* Errors:
- *         -EBADR:     This unit type does not support starting.
- *         -EALREADY:  Unit is already started.
- *         -EAGAIN:    An operation is already in progress. Retry later.
- *         -ECANCELED: Too many requests for now.
- *         -EPROTO:    Assert failed
+ *         -EBADR:      This unit type does not support starting.
+ *         -EALREADY:   Unit is already started.
+ *         -EAGAIN:     An operation is already in progress. Retry later.
+ *         -ECANCELED:  Too many requests for now.
+ *         -EPROTO:     Assert failed
+ *         -EINVAL:     Unit not loaded
+ *         -EOPNOTSUPP: Unit type not supported
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
-
-        /* Units that aren't loaded cannot be started */
-        if (u->load_state != UNIT_LOADED)
-                return -EINVAL;
 
         /* If this is already started, then this will succeed. Note
          * that this will even succeed if this unit is not startable
@@ -1465,6 +1471,15 @@ int unit_start(Unit *u) {
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
+
+        /* Make sure we don't enter a busy loop of some kind. */
+        r = unit_start_limit_test(u);
+        if (r < 0)
+                return r;
+
+        /* Units that aren't loaded cannot be started */
+        if (u->load_state != UNIT_LOADED)
+                return -EINVAL;
 
         /* If the conditions failed, don't do anything at all. If we
          * already are activating this call might still be useful to
@@ -1613,7 +1628,7 @@ bool unit_can_reload(Unit *u) {
 
 static void unit_check_unneeded(Unit *u) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         static const UnitDependency needed_dependencies[] = {
                 UNIT_REQUIRED_BY,
@@ -1660,7 +1675,7 @@ static void unit_check_unneeded(Unit *u) {
 }
 
 static void unit_check_binds_to(Unit *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool stop = false;
         Unit *other;
         Iterator i;
@@ -1820,19 +1835,17 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Update timestamps for state changes */
         if (m->n_reloading <= 0) {
-                dual_timestamp ts;
-
-                dual_timestamp_get(&ts);
+                dual_timestamp_get(&u->state_change_timestamp);
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        u->inactive_exit_timestamp = ts;
+                        u->inactive_exit_timestamp = u->state_change_timestamp;
                 else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        u->inactive_enter_timestamp = ts;
+                        u->inactive_enter_timestamp = u->state_change_timestamp;
 
                 if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        u->active_enter_timestamp = ts;
+                        u->active_enter_timestamp = u->state_change_timestamp;
                 else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        u->active_exit_timestamp = ts;
+                        u->active_exit_timestamp = u->state_change_timestamp;
         }
 
         /* Keep track of failed units */
@@ -1893,6 +1906,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 case JOB_RELOAD:
                 case JOB_RELOAD_OR_START:
+                case JOB_TRY_RELOAD:
 
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
@@ -2106,6 +2120,7 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
                 return unit_can_start(u);
 
         case JOB_RELOAD:
+        case JOB_TRY_RELOAD:
                 return unit_can_reload(u);
 
         case JOB_RELOAD_OR_START:
@@ -2550,10 +2565,13 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 }
         }
 
+        dual_timestamp_serialize(f, "state-change-timestamp", &u->state_change_timestamp);
+
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
         dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
         dual_timestamp_serialize(f, "active-exit-timestamp", &u->active_exit_timestamp);
         dual_timestamp_serialize(f, "inactive-enter-timestamp", &u->inactive_enter_timestamp);
+
         dual_timestamp_serialize(f, "condition-timestamp", &u->condition_timestamp);
         dual_timestamp_serialize(f, "assert-timestamp", &u->assert_timestamp);
 
@@ -2569,9 +2587,6 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
-
-        if (u->cgroup_netclass_id)
-                unit_serialize_item_format(u, f, "netclass-id", "%" PRIu32, u->cgroup_netclass_id);
 
         if (serialize_jobs) {
                 if (u->job) {
@@ -2692,7 +2707,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                 /* End marker */
                 if (isempty(l))
-                        return 0;
+                        break;
 
                 k = strcspn(l, "=");
 
@@ -2731,6 +2746,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 }
                         } else  /* legacy for pre-44 */
                                 log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
+                        continue;
+                } else if (streq(l, "state-change-timestamp")) {
+                        dual_timestamp_deserialize(v, &u->state_change_timestamp);
                         continue;
                 } else if (streq(l, "inactive-exit-timestamp")) {
                         dual_timestamp_deserialize(v, &u->inactive_exit_timestamp);
@@ -2807,17 +2825,6 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 u->cgroup_realized = b;
 
                         continue;
-                } else if (streq(l, "netclass-id")) {
-                        r = safe_atou32(v, &u->cgroup_netclass_id);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse netclass ID %s, ignoring.", v);
-                        else {
-                                r = unit_add_to_netclass_cgroup(u);
-                                if (r < 0)
-                                        log_unit_debug_errno(u, r, "Failed to add unit to netclass cgroup, ignoring: %m");
-                        }
-
-                        continue;
                 }
 
                 if (unit_can_serialize(u)) {
@@ -2838,9 +2845,18 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
+
+        /* Versions before 228 did not carry a state change timestamp. In this case, take the current time. This is
+         * useful, so that timeouts based on this timestamp don't trigger too early, and is in-line with the logic from
+         * before 228 where the base for timeouts was not persistent across reboots. */
+
+        if (!dual_timestamp_is_set(&u->state_change_timestamp))
+                dual_timestamp_get(&u->state_change_timestamp);
+
+        return 0;
 }
 
-int unit_add_node_link(Unit *u, const char *what, bool wants) {
+int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep) {
         Unit *device;
         _cleanup_free_ char *e = NULL;
         int r;
@@ -2867,7 +2883,9 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(u, UNIT_AFTER, u->manager->running_as == MANAGER_SYSTEM ? UNIT_BINDS_TO : UNIT_WANTS, device, true);
+        r = unit_add_two_dependencies(u, UNIT_AFTER,
+                                      u->manager->running_as == MANAGER_SYSTEM ? dep : UNIT_WANTS,
+                                      device, true);
         if (r < 0)
                 return r;
 
@@ -2966,6 +2984,9 @@ void unit_reset_failed(Unit *u) {
 
         if (UNIT_VTABLE(u)->reset_failed)
                 UNIT_VTABLE(u)->reset_failed(u);
+
+        RATELIMIT_RESET(u->start_limit);
+        u->start_limit_hit = false;
 }
 
 Unit *unit_following(Unit *u) {
@@ -3117,7 +3138,7 @@ int unit_kill_common(
                         killed = true;
         }
 
-        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_ALL_FAIL))
+        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL))
                 return -ESRCH;
 
         return r;
@@ -3229,7 +3250,7 @@ int unit_patch_contexts(Unit *u) {
                         ec->no_new_privileges = true;
 
                 if (ec->private_devices)
-                        ec->capability_bounding_set_drop |= (uint64_t) 1ULL << (uint64_t) CAP_MKNOD;
+                        ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_MKNOD);
         }
 
         cc = unit_get_cgroup_context(u);

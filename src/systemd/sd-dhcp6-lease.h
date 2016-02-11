@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosddhcp6leasehfoo
 #define foosddhcp6leasehfoo
 
@@ -46,6 +44,8 @@ int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ntp_fqdn);
 
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease);
 sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_lease, sd_dhcp6_lease_unref);
 
 _SD_END_DECLARATIONS;
 

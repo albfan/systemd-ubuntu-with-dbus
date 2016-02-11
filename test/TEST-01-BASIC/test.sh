@@ -11,7 +11,7 @@ check_result_qemu() {
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
     [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
-    [[ -f $TESTDIR/root/var/log/journal ]] && cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    cp -a $TESTDIR/root/var/log/journal $TESTDIR
     umount $TESTDIR/root
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
@@ -58,8 +58,15 @@ Type=oneshot
 EOF
 
         setup_testsuite
-    )
+    ) || return 1
     setup_nspawn_root
+
+    # mask some services that we do not want to run in these tests
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root

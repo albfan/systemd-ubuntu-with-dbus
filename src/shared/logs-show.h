@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -22,12 +20,16 @@
 ***/
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <sys/types.h>
 
 #include "sd-journal.h"
 
-#include "util.h"
+#include "macro.h"
 #include "output-mode.h"
+#include "time-util.h"
+#include "util.h"
 
 int output_journal(
                 FILE *f,

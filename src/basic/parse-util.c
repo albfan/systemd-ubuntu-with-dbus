@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,11 +17,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <inttypes.h>
+#include <locale.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <xlocale.h>
+
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "util.h"
 
 int parse_boolean(const char *v) {
         assert(v);
@@ -73,7 +79,7 @@ int parse_mode(const char *s, mode_t *ret) {
 
         errno = 0;
         l = strtol(s, &x, 8);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -168,7 +174,7 @@ int parse_size(const char *t, uint64_t base, uint64_t *size) {
 
                 errno = 0;
                 l = strtoull(p, &e, 10);
-                if (errno != 0)
+                if (errno > 0)
                         return -errno;
                 if (e == p)
                         return -EINVAL;
@@ -184,7 +190,7 @@ int parse_size(const char *t, uint64_t base, uint64_t *size) {
                                 char *e2;
 
                                 l2 = strtoull(e, &e2, 10);
-                                if (errno != 0)
+                                if (errno > 0)
                                         return -errno;
 
                                 /* Ignore failure. E.g. 10.M is valid */
@@ -322,7 +328,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
 
         errno = 0;
         l = strtoul(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -344,7 +350,7 @@ int safe_atoi(const char *s, int *ret_i) {
 
         errno = 0;
         l = strtol(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -366,7 +372,7 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
 
         errno = 0;
         l = strtoull(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -386,7 +392,7 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 
         errno = 0;
         l = strtoll(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -406,7 +412,7 @@ int safe_atou8(const char *s, uint8_t *ret) {
 
         errno = 0;
         l = strtoul(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -430,7 +436,7 @@ int safe_atou16(const char *s, uint16_t *ret) {
 
         errno = 0;
         l = strtoul(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -452,7 +458,7 @@ int safe_atoi16(const char *s, int16_t *ret) {
 
         errno = 0;
         l = strtol(s, &x, 0);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (!x || x == s || *x)
                 return -EINVAL;
@@ -477,7 +483,7 @@ int safe_atod(const char *s, double *ret_d) {
 
         errno = 0;
         d = strtod_l(s, &x, loc);
-        if (errno != 0) {
+        if (errno > 0) {
                 freelocale(loc);
                 return -errno;
         }
@@ -488,5 +494,41 @@ int safe_atod(const char *s, double *ret_d) {
 
         freelocale(loc);
         *ret_d = (double) d;
+        return 0;
+}
+
+int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
+        size_t i;
+        unsigned val = 0;
+        const char *s;
+
+        s = *p;
+
+        /* accept any number of digits, strtoull is limted to 19 */
+        for(i=0; i < digits; i++,s++) {
+                if (*s < '0' || *s > '9') {
+                        if (i == 0)
+                                return -EINVAL;
+
+                        /* too few digits, pad with 0 */
+                        for (; i < digits; i++)
+                                val *= 10;
+
+                        break;
+                }
+
+                val *= 10;
+                val += *s - '0';
+        }
+
+        /* maybe round up */
+        if (*s >= '5' && *s <= '9')
+                val++;
+
+        s += strspn(s, DIGITS);
+
+        *p = s;
+        *res = val;
+
         return 0;
 }

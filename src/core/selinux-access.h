@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -22,6 +20,7 @@
 ***/
 
 #include "sd-bus.h"
+
 #include "bus-util.h"
 #include "manager.h"
 

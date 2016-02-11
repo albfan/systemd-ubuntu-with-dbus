@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -112,7 +110,7 @@ static int verify_tty(const char *name) {
 
         errno = 0;
         if (isatty(fd) <= 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return 0;
 }

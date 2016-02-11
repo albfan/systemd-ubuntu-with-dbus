@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -32,7 +30,6 @@
 #include "barrier.h"
 #include "fd-util.h"
 #include "macro.h"
-#include "util.h"
 
 /**
  * Barriers
@@ -198,6 +195,7 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
         if (barrier_i_aborted(b))
                 return false;
 
+        assert(b->me >= 0);
         do {
                 len = write(b->me, &buf, sizeof(buf));
         } while (len < 0 && IN_SET(errno, EAGAIN, EINTR));

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -23,9 +21,8 @@
 
 typedef struct VxLan VxLan;
 
-#include "networkd-netdev.h"
-
 #include "in-addr-util.h"
+#include "networkd-netdev.h"
 
 #define VXLAN_VID_MAX (1u << 24) - 1
 
@@ -41,6 +38,8 @@ struct VxLan {
         unsigned ttl;
         unsigned max_fdb;
 
+        uint16_t dest_port;
+
         usec_t fdb_ageing;
 
         bool learning;
@@ -52,6 +51,8 @@ struct VxLan {
         bool udp6zerocsumtx;
         bool udp6zerocsumrx;
         bool group_policy;
+
+        struct ifla_vxlan_port_range port_range;
 };
 
 extern const NetDevVTable vxlan_vtable;
@@ -66,3 +67,24 @@ int config_parse_vxlan_group_address(const char *unit,
                                      const char *rvalue,
                                      void *data,
                                      void *userdata);
+int config_parse_port_range(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata);
+
+int config_parse_destination_port(const char *unit,
+                                  const char *filename,
+                                  unsigned line,
+                                  const char *section,
+                                  unsigned section_line,
+                                  const char *lvalue,
+                                  int ltype,
+                                  const char *rvalue,
+                                  void *data,
+                                  void *userdata);

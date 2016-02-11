@@ -32,6 +32,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "socket-util.h"
+#include "string-util.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL      4 * USEC_PER_SEC
 #define NDISC_MAX_ROUTER_SOLICITATIONS          3
@@ -111,7 +112,7 @@ static NDiscPrefix *ndisc_prefix_unref(NDiscPrefix *prefix) {
 }
 
 static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
-        _cleanup_free_ NDiscPrefix *prefix = NULL;
+        NDiscPrefix *prefix;
 
         assert(ret);
 
@@ -124,8 +125,6 @@ static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
         prefix->nd = nd;
 
         *ret = prefix;
-        prefix = NULL;
-
         return 0;
 }
 
@@ -244,11 +243,8 @@ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ndisc*, sd_ndisc_unref);
-#define _cleanup_sd_ndisc_free_ _cleanup_(sd_ndisc_unrefp)
-
 int sd_ndisc_new(sd_ndisc **ret) {
-        _cleanup_sd_ndisc_free_ sd_ndisc *nd = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         assert(ret);
 
@@ -316,7 +312,6 @@ static int ndisc_prefix_match(sd_ndisc *nd, const struct in6_addr *addr,
         LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
                 if (prefix->valid_until < time_now) {
                         prefix = ndisc_prefix_unref(prefix);
-
                         continue;
                 }
 
@@ -357,14 +352,13 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
 
         r = ndisc_prefix_match(nd, &prefix_opt->nd_opt_pi_prefix,
                                prefix_opt->nd_opt_pi_prefix_len, &prefix);
+        if (r < 0) {
+                if (r != -EADDRNOTAVAIL)
+                        return r;
 
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                return r;
+                /* if router advertisment prefix valid timeout is zero, the timeout
+                   callback will be called immediately to clean up the prefix */
 
-        /* if router advertisment prefix valid timeout is zero, the timeout
-           callback will be called immediately to clean up the prefix */
-
-        if (r == -EADDRNOTAVAIL) {
                 r = ndisc_prefix_new(nd, &prefix);
                 if (r < 0)
                         return r;
@@ -375,9 +369,9 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                         sizeof(prefix->addr));
 
                 log_ndisc(nd, "New prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len, lifetime_valid,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
+                          SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
+                          prefix->len, lifetime_valid,
+                          format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
 
                 LIST_PREPEND(prefixes, nd->prefixes, prefix);
 
@@ -388,17 +382,17 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                         prefixlen = MIN(prefix->len, prefix_opt->nd_opt_pi_prefix_len);
 
                         log_ndisc(nd, "Prefix length mismatch %d/%d using %d",
-                                     prefix->len,
-                                     prefix_opt->nd_opt_pi_prefix_len,
-                                     prefixlen);
+                                  prefix->len,
+                                  prefix_opt->nd_opt_pi_prefix_len,
+                                  prefixlen);
 
                         prefix->len = prefixlen;
                 }
 
                 log_ndisc(nd, "Update prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len, lifetime_valid,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
+                          SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
+                          prefix->len, lifetime_valid,
+                          format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
         }
 
         r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
@@ -417,8 +411,7 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
         return 0;
 }
 
-static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
-                          ssize_t len) {
+static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len) {
         void *opt;
         struct nd_opt_hdr *opt_hdr;
 
@@ -453,7 +446,7 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
                                 nd->mtu = MAX(mtu, IP6_MIN_MTU);
 
                                 log_ndisc(nd, "Router Advertisement link MTU %d using %d",
-                                             mtu, nd->mtu);
+                                          mtu, nd->mtu);
                         }
 
                         break;
@@ -481,30 +474,86 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
 static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ struct nd_router_advert *ra = NULL;
         sd_ndisc *nd = userdata;
-        int r, buflen = 0, pref, stateful;
-        union sockaddr_union router = {};
-        socklen_t router_len = sizeof(router);
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_LEN(sizeof(int))];
+        } control = {};
+        struct iovec iov = {};
+        union sockaddr_union sa = {};
+        struct msghdr msg = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        struct in6_addr *gw;
         unsigned lifetime;
         ssize_t len;
+        int r, pref, stateful, buflen = 0;
 
         assert(s);
         assert(nd);
         assert(nd->event);
 
         r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0 || buflen <= 0)
-                buflen = ICMP6_RECV_SIZE;
+        if (r < 0)
+                return -errno;
+        else if (buflen < 0)
+                /* This really should not happen */
+                return -EIO;
 
-        ra = malloc(buflen);
+        iov.iov_len = buflen;
+
+        ra = malloc(iov.iov_len);
         if (!ra)
                 return -ENOMEM;
 
-        len = recvfrom(fd, ra, buflen, 0, &router.sa, &router_len);
+        iov.iov_base = ra;
+
+        len = recvmsg(fd, &msg, 0);
         if (len < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
                 log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
+                return -errno;
+        } else if ((size_t)len < sizeof(struct nd_router_advert)) {
                 return 0;
-        } else if (router_len != sizeof(router.in6) && router_len != 0) {
-                log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)router_len);
+        } else if (msg.msg_namelen == 0)
+                gw = NULL; /* only happens when running the test-suite over a socketpair */
+        else if (msg.msg_namelen != sizeof(sa.in6)) {
+                log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)msg.msg_namelen);
+                return 0;
+        } else
+                gw = &sa.in6.sin6_addr;
+
+        assert(!(msg.msg_flags & MSG_CTRUNC));
+        assert(!(msg.msg_flags & MSG_TRUNC));
+
+        CMSG_FOREACH(cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_IPV6 &&
+                    cmsg->cmsg_type == IPV6_HOPLIMIT &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                        int hops = *(int*)CMSG_DATA(cmsg);
+
+                        if (hops != 255) {
+                                log_ndisc(nd, "Received RA with invalid hop limit %d. Ignoring.", hops);
+                                return 0;
+                        }
+
+                        break;
+                }
+        }
+
+        if (gw && !in_addr_is_link_local(AF_INET6, (const union in_addr_union*) gw)) {
+                _cleanup_free_ char *addr = NULL;
+
+                (void)in_addr_to_string(AF_INET6, (const union in_addr_union*) gw, &addr);
+
+                log_ndisc(nd, "Received RA from non-link-local address %s. Ignoring.", strna(addr));
                 return 0;
         }
 
@@ -544,7 +593,7 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         }
 
         if (nd->router_callback)
-                nd->router_callback(nd, stateful, router_len != 0 ? &router.in6.sin6_addr : NULL, lifetime, pref, nd->userdata);
+                nd->router_callback(nd, stateful, gw, lifetime, pref, nd->userdata);
 
         return 0;
 }
@@ -552,8 +601,6 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_ndisc *nd = userdata;
         uint64_t time_now, next_timeout;
-        struct ether_addr unset = { };
-        struct ether_addr *addr = NULL;
         int r;
 
         assert(s);
@@ -567,10 +614,7 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                         nd->callback(nd, SD_NDISC_EVENT_TIMEOUT, nd->userdata);
                 nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
         } else {
-                if (memcmp(&nd->mac_addr, &unset, sizeof(struct ether_addr)))
-                        addr = &nd->mac_addr;
-
-                r = icmp6_send_router_solicitation(nd->fd, addr);
+                r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
                 if (r < 0)
                         log_ndisc(nd, "Error sending Router Solicitation");
                 else {

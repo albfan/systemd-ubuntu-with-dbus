@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -22,6 +20,7 @@
 #include <sys/utsname.h>
 
 #include "architecture.h"
+#include "macro.h"
 #include "string-table.h"
 #include "string-util.h"
 

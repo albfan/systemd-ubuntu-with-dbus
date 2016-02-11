@@ -72,6 +72,13 @@
     <literal>[Remote]</literal> section:</para>
 
     <variablelist>
+      <varlistentry>
+        <term><varname>Seal=</varname></term>
+
+        <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
+        </para></listitem>
+      </varlistentry>
+
 
       <varlistentry>
         <term><varname>SplitMode=</varname></term>
@@ -105,7 +112,7 @@
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       </para>

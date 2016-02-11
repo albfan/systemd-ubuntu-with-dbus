@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -41,11 +39,5 @@ ImportVerify import_verify_from_string(const char *s) _pure_;
 
 int tar_strip_suffixes(const char *name, char **ret);
 int raw_strip_suffixes(const char *name, char **ret);
-
-bool dkr_name_is_valid(const char *name);
-bool dkr_id_is_valid(const char *id);
-bool dkr_ref_is_valid(const char *ref);
-bool dkr_digest_is_valid(const char *digest);
-#define dkr_tag_is_valid(tag) filename_is_valid(tag)
 
 int import_assign_pool_quota_and_warn(const char *path);

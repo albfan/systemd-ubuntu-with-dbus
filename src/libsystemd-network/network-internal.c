@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
  This file is part of systemd.
 
@@ -437,7 +435,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         return size;
 }
 
-void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size) {
+void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, size_t size) {
         unsigned i;
 
         assert(f);
@@ -448,10 +446,15 @@ void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *route
         fprintf(f, "%s=", key);
 
         for (i = 0; i < size; i++) {
-                fprintf(f, "%s/%" PRIu8, inet_ntoa(routes[i].dst_addr),
-                        routes[i].dst_prefixlen);
-                fprintf(f, ",%s%s", inet_ntoa(routes[i].gw_addr),
-                        (i < (size - 1)) ? " ": "");
+                struct in_addr dest, gw;
+                uint8_t length;
+
+                assert_se(sd_dhcp_route_get_destination(routes[i], &dest) >= 0);
+                assert_se(sd_dhcp_route_get_gateway(routes[i], &gw) >= 0);
+                assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &length) >= 0);
+
+                fprintf(f, "%s/%" PRIu8, inet_ntoa(dest), length);
+                fprintf(f, ",%s%s", inet_ntoa(gw), (i < (size - 1)) ? " ": "");
         }
 
         fputs("\n", f);

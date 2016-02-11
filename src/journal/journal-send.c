@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -225,8 +223,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
 
-        w = alloca(sizeof(struct iovec) * n * 5 + 3);
-        l = alloca(sizeof(uint64_t) * n);
+        w = newa(struct iovec, n * 5 + 3);
+        l = newa(uint64_t, n);
 
         for (i = 0; i < n; i++) {
                 char *c, *nl;
@@ -337,7 +335,11 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                         return r;
         }
 
-        return send_one_fd(fd, buffer_fd, 0);
+        r = send_one_fd_sa(fd, buffer_fd, mh.msg_name, mh.msg_namelen, 0);
+        if (r == -ENOENT)
+                /* Fail silently if the journal is not available */
+                return 0;
+        return r;
 }
 
 static int fill_iovec_perror_and_send(const char *message, int skip, struct iovec iov[]) {
@@ -368,6 +370,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
 
                         xsprintf(error, "ERRNO=%i", _saved_errno_);
 
+                        assert_cc(3 == LOG_ERR);
                         IOVEC_SET_STRING(iov[skip+0], "PRIORITY=3");
                         IOVEC_SET_STRING(iov[skip+1], buffer);
                         IOVEC_SET_STRING(iov[skip+2], error);

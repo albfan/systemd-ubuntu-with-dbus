@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -247,7 +245,7 @@ static OutputFlags get_output_flags(void) {
                 arg_all * OUTPUT_SHOW_ALL |
                 arg_full * OUTPUT_FULL_WIDTH |
                 (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                on_tty() * OUTPUT_COLOR |
+                colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
 
@@ -530,9 +528,9 @@ static int get_unit_list(
                 int c,
                 sd_bus_message **_reply) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         size_t size = c;
         int r;
         UnitInfo u;
@@ -637,7 +635,7 @@ static int get_unit_list_recursive(
                         return log_error_errno(r, "Failed to get machine names: %m");
 
                 STRV_FOREACH(i, machines) {
-                        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
+                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
                         int k;
 
                         r = sd_bus_open_system_machine(&container, *i);
@@ -699,7 +697,7 @@ static int get_triggered_units(
                 const char* path,
                 char*** ret) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -725,8 +723,8 @@ static int get_listening(
                 const char* unit_path,
                 char*** listening) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *type, *path;
         int r, n = 0;
 
@@ -962,7 +960,7 @@ static int get_next_elapse(
                 const char *path,
                 dual_timestamp *next) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         dual_timestamp t;
         int r;
 
@@ -1003,7 +1001,7 @@ static int get_last_trigger(
                 const char *path,
                 usec_t *last) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1358,7 +1356,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 }
 
 static int list_unit_files(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         UnitFileList *unit;
         size_t size = 0;
@@ -1404,7 +1402,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 assert(c <= n_units);
                 hashmap_free(h);
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -1516,8 +1514,8 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                 [DEPENDENCY_BEFORE]  = "Before\0",
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **ret = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
@@ -1742,7 +1740,7 @@ static int compare_machine_info(const void *a, const void *b) {
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
-        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
         int r;
 
         assert(mi);
@@ -1930,7 +1928,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 }
 
 static int get_default(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *_path = NULL;
         const char *path;
         int r;
@@ -1942,7 +1940,7 @@ static int get_default(int argc, char *argv[], void *userdata) {
                 path = _path;
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -1979,7 +1977,7 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
 
         for (i = 0; i < n_changes; i++) {
                 if (changes[i].type == UNIT_FILE_SYMLINK)
-                        log_info("Created symlink from %s to %s.", changes[i].path, changes[i].source);
+                        log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
                 else
                         log_info("Removed symlink %s.", changes[i].path);
         }
@@ -2010,8 +2008,8 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 unit_file_changes_free(changes, n_changes);
                 r = 0;
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -2128,8 +2126,8 @@ static bool output_show_job(struct job_info *job, char **patterns) {
 }
 
 static int list_jobs(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *name, *type, *state, *job_path, *unit_path;
         _cleanup_free_ struct job_info *jobs = NULL;
         size_t size = 0;
@@ -2200,7 +2198,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
                 return r;
 
         STRV_FOREACH(name, strv_skip(argv, 1)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
                 int q;
 
@@ -2228,7 +2226,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
 }
 
 static int need_daemon_reload(sd_bus *bus, const char *unit) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
         int b, r;
 
@@ -2324,42 +2322,12 @@ static int unit_find_paths(
         assert(lp);
 
         if (!install_client_side() && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *unit = NULL;
-                char *unit_load_error_name, *unit_load_error_message;
 
                 unit = unit_dbus_path_from_name(unit_name);
                 if (!unit)
                         return log_oom();
-
-                if (need_daemon_reload(bus, unit_name) > 0)
-                        warn_unit_file_changed(unit_name);
-
-                r = sd_bus_get_property(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "LoadError",
-                                &error,
-                                &unit_load_error,
-                                "(ss)");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get LoadError: %s", bus_error_message(&error, r));
-
-                r = sd_bus_message_read(
-                                unit_load_error,
-                                "(ss)",
-                                &unit_load_error_name,
-                                &unit_load_error_message);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!isempty(unit_load_error_name)) {
-                        log_error("Unit %s is not loaded: %s", unit_name, unit_load_error_message);
-                        return 0;
-                }
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -2440,19 +2408,16 @@ static int unit_find_paths(
 }
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n = NULL, *state = NULL;
-        const char *path;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *buf = NULL;
+        const char *path, *state;
         int r;
 
         assert(name);
 
-        r = unit_name_mangle(name, UNIT_NAME_NOGLOB, &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mangle unit name: %m");
-
-        /* We don't use unit_dbus_path_from_name() directly since we
-         * don't want to load the unit if it isn't loaded. */
+        /* We don't use unit_dbus_path_from_name() directly since we don't want to load the unit unnecessarily, if it
+         * isn't loaded. */
 
         r = sd_bus_call_method(
                         bus,
@@ -2460,31 +2425,34 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "GetUnit",
-                        NULL,
+                        &error,
                         &reply,
-                        "s", n);
+                        "s", name);
         if (r < 0) {
-                if (!quiet)
-                        puts("unknown");
-                return 0;
-        }
+                if (!sd_bus_error_has_name(&error,  BUS_ERROR_NO_SUCH_UNIT))
+                        return log_error_errno(r, "Failed to retrieve unit: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
+                /* The unit is currently not loaded, hence say it's "inactive", since all units that aren't loaded are
+                 * considered inactive. */
+                state = "inactive";
 
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "ActiveState",
-                        NULL,
-                        &state);
-        if (r < 0) {
-                if (!quiet)
-                        puts("unknown");
-                return 0;
+        } else {
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit",
+                                "ActiveState",
+                                &error,
+                                &buf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
+
+                state = buf;
         }
 
         if (!quiet)
@@ -2497,7 +2465,7 @@ static int check_triggering_units(
                 sd_bus *bus,
                 const char *name) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL, *n = NULL, *state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
@@ -2568,6 +2536,7 @@ static const struct {
         { "try-restart",           "TryRestartUnit" },
         { "condrestart",           "TryRestartUnit" },
         { "reload-or-restart",     "ReloadOrRestartUnit" },
+        { "try-reload-or-restart", "ReloadOrTryRestartUnit" },
         { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
         { "condreload",            "ReloadOrTryRestartUnit" },
         { "force-reload",          "ReloadOrTryRestartUnit" }
@@ -2601,7 +2570,7 @@ static int start_unit_one(
                 sd_bus_error *error,
                 BusWaitForJobs *w) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
         int r;
 
@@ -2631,7 +2600,13 @@ static int start_unit_one(
 
                 verb = method_to_verb(method);
 
-                return log_error_errno(r, "Failed to %s %s: %s", verb, name, bus_error_message(error, r));
+                log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
+
+                if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
+                    !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED))
+                        log_error("See system logs and 'systemctl status %s' for details.", name);
+
+                return r;
         }
 
         r = sd_bus_message_read(reply, "o", &path);
@@ -2680,16 +2655,27 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         /* Query the manager only if any of the names are a glob, since
          * this is fairly expensive */
         if (!strv_isempty(globs)) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
+                size_t allocated, n;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
-                for (i = 0; i < r; i++)
-                        if (strv_extend(&mangled, unit_infos[i].id) < 0)
+                n = strv_length(mangled);
+                allocated = n + 1;
+
+                for (i = 0; i < r; i++) {
+                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
                                 return log_oom();
+
+                        mangled[n] = strdup(unit_infos[i].id);
+                        if (!mangled[n])
+                                return log_oom();
+
+                        mangled[++n] = NULL;
+                }
         }
 
         *ret = mangled;
@@ -2783,7 +2769,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
                 q = start_unit_one(bus, method, *name, mode, &error, w);
@@ -2794,7 +2780,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         if (!arg_no_block) {
                 int q;
 
-                q = bus_wait_for_jobs(w, arg_quiet);
+                q = bus_wait_for_jobs(w, arg_quiet, arg_scope != UNIT_FILE_SYSTEM ? "--user" : NULL);
                 if (q < 0)
                         return q;
 
@@ -2810,7 +2796,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
 
 static int logind_set_wall_message(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         _cleanup_free_ char *m = NULL;
         int r;
@@ -2846,7 +2832,7 @@ static int logind_set_wall_message(void) {
  * through PolicyKit */
 static int logind_reboot(enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
         sd_bus *bus;
         int r;
@@ -2909,7 +2895,7 @@ static int logind_reboot(enum action a) {
 
 static int logind_check_inhibitors(enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
@@ -3025,7 +3011,7 @@ static int logind_check_inhibitors(enum action a) {
 
 static int logind_prepare_firmware_setup(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -3071,7 +3057,7 @@ static int prepare_firmware_setup(void) {
 }
 
 static int set_exit_code(uint8_t code) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -3177,6 +3163,7 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
         sd_bus *bus;
         char **name;
         int r;
+        bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -3192,11 +3179,13 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
                 state = check_one_unit(bus, *name, good_states, arg_quiet);
                 if (state < 0)
                         return state;
-                if (state == 0)
-                        r = code;
+                if (state > 0)
+                        found = true;
         }
 
-        return r;
+        /* use the given return code for the case that we won't find
+         * any unit which matches the list */
+        return found ? 0 : code;
 }
 
 static int check_unit_active(int argc, char *argv[], void *userdata) {
@@ -3232,7 +3221,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(
                                 bus,
@@ -3360,6 +3349,7 @@ typedef struct UnitStatusInfo {
         usec_t inactive_enter_timestamp;
 
         bool need_daemon_reload;
+        bool transient;
 
         /* Service */
         pid_t main_pid;
@@ -3459,7 +3449,7 @@ static void print_status_info(
 
         path = i->source_path ? i->source_path : i->fragment_path;
 
-        if (i->load_error)
+        if (i->load_error != 0)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset))
@@ -3474,6 +3464,9 @@ static void print_status_info(
         else
                 printf("   Loaded: %s%s%s\n",
                        on, strna(i->load_state), off);
+
+        if (i->transient)
+                printf("Transient: yes\n");
 
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
@@ -3839,6 +3832,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->condition_result = b;
                 else if (streq(name, "AssertResult"))
                         i->assert_result = b;
+                else if (streq(name, "Transient"))
+                        i->transient = b;
 
                 break;
         }
@@ -4388,8 +4383,8 @@ static int show_one(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_limit = (uint64_t) -1,
@@ -4505,8 +4500,8 @@ static int get_unit_dbus_path_by_pid(
                 uint32_t pid,
                 char **unit) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         char *u;
         int r;
 
@@ -4541,7 +4536,7 @@ static int show_all(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         const UnitInfo *u;
         unsigned c;
@@ -4646,8 +4641,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        if (show_properties)
-                pager_open_if_enabled();
+        pager_open_if_enabled();
 
         if (show_status)
                 /* Increase max number of open files to 16K if we can, we
@@ -4841,8 +4835,8 @@ static int cat(int argc, char *argv[], void *userdata) {
 }
 
 static int set_property(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
         sd_bus *bus;
         char **i;
@@ -4877,17 +4871,9 @@ static int set_property(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         STRV_FOREACH(i, strv_skip(argv, 2)) {
-                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 r = bus_append_unit_property_assignment(m, *i);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
         }
 
         r = sd_bus_message_close_container(m);
@@ -4902,7 +4888,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
 }
 
 static int daemon_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -4976,7 +4962,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(
                                 bus,
@@ -4998,8 +4984,8 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
 }
 
 static int show_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *text;
         sd_bus *bus;
         int r;
@@ -5039,7 +5025,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
 }
 
 static int switch_root(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cmdline_init = NULL;
         const char *root, *init;
         sd_bus *bus;
@@ -5106,8 +5092,8 @@ static int switch_root(int argc, char *argv[], void *userdata) {
 }
 
 static int set_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -5147,8 +5133,8 @@ static int set_environment(int argc, char *argv[], void *userdata) {
 }
 
 static int import_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus;
         int r;
 
@@ -5443,8 +5429,8 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 r = 0;
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
                 bool send_force = true, send_preset_mode = false;
                 const char *method;
@@ -5610,8 +5596,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unit_file_changes_free(changes, n_changes);
 
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -5674,8 +5660,8 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 r = 0;
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -5753,7 +5739,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 }
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -5761,7 +5747,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         return r;
 
                 STRV_FOREACH(name, names) {
-                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                         const char *s;
 
                         r = sd_bus_call_method(
@@ -5796,7 +5782,7 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted()) {
+        if (running_in_chroot() > 0 || (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted())) {
                 if (!arg_quiet)
                         puts("offline");
                 return EXIT_FAILURE;
@@ -6239,8 +6225,8 @@ static void systemctl_help(void) {
                "  try-restart NAME...             Restart one or more units if active\n"
                "  reload-or-restart NAME...       Reload one or more units if possible,\n"
                "                                  otherwise start or restart\n"
-               "  reload-or-try-restart NAME...   Reload one or more units if possible,\n"
-               "                                  otherwise restart if active\n"
+               "  try-reload-or-restart NAME...   If active, reload one or more units,\n"
+               "                                  if supported, otherwise restart\n"
                "  isolate NAME                    Start one unit and stop all others\n"
                "  kill NAME...                    Send signal to processes of a unit\n"
                "  is-active PATTERN...            Check whether units are active\n"
@@ -6545,8 +6531,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
-                        if (isempty(optarg))
-                                return log_error_errno(r, "--type requires arguments.");
+                        if (isempty(optarg)) {
+                                log_error("--type requires arguments.");
+                                return -EINVAL;
+                        }
 
                         p = optarg;
                         for(;;) {
@@ -6778,8 +6766,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
-                        if (isempty(optarg))
-                                return log_error_errno(r, "--signal requires arguments.");
+                        if (isempty(optarg)) {
+                                log_error("--signal requires arguments.");
+                                return -EINVAL;
+                        }
 
                         p = optarg;
                         for(;;) {
@@ -7325,70 +7315,71 @@ static int talk_initctl(void) {
 static int systemctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT, list_units        },
-                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,            list_unit_files   },
-                { "list-sockets",          VERB_ANY, VERB_ANY, 0,            list_sockets      },
-                { "list-timers",           VERB_ANY, VERB_ANY, 0,            list_timers       },
-                { "list-jobs",             VERB_ANY, VERB_ANY, 0,            list_jobs         },
-                { "list-machines",         VERB_ANY, VERB_ANY, 0,            list_machines     },
-                { "clear-jobs",            VERB_ANY, 1,        0,            daemon_reload     },
-                { "cancel",                VERB_ANY, VERB_ANY, 0,            cancel_job        },
-                { "start",                 2,        VERB_ANY, 0,            start_unit        },
-                { "stop",                  2,        VERB_ANY, 0,            start_unit        },
-                { "condstop",              2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, 0,            start_unit        },
-                { "restart",               2,        VERB_ANY, 0,            start_unit        },
-                { "try-restart",           2,        VERB_ANY, 0,            start_unit        },
-                { "reload-or-restart",     2,        VERB_ANY, 0,            start_unit        },
-                { "reload-or-try-restart", 2,        VERB_ANY, 0,            start_unit        },
-                { "force-reload",          2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with SysV */
-                { "condreload",            2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with ALTLinux */
-                { "condrestart",           2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with RH */
-                { "isolate",               2,        2,        0,            start_unit        },
-                { "kill",                  2,        VERB_ANY, 0,            kill_unit         },
-                { "is-active",             2,        VERB_ANY, 0,            check_unit_active },
-                { "check",                 2,        VERB_ANY, 0,            check_unit_active },
-                { "is-failed",             2,        VERB_ANY, 0,            check_unit_failed },
-                { "show",                  VERB_ANY, VERB_ANY, 0,            show              },
-                { "cat",                   2,        VERB_ANY, 0,            cat               },
-                { "status",                VERB_ANY, VERB_ANY, 0,            show              },
-                { "help",                  VERB_ANY, VERB_ANY, 0,            show              },
-                { "daemon-reload",         VERB_ANY, 1,        0,            daemon_reload     },
-                { "daemon-reexec",         VERB_ANY, 1,        0,            daemon_reload     },
-                { "show-environment",      VERB_ANY, 1,        0,            show_environment  },
-                { "set-environment",       2,        VERB_ANY, 0,            set_environment   },
-                { "unset-environment",     2,        VERB_ANY, 0,            set_environment   },
-                { "import-environment",    VERB_ANY, VERB_ANY, 0,            import_environment},
-                { "halt",                  VERB_ANY, 1,        0,            start_special     },
-                { "poweroff",              VERB_ANY, 1,        0,            start_special     },
-                { "reboot",                VERB_ANY, 2,        0,            start_special     },
-                { "kexec",                 VERB_ANY, 1,        0,            start_special     },
-                { "suspend",               VERB_ANY, 1,        0,            start_special     },
-                { "hibernate",             VERB_ANY, 1,        0,            start_special     },
-                { "hybrid-sleep",          VERB_ANY, 1,        0,            start_special     },
-                { "default",               VERB_ANY, 1,        0,            start_special     },
-                { "rescue",                VERB_ANY, 1,        0,            start_special     },
-                { "emergency",             VERB_ANY, 1,        0,            start_special     },
-                { "exit",                  VERB_ANY, 2,        0,            start_special     },
-                { "reset-failed",          VERB_ANY, VERB_ANY, 0,            reset_failed      },
-                { "enable",                2,        VERB_ANY, 0,            enable_unit       },
-                { "disable",               2,        VERB_ANY, 0,            enable_unit       },
-                { "is-enabled",            2,        VERB_ANY, 0,            unit_is_enabled   },
-                { "reenable",              2,        VERB_ANY, 0,            enable_unit       },
-                { "preset",                2,        VERB_ANY, 0,            enable_unit       },
-                { "preset-all",            VERB_ANY, 1,        0,            preset_all        },
-                { "mask",                  2,        VERB_ANY, 0,            enable_unit       },
-                { "unmask",                2,        VERB_ANY, 0,            enable_unit       },
-                { "link",                  2,        VERB_ANY, 0,            enable_unit       },
-                { "switch-root",           2,        VERB_ANY, 0,            switch_root       },
-                { "list-dependencies",     VERB_ANY, 2,        0,            list_dependencies },
-                { "set-default",           2,        2,        0,            set_default       },
-                { "get-default",           VERB_ANY, 1,        0,            get_default,      },
-                { "set-property",          3,        VERB_ANY, 0,            set_property      },
-                { "is-system-running",     VERB_ANY, 1,        0,            is_system_running },
-                { "add-wants",             3,        VERB_ANY, 0,            add_dependency    },
-                { "add-requires",          3,        VERB_ANY, 0,            add_dependency    },
-                { "edit",                  2,        VERB_ANY, 0,            edit              },
+                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_NOCHROOT, list_units },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,             list_unit_files   },
+                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets      },
+                { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers       },
+                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs         },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines     },
+                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job        },
+                { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "stop",                  2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "condstop",              2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
+                { "reload",                2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "restart",               2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "try-restart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "reload-or-restart",     2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatbility with old systemctl <= 228 */
+                { "try-reload-or-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "force-reload",          2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with SysV */
+                { "condreload",            2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
+                { "condrestart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with RH */
+                { "isolate",               2,        2,        VERB_NOCHROOT, start_unit        },
+                { "kill",                  2,        VERB_ANY, VERB_NOCHROOT, kill_unit         },
+                { "is-active",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_active },
+                { "check",                 2,        VERB_ANY, VERB_NOCHROOT, check_unit_active },
+                { "is-failed",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_failed },
+                { "show",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
+                { "cat",                   2,        VERB_ANY, VERB_NOCHROOT, cat               },
+                { "status",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
+                { "help",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
+                { "daemon-reload",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "daemon-reexec",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "show-environment",      VERB_ANY, 1,        VERB_NOCHROOT, show_environment  },
+                { "set-environment",       2,        VERB_ANY, VERB_NOCHROOT, set_environment   },
+                { "unset-environment",     2,        VERB_ANY, VERB_NOCHROOT, set_environment   },
+                { "import-environment",    VERB_ANY, VERB_ANY, VERB_NOCHROOT, import_environment},
+                { "halt",                  VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "poweroff",              VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "reboot",                VERB_ANY, 2,        VERB_NOCHROOT, start_special     },
+                { "kexec",                 VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "suspend",               VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "hibernate",             VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "hybrid-sleep",          VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "default",               VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "rescue",                VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "emergency",             VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "exit",                  VERB_ANY, 2,        VERB_NOCHROOT, start_special     },
+                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, reset_failed      },
+                { "enable",                2,        VERB_ANY, 0,             enable_unit       },
+                { "disable",               2,        VERB_ANY, 0,             enable_unit       },
+                { "is-enabled",            2,        VERB_ANY, 0,             unit_is_enabled   },
+                { "reenable",              2,        VERB_ANY, 0,             enable_unit       },
+                { "preset",                2,        VERB_ANY, 0,             enable_unit       },
+                { "preset-all",            VERB_ANY, 1,        0,             preset_all        },
+                { "mask",                  2,        VERB_ANY, 0,             enable_unit       },
+                { "unmask",                2,        VERB_ANY, 0,             enable_unit       },
+                { "link",                  2,        VERB_ANY, 0,             enable_unit       },
+                { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root       },
+                { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies },
+                { "set-default",           2,        2,        0,             set_default       },
+                { "get-default",           VERB_ANY, 1,        0,             get_default,      },
+                { "set-property",          3,        VERB_ANY, VERB_NOCHROOT, set_property      },
+                { "is-system-running",     VERB_ANY, 1,        0,             is_system_running },
+                { "add-wants",             3,        VERB_ANY, 0,             add_dependency    },
+                { "add-requires",          3,        VERB_ANY, 0,             add_dependency    },
+                { "edit",                  2,        VERB_ANY, VERB_NOCHROOT, edit              },
                 {}
         };
 
@@ -7470,7 +7461,7 @@ static int halt_now(enum action a) {
 static int logind_schedule_shutdown(void) {
 
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
         sd_bus *bus;
@@ -7598,7 +7589,7 @@ static int runlevel_main(void) {
 
 static int logind_cancel_shutdown(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -7642,7 +7633,7 @@ int main(int argc, char*argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (running_in_chroot() > 0 && arg_action != ACTION_SYSTEMCTL) {
+        if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
                 log_info("Running in chroot, ignoring request.");
                 r = 0;
                 goto finish;

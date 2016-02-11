@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -160,29 +158,27 @@ static void swap_done(Unit *u) {
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
 
-static int swap_arm_timer(Swap *s) {
+static int swap_arm_timer(Swap *s, usec_t usec) {
         int r;
 
         assert(s);
 
-        if (s->timeout_usec <= 0) {
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-                return 0;
-        }
-
         if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_usec);
+                r = sd_event_source_set_time(s->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
+                        usec, 0,
                         swap_dispatch_timer, s);
         if (r < 0)
                 return r;
@@ -202,7 +198,7 @@ static int swap_add_device_links(Swap *s) {
                 return 0;
 
         if (is_device_path(s->what))
-                return unit_add_node_link(UNIT(s), s->what, UNIT(s)->manager->running_as == MANAGER_SYSTEM);
+                return unit_add_node_link(UNIT(s), s->what, UNIT(s)->manager->running_as == MANAGER_SYSTEM, UNIT_BINDS_TO);
         else
                 /* File based swap devices need to be ordered after
                  * systemd-remount-fs.service, since they might need a
@@ -211,6 +207,8 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
+        int r;
+
         assert(s);
 
         if (!UNIT(s)->default_dependencies)
@@ -221,6 +219,12 @@ static int swap_add_default_dependencies(Swap *s) {
 
         if (detect_container() > 0)
                 return 0;
+
+        /* swap units generated for the swap dev links are missing the
+         * ordering dep against the swap target. */
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SWAP_TARGET, NULL, true);
+        if (r < 0)
+                return r;
 
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
 }
@@ -544,7 +548,7 @@ static int swap_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = swap_arm_timer(s);
+                r = swap_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -625,7 +629,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        r = swap_arm_timer(s);
+        r = swap_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
                 goto fail;
 
@@ -702,7 +706,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                 goto fail;
 
         if (r > 0) {
-                r = swap_arm_timer(s);
+                r = swap_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
                 if (r < 0)
                         goto fail;
 
@@ -1390,17 +1394,21 @@ static int swap_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, SWAP(u)->control_pid, error);
 }
 
-static int swap_get_timeout(Unit *u, uint64_t *timeout) {
+static int swap_get_timeout(Unit *u, usec_t *timeout) {
         Swap *s = SWAP(u);
+        usec_t t;
         int r;
 
         if (!s->timer_event_source)
                 return 0;
 
-        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        r = sd_event_source_get_time(s->timer_event_source, &t);
         if (r < 0)
                 return r;
+        if (t == USEC_INFINITY)
+                return 0;
 
+        *timeout = t;
         return 1;
 }
 

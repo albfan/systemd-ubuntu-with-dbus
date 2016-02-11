@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -40,9 +38,9 @@ typedef struct FileDescriptor FileDescriptor;
 struct Window {
         MMapCache *cache;
 
-        bool invalidated;
-        bool keep_always;
-        bool in_unused;
+        bool invalidated:1;
+        bool keep_always:1;
+        bool in_unused:1;
 
         int prot;
         void *ptr;
@@ -77,7 +75,6 @@ struct MMapCache {
         unsigned n_windows;
 
         unsigned n_hit, n_missed;
-
 
         Hashmap *fds;
         Context *contexts[MMAP_CACHE_MAX_CONTEXTS];
@@ -174,10 +171,11 @@ _pure_ static bool window_matches(Window *w, int fd, int prot, uint64_t offset, 
                 offset + size <= w->offset + w->size;
 }
 
-static Window *window_add(MMapCache *m) {
+static Window *window_add(MMapCache *m, FileDescriptor *fd, int prot, bool keep_always, uint64_t offset, size_t size, void *ptr) {
         Window *w;
 
         assert(m);
+        assert(fd);
 
         if (!m->last_unused || m->n_windows <= WINDOWS_MIN) {
 
@@ -195,6 +193,15 @@ static Window *window_add(MMapCache *m) {
         }
 
         w->cache = m;
+        w->fd = fd;
+        w->prot = prot;
+        w->keep_always = keep_always;
+        w->offset = offset;
+        w->size = size;
+        w->ptr = ptr;
+
+        LIST_PREPEND(by_fd, fd->windows, w);
+
         return w;
 }
 
@@ -348,7 +355,10 @@ static void mmap_cache_free(MMapCache *m) {
 }
 
 MMapCache* mmap_cache_unref(MMapCache *m) {
-        assert(m);
+
+        if (!m)
+                return NULL;
+
         assert(m->n_ref > 0);
 
         m->n_ref --;
@@ -405,7 +415,7 @@ static int try_context(
         if (c->window->fd->sigbus)
                 return -EIO;
 
-        c->window->keep_always |= keep_always;
+        c->window->keep_always = c->window->keep_always || keep_always;
 
         *ret = (uint8_t*) c->window->ptr + (offset - c->window->offset);
         return 1;
@@ -451,10 +461,37 @@ static int find_mmap(
                 return -ENOMEM;
 
         context_attach_window(c, w);
-        w->keep_always += keep_always;
+        w->keep_always = w->keep_always || keep_always;
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;
+}
+
+static int mmap_try_harder(MMapCache *m, void *addr, int fd, int prot, int flags, uint64_t offset, size_t size, void **res) {
+        void *ptr;
+
+        assert(m);
+        assert(fd >= 0);
+        assert(res);
+
+        for (;;) {
+                int r;
+
+                ptr = mmap(addr, size, prot, flags, fd, offset);
+                if (ptr != MAP_FAILED)
+                        break;
+                if (errno != ENOMEM)
+                        return -errno;
+
+                r = make_room(m);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOMEM;
+        }
+
+        *res = ptr;
+        return 0;
 }
 
 static int add_mmap(
@@ -510,19 +547,9 @@ static int add_mmap(
                         wsize = PAGE_ALIGN(st->st_size - woffset);
         }
 
-        for (;;) {
-                d = mmap(NULL, wsize, prot, MAP_SHARED, fd, woffset);
-                if (d != MAP_FAILED)
-                        break;
-                if (errno != ENOMEM)
-                        return -errno;
-
-                r = make_room(m);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOMEM;
-        }
+        r = mmap_try_harder(m, NULL, fd, prot, MAP_SHARED, woffset, wsize, &d);
+        if (r < 0)
+                return r;
 
         c = context_add(m, context);
         if (!c)
@@ -532,18 +559,9 @@ static int add_mmap(
         if (!f)
                 goto outofmem;
 
-        w = window_add(m);
+        w = window_add(m, f, prot, keep_always, woffset, wsize, d);
         if (!w)
                 goto outofmem;
-
-        w->keep_always = keep_always;
-        w->ptr = d;
-        w->offset = woffset;
-        w->prot = prot;
-        w->size = wsize;
-        w->fd = f;
-
-        LIST_PREPEND(by_fd, f->windows, w);
 
         context_detach_window(c);
         c->window = w;

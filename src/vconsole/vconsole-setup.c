@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -39,6 +37,7 @@
 #include "log.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -215,11 +214,11 @@ static void font_copy_to_all_vcs(int fd) {
                         continue;
 
                 /* skip non-allocated ttys */
-                snprintf(vcname, sizeof(vcname), "/dev/vcs%i", i);
+                xsprintf(vcname, "/dev/vcs%i", i);
                 if (access(vcname, F_OK) < 0)
                         continue;
 
-                snprintf(vcname, sizeof(vcname), "/dev/tty%i", i);
+                xsprintf(vcname, "/dev/tty%i", i);
                 vcfd = open_terminal(vcname, O_RDWR|O_CLOEXEC);
                 if (vcfd < 0)
                         continue;

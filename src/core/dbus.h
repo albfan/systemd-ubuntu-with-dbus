@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -33,6 +31,8 @@ int bus_fdset_add_all(Manager *m, FDSet *fds);
 void bus_track_serialize(sd_bus_track *t, FILE *f);
 int bus_track_deserialize_item(char ***l, const char *line);
 int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l);
+
+int manager_sync_bus_names(Manager *m, sd_bus *bus);
 
 int bus_foreach_bus(Manager *m, sd_bus_track *subscribed2, int (*send_message)(sd_bus *bus, void *userdata), void *userdata);
 

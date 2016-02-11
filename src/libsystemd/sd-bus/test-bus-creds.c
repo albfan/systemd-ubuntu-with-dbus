@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -26,10 +24,10 @@
 #include "cgroup-util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         int r;
 
-        if (cg_unified() == -ENOEXEC) {
+        if (cg_unified() == -ENOMEDIUM) {
                 puts("Skipping test: /sys/fs/cgroup/ not available");
                 return EXIT_TEST_SKIP;
         }

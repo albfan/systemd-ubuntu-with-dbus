@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -86,7 +84,7 @@ DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
 
 static void netdev_cancel_callbacks(NetDev *netdev) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         netdev_join_callback *callback;
 
         if (!netdev)
@@ -193,7 +191,7 @@ static int netdev_enter_failed(NetDev *netdev) {
 }
 
 static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_handler_t callback) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(netdev);
@@ -290,7 +288,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
                 if (r < 0)
                         return r;
         } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
                 r = rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
                 if (r >= 0)
@@ -470,7 +468,7 @@ static int netdev_create(NetDev *netdev, Link *link,
 
                 log_netdev_debug(netdev, "Created");
         } else {
-                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
                 r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
                 if (r < 0)

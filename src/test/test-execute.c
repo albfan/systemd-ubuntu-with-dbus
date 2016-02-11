@@ -20,6 +20,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
+#include <sys/prctl.h>
 #include <sys/types.h>
 
 #include "fileio.h"
@@ -29,6 +30,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "test-helper.h"
 #include "unit.h"
 #include "util.h"
 
@@ -223,6 +225,20 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
+static void test_exec_capabilityambientset(Manager *m) {
+        int r;
+
+        /* Check if the kernel has support for ambient capabilities. Run
+         * the tests only if that's the case. Clearing all ambient
+         * capabilities is fine, since we are expecting them to be unset
+         * in the first place for the tests. */
+        r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
+        if (r >= 0 || errno != EINVAL) {
+                test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
+                test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
+        }
+}
+
 static void test_exec_privatenetwork(Manager *m) {
         int r;
 
@@ -265,6 +281,7 @@ int main(int argc, char *argv[]) {
                 test_exec_umask,
                 test_exec_runtimedirectory,
                 test_exec_capabilityboundingset,
+                test_exec_capabilityambientset,
                 test_exec_oomscoreadjust,
                 test_exec_ioschedulingclass,
                 NULL,
@@ -296,8 +313,8 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("VAR3") == 0);
 
         r = manager_new(MANAGER_USER, true, &m);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
-                printf("Skipping test: manager_new: %s", strerror(-r));
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);

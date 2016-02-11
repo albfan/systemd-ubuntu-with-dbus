@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -72,10 +70,10 @@ struct sd_dhcp6_client {
 };
 
 static const uint16_t default_req_opts[] = {
-        DHCP6_OPTION_DNS_SERVERS,
-        DHCP6_OPTION_DOMAIN_LIST,
-        DHCP6_OPTION_NTP_SERVER,
-        DHCP6_OPTION_SNTP_SERVERS,
+        SD_DHCP6_OPTION_DNS_SERVERS,
+        SD_DHCP6_OPTION_DOMAIN_LIST,
+        SD_DHCP6_OPTION_NTP_SERVER,
+        SD_DHCP6_OPTION_SNTP_SERVERS,
 };
 
 const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
@@ -107,11 +105,8 @@ const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_client*, sd_dhcp6_client_unref);
-#define _cleanup_dhcp6_client_unref_ _cleanup_(sd_dhcp6_client_unrefp)
-
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
-        _cleanup_dhcp6_client_unref_ _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
+        _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
 static int client_start(sd_dhcp6_client *client, enum DHCP6State state);
 
@@ -248,10 +243,10 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         switch(option) {
-        case DHCP6_OPTION_DNS_SERVERS:
-        case DHCP6_OPTION_DOMAIN_LIST:
-        case DHCP6_OPTION_SNTP_SERVERS:
-        case DHCP6_OPTION_NTP_SERVER:
+        case SD_DHCP6_OPTION_DNS_SERVERS:
+        case SD_DHCP6_OPTION_DOMAIN_LIST:
+        case SD_DHCP6_OPTION_SNTP_SERVERS:
+        case SD_DHCP6_OPTION_NTP_SERVER:
                 break;
 
         default:
@@ -365,7 +360,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 message->type = DHCP6_SOLICIT;
 
                 r = dhcp6_option_append(&opt, &optlen,
-                                        DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                                        SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
                 if (r < 0)
                         return r;
 
@@ -383,7 +378,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 else
                         message->type = DHCP6_RENEW;
 
-                r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_SERVERID,
+                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_SERVERID,
                                         client->lease->serverid_len,
                                         client->lease->serverid);
                 if (r < 0)
@@ -409,14 +404,14 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 return -EINVAL;
         }
 
-        r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_ORO,
+        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO,
                                 client->req_opts_len * sizeof(be16_t),
                                 client->req_opts);
         if (r < 0)
                 return r;
 
         assert (client->duid_len);
-        r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_CLIENTID,
+        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_CLIENTID,
                                 client->duid_len, &client->duid);
         if (r < 0)
                 return r;
@@ -427,7 +422,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         else
                 elapsed_time = 0xffff;
 
-        r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_ELAPSED_TIME,
+        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME,
                                 sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
@@ -690,7 +685,7 @@ static int client_parse_message(sd_dhcp6_client *client,
         while ((r = dhcp6_option_parse(&option, &len, &optcode, &optlen,
                                        &optval)) >= 0) {
                 switch (optcode) {
-                case DHCP6_OPTION_CLIENTID:
+                case SD_DHCP6_OPTION_CLIENTID:
                         if (clientid) {
                                 log_dhcp6_client(client, "%s contains multiple clientids",
                                                  dhcp6_message_type_to_string(message->type));
@@ -708,7 +703,7 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                         break;
 
-                case DHCP6_OPTION_SERVERID:
+                case SD_DHCP6_OPTION_SERVERID:
                         r = dhcp6_lease_get_serverid(lease, &id, &id_len);
                         if (r >= 0 && id) {
                                 log_dhcp6_client(client, "%s contains multiple serverids",
@@ -722,7 +717,7 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                         break;
 
-                case DHCP6_OPTION_PREFERENCE:
+                case SD_DHCP6_OPTION_PREFERENCE:
                         if (optlen != 1)
                                 return -EINVAL;
 
@@ -732,7 +727,7 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                         break;
 
-                case DHCP6_OPTION_STATUS_CODE:
+                case SD_DHCP6_OPTION_STATUS_CODE:
                         if (optlen < 2)
                                 return -EINVAL;
 
@@ -746,7 +741,7 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                         break;
 
-                case DHCP6_OPTION_IA_NA:
+                case SD_DHCP6_OPTION_IA_NA:
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
                                 log_dhcp6_client(client, "Information request ignoring IA NA option");
 
@@ -770,35 +765,35 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                         break;
 
-                case DHCP6_OPTION_RAPID_COMMIT:
+                case SD_DHCP6_OPTION_RAPID_COMMIT:
                         r = dhcp6_lease_set_rapid_commit(lease);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case DHCP6_OPTION_DNS_SERVERS:
+                case SD_DHCP6_OPTION_DNS_SERVERS:
                         r = dhcp6_lease_set_dns(lease, optval, optlen);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case DHCP6_OPTION_DOMAIN_LIST:
+                case SD_DHCP6_OPTION_DOMAIN_LIST:
                         r = dhcp6_lease_set_domains(lease, optval, optlen);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case DHCP6_OPTION_NTP_SERVER:
+                case SD_DHCP6_OPTION_NTP_SERVER:
                         r = dhcp6_lease_set_ntp(lease, optval, optlen);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case DHCP6_OPTION_SNTP_SERVERS:
+                case SD_DHCP6_OPTION_SNTP_SERVERS:
                         r = dhcp6_lease_set_sntp(lease, optval, optlen);
                         if (r < 0)
                                 return r;
@@ -829,7 +824,7 @@ static int client_parse_message(sd_dhcp6_client *client,
 
 static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, size_t len) {
         int r;
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         bool rapid_commit;
 
         if (reply->type != DHCP6_REPLY)
@@ -860,7 +855,7 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
 
 static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *advertise, size_t len) {
         int r;
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t pref_advertise = 0, pref_lease = 0;
 
         if (advertise->type != DHCP6_ADVERTISE)
@@ -895,7 +890,7 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
 static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
-        _cleanup_free_ DHCP6Message *message;
+        _cleanup_free_ DHCP6Message *message = NULL;
         int r, buflen, len;
 
         assert(s);
@@ -903,18 +898,26 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         assert(client->event);
 
         r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0 || buflen <= 0)
-                buflen = DHCP6_MIN_OPTIONS_SIZE;
+        if (r < 0)
+                return -errno;
+        else if (buflen < 0)
+                /* This really should not happen */
+                return -EIO;
 
-        message = malloc0(buflen);
+        message = malloc(buflen);
         if (!message)
                 return -ENOMEM;
 
         len = read(fd, message, buflen);
-        if ((size_t)len < sizeof(DHCP6Message)) {
-                log_dhcp6_client(client, "could not receive message from UDP socket: %m");
+        if (len < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                log_dhcp6_client(client, "Could not receive message from UDP socket: %m");
+
+                return -errno;
+        } else if ((size_t)len < sizeof(DHCP6Message))
                 return 0;
-        }
 
         switch(message->type) {
         case DHCP6_SOLICIT:
@@ -1269,7 +1272,7 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
 }
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
-        _cleanup_dhcp6_client_unref_ sd_dhcp6_client *client = NULL;
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         size_t t;
 
         assert_return(ret, -EINVAL);
@@ -1280,7 +1283,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
 
         client->n_ref = 1;
 
-        client->ia_na.type = DHCP6_OPTION_IA_NA;
+        client->ia_na.type = SD_DHCP6_OPTION_IA_NA;
 
         client->index = -1;
 

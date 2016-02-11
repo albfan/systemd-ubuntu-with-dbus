@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -67,8 +65,8 @@ static bool arg_show_progress = false;
 static const char *arg_repair = "-a";
 
 static void start_target(const char *target, const char *mode) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(target);
@@ -276,7 +274,7 @@ static int fsck_progress_socket(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
-        _cleanup_device_unref_ sd_device *dev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *device, *type;
         bool root_directory;
         siginfo_t status;

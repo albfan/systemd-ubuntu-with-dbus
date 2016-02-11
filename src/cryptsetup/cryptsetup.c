@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -268,7 +266,7 @@ static char* disk_description(const char *path) {
                 "ID_MODEL_FROM_DATABASE\0"
                 "ID_MODEL\0";
 
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         struct stat st;
         const char *i;
         int r;

@@ -47,7 +47,6 @@
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
@@ -350,7 +349,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         switch (pid) {
         case 0: {
                 struct udev_device *dev = NULL;
-                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
                 struct epoll_event ep_signal = { .events = EPOLLIN };
@@ -1651,7 +1650,8 @@ exit:
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
-        int r, fd_ctrl, fd_uevent;
+        int fd_ctrl = -1, fd_uevent = -1;
+        int r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();

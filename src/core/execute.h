@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -27,16 +25,16 @@ typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
 
-#include <sys/capability.h>
+#include <sched.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sched.h>
+#include <sys/capability.h>
 
-#include "list.h"
+#include "bus-endpoint.h"
 #include "fdset.h"
+#include "list.h"
 #include "missing.h"
 #include "namespace.h"
-#include "bus-endpoint.h"
 
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
@@ -122,6 +120,8 @@ struct ExecContext {
 
         nsec_t timer_slack_nsec;
 
+        bool stdio_as_fds;
+
         char *tty_path;
 
         bool tty_reset;
@@ -155,7 +155,9 @@ struct ExecContext {
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
-        uint64_t capability_bounding_set_drop;
+        uint64_t capability_bounding_set;
+
+        uint64_t capability_ambient_set;
 
         cap_t capabilities;
         int secure_bits;
@@ -204,8 +206,8 @@ struct ExecContext {
         BusEndpoint *bus_endpoint;
 };
 
-#include "cgroup.h"
 #include "cgroup-util.h"
+#include "cgroup.h"
 
 struct ExecParameters {
         char **argv;

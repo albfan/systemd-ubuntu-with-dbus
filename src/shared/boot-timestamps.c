@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -23,6 +21,8 @@
 #include "acpi-fpdt.h"
 #include "boot-timestamps.h"
 #include "efivars.h"
+#include "macro.h"
+#include "time-util.h"
 
 int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader) {
         usec_t x = 0, y = 0, a;

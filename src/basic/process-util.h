@@ -19,12 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
 #include <alloca.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <signal.h>
+#include <sys/types.h>
 
 #include "formats-util.h"
 #include "macro.h"
@@ -69,6 +70,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
 bool pid_is_alive(pid_t pid);
 bool pid_is_unwaited(pid_t pid);
+int pid_from_same_root_fs(pid_t pid);
 
 bool is_main_thread(void);
 
@@ -97,3 +99,5 @@ int sched_policy_from_string(const char *s);
 
 #define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
 #define PID_TO_PTR(p) ((void*) ((uintptr_t) p))
+
+void valgrind_summary_hack(void);

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -22,8 +20,9 @@
 ***/
 
 #include "sd-event.h"
-#include "macro.h"
+
 #include "import-util.h"
+#include "macro.h"
 
 typedef struct TarPull TarPull;
 

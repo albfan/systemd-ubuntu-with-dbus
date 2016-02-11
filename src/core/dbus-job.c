@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -93,7 +91,7 @@ const sd_bus_vtable bus_job_vtable[] = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
         int r;
@@ -153,7 +151,7 @@ void bus_job_send_change_signal(Job *j) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
         int r;

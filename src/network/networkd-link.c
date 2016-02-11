@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -26,7 +24,6 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
@@ -404,7 +401,7 @@ static void link_free(Link *link) {
 
         free(link->lease_file);
 
-        sd_lldp_free(link->lldp);
+        sd_lldp_unref(link->lldp);
 
         free(link->lldp_file);
 
@@ -768,7 +765,7 @@ static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 addresses[n_addresses++] = ia;
         }
 
-        if (link->network->dhcp_dns &&
+        if (link->network->dhcp_use_dns &&
             link->dhcp_lease) {
                 const struct in_addr *da = NULL;
                 int n;
@@ -813,7 +810,7 @@ static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 addresses[n_addresses++] = ia;
         }
 
-        if (link->network->dhcp_ntp &&
+        if (link->network->dhcp_use_ntp &&
             link->dhcp_lease) {
                 const struct in_addr *da = NULL;
                 int n;
@@ -1149,7 +1146,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1176,7 +1173,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
 }
 
 static int link_set_bridge(Link *link) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1360,7 +1357,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 static int link_up(Link *link) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         uint8_t ipv6ll_mode;
         int r;
 
@@ -1447,7 +1444,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *user
 }
 
 static int link_down(Link *link) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -2040,9 +2037,13 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
 
-        r = link_drop_foreign_config(link);
-        if (r < 0)
-                return r;
+        /* Drop foreign config, but ignore loopback or critical devices.
+         * We do not want to remove loopback address or addresses used for root NFS. */
+        if (!(link->flags & IFF_LOOPBACK) && !(link->network->dhcp_critical)) {
+                r = link_drop_foreign_config(link);
+                if (r < 0)
+                        return r;
+        }
 
         r = link_set_bridge_fdb(link);
         if (r < 0)
@@ -2197,7 +2198,7 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 int link_initialized(Link *link, struct udev_device *device) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -2296,7 +2297,8 @@ network_file_fail:
                         if (r < 0) {
                                 log_link_debug_errno(link, r, "Failed to extract next address string: %m");
                                 continue;
-                        } if (r == 0)
+                        }
+                        if (r == 0)
                                 break;
 
                         prefixlen_str = strchr(address_str, '/');
@@ -2326,10 +2328,12 @@ network_file_fail:
         }
 
         if (routes) {
+                p = routes;
+
                 for (;;) {
                         Route *route;
                         _cleanup_free_ char *route_str = NULL;
-                        _cleanup_event_source_unref_ sd_event_source *expire = NULL;
+                        _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
                         usec_t lifetime;
                         char *prefixlen_str;
                         int family;
@@ -2340,7 +2344,8 @@ network_file_fail:
                         if (r < 0) {
                                 log_link_debug_errno(link, r, "Failed to extract next route string: %m");
                                 continue;
-                        } if (r == 0)
+                        }
+                        if (r == 0)
                                 break;
 
                         prefixlen_str = strchr(route_str, '/');
@@ -2488,7 +2493,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
         link->ipv6ll_address = *address;
         link_check_ready(link);
 
-        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
+        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_ipv6_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -2504,7 +2509,7 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
+        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -2722,9 +2727,10 @@ int link_save(Link *link) {
                 admin_state, oper_state);
 
         if (link->network) {
-                char **address, **domain;
                 bool space;
                 sd_dhcp6_lease *dhcp6_lease = NULL;
+                const char *dhcp_domainname = NULL;
+                char **dhcp6_domains = NULL;
 
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
@@ -2736,14 +2742,9 @@ int link_save(Link *link) {
 
                 fputs("DNS=", f);
                 space = false;
-                STRV_FOREACH(address, link->network->dns) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(*address, f);
-                        space = true;
-                }
+                fputstrv(f, link->network->dns, NULL, &space);
 
-                if (link->network->dhcp_dns &&
+                if (link->network->dhcp_use_dns &&
                     link->dhcp_lease) {
                         const struct in_addr *addresses;
 
@@ -2756,7 +2757,7 @@ int link_save(Link *link) {
                         }
                 }
 
-                if (link->network->dhcp_dns && dhcp6_lease) {
+                if (link->network->dhcp_use_dns && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
 
                         r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
@@ -2771,14 +2772,9 @@ int link_save(Link *link) {
 
                 fputs("NTP=", f);
                 space = false;
-                STRV_FOREACH(address, link->network->ntp) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(*address, f);
-                        space = true;
-                }
+                fputstrv(f, link->network->ntp, NULL, &space);
 
-                if (link->network->dhcp_ntp &&
+                if (link->network->dhcp_use_ntp &&
                     link->dhcp_lease) {
                         const struct in_addr *addresses;
 
@@ -2791,10 +2787,9 @@ int link_save(Link *link) {
                         }
                 }
 
-                if (link->network->dhcp_ntp && dhcp6_lease) {
+                if (link->network->dhcp_use_ntp && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
                         char **hosts;
-                        char **hostname;
 
                         r = sd_dhcp6_lease_get_ntp_addrs(dhcp6_lease,
                                                          &in6_addrs);
@@ -2806,61 +2801,60 @@ int link_save(Link *link) {
                         }
 
                         r = sd_dhcp6_lease_get_ntp_fqdn(dhcp6_lease, &hosts);
-                        if (r > 0) {
-                                STRV_FOREACH(hostname, hosts) {
-                                        if (space)
-                                                fputc(' ', f);
-                                        fputs(*hostname, f);
-                                        space = true;
-                                }
-                        }
+                        if (r > 0)
+                                fputstrv(f, hosts, NULL, &space);
                 }
 
                 fputc('\n', f);
+
+                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
+                        if (link->dhcp_lease)
+                                (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
+
+                        if (dhcp6_lease)
+                                (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
+                }
 
                 fputs("DOMAINS=", f);
-                space = false;
-                STRV_FOREACH(domain, link->network->domains) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(*domain, f);
-                        space = true;
-                }
+                fputstrv(f, link->network->search_domains, NULL, &space);
 
-                if (link->network->dhcp_domains &&
-                    link->dhcp_lease) {
-                        const char *domainname;
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp_domainname)
+                        fputs_with_space(f, dhcp_domainname, NULL, &space);
 
-                        r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
-                        if (r >= 0) {
-                                if (space)
-                                        fputc(' ', f);
-                                fputs(domainname, f);
-                                space = true;
-                        }
-                }
-
-                if (link->network->dhcp_domains && dhcp6_lease) {
-                        char **domains;
-
-                        r = sd_dhcp6_lease_get_domains(dhcp6_lease, &domains);
-                        if (r >= 0) {
-                                STRV_FOREACH(domain, domains) {
-                                        if (space)
-                                                fputc(' ', f);
-                                        fputs(*domain, f);
-                                        space = true;
-                                }
-                        }
-                }
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp6_domains)
+                        fputstrv(f, dhcp6_domains, NULL, &space);
 
                 fputc('\n', f);
 
-                fprintf(f, "WILDCARD_DOMAIN=%s\n",
-                        yes_no(link->network->wildcard_domain));
+                fputs("ROUTE_DOMAINS=", f);
+                fputstrv(f, link->network->route_domains, NULL, NULL);
+
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp_domainname)
+                        fputs_with_space(f, dhcp_domainname, NULL, &space);
+
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp6_domains)
+                        fputstrv(f, dhcp6_domains, NULL, &space);
+
+                fputc('\n', f);
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
+                fprintf(f, "MDNS=%s\n",
+                        resolve_support_to_string(link->network->mdns));
+
+                if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
+                        fprintf(f, "DNSSEC=%s\n",
+                                dnssec_mode_to_string(link->network->dnssec_mode));
+
+                if (!set_isempty(link->network->dnssec_negative_trust_anchors)) {
+                        const char *n;
+
+                        fputs("DNSSEC_NTA=", f);
+                        space = false;
+                        SET_FOREACH(n, link->network->dnssec_negative_trust_anchors, i)
+                                fputs_with_space(f, n, NULL, &space);
+                        fputc('\n', f);
+                }
 
                 fputs("ADDRESSES=", f);
                 space = false;
@@ -2874,7 +2868,6 @@ int link_save(Link *link) {
                         fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
                         space = true;
                 }
-
                 fputc('\n', f);
 
                 fputs("ROUTES=", f);
@@ -2899,12 +2892,8 @@ int link_save(Link *link) {
                 bool space = false;
 
                 fputs("CARRIER_BOUND_TO=", f);
-                HASHMAP_FOREACH(carrier, link->bound_to_links, i) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(carrier->ifname, f);
-                        space = true;
-                }
+                HASHMAP_FOREACH(carrier, link->bound_to_links, i)
+                        fputs_with_space(f, carrier->ifname, NULL, &space);
 
                 fputc('\n', f);
         }
@@ -2914,12 +2903,8 @@ int link_save(Link *link) {
                 bool space = false;
 
                 fputs("CARRIER_BOUND_BY=", f);
-                HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(carrier->ifname, f);
-                        space = true;
-                }
+                HASHMAP_FOREACH(carrier, link->bound_by_links, i)
+                        fputs_with_space(f, carrier->ifname, NULL, &space);
 
                 fputc('\n', f);
         }

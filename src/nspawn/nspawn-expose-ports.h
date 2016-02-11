@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -25,8 +23,9 @@
 
 #include "sd-event.h"
 #include "sd-netlink.h"
-#include "list.h"
+
 #include "in-addr-util.h"
+#include "list.h"
 
 typedef struct ExposePort {
         int protocol;

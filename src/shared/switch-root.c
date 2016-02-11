@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -21,18 +19,21 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stdio.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "base-filesystem.h"
 #include "fd-util.h"
+#include "log.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "switch-root.h"
 #include "user-util.h"
@@ -75,7 +76,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 char new_mount[PATH_MAX];
                 struct stat sb;
 
-                snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
+                xsprintf(new_mount, "%s%s", new_root, i);
 
                 mkdir_p_label(new_mount, 0755);
 

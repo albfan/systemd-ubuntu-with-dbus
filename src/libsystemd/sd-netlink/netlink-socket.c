@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -52,7 +50,7 @@ static int broadcast_groups_get(sd_netlink *nl) {
         int r;
 
         assert(nl);
-        assert(nl->fd > 0);
+        assert(nl->fd >= 0);
 
         r = getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len);
         if (r < 0) {
@@ -323,7 +321,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
  * On failure, a negative error code is returned.
  */
 int socket_read_message(sd_netlink *rtnl) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *first = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *first = NULL;
         struct iovec iov = {};
         uint32_t group = 0;
         bool multi_part = false, done = false;
@@ -376,7 +374,7 @@ int socket_read_message(sd_netlink *rtnl) {
         }
 
         for (new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 const NLType *nl_type;
 
                 if (!group && new_msg->nlmsg_pid != rtnl->sockaddr.nl.nl_pid)

@@ -13,7 +13,7 @@ check_result_qemu() {
     [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mount /dev/mapper/varcrypt $TESTDIR/root/var
-    [[ -f $TESTDIR/root/var/log/journal ]] && cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    cp -a $TESTDIR/root/var/log/journal $TESTDIR
     umount $TESTDIR/root/var
     umount $TESTDIR/root
     cryptsetup luksClose /dev/mapper/varcrypt
@@ -76,8 +76,7 @@ EOF
         cat >>$initdir/etc/fstab <<EOF
 /dev/mapper/varcrypt    /var    ext3    defaults 0 1
 EOF
-    )
-    setup_nspawn_root
+    ) || return 1
 
     ddebug "umount $TESTDIR/root/var"
     umount $TESTDIR/root/var

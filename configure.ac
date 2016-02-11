@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [228],
+        [229],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -297,7 +297,8 @@ AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2, kcmp, keyctl, key_serial_t, LO_FLAGS_PARTSCAN],
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2,
+                kcmp, keyctl, key_serial_t, char16_t, char32_t, LO_FLAGS_PARTSCAN],
                [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
@@ -555,7 +556,7 @@ AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_bzip2=no
-AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Disable optional BZIP2 support]))
+AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Enable optional BZIP2 support]))
 AS_IF([test "x$enable_bzip2" != "xno"], [
         AC_CHECK_HEADERS(bzlib.h,
                 [AC_DEFINE(HAVE_BZIP2, 1, [Define if BZIP2 is available])
@@ -668,10 +669,13 @@ AC_ARG_ENABLE([smack], AS_HELP_STRING([--disable-smack],[Disable optional SMACK 
                 esac],
                 [have_smack=auto])
 
-if test "x${have_smack}" = xauto; then
+if test "x${have_smack}" != xno; then
+        AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
         M4_DEFINES="$M4_DEFINES -DHAVE_SMACK"
         have_smack=yes
 fi
+
+AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
 
 have_smack_run_label=no
 AC_ARG_WITH(smack-run-label,
@@ -690,12 +694,6 @@ AS_HELP_STRING([--with-smack-default-process-label=STRING],
         [AC_DEFINE_UNQUOTED(SMACK_DEFAULT_PROCESS_LABEL, ["$withval"], [Default SMACK label for executed processes])],
         [])
 
-if test "x${have_smack}" = xyes ; then
-        AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
-fi
-
-AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
-
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],
         AS_HELP_STRING([--disable-gcrypt],[Disable optional GCRYPT support]),
@@ -708,7 +706,7 @@ AC_ARG_ENABLE([gcrypt],
 
 if test "x${have_gcrypt}" != xno ; then
         m4_define([AM_PATH_LIBGCRYPT_FAIL],
-                [{ test "x$have_gcrypt" != xyes || AC_MSG_ERROR([*** GCRYPT headers not found.]); }]
+                [{ test "x$have_gcrypt" != xyes || AC_MSG_ERROR([*** GCRYPT/GPG-ERROR headers not found.]); }]
         )
         m4_ifdef([AM_PATH_LIBGCRYPT], [AM_PATH_LIBGCRYPT(
                         [1.4.5],
@@ -723,12 +721,22 @@ if test "x${have_gcrypt}" != xno ; then
                 [AM_PATH_LIBGCRYPT_FAIL]
         )
 
-        if test "x$have_gcrypt" = xyes ; then
-                GCRYPT_LIBS="$LIBGCRYPT_LIBS"
-                GCRYPT_CFLAGS="$LIBGCRYPT_CFLAGS"
+        have_gpg_error=no
+        m4_ifdef([AM_PATH_GPG_ERROR], [AM_PATH_GPG_ERROR(
+                        [1.12],
+                        [have_gpg_error=yes],
+                        [AM_PATH_LIBGCRYPT_FAIL]
+                )],
+                [AM_PATH_LIBGCRYPT_FAIL]
+        )
+
+        if test "x$have_gcrypt" = xyes -a "x$have_gpg_error" = xyes ; then
+                GCRYPT_LIBS="$LIBGCRYPT_LIBS $GPG_ERROR_LIBS"
+                GCRYPT_CFLAGS="$LIBGCRYPT_CFLAGS $GPG_ERROR_CFLAGS"
                 AC_DEFINE(HAVE_GCRYPT, 1, [GCRYPT available])
         else
                 have_gcrypt=no
+                have_gpg_error=no
         fi
 else
         GCRYPT_LIBS=
@@ -839,18 +847,6 @@ fi
 AM_CONDITIONAL(HAVE_QRENCODE, [test "$have_qrencode" = "yes"])
 
 # ------------------------------------------------------------------------------
-have_microhttpd=no
-AC_ARG_ENABLE(microhttpd, AS_HELP_STRING([--disable-microhttpd], [disable microhttpd support]))
-if test "x$enable_microhttpd" != "xno"; then
-        PKG_CHECK_MODULES(MICROHTTPD, [libmicrohttpd >= 0.9.33],
-                [AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if microhttpd is available]) have_microhttpd=yes], have_microhttpd=no)
-        if test "x$have_microhttpd" = xno -a "x$enable_microhttpd" = xyes; then
-                AC_MSG_ERROR([*** microhttpd support requested but libraries not found])
-        fi
-fi
-AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
-
-# ------------------------------------------------------------------------------
 have_gnutls=no
 AC_ARG_ENABLE(gnutls, AS_HELP_STRING([--disable-gnutls], [disable gnutls support]))
 if test "x$enable_gnutls" != "xno"; then
@@ -863,16 +859,37 @@ fi
 AM_CONDITIONAL(HAVE_GNUTLS, [test "$have_gnutls" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_microhttpd=no
+AC_ARG_ENABLE(microhttpd, AS_HELP_STRING([--disable-microhttpd], [disable microhttpd support]))
+if test "x$enable_microhttpd" != "xno"; then
+        PKG_CHECK_MODULES(MICROHTTPD, [libmicrohttpd >= 0.9.33],
+                [AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if microhttpd is available])
+                 have_microhttpd=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_MICROHTTPD"],
+                [have_microhttpd=no])
+        if test "x$have_microhttpd" = xno -a "x$enable_microhttpd" = xyes; then
+                AC_MSG_ERROR([*** microhttpd support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libcurl=no
 AC_ARG_ENABLE(libcurl, AS_HELP_STRING([--disable-libcurl], [disable libcurl support]))
 if test "x$enable_libcurl" != "xno"; then
         PKG_CHECK_MODULES(LIBCURL, [libcurl],
-                [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available]) have_libcurl=yes], have_libcurl=no)
+                [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available])
+                 have_libcurl=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_LIBCURL"],
+                [have_libcurl=no])
         if test "x$have_libcurl" = xno -a "x$enable_libcurl" = xyes; then
                 AC_MSG_ERROR([*** libcurl support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
+
+# ------------------------------------------------------------------------------
+AM_CONDITIONAL(HAVE_REMOTE, [test "$have_microhttpd" = "yes" -o "$have_libcurl" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_libidn=no
@@ -1089,6 +1106,7 @@ have_coredump=no
 AC_ARG_ENABLE(coredump, AS_HELP_STRING([--disable-coredump], [disable coredump hook]))
 if test "x$enable_coredump" != "xno"; then
         have_coredump=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_COREDUMP"
 fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
@@ -1159,7 +1177,7 @@ AC_SUBST([EFI_ARCH])
 AC_SUBST([EFI_MACHINE_TYPE_NAME])
 
 have_gnuefi=no
-AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [Disable optional gnuefi support]))
+AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [Enable optional gnuefi support]))
 AS_IF([test "x$enable_gnuefi" != "xno"], [
         AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
                 [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
@@ -1285,9 +1303,9 @@ AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
+AC_PATH_PROG([XSLTPROC], [xsltproc])
 AS_IF([test "x$enable_manpages" != xno], [
        have_manpages=yes
-       AC_PATH_PROG([XSLTPROC], [xsltproc])
        AS_IF([test -z "$XSLTPROC"],
              AC_MSG_ERROR([*** xsltproc is required for man pages]))
 ])
@@ -1420,14 +1438,6 @@ AC_ARG_ENABLE([split-usr],
         ], [
                 enable_split_usr=no
         ])])
-
-AC_ARG_WITH([dkr-index-url],
-        [AS_HELP_STRING([--dkr-index-url=URL], [Specify the default index URL to use for image downloads])],
-        [DEFAULT_DKR_INDEX_URL="\"$withval\""],
-        [DEFAULT_DKR_INDEX_URL="NULL"])
-
-AC_DEFINE_UNQUOTED(DEFAULT_DKR_INDEX_URL, [$DEFAULT_DKR_INDEX_URL], [Default index URL to use for image downloads])
-AC_SUBST(DEFAULT_DKR_INDEX_URL)
 
 AS_IF([test "x${enable_split_usr}" = "xyes"], [
         AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
@@ -1597,7 +1607,6 @@ AC_MSG_RESULT([
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
         Certificate root:        ${CERTIFICATEROOT}
-        Default dkr Index        ${DEFAULT_DKR_INDEX_URL}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

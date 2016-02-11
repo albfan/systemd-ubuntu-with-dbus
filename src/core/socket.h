@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,9 +21,9 @@
 
 typedef struct Socket Socket;
 
-#include "socket-util.h"
 #include "mount.h"
 #include "service.h"
+#include "socket-util.h"
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
@@ -54,7 +52,7 @@ typedef enum SocketResult {
         SOCKET_FAILURE_EXIT_CODE,
         SOCKET_FAILURE_SIGNAL,
         SOCKET_FAILURE_CORE_DUMP,
-        SOCKET_FAILURE_SERVICE_FAILED_PERMANENT,
+        SOCKET_FAILURE_SERVICE_START_LIMIT_HIT,
         _SOCKET_RESULT_MAX,
         _SOCKET_RESULT_INVALID = -1
 } SocketResult;
@@ -119,6 +117,8 @@ struct Socket {
         bool accept;
         bool remove_on_stop;
         bool writable;
+
+        int socket_protocol;
 
         /* Socket options */
         bool keep_alive;

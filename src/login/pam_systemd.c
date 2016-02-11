@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -220,8 +218,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 int flags,
                 int argc, const char **argv) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char
                 *username, *id, *object_path, *runtime_path,
                 *service = NULL,
@@ -230,7 +228,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *seat = NULL,
                 *type = NULL, *class = NULL,
                 *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
         bool debug = false, remote;
         struct passwd *pw;
@@ -509,8 +507,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int flags,
                 int argc, const char **argv) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const void *existing = NULL;
         const char *id;
         int r;

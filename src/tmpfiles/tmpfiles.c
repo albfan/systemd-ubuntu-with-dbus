@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -1075,7 +1073,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
                 errno = 0;
                 de = readdir(d);
                 if (!de) {
-                        if (errno != 0 && r == 0)
+                        if (errno > 0 && r == 0)
                                 r = -errno;
 
                         break;
@@ -1153,6 +1151,7 @@ static int create_item(Item *i) {
         _cleanup_free_ char *resolved = NULL;
         struct stat st;
         int r = 0;
+        int q = 0;
         CreationMode creation;
 
         assert(i);
@@ -1279,27 +1278,23 @@ static int create_item(Item *i) {
 
                 if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
                         r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
-                        if (r == -ENOTTY) {
+                        if (r == -ENOTTY)
                                 log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of unsupported file system or because directory is not a subvolume: %m", i->path);
-                                return 0;
-                        }
-                        if (r == -EROFS) {
+                        else if (r == -EROFS)
                                 log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of read-only file system: %m", i->path);
-                                return 0;
-                        }
-                        if (r == -ENOPROTOOPT) {
+                        else if (r == -ENOPROTOOPT)
                                 log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because quota support is disabled: %m", i->path);
-                                return 0;
-                        }
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
-                        if (r > 0)
+                        else if (r < 0)
+                                q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
+                        else if (r > 0)
                                 log_debug("Adjusted quota for subvolume \"%s\".", i->path);
-                        if (r == 0)
+                        else if (r == 0)
                                 log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
                 }
 
                 r = path_set_perms(i, i->path);
+                if (q < 0)
+                        return q;
                 if (r < 0)
                         return r;
 

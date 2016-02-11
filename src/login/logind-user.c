@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -393,7 +391,7 @@ fail:
 }
 
 static int user_start_slice(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *description;
         char *job;
         int r;
@@ -412,19 +410,18 @@ static int user_start_slice(User *u) {
                         u->manager->user_tasks_max,
                         &error,
                         &job);
-        if (r < 0) {
-                /* we don't fail due to this, let's try to continue */
-                if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
-                        log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)", u->slice, bus_error_message(&error, r), error.name);
-        } else {
+        if (r >= 0)
                 u->slice_job = job;
-        }
+        else if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
+                /* we don't fail due to this, let's try to continue */
+                log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)",
+                                u->slice, bus_error_message(&error, r), error.name);
 
         return 0;
 }
 
 static int user_start_service(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
@@ -509,7 +506,7 @@ int user_start(User *u) {
 }
 
 static int user_stop_slice(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
@@ -528,7 +525,7 @@ static int user_stop_slice(User *u) {
 }
 
 static int user_stop_service(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
@@ -868,7 +865,7 @@ int config_parse_tmpfs_size(
 
                 errno = 0;
                 ul = strtoul(rvalue, &f, 10);
-                if (errno != 0 || f != e) {
+                if (errno > 0 || f != e) {
                         log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse percentage value, ignoring: %s", rvalue);
                         return 0;
                 }

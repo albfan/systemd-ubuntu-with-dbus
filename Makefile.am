@@ -42,9 +42,9 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=4
 LIBUDEV_AGE=6
 
-LIBSYSTEMD_CURRENT=13
+LIBSYSTEMD_CURRENT=14
 LIBSYSTEMD_REVISION=0
-LIBSYSTEMD_AGE=13
+LIBSYSTEMD_AGE=14
 
 # The following four libraries only exist for compatibility reasons,
 # their version info should not be bumped anymore
@@ -147,12 +147,21 @@ tests=
 manual_tests =
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
+DISABLE_HARD_ERRORS = yes
 if ENABLE_TESTS
 noinst_PROGRAMS = $(manual_tests) $(tests)
 TESTS = $(tests)
 else
 noinst_PROGRAMS =
 TESTS =
+endif
+if ENABLE_BASH_COMPLETION
+dist_bashcompletion_DATA = $(dist_bashcompletion_data)
+nodist_bashcompletion_DATA = $(nodist_bashcompletion_data)
+endif
+if ENABLE_ZSH_COMPLETION
+dist_zshcompletion_DATA = $(dist_zshcompletion_data)
+nodist_zshcompletion_DATA = $(nodist_zshcompletion_data)
 endif
 udevlibexec_PROGRAMS =
 gperf_gperf_sources =
@@ -164,6 +173,8 @@ m4_files = $(filter %.m4,$(EXTRA_DIST) $(in_files:.m4.in=.m4))
 CLEANFILES = $(BUILT_SOURCES) \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
+	$(nodist_bashcompletion_data) \
+	$(nodist_zshcompletion_data) \
 	$(in_files:.in=) $(in_in_files:.in.in=) \
 	$(m4_files:.m4=)
 
@@ -415,8 +426,7 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator \
 	systemd-debug-generator
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA = \
+dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemd-analyze \
@@ -426,16 +436,15 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/systemd-delta \
 	shell-completion/bash/systemd-detect-virt \
 	shell-completion/bash/systemd-nspawn \
+	shell-completion/bash/systemd-path \
 	shell-completion/bash/systemd-run \
 	shell-completion/bash/udevadm \
 	shell-completion/bash/kernel-install
 
-nodist_bashcompletion_DATA = \
+nodist_bashcompletion_data = \
 	shell-completion/bash/systemctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA = \
+dist_zshcompletion_data = \
 	shell-completion/zsh/_busctl \
 	shell-completion/zsh/_journalctl \
 	shell-completion/zsh/_udevadm \
@@ -449,17 +458,12 @@ dist_zshcompletion_DATA = \
 	shell-completion/zsh/_systemd-delta \
 	shell-completion/zsh/_systemd
 
-nodist_zshcompletion_DATA = \
+nodist_zshcompletion_data = \
 	shell-completion/zsh/_systemctl
-endif
 
 EXTRA_DIST += \
 	shell-completion/bash/systemctl.in \
 	shell-completion/zsh/_systemctl.in
-
-CLEANFILES += \
-	$(nodist_bashcompletion_DATA) \
-	$(nodist_zshcompletion_DATA)
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
@@ -660,6 +664,7 @@ EXTRA_DIST += \
 	README.md \
 	autogen.sh \
 	.dir-locals.el \
+	.editorconfig \
 	.vimrc \
 	.ycm_extra_conf.py \
 	.travis.yml \
@@ -691,29 +696,27 @@ man_MANS = \
 
 noinst_DATA += \
 	$(HTML_FILES) \
-	$(HTML_ALIAS)
+	$(HTML_ALIAS) \
+	docs/html/man
+endif
 
 CLEANFILES += \
 	$(man_MANS) \
 	$(HTML_FILES) \
-	$(HTML_ALIAS)
+	$(HTML_ALIAS) \
+	docs/html/man
 
 docs/html/man:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_LN)$(LN_S) -f ../../man $@
 
-noinst_DATA += \
-	docs/html/man
-
-CLEANFILES += \
-	docs/html/man
-
-if HAVE_PYTHON
 man/index.html: man/systemd.index.html
 	$(AM_V_LN)$(LN_S) -f systemd.index.html $@
 
+if HAVE_PYTHON
 noinst_DATA += \
 	man/index.html
+endif
 
 CLEANFILES += \
 	man/index.html
@@ -743,15 +746,9 @@ CLEANFILES += \
 	man/systemd.directives.xml
 
 EXTRA_DIST += \
-	tools/make-man-rules.py
-
-endif
-
-endif
-
-EXTRA_DIST += \
 	$(filter-out man/systemd.directives.xml man/systemd.index.xml,$(XML_FILES)) \
 	tools/make-man-index.py \
+	tools/make-man-rules.py \
 	tools/make-directive-index.py \
 	tools/xml_helper.py \
 	man/glib-event-glue.c
@@ -764,6 +761,8 @@ libbasic_la_SOURCES = \
 	src/basic/missing.h \
 	src/basic/capability-util.c \
 	src/basic/capability-util.h \
+	src/basic/c-rbtree.c \
+	src/basic/c-rbtree.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
 	src/basic/stdio-util.h \
@@ -837,10 +836,13 @@ libbasic_la_SOURCES = \
 	src/basic/mempool.h \
 	src/basic/hashmap.c \
 	src/basic/hashmap.h \
+	src/basic/hash-funcs.c \
+	src/basic/hash-funcs.h \
 	src/basic/siphash24.c \
 	src/basic/siphash24.h \
 	src/basic/set.h \
 	src/basic/ordered-set.h \
+	src/basic/ordered-set.c \
 	src/basic/bitmap.c \
 	src/basic/bitmap.h \
 	src/basic/fdset.c \
@@ -945,7 +947,8 @@ libbasic_la_SOURCES = \
 	src/basic/copy.h \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
-	src/basic/formats-util.h
+	src/basic/formats-util.h \
+	src/basic/nss-util.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -1005,7 +1008,6 @@ libshared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
-	src/shared/nss-util.h \
 	src/shared/install.c \
 	src/shared/install.h \
 	src/shared/install-printf.c \
@@ -1050,7 +1052,9 @@ libshared_la_SOURCES = \
 	src/shared/machine-image.c \
 	src/shared/machine-image.h \
 	src/shared/machine-pool.c \
-	src/shared/machine-pool.h
+	src/shared/machine-pool.h \
+	src/shared/resolve-util.c \
+	src/shared/resolve-util.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
@@ -1416,7 +1420,8 @@ manual_tests += \
 	test-ipcrm \
 	test-btrfs \
 	test-acd \
-	test-ipv4ll-manual
+	test-ipv4ll-manual \
+	test-ask-password-api
 
 if HAVE_LIBIPTC
 manual_tests += \
@@ -1491,11 +1496,20 @@ tests += \
 	test-copy \
 	test-cap-list \
 	test-sigbus \
+	test-rbtree \
 	test-verbs \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
-	test-install-root
+	test-resolve-tables \
+	test-install-root \
+	test-rlimit-util \
+	test-signal-util
+
+if HAVE_ACL
+tests += \
+	test-acl-util
+endif
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1652,6 +1666,17 @@ test_dns_domain_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
+test_resolve_tables_SOURCES = \
+	src/resolve/test-resolve-tables.c \
+	src/shared/test-tables.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h
+
+test_resolve_tables_LDADD = \
+	libshared.la
+
 if ENABLE_EFI
 manual_tests += \
 	test-boot-timestamp
@@ -1719,6 +1744,12 @@ test_sigbus_SOURCES = \
 	src/test/test-sigbus.c
 
 test_sigbus_LDADD = \
+	libshared.la
+
+test_rbtree_SOURCES = \
+	src/test/test-rbtree.c
+
+test_rbtree_LDADD = \
 	libshared.la
 
 test_condition_SOURCES = \
@@ -1844,8 +1875,32 @@ test_install_root_SOURCES = \
 test_install_root_LDADD = \
 	libshared.la
 
+test_acl_util_SOURCES = \
+	src/test/test-acl-util.c
+
+test_acl_util_LDADD = \
+	libshared.la
+
 test_namespace_LDADD = \
 	libcore.la
+
+test_rlimit_util_SOURCES = \
+	src/test/test-rlimit-util.c
+
+test_rlimit_util_LDADD = \
+	libshared.la
+
+test_ask_password_api_SOURCES = \
+	src/test/test-ask-password-api.c
+
+test_ask_password_api_LDADD = \
+	libshared.la
+
+test_signal_util_SOURCES = \
+	src/test/test-signal-util.c
+
+test_signal_util_LDADD = \
+	libshared.la
 
 BUILT_SOURCES += \
 	src/test/test-hashmap-ordered.c
@@ -2343,10 +2398,8 @@ SYSINIT_TARGET_WANTS += \
 	systemd-tmpfiles-setup-dev.service \
 	systemd-tmpfiles-setup.service
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_systemd-tmpfiles
-endif
 
 TIMERS_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
@@ -2384,6 +2437,11 @@ nodist_sysusers_DATA = \
 	sysusers.d/systemd.conf \
 	sysusers.d/basic.conf
 
+if HAVE_REMOTE
+nodist_sysusers_DATA += \
+	sysusers.d/systemd-remote.conf
+endif
+
 INSTALL_DIRS += \
 	$(sysusersdir)
 endif
@@ -2391,6 +2449,7 @@ endif
 EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
 	sysusers.d/systemd.conf.m4 \
+	sysusers.d/systemd-remote.conf.m4 \
 	sysusers.d/basic.conf.in
 
 # ------------------------------------------------------------------------------
@@ -2568,15 +2627,11 @@ bootctl_LDADD = \
 bin_PROGRAMS += \
 	bootctl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/bootctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_bootctl
-endif
 endif
 
 # ------------------------------------------------------------------------------
@@ -2658,14 +2713,13 @@ systemd_boot_sources = \
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 
-if ENABLE_EFI
-if HAVE_GNUEFI
 systemd_boot_objects = $(addprefix $(top_builddir)/,$(systemd_boot_sources:.c=.o))
 systemd_boot_solib = $(top_builddir)/src/boot/efi/systemd_boot.so
 systemd_boot = systemd-boot$(EFI_MACHINE_TYPE_NAME).efi
 
+if ENABLE_EFI
+if HAVE_GNUEFI
 bootlib_DATA = $(systemd_boot)
-CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(systemd_boot_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2681,6 +2735,8 @@ $(systemd_boot): $(systemd_boot_solib)
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 endif
 endif
+
+CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 # ------------------------------------------------------------------------------
 stub_headers = \
@@ -2705,14 +2761,13 @@ EXTRA_DIST += \
 	$(stub_headers) \
 	test/splash.bmp
 
-if ENABLE_EFI
-if HAVE_GNUEFI
 stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
 stub_solib = $(top_builddir)/src/boot/efi/stub.so
 stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
 
+if ENABLE_EFI
+if HAVE_GNUEFI
 bootlib_DATA += $(stub)
-CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2726,6 +2781,11 @@ $(stub_solib): $(stub_objects)
 $(stub): $(stub_solib)
 	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
+endif
+endif
+
+CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
+
 
 # ------------------------------------------------------------------------------
 CLEANFILES += test-efi-disk.img
@@ -2735,8 +2795,6 @@ test-efi-disk.img: $(systemd_boot) $(stub) test/test-efi-create-disk.sh
 
 test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
-endif
-endif
 
 EXTRA_DIST += test/test-efi-create-disk.sh
 
@@ -2885,6 +2943,8 @@ systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn-register.h \
 	src/nspawn/nspawn-setuid.c \
 	src/nspawn/nspawn-setuid.h \
+	src/nspawn/nspawn-stub-pid1.c \
+	src/nspawn/nspawn-stub-pid1.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
@@ -3039,7 +3099,6 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-dump.h \
 	src/libsystemd/sd-utf8/sd-utf8.c \
 	src/libsystemd/sd-event/sd-event.c \
-	src/libsystemd/sd-event/event-util.h \
 	src/libsystemd/sd-netlink/sd-netlink.c \
 	src/libsystemd/sd-netlink/netlink-internal.h \
 	src/libsystemd/sd-netlink/netlink-message.c \
@@ -3068,8 +3127,7 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-device/sd-device.c \
 	src/libsystemd/sd-device/device-private.c \
 	src/libsystemd/sd-device/device-private.h \
-	src/libsystemd/sd-resolve/sd-resolve.c \
-	src/libsystemd/sd-resolve/resolve-util.h
+	src/libsystemd/sd-resolve/sd-resolve.c
 
 libsystemd_internal_la_LIBADD = \
 	libbasic.la \
@@ -3351,7 +3409,6 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/lldp-port.c \
 	src/libsystemd-network/lldp-internal.h \
 	src/libsystemd-network/lldp-internal.c \
-	src/libsystemd-network/lldp-util.h \
 	src/libsystemd-network/sd-lldp.c
 
 libsystemd_network_la_LIBADD = \
@@ -3712,6 +3769,7 @@ EXTRA_DIST += \
 	hwdb/sdio.ids
 
 # ------------------------------------------------------------------------------
+if ENABLE_TESTS
 TESTS += \
 	test/udev-test.pl
 
@@ -3722,6 +3780,7 @@ TESTS += \
 if HAVE_SYSV_COMPAT
 TESTS += \
 	test/sysv-generator-test.py
+endif
 endif
 endif
 
@@ -3743,8 +3802,10 @@ test_udev_LDADD = \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
+if ENABLE_TESTS
 check_DATA += \
 	test/sys
+endif
 
 # packed sysfs test tree
 test/sys:
@@ -3898,11 +3959,6 @@ systemd_journal_remote_CFLAGS = \
 systemd_journal_remote_LDADD += \
 	$(MICROHTTPD_LIBS)
 
-if ENABLE_SYSUSERS
-dist_sysusers_DATA += \
-	sysusers.d/systemd-remote.conf
-endif
-
 if ENABLE_TMPFILES
 dist_tmpfiles_DATA += \
 	tmpfiles.d/systemd-remote.conf
@@ -3972,7 +4028,8 @@ journalctl_SOURCES = \
 	src/journal/journalctl.c
 
 journalctl_LDADD = \
-	libshared.la
+	libshared.la \
+	libudev-core.la
 
 if HAVE_QRENCODE
 journalctl_SOURCES += \
@@ -4340,30 +4397,39 @@ systemd_socket_proxyd_LDADD = \
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
 systemd_coredump_SOURCES = \
-	src/journal/coredump.c \
-	src/journal/coredump-vacuum.c \
-	src/journal/coredump-vacuum.h
+	src/coredump/coredump.c \
+	src/coredump/coredump-vacuum.c \
+	src/coredump/coredump-vacuum.h
 
 systemd_coredump_LDADD = \
 	libshared.la
 
 if HAVE_ELFUTILS
 systemd_coredump_SOURCES += \
-	src/journal/stacktrace.c \
-	src/journal/stacktrace.h
+	src/coredump/stacktrace.c \
+	src/coredump/stacktrace.h
 
 systemd_coredump_LDADD += \
 	$(ELFUTILS_LIBS)
 endif
 
+nodist_systemunit_DATA += \
+	units/systemd-coredump@.service
+
+dist_systemunit_DATA += \
+	units/systemd-coredump.socket
+
+SOCKETS_TARGET_WANTS += \
+	systemd-coredump.socket
+
 rootlibexec_PROGRAMS += \
 	systemd-coredump
 
 dist_pkgsysconf_DATA += \
-	src/journal/coredump.conf
+	src/coredump/coredump.conf
 
 coredumpctl_SOURCES = \
-	src/journal/coredumpctl.c
+	src/coredump/coredumpctl.c
 
 coredumpctl_LDADD = \
 	libshared.la
@@ -4375,22 +4441,18 @@ manual_tests += \
 	test-coredump-vacuum
 
 test_coredump_vacuum_SOURCES = \
-	src/journal/test-coredump-vacuum.c  \
-	src/journal/coredump-vacuum.c \
-	src/journal/coredump-vacuum.h
+	src/coredump/test-coredump-vacuum.c  \
+	src/coredump/coredump-vacuum.c \
+	src/coredump/coredump-vacuum.h
 
 test_coredump_vacuum_LDADD = \
 	libshared.la
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/coredumpctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_coredumpctl
-endif
 
 nodist_sysctl_DATA = \
 	sysctl.d/50-coredump.conf
@@ -4400,7 +4462,8 @@ CLEANFILES += \
 endif
 
 EXTRA_DIST += \
-	sysctl.d/50-coredump.conf.in
+	sysctl.d/50-coredump.conf.in \
+	units/systemd-coredump@.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
@@ -4641,15 +4704,11 @@ hostnamectl_LDADD = \
 bin_PROGRAMS += \
 	hostnamectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/hostnamectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_hostnamectl
-endif
 endif
 
 polkitpolicy_in_files += \
@@ -4715,15 +4774,11 @@ localectl_LDADD = \
 bin_PROGRAMS += \
 	localectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/localectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_localectl
-endif
 endif
 
 .PHONY: update-kbd-model-map
@@ -4775,15 +4830,11 @@ timedatectl_LDADD = \
 bin_PROGRAMS += \
 	timedatectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/timedatectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_timedatectl
-endif
 endif
 
 polkitpolicy_in_files += \
@@ -4806,9 +4857,6 @@ systemd_timesyncd_SOURCES = \
 nodist_systemd_timesyncd_SOURCES = \
 	src/timesync/timesyncd-gperf.c
 
-gperf_gperf_sources += \
-	src/timesync/timesyncd-gperf.gperf
-
 systemd_timesyncd_LDADD = \
 	libsystemd-network.la \
 	libshared.la
@@ -4822,15 +4870,17 @@ nodist_systemunit_DATA += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-timesyncd.service $(pkgsysconfdir)/system/sysinit.target.wants/systemd-timesyncd.service
 
-EXTRA_DIST += \
-	units/systemd-timesyncd.service.in
-
 nodist_pkgsysconf_DATA += \
 	src/timesync/timesyncd.conf
 
-EXTRA_DIST += \
-	src/timesync/timesyncd.conf.in
 endif
+
+gperf_gperf_sources += \
+	src/timesync/timesyncd-gperf.gperf
+
+EXTRA_DIST += \
+	units/systemd-timesyncd.service.in \
+	src/timesync/timesyncd.conf.in
 
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
@@ -4848,7 +4898,7 @@ libnss_myhostname_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-myhostname/nss-myhostname.sym
 
 libnss_myhostname_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
@@ -4890,11 +4940,6 @@ machinectl_LDADD = \
 rootbin_PROGRAMS += \
 	machinectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
-	shell-completion/bash/machinectl
-endif
-
 test_machine_tables_SOURCES = \
 	src/machine/test-machine-tables.c
 
@@ -4922,11 +4967,12 @@ dist_dbuspolicy_DATA += \
 polkitpolicy_files += \
 	src/machine/org.freedesktop.machine1.policy
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_bashcompletion_data += \
+	shell-completion/bash/machinectl
+
+dist_zshcompletion_data += \
 	shell-completion/zsh/_machinectl \
 	shell-completion/zsh/_sd_machines
-endif
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-machined.service dbus-org.freedesktop.machine1.service
@@ -4948,7 +4994,7 @@ libnss_mymachines_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-mymachines/nss-mymachines.sym
 
 libnss_mymachines_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_mymachines.la
@@ -4994,8 +5040,6 @@ systemd_pull_SOURCES = \
 	src/import/pull-raw.h \
 	src/import/pull-tar.c \
 	src/import/pull-tar.h \
-	src/import/pull-dkr.c \
-	src/import/pull-dkr.h \
 	src/import/pull-job.c \
 	src/import/pull-job.h \
 	src/import/pull-common.c \
@@ -5126,24 +5170,30 @@ polkitpolicy_in_files += \
 	src/import/org.freedesktop.import1.policy.in
 
 EXTRA_DIST += \
-	units/systemd-importd.service.in \
-	src/resolve/resolved.conf.in
+	units/systemd-importd.service.in
 
 
 # ------------------------------------------------------------------------------
 if ENABLE_RESOLVED
+
 systemd_resolved_SOURCES = \
 	src/resolve/resolved.c \
 	src/resolve/resolved-manager.c \
 	src/resolve/resolved-manager.h \
 	src/resolve/resolved-conf.c \
 	src/resolve/resolved-conf.h \
+	src/resolve/resolved-resolv-conf.c \
+	src/resolve/resolved-resolv-conf.h \
 	src/resolve/resolved-bus.c \
 	src/resolve/resolved-bus.h \
 	src/resolve/resolved-link.h \
 	src/resolve/resolved-link.c \
+	src/resolve/resolved-link-bus.c \
+	src/resolve/resolved-link-bus.h \
 	src/resolve/resolved-llmnr.h \
 	src/resolve/resolved-llmnr.c \
+	src/resolve/resolved-mdns.h \
+	src/resolve/resolved-mdns.c \
 	src/resolve/resolved-def.h \
 	src/resolve/resolved-dns-rr.h \
 	src/resolve/resolved-dns-rr.c \
@@ -5155,18 +5205,28 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-query.h \
 	src/resolve/resolved-dns-query.c \
+	src/resolve/resolved-dns-synthesize.h \
+	src/resolve/resolved-dns-synthesize.c \
 	src/resolve/resolved-dns-transaction.h \
 	src/resolve/resolved-dns-transaction.c \
 	src/resolve/resolved-dns-scope.h \
 	src/resolve/resolved-dns-scope.c \
 	src/resolve/resolved-dns-server.h \
 	src/resolve/resolved-dns-server.c \
+	src/resolve/resolved-dns-search-domain.h \
+	src/resolve/resolved-dns-search-domain.c \
 	src/resolve/resolved-dns-cache.h \
 	src/resolve/resolved-dns-cache.c \
 	src/resolve/resolved-dns-zone.h \
 	src/resolve/resolved-dns-zone.c \
 	src/resolve/resolved-dns-stream.h \
 	src/resolve/resolved-dns-stream.c \
+	src/resolve/resolved-dns-dnssec.h \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-trust-anchor.h \
+	src/resolve/resolved-dns-trust-anchor.c \
+	src/resolve/resolved-etc-hosts.h \
+	src/resolve/resolved-etc-hosts.c \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
@@ -5174,12 +5234,6 @@ nodist_systemd_resolved_SOURCES = \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h \
 	src/resolve/resolved-gperf.c
-
-gperf_gperf_sources += \
-	src/resolve/resolved-gperf.gperf
-
-gperf_txt_sources += \
-	src/resolve/dns_type-list.txt
 
 systemd_resolved_LDADD = \
 	libsystemd-network.la \
@@ -5212,9 +5266,6 @@ GENERAL_ALIASES += \
 nodist_pkgsysconf_DATA += \
 	src/resolve/resolved.conf
 
-tests += \
-	test-dns-domain
-
 libnss_resolve_la_SOURCES = \
 	src/nss-resolve/nss-resolve.sym \
 	src/nss-resolve/nss-resolve.c
@@ -5229,14 +5280,16 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libshared.la \
+	libsystemd-internal.la \
         -ldl
 
 lib_LTLIBRARIES += \
 	libnss_resolve.la
 
-systemd_resolve_host_SOURCES = \
-	src/resolve-host/resolve-host.c \
+systemd_resolve_SOURCES = \
+	src/resolve/resolve-tool.c \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-packet.h \
 	src/resolve/resolved-dns-rr.c \
@@ -5248,20 +5301,60 @@ systemd_resolve_host_SOURCES = \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
-nodist_systemd_resolve_host_SOURCES = \
+nodist_systemd_resolve_SOURCES = \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h
 
-systemd_resolve_host_LDADD = \
+systemd_resolve_LDADD = \
 	libshared.la
 
-rootlibexec_PROGRAMS += \
-	systemd-resolve-host
+bin_PROGRAMS += \
+	systemd-resolve
+
+tests += \
+	test-dns-domain \
+	test-dnssec
+
+manual_tests += \
+	test-dnssec-complex
+
+test_dnssec_SOURCES = \
+	src/resolve/test-dnssec.c \
+	src/resolve/resolved-dns-packet.c \
+	src/resolve/resolved-dns-packet.h \
+	src/resolve/resolved-dns-rr.c \
+	src/resolve/resolved-dns-rr.h \
+	src/resolve/resolved-dns-answer.c \
+	src/resolve/resolved-dns-answer.h \
+	src/resolve/resolved-dns-question.c \
+	src/resolve/resolved-dns-question.h \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h
+
+test_dnssec_LDADD = \
+	libshared.la
+
+test_dnssec_complex_SOURCES = \
+	src/resolve/test-dnssec-complex.c \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h
+
+test_dnssec_complex_LDADD = \
+	libshared.la
 
 endif
 
+gperf_txt_sources += \
+	src/resolve/dns_type-list.txt
+
+gperf_gperf_sources += \
+	src/resolve/resolved-gperf.gperf
+
 EXTRA_DIST += \
-	units/systemd-resolved.service.m4.in
+	units/systemd-resolved.service.m4.in \
+	src/resolve/resolved.conf.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_NETWORKD
@@ -5369,6 +5462,9 @@ networkctl_LDADD = \
 	libshared.la \
 	libsystemd-network.la
 
+dist_bashcompletion_data += \
+	shell-completion/bash/networkctl
+
 test_network_SOURCES = \
 	src/network/test-network.c
 
@@ -5424,14 +5520,16 @@ SYSTEM_UNIT_ALIASES += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.network1.busname
 
+endif
+
 gperf_gperf_sources += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf
-endif
 
 EXTRA_DIST += \
 	units/systemd-networkd.service.m4.in \
-	units/systemd-networkd-wait-online.service.in
+	units/systemd-networkd-wait-online.service.in \
+	test/networkd-test.py
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
@@ -5495,16 +5593,12 @@ loginctl_LDADD = \
 rootbin_PROGRAMS += \
 	loginctl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/loginctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_loginctl \
 	shell-completion/zsh/_systemd-inhibit
-endif
 
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c
@@ -5669,6 +5763,20 @@ EXTRA_DIST += \
 	test/TEST-03-JOBS/Makefile \
 	test/TEST-03-JOBS/test-jobs.sh \
 	test/TEST-03-JOBS/test.sh \
+	test/TEST-04-JOURNAL/Makefile \
+	test/TEST-04-JOURNAL/test-journal.sh \
+	test/TEST-04-JOURNAL/test.sh \
+	test/TEST-05-RLIMITS/Makefile \
+	test/TEST-05-RLIMITS/test-rlimits.sh \
+	test/TEST-05-RLIMITS/test.sh \
+	test/TEST-06-SELINUX/Makefile \
+	test/TEST-06-SELINUX/test-selinux-checks.sh \
+	test/TEST-06-SELINUX/test.sh \
+	test/TEST-06-SELINUX/systemd_test.te \
+	test/TEST-06-SELINUX/systemd_test.if \
+	test/TEST-07-ISSUE-1981/Makefile \
+	test/TEST-07-ISSUE-1981/test-segfault.sh \
+	test/TEST-07-ISSUE-1981/test.sh \
 	test/test-functions
 
 EXTRA_DIST += \
@@ -5904,24 +6012,24 @@ src/%.c: src/%.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GPERF)$(GPERF) < $< > $@
 
-src/%: src/%.m4
+src/%: src/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
-sysusers.d/%: sysusers.d/%.m4
+sysusers.d/%: sysusers.d/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
-tmpfiles.d/%: tmpfiles.d/%.m4
+tmpfiles.d/%: tmpfiles.d/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
 
-units/%: units/%.m4
+units/%: units/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
-units/user/%: units/user/%.m4
+units/user/%: units/user/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
@@ -5936,7 +6044,6 @@ EXTRA_DIST += \
 	$(polkitpolicy_in_in_files)
 
 # ------------------------------------------------------------------------------
-if ENABLE_MANPAGES
 man/custom-entities.ent: configure.ac
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
@@ -5956,11 +6063,12 @@ XSLTPROC_FLAGS = \
 	--stringparam systemd.version $(VERSION) \
 	--path '$(builddir)/man:$(srcdir)/man'
 
+XSLT = $(if $(XSLTPROC), $(XSLTPROC), xsltproc)
 XSLTPROC_PROCESS_MAN = \
-	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
+	$(AM_V_XSLT)$(XSLT) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
 
 XSLTPROC_PROCESS_HTML = \
-	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
+	$(AM_V_XSLT)$(XSLT) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
 man/%.1: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
@@ -5983,8 +6091,6 @@ man/%.html: man/%.xml man/custom-html.xsl man/custom-entities.ent
 define html-alias
 	$(AM_V_LN)$(LN_S) -f $(notdir $<) $@
 endef
-
-endif
 
 EXTRA_DIST += \
 	man/custom-html.xsl \
@@ -6159,21 +6265,7 @@ DISTCHECK_CONFIGURE_FLAGS += \
 	--disable-split-usr
 endif
 
-#
-# Require python when making dist
-#
-.PHONY: dist-check-python dist-check-compat-libs dist-check-help
-dist-check-python:
-if !HAVE_PYTHON
-	@echo "*** python and python-lxml module must be installed and enabled in order to make dist"
-	@false
-endif
-
-dist-check-compat-libs:
-if !ENABLE_COMPAT_LIBS
-	@echo "*** compat-libs must be enabled in order to make dist"
-	@false
-endif
+.PHONY: dist-check-help
 
 dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
 	for i in $(abspath $^); do                                             \
@@ -6182,8 +6274,6 @@ dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
 	        $$i  --help | awk 'length > 80' | grep -E --color=yes '.{80}'; \
 	        exit 1;                                                        \
             fi; done
-
-dist: dist-check-python dist-check-compat-libs
 
 .PHONY: hwdb-update
 hwdb-update:
@@ -6212,14 +6302,6 @@ www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 doc-sync: all
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 
-.PHONY: gardel
-gardel:
-	scp man/*.html gardel:public/systemd-man/
-
-.PHONY: lennart-fedora
-lennart-fedora:
-	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
-
 .PHONY: install-tree
 install-tree: all
 	rm -rf $(abs_srcdir)/install-tree
@@ -6227,14 +6309,14 @@ install-tree: all
 	tree $(abs_srcdir)/install-tree
 
 # Let's run all tests of the test suite, but under valgrind. Let's
-# exclude the one perl script we have in there
+# exclude perl/python/shell scripts we have in there
 .PHONY: valgrind-tests
 valgrind-tests: $(TESTS)
-	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
+	$(AM_V_GEN)for f in $(filter-out %.pl %.py, $^); do \
 		if file $$f | grep -q shell; then \
 		echo -e "$${x}Skipping non-binary $$f"; else \
 		echo -e "$${x}Running $$f"; \
-		libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
+		$(LIBTOOL) --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
 		x="\n\n"; \
 	done
 

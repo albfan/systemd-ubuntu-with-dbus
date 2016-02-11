@@ -630,7 +630,10 @@
         <listitem><para>These settings set both soft and hard limits
         of various resources for executed processes. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Use the string <varname>infinity</varname> to
+        for details. The resource limit is possible to specify in two formats,
+        <option>value</option> to set soft and hard limits to the same value,
+        or <option>soft:hard</option> to set both limits individually (e.g. LimitAS=4G:16G).
+        Use the string <varname>infinity</varname> to
         configure no limit on a specific resource. The multiplicative
         suffixes K (=1024), M (=1024*1024) and so on for G, T, P and E
         may be used for resource limits measured in bytes
@@ -801,6 +804,35 @@
         the bounding set is reset to the full set of available
         capabilities, also undoing any previous
         settings.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AmbientCapabilities=</varname></term>
+
+        <listitem><para>Controls which capabilities to include in the
+        ambient capability set for the executed process. Takes a
+        whitespace-separated list of capability names as read by
+        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        e.g. <constant>CAP_SYS_ADMIN</constant>,
+        <constant>CAP_DAC_OVERRIDE</constant>,
+        <constant>CAP_SYS_PTRACE</constant>. This option may appear more than
+        once in which case the ambient capability sets are merged.
+        If the list of capabilities is prefixed with <literal>~</literal>, all
+        but the listed capabilities will be included, the effect of the
+        assignment inverted. If the empty string is
+        assigned to this option, the ambient capability set is reset to
+        the empty capability set, and all prior settings have no effect.
+        If set to <literal>~</literal> (without any further argument), the
+        ambient capability set is reset to the full set of available
+        capabilities, also undoing any previous settings. Note that adding
+        capabilities to ambient capability set adds them to the process's
+        inherited capability set.
+        </para><para>
+        Ambient capability sets are useful if you want to execute a process
+        as a non-privileged user but still want to give it some capabilities.
+        Note that in this case option <constant>keep-caps</constant> is
+        automatically added to <varname>SecureBits=</varname> to retain the
+        capabilities over the user change.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1381,10 +1413,29 @@
       <varlistentry>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_PID</varname></term>
+        <term><varname>$LISTEN_FDNAMES</varname></term>
 
         <listitem><para>Information about file descriptors passed to a
         service for socket activation. See
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$NOTIFY_SOCKET</varname></term>
+
+        <listitem><para>The socket
+        <function>sd_notify()</function> talks to. See
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$WATCHDOG_PID</varname></term>
+        <term><varname>$WATCHDOG_USEC</varname></term>
+
+        <listitem><para>Information about watchdog keep-alive notifications. See
+        <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 
@@ -1402,8 +1453,8 @@
 
     <para>Additional variables may be configured by the following
     means: for processes spawned in specific units, use the
-    <varname>Environment=</varname> and
-    <varname>EnvironmentFile=</varname> options above; to specify
+    <varname>Environment=</varname>, <varname>EnvironmentFile=</varname>
+    and <varname>PassEnvironment=</varname> options above; to specify
     variables globally, use <varname>DefaultEnvironment=</varname>
     (see
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>)

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -35,7 +33,7 @@
 #include "util.h"
 
 static int sd_netlink_new(sd_netlink **ret) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -44,11 +42,8 @@ static int sd_netlink_new(sd_netlink **ret) {
                 return -ENOMEM;
 
         rtnl->n_ref = REFCNT_INIT;
-
         rtnl->fd = -1;
-
         rtnl->sockaddr.nl.nl_family = AF_NETLINK;
-
         rtnl->original_pid = getpid();
 
         LIST_HEAD_INIT(rtnl->match_callbacks);
@@ -71,7 +66,7 @@ static int sd_netlink_new(sd_netlink **ret) {
 }
 
 int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         socklen_t addrlen;
         int r;
 
@@ -86,6 +81,9 @@ int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
         r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
         if (r < 0)
                 return -errno;
+
+        if (rtnl->sockaddr.nl.nl_family != AF_NETLINK)
+                return -EINVAL;
 
         rtnl->fd = fd;
 
@@ -105,7 +103,7 @@ static bool rtnl_pid_changed(sd_netlink *rtnl) {
 }
 
 int sd_netlink_open_fd(sd_netlink **ret, int fd) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -118,8 +116,10 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         rtnl->fd = fd;
 
         r = socket_bind(rtnl);
-        if (r < 0)
+        if (r < 0) {
+                rtnl->fd = -1; /* on failure, the caller remains owner of the fd, hence don't close it here */
                 return r;
+        }
 
         *ret = rtnl;
         rtnl = NULL;
@@ -286,7 +286,7 @@ static int dispatch_rqueue(sd_netlink *rtnl, sd_netlink_message **message) {
 }
 
 static int process_timeout(sd_netlink *rtnl) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct reply_callback *c;
         usec_t n;
         int r;
@@ -376,7 +376,7 @@ static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
 }
 
 static int process_running(sd_netlink *rtnl, sd_netlink_message **ret) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(rtnl);
@@ -418,7 +418,7 @@ null_message:
 }
 
 int sd_netlink_process(sd_netlink *rtnl, sd_netlink_message **ret) {
-        RTNL_DONT_DESTROY(rtnl);
+        NETLINK_DONT_DESTROY(rtnl);
         int r;
 
         assert_return(rtnl, -EINVAL);
@@ -623,7 +623,7 @@ int sd_netlink_call(sd_netlink *rtnl,
                         received_serial = rtnl_message_get_serial(rtnl->rqueue[i]);
 
                         if (received_serial == serial) {
-                                _cleanup_netlink_message_unref_ sd_netlink_message *incoming = NULL;
+                                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *incoming = NULL;
                                 uint16_t type;
 
                                 incoming = rtnl->rqueue[i];

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosddhcpclienthfoo
 #define foosddhcpclienthfoo
 
@@ -27,8 +25,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "sd-event.h"
 #include "sd-dhcp-lease.h"
+#include "sd-event.h"
 
 #include "_sd-common.h"
 
@@ -42,13 +40,54 @@ enum {
         SD_DHCP_CLIENT_EVENT_RENEW              = 4,
 };
 
+enum {
+        SD_DHCP_OPTION_PAD                         = 0,
+        SD_DHCP_OPTION_SUBNET_MASK                 = 1,
+        SD_DHCP_OPTION_TIME_OFFSET                 = 2,
+        SD_DHCP_OPTION_ROUTER                      = 3,
+        SD_DHCP_OPTION_DOMAIN_NAME_SERVER          = 6,
+        SD_DHCP_OPTION_HOST_NAME                   = 12,
+        SD_DHCP_OPTION_BOOT_FILE_SIZE              = 13,
+        SD_DHCP_OPTION_DOMAIN_NAME                 = 15,
+        SD_DHCP_OPTION_ROOT_PATH                   = 17,
+        SD_DHCP_OPTION_ENABLE_IP_FORWARDING        = 19,
+        SD_DHCP_OPTION_ENABLE_IP_FORWARDING_NL     = 20,
+        SD_DHCP_OPTION_POLICY_FILTER               = 21,
+        SD_DHCP_OPTION_INTERFACE_MDR               = 22,
+        SD_DHCP_OPTION_INTERFACE_TTL               = 23,
+        SD_DHCP_OPTION_INTERFACE_MTU_AGING_TIMEOUT = 24,
+        SD_DHCP_OPTION_INTERFACE_MTU               = 26,
+        SD_DHCP_OPTION_BROADCAST                   = 28,
+        SD_DHCP_OPTION_STATIC_ROUTE                = 33,
+        SD_DHCP_OPTION_NTP_SERVER                  = 42,
+        SD_DHCP_OPTION_VENDOR_SPECIFIC             = 43,
+        SD_DHCP_OPTION_REQUESTED_IP_ADDRESS        = 50,
+        SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME       = 51,
+        SD_DHCP_OPTION_OVERLOAD                    = 52,
+        SD_DHCP_OPTION_MESSAGE_TYPE                = 53,
+        SD_DHCP_OPTION_SERVER_IDENTIFIER           = 54,
+        SD_DHCP_OPTION_PARAMETER_REQUEST_LIST      = 55,
+        SD_DHCP_OPTION_ERROR_MESSAGE               = 56,
+        SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE        = 57,
+        SD_DHCP_OPTION_RENEWAL_T1_TIME             = 58,
+        SD_DHCP_OPTION_REBINDING_T2_TIME           = 59,
+        SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER     = 60,
+        SD_DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        SD_DHCP_OPTION_FQDN                        = 81,
+        SD_DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
+        SD_DHCP_OPTION_NEW_TZDB_TIMEZONE           = 101,
+        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE      = 121,
+        SD_DHCP_OPTION_PRIVATE_BASE                = 224,
+        SD_DHCP_OPTION_PRIVATE_LAST                = 254,
+        SD_DHCP_OPTION_END                         = 255,
+};
+
 typedef struct sd_dhcp_client sd_dhcp_client;
 
 typedef void (*sd_dhcp_client_cb_t)(sd_dhcp_client *client, int event,
                                     void *userdata);
 int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
                                 void *userdata);
-
 
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option);
 int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
@@ -77,6 +116,8 @@ int sd_dhcp_client_new(sd_dhcp_client **ret);
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
 
 _SD_END_DECLARATIONS;
 

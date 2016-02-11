@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -79,7 +77,7 @@ int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
         char t[] = "/tmp/journal-stream-XXXXXX";
         unsigned i;
-        _cleanup_journal_close_ sd_journal *j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         char *z;
         const void *data;
         size_t l;

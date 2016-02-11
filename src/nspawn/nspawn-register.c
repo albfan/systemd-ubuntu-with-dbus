@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -42,8 +40,8 @@ int register_machine(
                 bool keep_unit,
                 const char *service) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         r = sd_bus_default_system(&bus);
@@ -68,7 +66,7 @@ int register_machine(
                                 strempty(directory),
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 char **i;
                 unsigned j;
 
@@ -104,10 +102,6 @@ int register_machine(
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
-
-                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", 8192);
-                if (r < 0)
-                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
                 if (r < 0)
@@ -170,17 +164,9 @@ int register_machine(
                 }
 
                 STRV_FOREACH(i, properties) {
-                        r = sd_bus_message_open_container(m, 'r', "sv");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
                         r = bus_append_unit_property_assignment(m, *i);
                         if (r < 0)
                                 return r;
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
                 }
 
                 r = sd_bus_message_close_container(m);
@@ -199,9 +185,9 @@ int register_machine(
 }
 
 int terminate_machine(pid_t pid) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path;
         int r;
 

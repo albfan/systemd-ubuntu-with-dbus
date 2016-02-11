@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -26,6 +24,7 @@
 #include "mkdir.h"
 #include "resolved-conf.h"
 #include "resolved-manager.h"
+#include "resolved-resolv-conf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "user-util.h"
@@ -80,10 +79,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = manager_parse_config_file(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file: %m");
-
         r = manager_start(m);
         if (r < 0) {
                 log_error_errno(r, "Failed to start manager: %m");
@@ -94,7 +89,7 @@ int main(int argc, char *argv[]) {
          * symlink */
         r = manager_write_resolv_conf(m);
         if (r < 0)
-                log_warning_errno(r, "Could not create resolv.conf: %m");
+                log_warning_errno(r, "Could not create "PRIVATE_RESOLV_CONF": %m");
 
         sd_notify(false,
                   "READY=1\n"

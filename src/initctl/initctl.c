@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -101,7 +99,7 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
 
 static void change_runlevel(Server *s, int runlevel) {
         const char *target;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *mode;
         bool isolate = false;
         int r;
