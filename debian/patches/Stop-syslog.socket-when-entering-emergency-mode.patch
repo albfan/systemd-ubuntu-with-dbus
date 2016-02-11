@@ -23,7 +23,7 @@ Forwarded: https://github.com/systemd/systemd/issues/266
  1 file changed, 1 insertion(+)
 
 diff --git a/units/emergency.service.in b/units/emergency.service.in
-index 8dc3cbd..5f7f5e7 100644
+index fb390ea..0de16f2 100644
 --- a/units/emergency.service.in
 +++ b/units/emergency.service.in
 @@ -11,6 +11,7 @@ Documentation=man:sulogin(8)

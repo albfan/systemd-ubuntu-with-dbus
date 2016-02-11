@@ -1,20 +1,4 @@
 ## Cherry-picked from upstream
-networkd-ndisc-revert-to-letting-the-kernel-handle-NDisc.patch
-networkd-dhcp4-dirty-link-when-the-lease-changes.patch
-test-remove-wrong-endianess-conversion-in-test-siphash24.patch
-basic-fix-build-on-architectures-with-small-long.patch
-make-sure-all-swap-units-are-ordered-before-the-swap-targ.patch
-nspawn-make-sure-link-journal-host-may-be-used-twice-in-a.patch
-man-fix-typo-in-systemctl-1.patch
-basic-getauxval-AT_RANDOM-is-apparently-not-necessarily-a.patch
-kmod-static-nodes-don-t-run-if-module-list-is-empty.patch
-tmpfiles-drop-run-lock-lockdev.patch
-Fix-typo-on-logind-dbus.c.patch
-udev-net_id-for-ccw-bus-shorten-the-identifier-and-stip-l.patch
-gpt-auto-don-t-log-an-EIO-error-if-blkid-finds-something-.patch
-tmpfiles-also-set-acls-on-var-log-journal.patch
-tmpfiles-set-acls-on-system.journal-explicitly.patch
-core-do-not-warn-about-Wants-depencencies-on-masked-units.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

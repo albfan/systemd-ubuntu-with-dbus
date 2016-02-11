@@ -58,10 +58,10 @@ http://lists.freedesktop.org/archives/systemd-devel/2015-April/030175.html
  create mode 100644 units/systemd-fsckd.socket
 
 diff --git a/Makefile-man.am b/Makefile-man.am
-index c792c89..ed86dfb 100644
+index 28b5fb6..48f7346 100644
 --- a/Makefile-man.am
 +++ b/Makefile-man.am
-@@ -93,6 +93,7 @@ MANPAGES += \
+@@ -108,6 +108,7 @@ MANPAGES += \
  	man/systemd-detect-virt.1 \
  	man/systemd-escape.1 \
  	man/systemd-fsck@.service.8 \
@@ -69,7 +69,7 @@ index c792c89..ed86dfb 100644
  	man/systemd-fstab-generator.8 \
  	man/systemd-getty-generator.8 \
  	man/systemd-gpt-auto-generator.8 \
-@@ -368,6 +369,8 @@ MANPAGES_ALIAS += \
+@@ -424,6 +425,8 @@ MANPAGES_ALIAS += \
  	man/systemd-bus-proxyd.socket.8 \
  	man/systemd-fsck-root.service.8 \
  	man/systemd-fsck.8 \
@@ -78,7 +78,7 @@ index c792c89..ed86dfb 100644
  	man/systemd-hibernate-resume.8 \
  	man/systemd-hibernate.service.8 \
  	man/systemd-hybrid-sleep.service.8 \
-@@ -658,6 +661,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
+@@ -754,6 +757,8 @@ man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.servic
  man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd.service.8
  man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
  man/systemd-fsck.8: man/systemd-fsck@.service.8
@@ -87,7 +87,7 @@ index c792c89..ed86dfb 100644
  man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
  man/systemd-hibernate.service.8: man/systemd-suspend.service.8
  man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-@@ -1364,6 +1369,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+@@ -1580,6 +1585,12 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
  man/systemd-fsck.html: man/systemd-fsck@.service.html
  	$(html-alias)
  
@@ -100,7 +100,7 @@ index c792c89..ed86dfb 100644
  man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
  	$(html-alias)
  
-@@ -2347,6 +2358,7 @@ EXTRA_DIST += \
+@@ -2595,6 +2606,7 @@ EXTRA_DIST += \
  	man/systemd-escape.xml \
  	man/systemd-firstboot.xml \
  	man/systemd-fsck@.service.xml \
@@ -109,10 +109,10 @@ index c792c89..ed86dfb 100644
  	man/systemd-getty-generator.xml \
  	man/systemd-gpt-auto-generator.xml \
 diff --git a/Makefile.am b/Makefile.am
-index 94f7313..b9e0e75 100644
+index 2ac7290..1af7fd2 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -397,6 +397,7 @@ rootlibexec_PROGRAMS = \
+@@ -408,6 +408,7 @@ rootlibexec_PROGRAMS = \
  	systemd-remount-fs \
  	systemd-reply-password \
  	systemd-fsck \
@@ -120,7 +120,7 @@ index 94f7313..b9e0e75 100644
  	systemd-ac-power \
  	systemd-sysctl \
  	systemd-sleep \
-@@ -505,6 +506,7 @@ dist_systemunit_DATA = \
+@@ -509,6 +510,7 @@ dist_systemunit_DATA = \
  	units/slices.target \
  	units/system.slice \
  	units/x-.slice \
@@ -128,7 +128,7 @@ index 94f7313..b9e0e75 100644
  	units/systemd-initctl.socket \
  	units/syslog.socket \
  	units/dev-hugepages.mount \
-@@ -554,6 +556,7 @@ nodist_systemunit_DATA = \
+@@ -558,6 +560,7 @@ nodist_systemunit_DATA = \
  	units/systemd-exit.service \
  	units/systemd-fsck@.service \
  	units/systemd-fsck-root.service \
@@ -136,7 +136,7 @@ index 94f7313..b9e0e75 100644
  	units/systemd-machine-id-commit.service \
  	units/systemd-udevd.service \
  	units/systemd-udev-trigger.service \
-@@ -612,6 +615,7 @@ EXTRA_DIST += \
+@@ -616,6 +619,7 @@ EXTRA_DIST += \
  	units/user/systemd-exit.service.in \
  	units/systemd-fsck@.service.in \
  	units/systemd-fsck-root.service.in \
@@ -144,7 +144,7 @@ index 94f7313..b9e0e75 100644
  	units/systemd-machine-id-commit.service.in \
  	units/user@.service.m4.in \
  	units/debug-shell.service.in \
-@@ -2465,6 +2469,16 @@ systemd_fsck_LDADD = \
+@@ -2524,6 +2528,16 @@ systemd_fsck_LDADD = \
  	libshared.la
  
  # ------------------------------------------------------------------------------
@@ -340,7 +340,7 @@ index f33c53f..4b8ef2e 100644
 +src/fsckd/fsckd.c
 diff --git a/src/fsckd/fsckd.c b/src/fsckd/fsckd.c
 new file mode 100644
-index 0000000..347dead
+index 0000000..6efb537
 --- /dev/null
 +++ b/src/fsckd/fsckd.c
 @@ -0,0 +1,685 @@
@@ -383,7 +383,7 @@ index 0000000..347dead
 +#include "sd-daemon.h"
 +#include "build.h"
 +#include "def.h"
-+#include "event-util.h"
++#include "sd-event.h"
 +#include "log.h"
 +#include "list.h"
 +#include "macro.h"
@@ -1005,7 +1005,7 @@ index 0000000..347dead
 +        } else if (n == 1)
 +                fd = SD_LISTEN_FDS_START + 0;
 +        else {
-+                fd = make_socket_fd(LOG_DEBUG, FSCKD_SOCKET_PATH, SOCK_STREAM | SOCK_CLOEXEC);
++                fd = make_socket_fd(LOG_DEBUG, FSCKD_SOCKET_PATH, SOCK_STREAM, SOCK_CLOEXEC);
 +                if (fd < 0) {
 +                        r = log_error_errno(fd, "Couldn't create listening socket fd on %s: %m", FSCKD_SOCKET_PATH);
 +                        goto finish;

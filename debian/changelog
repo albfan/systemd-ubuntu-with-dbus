@@ -1,9 +1,14 @@
-systemd (228-7) UNRELEASED; urgency=medium
+systemd (229-1) UNRELEASED; urgency=medium
 
+  * New upstream release 229.
+    - Fix systemctl behaviour in chroots. (Closes: #802780)
+    - Fix SELinux context of /run/user/$UID. (Closes: #775651)
+    - Add option to optionally turn of color output. (Closes: #783692)
+    - Don't git-ignore src/journal-remote/browse.html. (Closes: #805514)
+    - Do not warn about Wants depencencies on masked units. (LP: #1543282)
   * debian/tests/systemd-fsckd: Tame overly strict test for failed plymouth
     unit, which is a race condition with plymouthd auto-stopping.
     (LP: #1543144)
-  * Do not warn about Wants depencencies on masked units. (LP: #1543282)
   * Drop timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch.
     initramfs-tools has mounted /usr since Jessie, and tzdata now creates
     /etc/localtime as a symlink too (see #803144).

@@ -12,10 +12,10 @@ Patch courtesy of Steve Langasek.
  1 file changed, 106 insertions(+), 99 deletions(-)
 
 diff --git a/src/locale/localed.c b/src/locale/localed.c
-index 720cbba..cbd4a0a 100644
+index f0fe59c..236fba7 100644
 --- a/src/locale/localed.c
 +++ b/src/locale/localed.c
-@@ -166,6 +166,24 @@ static int locale_read_data(Context *c) {
+@@ -163,6 +163,24 @@ static int locale_read_data(Context *c) {
                             "LC_IDENTIFICATION", &c->locale[LOCALE_LC_IDENTIFICATION],
                             NULL);
  
@@ -40,7 +40,7 @@ index 720cbba..cbd4a0a 100644
          if (r == -ENOENT) {
                  int p;
  
-@@ -203,67 +221,17 @@ static int vconsole_read_data(Context *c) {
+@@ -200,67 +218,17 @@ static int vconsole_read_data(Context *c) {
  }
  
  static int x11_read_data(Context *c) {
@@ -115,7 +115,7 @@ index 720cbba..cbd4a0a 100644
  }
  
  static int context_read_data(Context *c) {
-@@ -279,10 +247,15 @@ static int context_read_data(Context *c) {
+@@ -276,10 +244,15 @@ static int context_read_data(Context *c) {
  static int locale_write_data(Context *c, char ***settings) {
          int r, p;
          _cleanup_strv_free_ char **l = NULL;
@@ -132,7 +132,7 @@ index 720cbba..cbd4a0a 100644
          if (r < 0 && r != -ENOENT)
                  return r;
  
-@@ -309,13 +282,13 @@ static int locale_write_data(Context *c, char ***settings) {
+@@ -306,13 +279,13 @@ static int locale_write_data(Context *c, char ***settings) {
          }
  
          if (strv_isempty(l)) {
@@ -148,7 +148,7 @@ index 720cbba..cbd4a0a 100644
          if (r < 0)
                  return r;
  
-@@ -436,65 +409,99 @@ static int vconsole_write_data(Context *c) {
+@@ -433,65 +406,99 @@ static int vconsole_write_data(Context *c) {
  }
  
  static int x11_write_data(Context *c) {
