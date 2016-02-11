@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,12 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <glob.h>
 
 #include "glob-util.h"
-#include "string-util.h"
+#include "macro.h"
 #include "strv.h"
-#include "util.h"
 
 int glob_exists(const char *path) {
         _cleanup_globfree_ glob_t g = {};
@@ -40,7 +38,7 @@ int glob_exists(const char *path) {
         if (k == GLOB_NOSPACE)
                 return -ENOMEM;
         if (k != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return !strv_isempty(g.gl_pathv);
 }
@@ -58,7 +56,7 @@ int glob_extend(char ***strv, const char *path) {
         if (k == GLOB_NOSPACE)
                 return -ENOMEM;
         if (k != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
         if (strv_isempty(g.gl_pathv))
                 return -ENOENT;
 

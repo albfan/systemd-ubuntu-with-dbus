@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,8 +21,8 @@
 
 typedef struct Route Route;
 
-#include "networkd.h"
 #include "networkd-network.h"
+#include "networkd.h"
 
 struct Route {
         Network *network;

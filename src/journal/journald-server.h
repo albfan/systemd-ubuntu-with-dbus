@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -157,9 +155,10 @@ struct Server {
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
 #define N_IOVEC_OBJECT_FIELDS 12
+#define N_IOVEC_PAYLOAD_FIELDS 15
 
 void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority, pid_t object_pid);
-void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) _printf_(3,4);
+void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) _printf_(3,0) _sentinel_;
 
 /* gperf lookup function */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, unsigned length);
@@ -174,7 +173,6 @@ int config_parse_split_mode(const char *unit, const char *filename, unsigned lin
 const char *split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
-void server_fix_perms(Server *s, JournalFile *f, uid_t uid);
 int server_init(Server *s);
 void server_done(Server *s);
 void server_sync(Server *s);

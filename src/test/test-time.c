@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -176,12 +174,36 @@ static void test_get_timezones(void) {
         r = get_timezones(&zones);
         assert_se(r == 0);
 
-        STRV_FOREACH(zone, zones) {
+        STRV_FOREACH(zone, zones)
                 assert_se(timezone_is_valid(*zone));
-        }
+}
+
+static void test_usec_add(void) {
+        assert_se(usec_add(0, 0) == 0);
+        assert_se(usec_add(1, 4) == 5);
+        assert_se(usec_add(USEC_INFINITY, 5) == USEC_INFINITY);
+        assert_se(usec_add(5, USEC_INFINITY) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY-5, 2) == USEC_INFINITY-3);
+        assert_se(usec_add(USEC_INFINITY-2, 2) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY-1, 2) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY, 2) == USEC_INFINITY);
+}
+
+static void test_usec_sub(void) {
+        assert_se(usec_sub(0, 0) == 0);
+        assert_se(usec_sub(4, 1) == 3);
+        assert_se(usec_sub(4, 4) == 0);
+        assert_se(usec_sub(4, 5) == 0);
+        assert_se(usec_sub(USEC_INFINITY-3, -3) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY-3, -3) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY-3, -4) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY-3, -5) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY, 5) == USEC_INFINITY);
 }
 
 int main(int argc, char *argv[]) {
+        uintmax_t x;
+
         test_parse_sec();
         test_parse_time();
         test_parse_nsec();
@@ -190,6 +212,16 @@ int main(int argc, char *argv[]) {
         test_format_timespan(USEC_PER_SEC);
         test_timezone_is_valid();
         test_get_timezones();
+        test_usec_add();
+        test_usec_sub();
+
+        /* Ensure time_t is signed */
+        assert_cc((time_t) -1 < (time_t) 1);
+
+        /* Ensure TIME_T_MAX works correctly */
+        x = (uintmax_t) TIME_T_MAX;
+        x ++;
+        assert((time_t) x < 0);
 
         return 0;
 }

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -48,7 +46,7 @@ typedef struct Context {
 } Context;
 
 static usec_t get_startup_time(Context *c) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         usec_t t = 0;
         int r;
 
@@ -85,7 +83,7 @@ static int get_current_runlevel(Context *c) {
                 { '1', SPECIAL_RESCUE_TARGET     },
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
         unsigned i;
 

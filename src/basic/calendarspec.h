@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -25,6 +23,8 @@
  * time, a la cron */
 
 #include <stdbool.h>
+
+#include "time-util.h"
 #include "util.h"
 
 typedef struct CalendarComponent {
@@ -44,7 +44,7 @@ typedef struct CalendarSpec {
 
         CalendarComponent *hour;
         CalendarComponent *minute;
-        CalendarComponent *second;
+        CalendarComponent *microsecond;
 } CalendarSpec;
 
 void calendar_spec_free(CalendarSpec *c);

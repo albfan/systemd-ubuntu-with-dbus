@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -28,9 +26,9 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <linux/sctp.h>
 
 #include "sd-event.h"
-
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -156,41 +154,41 @@ static void socket_done(Unit *u) {
         s->tcp_congestion = mfree(s->tcp_congestion);
         s->bind_to_device = mfree(s->bind_to_device);
 
-        free(s->smack);
-        free(s->smack_ip_in);
-        free(s->smack_ip_out);
+        s->smack = mfree(s->smack);
+        s->smack_ip_in = mfree(s->smack_ip_in);
+        s->smack_ip_out = mfree(s->smack_ip_out);
 
         strv_free(s->symlinks);
 
-        free(s->user);
-        free(s->group);
+        s->user = mfree(s->user);
+        s->group = mfree(s->group);
+
+        s->fdname = mfree(s->fdname);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
 
-static int socket_arm_timer(Socket *s) {
+static int socket_arm_timer(Socket *s, usec_t usec) {
         int r;
 
         assert(s);
 
-        if (s->timeout_usec <= 0) {
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-                return 0;
-        }
-
         if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_usec);
+                r = sd_event_source_set_time(s->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
+                        usec, 0,
                         socket_dispatch_timer, s);
         if (r < 0)
                 return r;
@@ -289,7 +287,7 @@ static int socket_add_device_link(Socket *s) {
                 return 0;
 
         t = strjoina("/sys/subsystem/net/devices/", s->bind_to_device);
-        return unit_add_node_link(UNIT(s), t, false);
+        return unit_add_node_link(UNIT(s), t, false, UNIT_BINDS_TO);
 }
 
 static int socket_add_default_dependencies(Socket *s) {
@@ -875,8 +873,14 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->no_delay) {
                 int b = s->no_delay;
-                if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+
+                if (s->socket_protocol == IPPROTO_SCTP) {
+                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &b, sizeof(b)) < 0)
+                                log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
+                } else {
+                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                                log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+                }
         }
 
         if (s->broadcast) {
@@ -1266,6 +1270,19 @@ static int socket_open_fds(Socket *s) {
                                 know_label = true;
                         }
 
+                        /* Apply the socket protocol */
+                        switch(p->address.type) {
+                        case SOCK_STREAM:
+                        case SOCK_SEQPACKET:
+                                if (p->socket->socket_protocol == IPPROTO_SCTP)
+                                        p->address.protocol = p->socket->socket_protocol;
+                                break;
+                        case SOCK_DGRAM:
+                                if (p->socket->socket_protocol == IPPROTO_UDPLITE)
+                                        p->address.protocol = p->socket->socket_protocol;
+                                break;
+                        }
+
                         r = socket_address_listen(
                                         &p->address,
                                         SOCK_CLOEXEC|SOCK_NONBLOCK,
@@ -1473,7 +1490,7 @@ static int socket_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = socket_arm_timer(s);
+                r = socket_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -1486,6 +1503,7 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_STOP_PRE,
                    SOCKET_STOP_PRE_SIGTERM,
                    SOCKET_STOP_PRE_SIGKILL)) {
+
                 r = socket_open_fds(s);
                 if (r < 0)
                         return r;
@@ -1527,15 +1545,15 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = socket_arm_timer(s);
+        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
         if (r < 0)
-                goto fail;
+                return r;
 
         exec_params.argv = argv;
         exec_params.environment = UNIT(s)->manager->environment;
@@ -1552,26 +1570,22 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        s->exec_runtime,
                        &pid);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0)
                 /* FIXME: we need to do something here */
-                goto fail;
+                return r;
 
         *_pid = pid;
         return 0;
-
-fail:
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        return r;
 }
 
 static int socket_chown(Socket *s, pid_t *_pid) {
         pid_t pid;
         int r;
 
-        r = socket_arm_timer(s);
+        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
                 goto fail;
 
@@ -1714,7 +1728,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                 goto fail;
 
         if (r > 0) {
-                r = socket_arm_timer(s);
+                r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
                 if (r < 0)
                         goto fail;
 
@@ -1867,7 +1881,7 @@ fail:
 }
 
 static void socket_enter_running(Socket *s, int cfd) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s);
@@ -2686,23 +2700,6 @@ static void socket_reset_failed(Unit *u) {
         s->result = SOCKET_SUCCESS;
 }
 
-static void socket_notify_service_dead(Socket *s, bool failed_permanent) {
-        assert(s);
-
-        /* The service is dead. Dang!
-         *
-         * This is strictly for one-instance-for-all-connections
-         * services. */
-
-        if (s->state == SOCKET_RUNNING) {
-                log_unit_debug(UNIT(s), "Got notified about service death (failed permanently: %s)", yes_no(failed_permanent));
-                if (failed_permanent)
-                        socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_FAILED_PERMANENT);
-                else
-                        socket_enter_listening(s);
-        }
-}
-
 void socket_connection_unref(Socket *s) {
         assert(s);
 
@@ -2719,34 +2716,30 @@ void socket_connection_unref(Socket *s) {
 
 static void socket_trigger_notify(Unit *u, Unit *other) {
         Socket *s = SOCKET(u);
-        Service *se;
 
         assert(u);
         assert(other);
 
         /* Don't propagate state changes from the service if we are
            already down or accepting connections */
-        if ((s->state != SOCKET_RUNNING &&
-            s->state != SOCKET_LISTENING) ||
-            s->accept)
+        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING) || s->accept)
                 return;
 
-        if (other->load_state != UNIT_LOADED ||
-            other->type != UNIT_SERVICE)
+        if (other->start_limit_hit) {
+                socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_START_LIMIT_HIT);
+                return;
+        }
+
+        if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
                 return;
 
-        se = SERVICE(other);
+        if (IN_SET(SERVICE(other)->state,
+                   SERVICE_DEAD, SERVICE_FAILED,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                   SERVICE_AUTO_RESTART))
+               socket_enter_listening(s);
 
-        if (se->state == SERVICE_FAILED)
-                socket_notify_service_dead(s, se->result == SERVICE_FAILURE_START_LIMIT);
-
-        if (se->state == SERVICE_DEAD ||
-            se->state == SERVICE_FINAL_SIGTERM ||
-            se->state == SERVICE_FINAL_SIGKILL ||
-            se->state == SERVICE_AUTO_RESTART)
-                socket_notify_service_dead(s, false);
-
-        if (se->state == SERVICE_RUNNING)
+        if (SERVICE(other)->state == SERVICE_RUNNING)
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
@@ -2754,17 +2747,21 @@ static int socket_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, SOCKET(u)->control_pid, error);
 }
 
-static int socket_get_timeout(Unit *u, uint64_t *timeout) {
+static int socket_get_timeout(Unit *u, usec_t *timeout) {
         Socket *s = SOCKET(u);
+        usec_t t;
         int r;
 
         if (!s->timer_event_source)
                 return 0;
 
-        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        r = sd_event_source_get_time(s->timer_event_source, &t);
         if (r < 0)
                 return r;
+        if (t == USEC_INFINITY)
+                return 0;
 
+        *timeout = t;
         return 1;
 }
 
@@ -2798,7 +2795,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
-        [SOCKET_FAILURE_SERVICE_FAILED_PERMANENT] = "service-failed-permanent"
+        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);

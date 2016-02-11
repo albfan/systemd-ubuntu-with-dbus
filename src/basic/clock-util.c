@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -21,6 +19,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <time.h>
 #include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -119,7 +120,8 @@ int clock_set_timezone(int *min) {
          * have read from the RTC.
          */
         if (settimeofday(tv_null, &tz) < 0)
-                return -errno;
+                return negative_errno();
+
         if (min)
                 *min = minutesdelta;
         return 0;
@@ -141,4 +143,18 @@ int clock_reset_timewarp(void) {
                 return -errno;
 
         return 0;
+}
+
+#define TIME_EPOCH_USEC ((usec_t) TIME_EPOCH * USEC_PER_SEC)
+
+int clock_apply_epoch(void) {
+        struct timespec ts;
+
+        if (now(CLOCK_REALTIME) >= TIME_EPOCH_USEC)
+                return 0;
+
+        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, TIME_EPOCH_USEC)) < 0)
+                return -errno;
+
+        return 1;
 }

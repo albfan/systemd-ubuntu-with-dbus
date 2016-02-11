@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -22,7 +20,6 @@
 ***/
 
 #include "conf-parser.h"
-
 #include "timesyncd-manager.h"
 
 const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *key, unsigned length);

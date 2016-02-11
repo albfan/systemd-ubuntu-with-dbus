@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -39,6 +37,7 @@
 #include "lookup3.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "sd-event.h"
 #include "string-util.h"
 #include "xattr-util.h"
 
@@ -99,7 +98,7 @@ static int journal_file_set_online(JournalFile *f) {
         if (mmap_cache_got_sigbus(f->mmap, f->fd))
                 return -EIO;
 
-        switch(f->header->state) {
+        switch (f->header->state) {
                 case STATE_ONLINE:
                         return 0;
 
@@ -149,6 +148,17 @@ JournalFile* journal_file_close(JournalFile *f) {
                 journal_file_append_tag(f);
 #endif
 
+        if (f->post_change_timer) {
+                int enabled;
+
+                if (sd_event_source_get_enabled(f->post_change_timer, &enabled) >= 0)
+                        if (enabled == SD_EVENT_ONESHOT)
+                                journal_file_post_change(f);
+
+                (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
+                sd_event_source_unref(f->post_change_timer);
+        }
+
         journal_file_set_offline(f);
 
         if (f->mmap && f->fd >= 0)
@@ -169,8 +179,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         safe_close(f->fd);
         free(f->path);
 
-        if (f->mmap)
-                mmap_cache_unref(f->mmap);
+        mmap_cache_unref(f->mmap);
 
         ordered_hashmap_free_free(f->chain_cache);
 
@@ -236,6 +245,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
         if (r < 0)
@@ -262,6 +272,7 @@ static int journal_file_verify_header(JournalFile *f) {
         uint32_t flags;
 
         assert(f);
+        assert(f->header);
 
         if (memcmp(f->header->signature, HEADER_SIGNATURE, 8))
                 return -EBADMSG;
@@ -370,6 +381,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         int r;
 
         assert(f);
+        assert(f->header);
 
         /* We assume that this file is not sparse, and we know that
          * for sure, since we always call posix_fallocate()
@@ -533,6 +545,7 @@ static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
         uint64_t r;
 
         assert(f);
+        assert(f->header);
 
         r = le64toh(f->header->tail_entry_seqnum) + 1;
 
@@ -562,6 +575,7 @@ int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, O
         void *t;
 
         assert(f);
+        assert(f->header);
         assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
         assert(offset);
@@ -611,6 +625,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         /* We estimate that we need 1 hash table entry per 768 bytes
            of journal file and we want to make sure we never get
@@ -644,6 +659,7 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         /* We use a fixed size hash table for the fields as this
          * number should grow very slowly only */
@@ -670,6 +686,7 @@ int journal_file_map_data_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         if (f->data_hash_table)
                 return 0;
@@ -695,6 +712,7 @@ int journal_file_map_field_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         if (f->field_hash_table)
                 return 0;
@@ -724,6 +742,8 @@ static int journal_file_link_field(
         int r;
 
         assert(f);
+        assert(f->header);
+        assert(f->field_hash_table);
         assert(o);
         assert(offset > 0);
 
@@ -767,6 +787,8 @@ static int journal_file_link_data(
         int r;
 
         assert(f);
+        assert(f->header);
+        assert(f->data_hash_table);
         assert(o);
         assert(offset > 0);
 
@@ -815,6 +837,7 @@ int journal_file_find_field_object_with_hash(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(field && size > 0);
 
         /* If the field hash table is empty, we can't find anything */
@@ -886,6 +909,7 @@ int journal_file_find_data_object_with_hash(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(data || size == 0);
 
         /* If there's no data hash table, then there's no entry. */
@@ -1085,7 +1109,7 @@ static int journal_file_append_data(
         if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
                 size_t rsize = 0;
 
-                compression = compress_blob(data, size, o->data.payload, &rsize);
+                compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
 
                 if (compression >= 0) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
@@ -1182,6 +1206,7 @@ static int link_entry_into_array(JournalFile *f,
         Object *o;
 
         assert(f);
+        assert(f->header);
         assert(first);
         assert(idx);
         assert(p > 0);
@@ -1302,6 +1327,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         int r;
 
         assert(f);
+        assert(f->header);
         assert(o);
         assert(offset > 0);
 
@@ -1352,6 +1378,7 @@ static int journal_file_append_entry_internal(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(items || n_items == 0);
         assert(ts);
 
@@ -1398,7 +1425,84 @@ void journal_file_post_change(JournalFile *f) {
         __sync_synchronize();
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
-                log_error_errno(errno, "Failed to truncate file to its own size: %m");
+                log_debug_errno(errno, "Failed to truncate file to its own size: %m");
+}
+
+static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userdata) {
+        assert(userdata);
+
+        journal_file_post_change(userdata);
+
+        return 1;
+}
+
+static void schedule_post_change(JournalFile *f) {
+        sd_event_source *timer;
+        int enabled, r;
+        uint64_t now;
+
+        assert(f);
+        assert(f->post_change_timer);
+
+        timer = f->post_change_timer;
+
+        r = sd_event_source_get_enabled(timer, &enabled);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get ftruncate timer state: %m");
+                goto fail;
+        }
+
+        if (enabled == SD_EVENT_ONESHOT)
+                return;
+
+        r = sd_event_now(sd_event_source_get_event(timer), CLOCK_MONOTONIC, &now);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get clock's now for scheduling ftruncate: %m");
+                goto fail;
+        }
+
+        r = sd_event_source_set_time(timer, now+f->post_change_timer_period);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set time for scheduling ftruncate: %m");
+                goto fail;
+        }
+
+        r = sd_event_source_set_enabled(timer, SD_EVENT_ONESHOT);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to enable scheduled ftruncate: %m");
+                goto fail;
+        }
+
+        return;
+
+fail:
+        /* On failure, let's simply post the change immediately. */
+        journal_file_post_change(f);
+}
+
+/* Enable coalesced change posting in a timer on the provided sd_event instance */
+int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        int r;
+
+        assert(f);
+        assert_return(!f->post_change_timer, -EINVAL);
+        assert(e);
+        assert(t);
+
+        r = sd_event_add_time(e, &timer, CLOCK_MONOTONIC, 0, 0, post_change_thunk, f);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(timer, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
+        f->post_change_timer = timer;
+        timer = NULL;
+        f->post_change_timer_period = t;
+
+        return r;
 }
 
 static int entry_item_cmp(const void *_a, const void *_b) {
@@ -1419,16 +1523,13 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         struct dual_timestamp _ts;
 
         assert(f);
+        assert(f->header);
         assert(iovec || n_iovec == 0);
 
         if (!ts) {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
         }
-
-        if (f->tail_entry_monotonic_valid &&
-            ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                return -EINVAL;
 
 #ifdef HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
@@ -1466,7 +1567,10 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         if (mmap_cache_got_sigbus(f->mmap, f->fd))
                 r = -EIO;
 
-        journal_file_post_change(f);
+        if (f->post_change_timer)
+                schedule_post_change(f);
+        else
+                journal_file_post_change(f);
 
         return r;
 }
@@ -1931,6 +2035,8 @@ int journal_file_move_to_entry_by_seqnum(
                 direction_t direction,
                 Object **ret,
                 uint64_t *offset) {
+        assert(f);
+        assert(f->header);
 
         return generic_array_bisect(f,
                                     le64toh(f->header->entry_array_offset),
@@ -1966,6 +2072,8 @@ int journal_file_move_to_entry_by_realtime(
                 direction_t direction,
                 Object **ret,
                 uint64_t *offset) {
+        assert(f);
+        assert(f->header);
 
         return generic_array_bisect(f,
                                     le64toh(f->header->entry_array_offset),
@@ -2058,7 +2166,9 @@ void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
 
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         assert(af);
+        assert(af->header);
         assert(bf);
+        assert(bf->header);
         assert(af->location_type == LOCATION_SEEK);
         assert(bf->location_type == LOCATION_SEEK);
 
@@ -2118,6 +2228,7 @@ int journal_file_next_entry(
         int r;
 
         assert(f);
+        assert(f->header);
 
         n = le64toh(f->header->n_entries);
         if (n <= 0)
@@ -2400,6 +2511,7 @@ void journal_file_dump(JournalFile *f) {
         uint64_t p;
 
         assert(f);
+        assert(f->header);
 
         journal_file_print_header(f);
 
@@ -2484,6 +2596,7 @@ void journal_file_print_header(JournalFile *f) {
         char bytes[FORMAT_BYTES_MAX];
 
         assert(f);
+        assert(f->header);
 
         printf("File Path: %s\n"
                "File ID: %s\n"
@@ -2766,6 +2879,16 @@ int journal_file_open(
         if (mmap_cache_got_sigbus(f->mmap, f->fd)) {
                 r = -EIO;
                 goto fail;
+        }
+
+        if (template && template->post_change_timer) {
+                r = journal_file_enable_post_change_timer(
+                                f,
+                                sd_event_source_get_event(template->post_change_timer),
+                                template->post_change_timer_period);
+
+                if (r < 0)
+                        goto fail;
         }
 
         *ret = f;
@@ -3079,6 +3202,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
         assert(f);
+        assert(f->header);
         assert(from || to);
 
         if (from) {
@@ -3142,6 +3266,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
         assert(f);
+        assert(f->header);
 
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */

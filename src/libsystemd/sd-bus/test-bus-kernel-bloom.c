@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -47,7 +45,7 @@ static void test_one(
 
         _cleanup_close_ int bus_ref = -1;
         _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *a, *b;
         int r, found = 0;
 

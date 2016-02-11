@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -24,10 +22,10 @@
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
 
+#include "exit-status.h"
+#include "kill.h"
 #include "path.h"
 #include "ratelimit.h"
-#include "kill.h"
-#include "exit-status.h"
 
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
@@ -88,7 +86,6 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_SIGNAL,
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
-        SERVICE_FAILURE_START_LIMIT,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
@@ -118,6 +115,7 @@ struct Service {
         usec_t restart_usec;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
+        usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;
@@ -172,14 +170,12 @@ struct Service {
         bool reset_cpu_usage:1;
 
         char *bus_name;
+        char *bus_name_owner; /* unique name of the current owner */
 
         char *status_text;
         int status_errno;
 
-        RateLimit start_limit;
-        FailureAction start_limit_action;
         FailureAction failure_action;
-        char *reboot_arg;
 
         UnitRef accept_socket;
 

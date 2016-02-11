@@ -247,7 +247,7 @@
         <literal>checksum</literal> is specified, the download is
         checked for integrity after the transfer is complete, but no
         signatures are verified. If <literal>signature</literal> is
-        specified, the checksum is verified and the images's signature
+        specified, the checksum is verified and the image's signature
         is checked against a local keyring of trustable vendors. It is
         strongly recommended to set this option to
         <literal>signature</literal> if the server and protocol
@@ -262,16 +262,6 @@
         a local copy by the specified local machine name already
         exists, delete it first and replace it by the newly downloaded
         image.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--dkr-index-url</option></term>
-
-        <listitem><para>Specifies the index server to use for
-        downloading <literal>dkr</literal> images with the
-        <command>pull-dkr</command>. Takes a
-        <literal>http://</literal>, <literal>https://</literal>
-        URL.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -761,42 +751,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>pull-dkr</command> <replaceable>REMOTE</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-        <listitem><para>Downloads a <literal>dkr</literal> container
-        image and makes it available locally. The remote name refers
-        to a <literal>dkr</literal> container name. If omitted, the
-        local machine name is derived from the <literal>dkr</literal>
-        container name.</para>
-
-        <para>Image verification is not available for
-        <literal>dkr</literal> containers, and thus
-        <option>--verify=no</option> must always be specified with
-        this command.</para>
-
-        <para>This command downloads all (missing) layers for the
-        specified container and places them in read-only subvolumes in
-        <filename>/var/lib/machines/</filename>. A writable snapshot
-        of the newest layer is then created under the specified local
-        machine name. To omit creation of this writable snapshot, pass
-        <literal>-</literal> as local machine name.</para>
-
-        <para>The read-only layer subvolumes are prefixed with
-        <filename>.dkr-</filename>, and thus not shown by
-        <command>list-images</command>, unless <option>--all</option>
-        is passed.</para>
-
-        <para>To specify the <literal>dkr</literal> index server to
-        use for looking up the specified container, use
-        <option>--dkr-index-url=</option>.</para>
-
-        <para>Note that pressing C-c during execution of this command
-        will not abort the download. Use
-        <command>cancel-transfer</command>, described
-        below.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><command>import-tar</command> <replaceable>FILE</replaceable> [<replaceable>NAME</replaceable>]</term>
         <term><command>import-raw</command> <replaceable>FILE</replaceable> [<replaceable>NAME</replaceable>]</term>
         <listitem><para>Imports a TAR or RAW container or VM image,
@@ -814,10 +768,9 @@
         image is read from standard input, in which case the second
         argument is mandatory.</para>
 
-        <para>Similar as with <command>pull-tar</command>,
-        <command>pull-raw</command> the file system
-        <filename>/var/lib/machines.raw</filename> is increased in
-        size of necessary and appropriate. Optionally, the
+        <para>Both <command>pull-tar</command> and <command>pull-raw</command>
+        will resize <filename>/var/lib/machines.raw</filename> and the
+        filesystem therein as necessary. Optionally, the
         <option>--read-only</option> switch may be used to create a
         read-only container or VM image. No cryptographic validation
         is done when importing the images.</para>
@@ -926,12 +879,12 @@
     <para>Note that many image operations are only supported,
     efficient or atomic on btrfs file systems. Due to this, if the
     <command>pull-tar</command>, <command>pull-raw</command>,
-    <command>pull-dkr</command>, <command>import-tar</command>,
-    <command>import-raw</command> and <command>set-limit</command>
-    commands notice that <filename>/var/lib/machines</filename> is
-    empty and not located on btrfs, they will implicitly set up a
-    loopback file <filename>/var/lib/machines.raw</filename>
-    containing a btrfs file system that is mounted to
+    <command>import-tar</command>, <command>import-raw</command> and
+    <command>set-limit</command> commands notice that
+    <filename>/var/lib/machines</filename> is empty and not located on
+    btrfs, they will implicitly set up a loopback file
+    <filename>/var/lib/machines.raw</filename> containing a btrfs file
+    system that is mounted to
     <filename>/var/lib/machines</filename>. The size of this loopback
     file may be controlled dynamically with
     <command>set-limit</command>.</para>
@@ -992,18 +945,6 @@
       and a root password is set. Afterwards the shell is left, and
       the machine started as system service. With the last command a
       login prompt into the container is requested.</para>
-    </example>
-
-    <example>
-      <title>Download a Fedora <literal>dkr</literal> image</title>
-
-      <programlisting># machinectl pull-dkr --verify=no mattdm/fedora
-# systemd-nspawn -M fedora</programlisting>
-
-      <para>Downloads a <literal>dkr</literal> image and opens a shell
-      in it. Note that the specified download command might require an
-      index server to be specified with the
-      <literal>--dkr-index-url=</literal>.</para>
     </example>
 
     <example>

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,12 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "strbuf.h"
-#include "util.h"
 
 /*
  * Strbuf stores given strings in a single continuous allocated memory

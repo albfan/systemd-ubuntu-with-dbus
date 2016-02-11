@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,9 +17,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "alloc-util.h"
 #include "bitmap.h"
-#include "util.h"
+#include "hashmap.h"
+#include "macro.h"
 
 struct Bitmap {
         uint64_t *bitmaps;
@@ -133,7 +138,8 @@ bool bitmap_isset(Bitmap *b, unsigned n) {
 bool bitmap_isclear(Bitmap *b) {
         unsigned i;
 
-        assert(b);
+        if (!b)
+                return true;
 
         for (i = 0; i < b->n_bitmaps; i++)
                 if (b->bitmaps[i] != 0)
@@ -143,7 +149,9 @@ bool bitmap_isclear(Bitmap *b) {
 }
 
 void bitmap_clear(Bitmap *b) {
-        assert(b);
+
+        if (!b)
+                return;
 
         b->bitmaps = mfree(b->bitmaps);
         b->n_bitmaps = 0;
@@ -190,7 +198,10 @@ bool bitmap_equal(Bitmap *a, Bitmap *b) {
         Bitmap *c;
         unsigned i;
 
-        if (!a ^ !b)
+        if (a == b)
+                return true;
+
+        if (!a != !b)
                 return false;
 
         if (!a)

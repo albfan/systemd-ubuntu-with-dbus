@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -26,6 +24,7 @@
 #include "alloc-util.h"
 #include "dev-setup.h"
 #include "label.h"
+#include "log.h"
 #include "path-util.h"
 #include "user-util.h"
 #include "util.h"

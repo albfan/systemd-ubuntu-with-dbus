@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -57,7 +55,6 @@
 #include "copy.h"
 #include "dev-setup.h"
 #include "env-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -80,6 +77,7 @@
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
+#include "nspawn-stub-pid1.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -115,6 +113,7 @@ typedef enum LinkJournal {
 
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
+static char *arg_chdir = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
@@ -123,7 +122,7 @@ static const char *arg_selinux_apifs_context = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
-static bool arg_boot = false;
+static StartMode arg_start_mode = START_PID1;
 static bool arg_ephemeral = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
 static bool arg_link_journal_try = false;
@@ -193,7 +192,9 @@ static void help(void) {
                "  -x --ephemeral            Run container with snapshot of root directory, and\n"
                "                            remove it after exit\n"
                "  -i --image=PATH           File system device or disk image for the container\n"
+               "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
+               "     --chdir=PATH           Set working directory in the container\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
@@ -232,8 +233,8 @@ static void help(void) {
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
-               "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host,\n"
-               "                            try-guest, try-host\n"
+               "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
+               "                            host, try-guest, try-host\n"
                "  -j                        Equivalent to --link-journal=try-guest\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --bind=PATH[:PATH[:OPTIONS]]\n"
@@ -346,6 +347,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS,
                 ARG_KILL_SIGNAL,
                 ARG_SETTINGS,
+                ARG_CHDIR,
         };
 
         static const struct option options[] = {
@@ -356,6 +358,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ephemeral",             no_argument,       NULL, 'x'                   },
                 { "user",                  required_argument, NULL, 'u'                   },
                 { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK   },
+                { "as-pid2",               no_argument,       NULL, 'a'                   },
                 { "boot",                  no_argument,       NULL, 'b'                   },
                 { "uuid",                  required_argument, NULL, ARG_UUID              },
                 { "read-only",             no_argument,       NULL, ARG_READ_ONLY         },
@@ -390,6 +393,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
                 { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
                 { "settings",              required_argument, NULL, ARG_SETTINGS          },
+                { "chdir",                 required_argument, NULL, ARG_CHDIR             },
                 {}
         };
 
@@ -401,7 +405,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:xp:n", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:u:abL:M:jS:Z:qi:xp:n", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -492,8 +496,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'b':
-                        arg_boot = true;
-                        arg_settings_mask |= SETTING_BOOT;
+                        if (arg_start_mode == START_PID2) {
+                                log_error("--boot and --as-pid2 may not be combined.");
+                                return -EINVAL;
+                        }
+
+                        arg_start_mode = START_BOOT;
+                        arg_settings_mask |= SETTING_START_MODE;
+                        break;
+
+                case 'a':
+                        if (arg_start_mode == START_BOOT) {
+                                log_error("--boot and --as-pid2 may not be combined.");
+                                return -EINVAL;
+                        }
+
+                        arg_start_mode = START_PID2;
+                        arg_settings_mask |= SETTING_START_MODE;
                         break;
 
                 case ARG_UUID:
@@ -850,6 +869,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_CHDIR:
+                        if (!path_is_absolute(optarg)) {
+                                log_error("Working directory %s is not an absolute path.", optarg);
+                                return -EINVAL;
+                        }
+
+                        r = free_and_strdup(&arg_chdir, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        arg_settings_mask |= SETTING_WORKING_DIRECTORY;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -860,7 +892,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_share_system)
                 arg_register = false;
 
-        if (arg_boot && arg_share_system) {
+        if (arg_start_mode != START_PID1 && arg_share_system) {
                 log_error("--boot and --share-system may not be combined.");
                 return -EINVAL;
         }
@@ -908,7 +940,7 @@ static int parse_argv(int argc, char *argv[]) {
                 if (!arg_parameters)
                         return log_oom();
 
-                arg_settings_mask |= SETTING_BOOT;
+                arg_settings_mask |= SETTING_START_MODE;
         }
 
         /* Load all settings from .nspawn files */
@@ -944,7 +976,7 @@ static int verify_arguments(void) {
                 return -EINVAL;
         }
 
-        if (arg_boot && arg_kill_signal <= 0)
+        if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
 
         return 0;
@@ -1028,7 +1060,7 @@ static int setup_timezone(const char *dest) {
         }
 
         check = strjoina("/usr/share/zoneinfo/", z);
-        check = prefix_root(dest, check);
+        check = prefix_roota(dest, check);
         if (laccess(check, F_OK) < 0) {
                 log_warning("Timezone %s does not exist in container, not updating container timezone.", z);
                 return 0;
@@ -1338,6 +1370,7 @@ static int setup_journal(const char *directory) {
         sd_id128_t machine_id, this_id;
         _cleanup_free_ char *b = NULL, *d = NULL;
         const char *etc_machine_id, *p, *q;
+        bool try;
         char *id;
         int r;
 
@@ -1345,16 +1378,21 @@ static int setup_journal(const char *directory) {
         if (arg_ephemeral)
                 return 0;
 
+        if (arg_link_journal == LINK_NO)
+                return 0;
+
+        try = arg_link_journal_try || arg_link_journal == LINK_AUTO;
+
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
         r = read_one_line_file(etc_machine_id, &b);
-        if (r == -ENOENT && arg_link_journal == LINK_AUTO)
+        if (r == -ENOENT && try)
                 return 0;
         else if (r < 0)
                 return log_error_errno(r, "Failed to read machine ID from %s: %m", etc_machine_id);
 
         id = strstrip(b);
-        if (isempty(id) && arg_link_journal == LINK_AUTO)
+        if (isempty(id) && try)
                 return 0;
 
         /* Verify validity */
@@ -1367,15 +1405,12 @@ static int setup_journal(const char *directory) {
                 return log_error_errno(r, "Failed to retrieve machine ID: %m");
 
         if (sd_id128_equal(machine_id, this_id)) {
-                log_full(arg_link_journal == LINK_AUTO ? LOG_WARNING : LOG_ERR,
+                log_full(try ? LOG_WARNING : LOG_ERR,
                          "Host and machine ids are equal (%s): refusing to link journals", id);
-                if (arg_link_journal == LINK_AUTO)
+                if (try)
                         return 0;
                 return -EEXIST;
         }
-
-        if (arg_link_journal == LINK_NO)
-                return 0;
 
         r = userns_mkdir(directory, "/var", 0755, 0, 0);
         if (r < 0)
@@ -1393,21 +1428,19 @@ static int setup_journal(const char *directory) {
         q = prefix_roota(directory, p);
 
         if (path_is_mount_point(p, 0) > 0) {
-                if (arg_link_journal != LINK_AUTO) {
-                        log_error("%s: already a mount point, refusing to use for journal", p);
-                        return -EEXIST;
-                }
+                if (try)
+                        return 0;
 
-                return 0;
+                log_error("%s: already a mount point, refusing to use for journal", p);
+                return -EEXIST;
         }
 
         if (path_is_mount_point(q, 0) > 0) {
-                if (arg_link_journal != LINK_AUTO) {
-                        log_error("%s: already a mount point, refusing to use for journal", q);
-                        return -EEXIST;
-                }
+                if (try)
+                        return 0;
 
-                return 0;
+                log_error("%s: already a mount point, refusing to use for journal", q);
+                return -EEXIST;
         }
 
         r = readlink_and_make_absolute(p, &d);
@@ -1441,7 +1474,7 @@ static int setup_journal(const char *directory) {
         if (arg_link_journal == LINK_GUEST) {
 
                 if (symlink(q, p) < 0) {
-                        if (arg_link_journal_try) {
+                        if (try) {
                                 log_debug_errno(errno, "Failed to symlink %s to %s, skipping journal setup: %m", q, p);
                                 return 0;
                         } else
@@ -1457,9 +1490,9 @@ static int setup_journal(const char *directory) {
         if (arg_link_journal == LINK_HOST) {
                 /* don't create parents here -- if the host doesn't have
                  * permanent journal set up, don't force it here */
-                r = mkdir(p, 0755);
-                if (r < 0) {
-                        if (arg_link_journal_try) {
+
+                if (mkdir(p, 0755) < 0 && errno != EEXIST) {
+                        if (try) {
                                 log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
                         } else
@@ -1483,7 +1516,7 @@ static int setup_journal(const char *directory) {
 }
 
 static int drop_capabilities(void) {
-        return capability_bounding_set_drop(~arg_retain, false);
+        return capability_bounding_set_drop(arg_retain, false);
 }
 
 static int reset_audit_loginuid(void) {
@@ -2563,6 +2596,16 @@ static int inner_child(
                 return -ESRCH;
         }
 
+        if (arg_chdir)
+                if (chdir(arg_chdir) < 0)
+                        return log_error_errno(errno, "Failed to change to specified working directory %s: %m", arg_chdir);
+
+        if (arg_start_mode == START_PID2) {
+                r = stub_pid1();
+                if (r < 0)
+                        return r;
+        }
+
         /* Now, explicitly close the log, so that we
          * then can close all remaining fds. Closing
          * the log explicitly first has the benefit
@@ -2574,7 +2617,7 @@ static int inner_child(
         log_close();
         (void) fdset_close_others(fds);
 
-        if (arg_boot) {
+        if (arg_start_mode == START_BOOT) {
                 char **a;
                 size_t m;
 
@@ -2598,7 +2641,9 @@ static int inner_child(
         } else if (!strv_isempty(arg_parameters))
                 execvpe(arg_parameters[0], arg_parameters, env_use);
         else {
-                chdir(home ?: "/root");
+                if (!arg_chdir)
+                        chdir(home ?: "/root");
+
                 execle("/bin/bash", "-bash", NULL, env_use);
                 execle("/bin/sh", "-sh", NULL, env_use);
         }
@@ -2894,13 +2939,20 @@ static int load_settings(void) {
         /* Copy over bits from the settings, unless they have been
          * explicitly masked by command line switches. */
 
-        if ((arg_settings_mask & SETTING_BOOT) == 0 &&
-            settings->boot >= 0) {
-                arg_boot = settings->boot;
+        if ((arg_settings_mask & SETTING_START_MODE) == 0 &&
+            settings->start_mode >= 0) {
+                arg_start_mode = settings->start_mode;
 
                 strv_free(arg_parameters);
                 arg_parameters = settings->parameters;
                 settings->parameters = NULL;
+        }
+
+        if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
+            settings->working_directory) {
+                free(arg_chdir);
+                arg_chdir = settings->working_directory;
+                settings->working_directory = NULL;
         }
 
         if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
@@ -3044,6 +3096,10 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        /* Make sure rename_process() in the stub init process can work */
+        saved_argv = argv;
+        saved_argc = argc;
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
@@ -3150,7 +3206,7 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if (arg_boot) {
+                if (arg_start_mode == START_BOOT) {
                         if (path_is_os_tree(arg_directory) <= 0) {
                                 log_error("Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", arg_directory);
                                 r = -EINVAL;
@@ -3259,9 +3315,9 @@ int main(int argc, char *argv[]) {
                 };
                 int ifi = 0;
                 ssize_t l;
-                _cleanup_event_unref_ sd_event *event = NULL;
+                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 char last_char = 0;
 
                 r = barrier_create(&barrier);
@@ -3629,6 +3685,7 @@ finish:
         free(arg_image);
         free(arg_machine);
         free(arg_user);
+        free(arg_chdir);
         strv_free(arg_setenv);
         free(arg_network_bridge);
         strv_free(arg_network_interfaces);

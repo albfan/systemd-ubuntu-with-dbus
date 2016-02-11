@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -326,7 +324,7 @@ void server_process_syslog_message(
         size_t label_len) {
 
         char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
-             syslog_facility[sizeof("SYSLOG_FACILITY") + DECIMAL_STR_MAX(int)];
+             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 6];
         unsigned n = 0;
@@ -357,11 +355,11 @@ void server_process_syslog_message(
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
-        sprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
+        xsprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
         IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
         if (priority & LOG_FACMASK) {
-                sprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+                xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
                 IOVEC_SET_STRING(iovec[n++], syslog_facility);
         }
 
@@ -415,7 +413,7 @@ int server_open_syslog_socket(Server *s) {
                 return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
 #ifdef HAVE_SELINUX
-        if (mac_selinux_use()) {
+        if (mac_selinux_have()) {
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
                         log_warning_errno(errno, "SO_PASSSEC failed: %m");
@@ -429,6 +427,10 @@ int server_open_syslog_socket(Server *s) {
         r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add syslog server fd to event loop: %m");
+
+        r = sd_event_source_set_priority(s->syslog_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust syslog event source priority: %m");
 
         return 0;
 }
@@ -444,7 +446,10 @@ void server_maybe_warn_forward_syslog_missed(Server *s) {
         if (s->last_warn_forward_syslog_missed + WARN_FORWARD_SYSLOG_MISSED_USEC > n)
                 return;
 
-        server_driver_message(s, SD_MESSAGE_FORWARD_SYSLOG_MISSED, "Forwarding to syslog missed %u messages.", s->n_forward_syslog_missed);
+        server_driver_message(s, SD_MESSAGE_FORWARD_SYSLOG_MISSED,
+                              LOG_MESSAGE("Forwarding to syslog missed %u messages.",
+                                          s->n_forward_syslog_missed),
+                              NULL);
 
         s->n_forward_syslog_missed = 0;
         s->last_warn_forward_syslog_missed = n;

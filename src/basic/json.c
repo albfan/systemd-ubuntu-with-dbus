@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,7 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 #include "alloc-util.h"
@@ -319,7 +320,7 @@ static int json_parse_string(const char **p, char **ret) {
                         else if (*c == 't')
                                 ch = '\t';
                         else if (*c == 'u') {
-                                uint16_t x;
+                                char16_t x;
                                 int r;
 
                                 r = unhex_ucs2(c + 1, &x);
@@ -332,11 +333,11 @@ static int json_parse_string(const char **p, char **ret) {
                                         return -ENOMEM;
 
                                 if (!utf16_is_surrogate(x))
-                                        n += utf8_encode_unichar(s + n, x);
+                                        n += utf8_encode_unichar(s + n, (char32_t) x);
                                 else if (utf16_is_trailing_surrogate(x))
                                         return -EINVAL;
                                 else {
-                                        uint16_t y;
+                                        char16_t y;
 
                                         if (c[0] != '\\' || c[1] != 'u')
                                                 return -EINVAL;

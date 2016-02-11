@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,12 +17,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <pthread.h>
+#include <stddef.h>
 #include <unistd.h>
 
 #include "async.h"
 #include "fd-util.h"
 #include "log.h"
+#include "macro.h"
 #include "util.h"
 
 int asynchronous_job(void* (*func)(void *p), void *arg) {

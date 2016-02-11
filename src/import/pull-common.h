@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,8 +21,8 @@
 
 #include <stdbool.h>
 
-#include "pull-job.h"
 #include "import-util.h"
+#include "pull-job.h"
 
 int pull_make_local_copy(const char *final, const char *root, const char *local, bool force_local);
 

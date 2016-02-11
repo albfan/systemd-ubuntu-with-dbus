@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -36,6 +34,7 @@
 #include "fd-util.h"
 #include "formats-util.h"
 #include "logind.h"
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "udev-util.h"
@@ -70,7 +69,7 @@ static Manager *manager_new(void) {
         m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
-        m->user_tasks_max = UINT64_C(4096);
+        m->user_tasks_max = UINT64_C(12288);
 
         m->devices = hashmap_new(&string_hash_ops);
         m->seats = hashmap_new(&string_hash_ops);
@@ -579,7 +578,7 @@ static int manager_reserve_vt(Manager *m) {
 }
 
 static int manager_connect_bus(Manager *m) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);
@@ -1124,6 +1123,12 @@ int main(int argc, char *argv[]) {
         if (argc != 1) {
                 log_error("This program takes no arguments.");
                 r = -EINVAL;
+                goto finish;
+        }
+
+        r = mac_selinux_init("/run");
+        if (r < 0) {
+                log_error_errno(r, "Could not initialize labelling: %m");
                 goto finish;
         }
 

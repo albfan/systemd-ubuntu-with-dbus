@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -21,9 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
+#include <errno.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <syslog.h>
 
+#include "alloc-util.h"
+#include "log.h"
 #include "macro.h"
 
 /* An abstract parser for simple, line based, shallow configuration

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -29,7 +27,7 @@ static bool verbose = false;
 static struct option_desc option_tests[] = {
         { {}, 0, {}, 0, { 42, 5, 65, 66, 67, 68, 69 }, 7, false, },
         { {}, 0, {}, 0, { 42, 5, 65, 66, 67, 68, 69, 0, 0,
-                          DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK }, 12, true, },
+                          SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK }, 12, true, },
         { {}, 0, {}, 0, { 8, 255, 70, 71, 72 }, 5, false, },
         { {}, 0, {}, 0, { 0x35, 0x01, 0x05, 0x36, 0x04, 0x01, 0x00, 0xa8,
                           0xc0, 0x33, 0x04, 0x00, 0x01, 0x51, 0x80, 0x01,
@@ -37,17 +35,17 @@ static struct option_desc option_tests[] = {
                           0xa8, 0x00, 0x01, 0x06, 0x04, 0xc0, 0xa8, 0x00,
                           0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
           40, true, },
-        { {}, 0, {}, 0, { DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_OFFER,
+        { {}, 0, {}, 0, { SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_OFFER,
                           42, 3, 0, 0, 0 }, 8, true, },
         { {}, 0, {}, 0, { 42, 2, 1, 2, 44 }, 5, false, },
 
         { {}, 0,
-          { 222, 3, 1, 2, 3, DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_NAK }, 8,
-          { DHCP_OPTION_OVERLOAD, 1, DHCP_OVERLOAD_FILE }, 3, true, },
+          { 222, 3, 1, 2, 3, SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_NAK }, 8,
+          { SD_DHCP_OPTION_OVERLOAD, 1, DHCP_OVERLOAD_FILE }, 3, true, },
 
-        { { 1, 4, 1, 2, 3, 4, DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK }, 9,
+        { { 1, 4, 1, 2, 3, 4, SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK }, 9,
           { 222, 3, 1, 2, 3 }, 5,
-          { DHCP_OPTION_OVERLOAD, 1,
+          { SD_DHCP_OPTION_OVERLOAD, 1,
             DHCP_OVERLOAD_FILE|DHCP_OVERLOAD_SNAME }, 3, true, },
 };
 
@@ -75,9 +73,8 @@ static const char *dhcp_type(int type) {
 static void test_invalid_buffer_length(void) {
         DHCPMessage message;
 
-        assert_se(dhcp_option_parse(&message, 0, NULL, NULL) == -EINVAL);
-        assert_se(dhcp_option_parse(&message, sizeof(DHCPMessage) - 1, NULL, NULL)
-               == -EINVAL);
+        assert_se(dhcp_option_parse(&message, 0, NULL, NULL, NULL) == -EINVAL);
+        assert_se(dhcp_option_parse(&message, sizeof(DHCPMessage) - 1, NULL, NULL, NULL) == -EINVAL);
 }
 
 static void test_message_init(void) {
@@ -101,7 +98,7 @@ static void test_message_init(void) {
         assert_se(magic[2] == 83);
         assert_se(magic[3] == 99);
 
-        assert_se(dhcp_option_parse(message, len, NULL, NULL) >= 0);
+        assert_se(dhcp_option_parse(message, len, NULL, NULL, NULL) >= 0);
 }
 
 static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
@@ -130,12 +127,12 @@ static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
 
         while (*descpos < *desclen) {
                 switch(descoption[*descpos]) {
-                case DHCP_OPTION_PAD:
+                case SD_DHCP_OPTION_PAD:
                         *descpos += 1;
                         break;
 
-                case DHCP_OPTION_MESSAGE_TYPE:
-                case DHCP_OPTION_OVERLOAD:
+                case SD_DHCP_OPTION_MESSAGE_TYPE:
+                case SD_DHCP_OPTION_OVERLOAD:
                         *descpos += 3;
                         break;
 
@@ -158,10 +155,10 @@ static int test_options_cb(uint8_t code, uint8_t len, const void *option, void *
         if (!desc)
                 return -EINVAL;
 
-        assert_se(code != DHCP_OPTION_PAD);
-        assert_se(code != DHCP_OPTION_END);
-        assert_se(code != DHCP_OPTION_MESSAGE_TYPE);
-        assert_se(code != DHCP_OPTION_OVERLOAD);
+        assert_se(code != SD_DHCP_OPTION_PAD);
+        assert_se(code != SD_DHCP_OPTION_END);
+        assert_se(code != SD_DHCP_OPTION_MESSAGE_TYPE);
+        assert_se(code != SD_DHCP_OPTION_OVERLOAD);
 
         while (desc->pos >= 0 || desc->filepos >= 0 || desc->snamepos >= 0) {
 
@@ -264,19 +261,12 @@ static void test_options(struct option_desc *desc) {
         buflen = sizeof(DHCPMessage) + optlen;
 
         if (!desc) {
-                assert_se((res = dhcp_option_parse(message, buflen,
-                                                test_options_cb,
-                                                NULL)) == -ENOMSG);
+                assert_se((res = dhcp_option_parse(message, buflen, test_options_cb, NULL, NULL)) == -ENOMSG);
         } else if (desc->success) {
-                assert_se((res = dhcp_option_parse(message, buflen,
-                                                test_options_cb,
-                                                desc)) >= 0);
-                assert_se(desc->pos == -1 && desc->filepos == -1 &&
-                                desc->snamepos == -1);
+                assert_se((res = dhcp_option_parse(message, buflen, test_options_cb, desc, NULL)) >= 0);
+                assert_se(desc->pos == -1 && desc->filepos == -1 && desc->snamepos == -1);
         } else
-                assert_se((res = dhcp_option_parse(message, buflen,
-                                                test_options_cb,
-                                                desc)) < 0);
+                assert_se((res = dhcp_option_parse(message, buflen, test_options_cb, desc, NULL)) < 0);
 
         if (verbose)
                 printf("DHCP type %s\n", dhcp_type(res));
@@ -306,27 +296,27 @@ static void test_option_set(void) {
         result->options[2] = 'C';
         result->options[3] = 'D';
 
-        assert_se(dhcp_option_append(result, 0, &offset, 0, DHCP_OPTION_PAD,
+        assert_se(dhcp_option_append(result, 0, &offset, 0, SD_DHCP_OPTION_PAD,
                                      0, NULL) == -ENOBUFS);
         assert_se(offset == 0);
 
         offset = 4;
-        assert_se(dhcp_option_append(result, 5, &offset, 0, DHCP_OPTION_PAD,
+        assert_se(dhcp_option_append(result, 5, &offset, 0, SD_DHCP_OPTION_PAD,
                                      0, NULL) == -ENOBUFS);
         assert_se(offset == 4);
-        assert_se(dhcp_option_append(result, 6, &offset, 0, DHCP_OPTION_PAD,
+        assert_se(dhcp_option_append(result, 6, &offset, 0, SD_DHCP_OPTION_PAD,
                                      0, NULL) >= 0);
         assert_se(offset == 5);
 
         offset = pos = 4;
         len = 11;
-        while (pos < len && options[pos] != DHCP_OPTION_END) {
+        while (pos < len && options[pos] != SD_DHCP_OPTION_END) {
                 assert_se(dhcp_option_append(result, len, &offset, DHCP_OVERLOAD_SNAME,
                                              options[pos],
                                              options[pos + 1],
                                              &options[pos + 2]) >= 0);
 
-                if (options[pos] == DHCP_OPTION_PAD)
+                if (options[pos] == SD_DHCP_OPTION_PAD)
                         pos++;
                 else
                         pos += 2 + options[pos + 1];
@@ -344,15 +334,15 @@ static void test_option_set(void) {
 
         if (verbose)
                 printf("%2d: 0x%02x(0x%02x) (options)\n", 9, result->options[9],
-                       DHCP_OPTION_END);
+                       SD_DHCP_OPTION_END);
 
-        assert_se(result->options[9] == DHCP_OPTION_END);
+        assert_se(result->options[9] == SD_DHCP_OPTION_END);
 
         if (verbose)
                 printf("%2d: 0x%02x(0x%02x) (options)\n", 10, result->options[10],
-                       DHCP_OPTION_PAD);
+                       SD_DHCP_OPTION_PAD);
 
-        assert_se(result->options[10] == DHCP_OPTION_PAD);
+        assert_se(result->options[10] == SD_DHCP_OPTION_PAD);
 
         for (i = 0; i < pos - 8; i++) {
                 if (verbose)

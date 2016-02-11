@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -20,6 +18,9 @@
 ***/
 
 
+#include <sys/time.h>
+
+#include "macro.h"
 #include "ratelimit.h"
 
 /* Modelled after Linux' lib/ratelimit.c by Dave Young

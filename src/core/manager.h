@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -21,12 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <libmount.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <libmount.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
+
 #include "cgroup-util.h"
 #include "fdset.h"
 #include "hashmap.h"
@@ -306,10 +305,6 @@ struct Manager {
         const char *unit_log_format_string;
 
         int first_boot;
-
-        /* Used for NetClass=auto units */
-        Hashmap *cgroup_netclass_registry;
-        uint32_t cgroup_netclass_registry_last;
 };
 
 int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);

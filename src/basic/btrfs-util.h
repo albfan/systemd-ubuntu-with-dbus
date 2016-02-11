@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -22,7 +20,10 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/types.h>
+
+#include "sd-id128.h"
 
 #include "time-util.h"
 

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -28,7 +26,6 @@
 #include "bus-util.h"
 #include "def.h"
 #include "env-util.h"
-#include "event-util.h"
 #include "fileio-label.h"
 #include "hostname-util.h"
 #include "parse-util.h"
@@ -213,10 +210,10 @@ try_dmi:
            unreliable enough, so let's not do any additional guesswork
            on top of that.
 
-           See the SMBIOS Specification 2.7.1 section 7.4.1 for
+           See the SMBIOS Specification 3.0 section 7.4.1 for
            details about the values listed here:
 
-           http://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.7.1.pdf
+           https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.0.0.pdf
          */
 
         switch (t) {
@@ -238,7 +235,11 @@ try_dmi:
 
         case 0x11:
         case 0x1C:
+        case 0x1D:
                 return "server";
+
+        case 0x1E:
+                return "tablet";
         }
 
         return NULL;
@@ -665,7 +666,7 @@ static const sd_bus_vtable hostname_vtable[] = {
 };
 
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
@@ -696,8 +697,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 
 int main(int argc, char *argv[]) {
         Context context = {};
-        _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -117,7 +115,7 @@ static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
-static uint64_t arg_capability_bounding_set_drop = 0;
+static uint64_t arg_capability_bounding_set = CAP_ALL;
 static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
@@ -127,6 +125,7 @@ static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_C(512);
+static sd_id128_t arg_machine_id = {};
 
 static void pager_open_if_enabled(void) {
 
@@ -173,19 +172,15 @@ noreturn static void crash(int sig) {
                 if (pid < 0)
                         log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
                 else if (pid == 0) {
-                        struct rlimit rl = {
-                                .rlim_cur = RLIM_INFINITY,
-                                .rlim_max = RLIM_INFINITY,
-                        };
-
                         /* Enable default signal handler for core dump */
+
                         sa = (struct sigaction) {
                                 .sa_handler = SIG_DFL,
                         };
                         (void) sigaction(sig, &sa, NULL);
 
-                        /* Don't limit the core dump size */
-                        (void) setrlimit(RLIMIT_CORE, &rl);
+                        /* Don't limit the coredump size */
+                        (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY));
 
                         /* Just to be sure... */
                         (void) chdir("/");
@@ -300,6 +295,17 @@ static int parse_crash_chvt(const char *value) {
         return 0;
 }
 
+static int set_machine_id(const char *m) {
+
+        if (sd_id128_from_string(m, &arg_machine_id) < 0)
+                return -EINVAL;
+
+        if (sd_id128_is_null(arg_machine_id))
+                return -EINVAL;
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         int r;
@@ -387,6 +393,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                                 log_warning_errno(ENOMEM, "Setting environment variable '%s' failed, ignoring: %m", value);
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
+
+        } else if (streq(key, "systemd.machine_id") && value) {
+
+               r = set_machine_id(value);
+               if (r < 0)
+                       log_warning("MachineID '%s' is not valid. Ignoring.", value);
 
         } else if (streq(key, "quiet") && !value) {
 
@@ -644,7 +656,7 @@ static int parse_config_file(void) {
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
-                { "Manager", "CapabilityBoundingSet",     config_parse_bounding_set,     0, &arg_capability_bounding_set_drop      },
+                { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
 #ifdef HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
@@ -658,22 +670,22 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval", config_parse_sec,              0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",    config_parse_unsigned,         0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",        config_parse_environ,          0, &arg_default_environment               },
-                { "Manager", "DefaultLimitCPU",           config_parse_sec_limit,        0, &arg_default_rlimit[RLIMIT_CPU]        },
-                { "Manager", "DefaultLimitFSIZE",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_FSIZE]      },
-                { "Manager", "DefaultLimitDATA",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_DATA]       },
-                { "Manager", "DefaultLimitSTACK",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_STACK]      },
-                { "Manager", "DefaultLimitCORE",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_CORE]       },
-                { "Manager", "DefaultLimitRSS",           config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_RSS]        },
-                { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NOFILE]     },
-                { "Manager", "DefaultLimitAS",            config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_AS]         },
-                { "Manager", "DefaultLimitNPROC",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NPROC]      },
-                { "Manager", "DefaultLimitMEMLOCK",       config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MEMLOCK]    },
-                { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_LOCKS]      },
-                { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            0, &arg_default_rlimit[RLIMIT_SIGPENDING] },
-                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MSGQUEUE]   },
-                { "Manager", "DefaultLimitNICE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NICE]       },
-                { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTPRIO]     },
-                { "Manager", "DefaultLimitRTTIME",        config_parse_usec_limit,       0, &arg_default_rlimit[RLIMIT_RTTIME]     },
+                { "Manager", "DefaultLimitCPU",           config_parse_limit,            RLIMIT_CPU, arg_default_rlimit            },
+                { "Manager", "DefaultLimitFSIZE",         config_parse_limit,            RLIMIT_FSIZE, arg_default_rlimit          },
+                { "Manager", "DefaultLimitDATA",          config_parse_limit,            RLIMIT_DATA, arg_default_rlimit           },
+                { "Manager", "DefaultLimitSTACK",         config_parse_limit,            RLIMIT_STACK, arg_default_rlimit          },
+                { "Manager", "DefaultLimitCORE",          config_parse_limit,            RLIMIT_CORE, arg_default_rlimit           },
+                { "Manager", "DefaultLimitRSS",           config_parse_limit,            RLIMIT_RSS, arg_default_rlimit            },
+                { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            RLIMIT_NOFILE, arg_default_rlimit         },
+                { "Manager", "DefaultLimitAS",            config_parse_limit,            RLIMIT_AS, arg_default_rlimit             },
+                { "Manager", "DefaultLimitNPROC",         config_parse_limit,            RLIMIT_NPROC, arg_default_rlimit          },
+                { "Manager", "DefaultLimitMEMLOCK",       config_parse_limit,            RLIMIT_MEMLOCK, arg_default_rlimit        },
+                { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            RLIMIT_LOCKS, arg_default_rlimit          },
+                { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            RLIMIT_SIGPENDING, arg_default_rlimit     },
+                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_limit,            RLIMIT_MSGQUEUE, arg_default_rlimit       },
+                { "Manager", "DefaultLimitNICE",          config_parse_limit,            RLIMIT_NICE, arg_default_rlimit           },
+                { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            RLIMIT_RTPRIO, arg_default_rlimit         },
+                { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
@@ -692,8 +704,14 @@ static int parse_config_file(void) {
                 CONF_PATHS_NULSTR("systemd/system.conf.d") :
                 CONF_PATHS_NULSTR("systemd/user.conf.d");
 
-        config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
-                          config_item_table_lookup, items, false, NULL);
+        config_parse_many(fn, conf_dirs_nulstr, "Manager\0", config_item_table_lookup, items, false, NULL);
+
+        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we used USEC_INFINITY
+         * like everywhere else. */
+        if (arg_default_timeout_start_usec <= 0)
+                arg_default_timeout_start_usec = USEC_INFINITY;
+        if (arg_default_timeout_stop_usec <= 0)
+                arg_default_timeout_stop_usec = USEC_INFINITY;
 
         return 0;
 }
@@ -743,7 +761,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DESERIALIZE,
                 ARG_SWITCHED_ROOT,
                 ARG_DEFAULT_STD_OUTPUT,
-                ARG_DEFAULT_STD_ERROR
+                ARG_DEFAULT_STD_ERROR,
+                ARG_MACHINE_ID
         };
 
         static const struct option options[] = {
@@ -769,6 +788,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
+                { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
                 {}
         };
 
@@ -962,6 +982,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SWITCHED_ROOT:
                         arg_switched_root = true;
+                        break;
+
+                case ARG_MACHINE_ID:
+                        r = set_machine_id(optarg);
+                        if (r < 0) {
+                                log_error("MachineID '%s' is not valid.", optarg);
+                                return r;
+                        }
                         break;
 
                 case 'h':
@@ -1335,7 +1363,11 @@ int main(int argc, char *argv[]) {
                         initrd_timestamp = userspace_timestamp;
 
                 if (!skip_setup) {
-                        mount_setup_early();
+                        r = mount_setup_early();
+                        if (r < 0) {
+                                error_message = "Failed to early mount API filesystems";
+                                goto finish;
+                        }
                         dual_timestamp_get(&security_start_timestamp);
                         if (mac_selinux_setup(&loaded_policy) < 0) {
                                 error_message = "Failed to load SELinux policy";
@@ -1386,8 +1418,14 @@ int main(int argc, char *argv[]) {
                                  * saving time change. All kernel local time concepts will be treated
                                  * as UTC that way.
                                  */
-                                clock_reset_timewarp();
+                                (void) clock_reset_timewarp();
                         }
+
+                        r = clock_apply_epoch();
+                        if (r < 0)
+                                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
+                        else if (r > 0)
+                                log_info("System time before build time, advancing clock.");
                 }
 
                 /* Set the default for later on, but don't actually
@@ -1422,6 +1460,17 @@ int main(int argc, char *argv[]) {
                 /* clear the kernel timestamp,
                  * because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
+        }
+
+        if (getpid() == 1) {
+                /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour the limit)
+                 * will process core dumps for system services by default. */
+                (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY));
+
+                /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
+                 * until the systemd-coredump tool is enabled via sysctl. */
+                if (!skip_setup)
+                        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
         }
 
         /* Initialize default unit */
@@ -1617,7 +1666,7 @@ int main(int argc, char *argv[]) {
                         status_welcome();
 
                 hostname_setup();
-                machine_id_setup(NULL);
+                machine_id_setup(NULL, arg_machine_id);
                 loopback_setup();
                 bump_unix_max_dgram_qlen();
 
@@ -1631,14 +1680,14 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error_errno(errno, "Failed to adjust timer slack: %m");
 
-        if (arg_capability_bounding_set_drop) {
-                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
+        if (!cap_test_all(arg_capability_bounding_set)) {
+                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
                         error_message = "Failed to drop capability bounding set of usermode helpers";
                         goto finish;
                 }
-                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
+                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set: %m");
                         error_message = "Failed to drop capability bounding set";
@@ -1665,7 +1714,7 @@ int main(int argc, char *argv[]) {
                 if (empty_etc) {
                         r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, false, NULL, 0);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to populate /etc with preset unit settings, ignoring: %m");
+                                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r, "Failed to populate /etc with preset unit settings, ignoring: %m");
                         else
                                 log_info("Populated /etc with preset unit settings.");
                 }
@@ -1707,7 +1756,7 @@ int main(int argc, char *argv[]) {
         arg_serialization = safe_fclose(arg_serialization);
 
         if (queue_default_job) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *target = NULL;
                 Job *default_unit_job;
 
@@ -1940,6 +1989,15 @@ finish:
                                 (void) clearenv();
 
                         assert(i <= args_size);
+
+                        /*
+                         * We want valgrind to print its memory usage summary before reexecution.
+                         * Valgrind won't do this is on its own on exec(), but it will do it on exit().
+                         * Hence, to ensure we get a summary here, fork() off a child, let it exit() cleanly,
+                         * so that it prints the summary, and wait() for it in the parent, before proceeding into the exec().
+                         */
+                        valgrind_summary_hack();
+
                         (void) execv(args[0], (char* const*) args);
                 }
 

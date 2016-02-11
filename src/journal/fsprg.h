@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef __fsprgh__
 #define __fsprgh__
 
@@ -25,8 +23,8 @@
  *
  */
 
-#include <sys/types.h>
 #include <inttypes.h>
+#include <sys/types.h>
 
 #include "macro.h"
 #include "util.h"

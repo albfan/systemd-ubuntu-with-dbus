@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -158,11 +156,22 @@ static int exit_handler(sd_event_source *s, void *userdata) {
         return 3;
 }
 
+static bool got_post = false;
+
+static int post_handler(sd_event_source *s, void *userdata) {
+        log_info("got post handler");
+
+        got_post = true;
+
+        return 2;
+}
+
 static void test_basic(void) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
         int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1}, k[2] = { -1, -1 };
+        uint64_t event_now;
 
         assert_se(pipe(a) >= 0);
         assert_se(pipe(b) >= 0);
@@ -170,6 +179,7 @@ static void test_basic(void) {
         assert_se(pipe(k) >= 0);
 
         assert_se(sd_event_default(&e) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) > 0);
 
         assert_se(sd_event_set_watchdog(e, true) >= 0);
 
@@ -230,10 +240,14 @@ static void test_basic(void) {
         sd_event_source_unref(y);
 
         do_quit = true;
-        assert_se(sd_event_source_set_time(z, now(CLOCK_MONOTONIC) + 200 * USEC_PER_MSEC) >= 0);
+        assert_se(sd_event_add_post(e, NULL, post_handler, NULL) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) == 0);
+        assert_se(sd_event_source_set_time(z, event_now + 200 * USEC_PER_MSEC) >= 0);
         assert_se(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
+        assert_se(got_post);
+        assert_se(got_exit);
 
         sd_event_source_unref(z);
         sd_event_source_unref(q);
@@ -246,6 +260,30 @@ static void test_basic(void) {
         safe_close_pair(b);
         safe_close_pair(d);
         safe_close_pair(k);
+}
+
+static void test_sd_event_now(void) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        uint64_t event_now;
+
+        assert_se(sd_event_new(&e) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now) > 0);
+        assert_se(sd_event_now(e, -1, &event_now) == -EOPNOTSUPP);
+        assert_se(sd_event_now(e, 900 /* arbitrary big number */, &event_now) == -EOPNOTSUPP);
+
+        assert_se(sd_event_run(e, 0) == 0);
+
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now) == 0);
+        assert_se(sd_event_now(e, -1, &event_now) == -EOPNOTSUPP);
+        assert_se(sd_event_now(e, 900 /* arbitrary big number */, &event_now) == -EOPNOTSUPP);
 }
 
 static int last_rtqueue_sigval = 0;
@@ -308,7 +346,11 @@ static void test_rtqueue(void) {
 
 int main(int argc, char *argv[]) {
 
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+
         test_basic();
+        test_sd_event_now();
         test_rtqueue();
 
         return 0;

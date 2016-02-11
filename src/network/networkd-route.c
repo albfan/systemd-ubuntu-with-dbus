@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -21,7 +19,6 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "event-util.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-route.h"
@@ -334,7 +331,7 @@ void route_drop(Route *route) {
 
 int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -429,8 +426,8 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
 
 int route_configure(Route *route, Link *link,
                     sd_netlink_message_handler_t callback) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
-        _cleanup_event_source_unref_ sd_event_source *expire = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
         usec_t lifetime;
         int r;
 

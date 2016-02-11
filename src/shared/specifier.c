@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,15 +17,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/utsname.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "specifier.h"
 #include "string-util.h"
-#include "util.h"
 
 /*
  * Generic infrastructure for replacing %x style specifiers in

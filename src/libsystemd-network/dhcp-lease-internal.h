@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -25,12 +23,11 @@
 #include <stdint.h>
 #include <linux/if_packet.h>
 
-#include "util.h"
-#include "list.h"
+#include "sd-dhcp-client.h"
 
 #include "dhcp-protocol.h"
-
-#include "sd-dhcp-client.h"
+#include "list.h"
+#include "util.h"
 
 struct sd_dhcp_route {
         struct in_addr dst_addr;
@@ -103,6 +100,3 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
 
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_lease*, sd_dhcp_lease_unref);
-#define _cleanup_dhcp_lease_unref_ _cleanup_(sd_dhcp_lease_unrefp)

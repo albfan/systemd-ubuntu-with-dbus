@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -399,7 +397,7 @@ static int property_get_load_error(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         Unit *u = userdata;
 
         assert(bus);
@@ -458,7 +456,10 @@ int bus_unit_method_start_generic(
         assert(u);
         assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
 
-        r = mac_selinux_unit_access_check(u, message, job_type == JOB_STOP ? "stop" : "start", error);
+        r = mac_selinux_unit_access_check(
+                        u, message,
+                        job_type_to_access_method(job_type),
+                        error);
         if (r < 0)
                 return r;
 
@@ -671,6 +672,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("DropInPaths", "as", NULL, offsetof(Unit, dropin_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UnitFileState", "s", property_get_unit_file_state, 0, 0),
         SD_BUS_PROPERTY("UnitFilePreset", "s", property_get_unit_file_preset, 0, 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("StateChangeTimestamp", offsetof(Unit, state_change_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("InactiveExitTimestamp", offsetof(Unit, inactive_exit_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ActiveEnterTimestamp", offsetof(Unit, active_enter_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ActiveExitTimestamp", offsetof(Unit, active_exit_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -699,7 +701,10 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NetClass", "u", NULL, offsetof(Unit, cgroup_netclass_id), 0),
+        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StartLimitAction", "s", property_get_failure_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Stop", "s", "o", method_stop, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -846,7 +851,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;
@@ -923,7 +928,7 @@ void bus_unit_send_change_signal(Unit *u) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;
@@ -983,19 +988,20 @@ int bus_unit_queue_job(
         assert(type >= 0 && type < _JOB_TYPE_MAX);
         assert(mode >= 0 && mode < _JOB_MODE_MAX);
 
+        r = mac_selinux_unit_access_check(
+                        u, message,
+                        job_type_to_access_method(type),
+                        error);
+        if (r < 0)
+                return r;
+
         if (reload_if_possible && unit_can_reload(u)) {
                 if (type == JOB_RESTART)
                         type = JOB_RELOAD_OR_START;
                 else if (type == JOB_TRY_RESTART)
-                        type = JOB_RELOAD;
+                        type = JOB_TRY_RELOAD;
         }
 
-        r = mac_selinux_unit_access_check(
-                        u, message,
-                        (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
-                        type == JOB_STOP ? "stop" : "reload", error);
-        if (r < 0)
-                return r;
 
         if (type == JOB_STOP &&
             (u->load_state == UNIT_NOT_FOUND || u->load_state == UNIT_ERROR) &&
@@ -1250,4 +1256,21 @@ int bus_unit_set_properties(
                 UNIT_VTABLE(u)->bus_commit_properties(u);
 
         return n;
+}
+
+int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
+
+        if (u->load_state == UNIT_LOADED)
+                return 0;
+
+        /* Give a better description of the unit error when
+         * possible. Note that in the case of UNIT_MASKED, load_error
+         * is not set. */
+        if (u->load_state == UNIT_MASKED)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", u->id);
+
+        if (u->load_state == UNIT_NOT_FOUND)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not found.", u->id);
+
+        return sd_bus_error_set_errnof(error, u->load_error, "Unit %s is not loaded properly: %m.", u->id);
 }

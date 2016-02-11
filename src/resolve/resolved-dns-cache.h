@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -21,28 +19,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #include "hashmap.h"
+#include "list.h"
 #include "prioq.h"
 #include "time-util.h"
-#include "list.h"
 
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
+        unsigned n_hit;
+        unsigned n_miss;
 } DnsCache;
 
-#include "resolved-dns-rr.h"
-#include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);
 
-int dns_cache_put(DnsCache *c, DnsResourceKey *key, int rcode, DnsAnswer *answer, unsigned max_rrs, usec_t timestamp, int owner_family, const union in_addr_union *owner_address);
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **answer);
+int dns_cache_put(DnsCache *c, DnsResourceKey *key, int rcode, DnsAnswer *answer, bool authenticated, uint32_t nsec_ttl, usec_t timestamp, int owner_family, const union in_addr_union *owner_address);
+int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **answer, bool *authenticated);
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
 bool dns_cache_is_empty(DnsCache *cache);
+
+unsigned dns_cache_size(DnsCache *cache);
+
+int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p);

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -29,7 +27,6 @@
 #include "sd-lldp.h"
 
 #include "alloc-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "lldp-network.h"
 #include "lldp-tlv.h"
@@ -48,7 +45,7 @@ static struct ether_addr mac_addr = {
 };
 
 static int lldp_build_tlv_packet(tlv_packet **ret) {
-        _cleanup_lldp_packet_unref_ tlv_packet *m = NULL;
+        _cleanup_(sd_lldp_packet_unrefp) tlv_packet *m = NULL;
         const uint8_t lldp_dst[] = LLDP_MULTICAST_ADDR;
         struct ether_header ether = {
                 .ether_type = htons(ETHERTYPE_LLDP),
@@ -237,7 +234,7 @@ static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
 }
 
 static void test_parser(void) {
-        _cleanup_lldp_packet_unref_ tlv_packet *tlv = NULL;
+        _cleanup_(sd_lldp_packet_unrefp) tlv_packet *tlv = NULL;
 
         /* form a packet */
         lldp_build_tlv_packet(&tlv);
@@ -292,7 +289,7 @@ static int stop_lldp(sd_lldp *lldp) {
         if (r)
                 return r;
 
-        sd_lldp_free(lldp);
+        sd_lldp_unref(lldp);
         safe_close(test_fd[1]);
 
         return 0;
@@ -457,7 +454,7 @@ static void test_receive_oui_packet(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         test_parser();
 

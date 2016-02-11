@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -133,8 +131,8 @@ static void test_bus_gvariant_get_alignment(void) {
 }
 
 static void test_marshal(void) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *n = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *n = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ void *blob;
         size_t sz;
         int r;

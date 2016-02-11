@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -239,13 +237,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         assert(s);
         assert(p);
 
-        if (isempty(p))
-                return 0;
-
         priority = s->priority;
 
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
+
+        if (isempty(p))
+                return 0;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
@@ -286,10 +284,12 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
 static int stdout_stream_line(StdoutStream *s, char *p) {
         int r;
+        char *orig;
 
         assert(s);
         assert(p);
 
+        orig = p;
         p = strstrip(p);
 
         switch (s->state) {
@@ -378,7 +378,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
-                return stdout_stream_log(s, p);
+                return stdout_stream_log(s, orig);
         }
 
         assert_not_reached("Unknown stream state");
@@ -491,7 +491,7 @@ static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer credentials: %m");
 
-        if (mac_selinux_use()) {
+        if (mac_selinux_have()) {
                 r = getpeersec(fd, &stream->label);
                 if (r < 0 && r != -EOPNOTSUPP)
                         (void) log_warning_errno(r, "Failed to determine peer security context: %m");
@@ -731,7 +731,7 @@ int server_open_stdout_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
 
-        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+10);
+        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosdipv4acdfoo
 #define foosdipv4acdfoo
 
@@ -23,10 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/in.h>
 #include <net/ethernet.h>
+#include <netinet/in.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -52,7 +51,9 @@ int sd_ipv4acd_start(sd_ipv4acd *ll);
 int sd_ipv4acd_stop(sd_ipv4acd *ll);
 sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *ll);
 sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll);
-int sd_ipv4acd_new (sd_ipv4acd **ret);
+int sd_ipv4acd_new(sd_ipv4acd **ret);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ipv4acd, sd_ipv4acd_unref);
 
 _SD_END_DECLARATIONS;
 

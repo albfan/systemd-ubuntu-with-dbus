@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosddhcpserverhfoo
 #define foosddhcpserverhfoo
 
@@ -27,6 +25,7 @@
 #include <netinet/in.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -57,6 +56,8 @@ int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server, sd_dhcp_server_unref);
 
 _SD_END_DECLARATIONS;
 

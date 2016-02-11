@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -35,6 +33,7 @@
 #include "parse-util.h"
 #include "set.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -404,6 +403,13 @@ JobType job_type_collapse(JobType t, Unit *u) {
 
                 return JOB_RESTART;
 
+        case JOB_TRY_RELOAD:
+                s = unit_active_state(u);
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
+                        return JOB_NOP;
+
+                return JOB_RELOAD;
+
         case JOB_RELOAD_OR_START:
                 s = unit_active_state(u);
                 if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
@@ -754,7 +760,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        snprintf(buf, sizeof(buf), format, unit_description(u));
+        xsprintf(buf, format, unit_description(u));
         REENABLE_WARNING;
 
         switch (t) {
@@ -924,14 +930,14 @@ int job_start_timer(Job *j) {
 
         j->begin_usec = now(CLOCK_MONOTONIC);
 
-        if (j->unit->job_timeout <= 0)
+        if (j->unit->job_timeout == USEC_INFINITY)
                 return 0;
 
         r = sd_event_add_time(
                         j->manager->event,
                         &j->timer_event_source,
                         CLOCK_MONOTONIC,
-                        j->begin_usec + j->unit->job_timeout, 0,
+                        usec_add(j->begin_usec, j->unit->job_timeout), 0,
                         job_dispatch_timer, j);
         if (r < 0)
                 return r;
@@ -1109,17 +1115,16 @@ int job_coldplug(Job *j) {
         if (j->state == JOB_WAITING)
                 job_add_to_run_queue(j);
 
-        if (j->begin_usec == 0 || j->unit->job_timeout == 0)
+        if (j->begin_usec == 0 || j->unit->job_timeout == USEC_INFINITY)
                 return 0;
 
-        if (j->timer_event_source)
-                j->timer_event_source = sd_event_source_unref(j->timer_event_source);
+        j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 
         r = sd_event_add_time(
                         j->manager->event,
                         &j->timer_event_source,
                         CLOCK_MONOTONIC,
-                        j->begin_usec + j->unit->job_timeout, 0,
+                        usec_add(j->begin_usec, j->unit->job_timeout), 0,
                         job_dispatch_timer, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to restart timeout for job: %m");
@@ -1158,10 +1163,10 @@ void job_shutdown_magic(Job *j) {
         asynchronous_sync();
 }
 
-int job_get_timeout(Job *j, uint64_t *timeout) {
+int job_get_timeout(Job *j, usec_t *timeout) {
+        usec_t x = USEC_INFINITY, y = USEC_INFINITY;
         Unit *u = j->unit;
-        uint64_t x = -1, y = -1;
-        int r = 0, q = 0;
+        int r;
 
         assert(u);
 
@@ -1169,20 +1174,18 @@ int job_get_timeout(Job *j, uint64_t *timeout) {
                 r = sd_event_source_get_time(j->timer_event_source, &x);
                 if (r < 0)
                         return r;
-                r = 1;
         }
 
         if (UNIT_VTABLE(u)->get_timeout) {
-                q = UNIT_VTABLE(u)->get_timeout(u, &y);
-                if (q < 0)
-                        return q;
+                r = UNIT_VTABLE(u)->get_timeout(u, &y);
+                if (r < 0)
+                        return r;
         }
 
-        if (r == 0 && q == 0)
+        if (x == USEC_INFINITY && y == USEC_INFINITY)
                 return 0;
 
         *timeout = MIN(x, y);
-
         return 1;
 }
 
@@ -1201,6 +1204,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_RELOAD_OR_START] = "reload-or-start",
         [JOB_RESTART] = "restart",
         [JOB_TRY_RESTART] = "try-restart",
+        [JOB_TRY_RELOAD] = "try-reload",
         [JOB_NOP] = "nop",
 };
 
@@ -1231,3 +1235,15 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
+
+const char* job_type_to_access_method(JobType t) {
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        if (IN_SET(t, JOB_START, JOB_RESTART, JOB_TRY_RESTART))
+                return "start";
+        else if (t == JOB_STOP)
+                return "stop";
+        else
+                return "reload";
+}

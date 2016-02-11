@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,9 +17,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <mntent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
+#include "macro.h"
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"

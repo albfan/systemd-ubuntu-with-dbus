@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -23,7 +21,7 @@
 #include <string.h>
 
 #include "arphrd-list.h"
-#include "util.h"
+#include "macro.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register unsigned int len);
 

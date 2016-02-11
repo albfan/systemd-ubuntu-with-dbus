@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -69,6 +67,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "udev.h"
+#include "udev-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -136,6 +136,8 @@ static enum {
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
+        ACTION_LIST_FIELDS,
+        ACTION_LIST_FIELD_NAMES,
 } arg_action = ACTION_SHOW;
 
 typedef struct BootId {
@@ -144,6 +146,84 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
+
+static int add_matches_for_device(sd_journal *j, const char *devpath) {
+        int r;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        struct udev_device *d = NULL;
+        struct stat st;
+
+        assert(j);
+        assert(devpath);
+
+        if (!path_startswith(devpath, "/dev/")) {
+                log_error("Devpath does not start with /dev/");
+                return -EINVAL;
+        }
+
+        udev = udev_new();
+        if (!udev)
+                return log_oom();
+
+        r = stat(devpath, &st);
+        if (r < 0)
+                log_error_errno(errno, "Couldn't stat file: %m");
+
+        d = device = udev_device_new_from_devnum(udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+        if (!device)
+                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+
+        while (d) {
+                _cleanup_free_ char *match = NULL;
+                const char *subsys, *sysname, *devnode;
+
+                subsys = udev_device_get_subsystem(d);
+                if (!subsys) {
+                        d = udev_device_get_parent(d);
+                        continue;
+                }
+
+                sysname = udev_device_get_sysname(d);
+                if (!sysname) {
+                        d = udev_device_get_parent(d);
+                        continue;
+                }
+
+                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname, NULL);
+                if (!match)
+                        return log_oom();
+
+                r = sd_journal_add_match(j, match, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
+
+                devnode = udev_device_get_devnode(d);
+                if (devnode) {
+                        _cleanup_free_ char *match1 = NULL;
+
+                        r = stat(devnode, &st);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to stat() device node \"%s\": %m", devnode);
+
+                        r = asprintf(&match1, "_KERNEL_DEVICE=%c%u:%u", S_ISBLK(st.st_mode) ? 'b' : 'c', major(st.st_rdev), minor(st.st_rdev));
+                        if (r < 0)
+                                return log_oom();
+
+                        r = sd_journal_add_match(j, match1, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add match: %m");
+                }
+
+                d = udev_device_get_parent(d);
+        }
+
+        r = add_match_this_boot(j, arg_machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for the current boot: %m");
+
+        return 0;
+}
 
 static void pager_open_if_enabled(void) {
 
@@ -244,6 +324,7 @@ static void help(void) {
                "\nCommands:\n"
                "  -h --help                Show this help text\n"
                "     --version             Show package version\n"
+               "  -N --fields              List all field names currently used\n"
                "  -F --field=FIELD         List all values that a specified field takes\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
@@ -340,6 +421,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",           required_argument, NULL, 'u'                },
                 { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
                 { "field",          required_argument, NULL, 'F'                },
+                { "fields",         no_argument,       NULL, 'N'                },
                 { "catalog",        no_argument,       NULL, 'x'                },
                 { "list-catalog",   no_argument,       NULL, ARG_LIST_CATALOG   },
                 { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
@@ -361,7 +443,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:F:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -698,7 +780,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'F':
+                        arg_action = ACTION_LIST_FIELDS;
                         arg_field = optarg;
+                        break;
+
+                case 'N':
+                        arg_action = ACTION_LIST_FIELD_NAMES;
                         break;
 
                 case 'x':
@@ -825,13 +912,12 @@ static int add_matches(sd_journal *j, char **args) {
                         have_term = false;
 
                 } else if (path_is_absolute(*i)) {
-                        _cleanup_free_ char *p, *t = NULL, *t2 = NULL;
+                        _cleanup_free_ char *p, *t = NULL, *t2 = NULL, *interpreter = NULL;
                         const char *path;
-                        _cleanup_free_ char *interpreter = NULL;
                         struct stat st;
 
                         p = canonicalize_file_name(*i);
-                        path = p ? p : *i;
+                        path = p ?: *i;
 
                         if (lstat(path, &st) < 0)
                                 return log_error_errno(errno, "Couldn't stat file: %m");
@@ -845,34 +931,37 @@ static int add_matches(sd_journal *j, char **args) {
                                                 return log_oom();
 
                                         t = strappend("_COMM=", comm);
+                                        if (!t)
+                                                return log_oom();
 
                                         /* Append _EXE only if the interpreter is not a link.
                                            Otherwise, it might be outdated often. */
-                                        if (lstat(interpreter, &st) == 0 &&
-                                            !S_ISLNK(st.st_mode)) {
+                                        if (lstat(interpreter, &st) == 0 && !S_ISLNK(st.st_mode)) {
                                                 t2 = strappend("_EXE=", interpreter);
                                                 if (!t2)
                                                         return log_oom();
                                         }
-                                } else
+                                } else {
                                         t = strappend("_EXE=", path);
-                        } else if (S_ISCHR(st.st_mode))
-                                (void) asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else if (S_ISBLK(st.st_mode))
-                                (void) asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else {
+                                        if (!t)
+                                                return log_oom();
+                                }
+
+                                r = sd_journal_add_match(j, t, 0);
+
+                                if (r >=0 && t2)
+                                        r = sd_journal_add_match(j, t2, 0);
+
+                        } else if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
+                                r = add_matches_for_device(j, path);
+                                if (r < 0)
+                                        return r;
+                        } else {
                                 log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
                                 return -EINVAL;
                         }
 
-                        if (!t)
-                                return log_oom();
-
-                        r = sd_journal_add_match(j, t, 0);
-                        if (t2)
-                                r = sd_journal_add_match(j, t2, 0);
                         have_term = true;
-
                 } else {
                         r = sd_journal_add_match(j, *i, 0);
                         have_term = true;
@@ -1136,10 +1225,11 @@ static int add_boot(sd_journal *j) {
                 const char *reason = (r == 0) ? "No such boot ID in journal" : strerror(-r);
 
                 if (sd_id128_is_null(arg_boot_id))
-                        log_error("Failed to look up boot %+i: %s", arg_boot_offset, reason);
+                        log_error("Data from the specified boot (%+i) is not available: %s",
+                                  arg_boot_offset, reason);
                 else
-                        log_error("Failed to look up boot ID "SD_ID128_FORMAT_STR"%+i: %s",
-                                  SD_ID128_FORMAT_VAL(arg_boot_id), arg_boot_offset, reason);
+                        log_error("Data from the specified boot ("SD_ID128_FORMAT_STR") is not available: %s",
+                                  SD_ID128_FORMAT_VAL(arg_boot_id), reason);
 
                 return r == 0 ? -ENODATA : r;
         }
@@ -1766,8 +1856,8 @@ static int access_check(sd_journal *j) {
 }
 
 static int flush_to_var(void) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         int r;
 
@@ -1828,7 +1918,7 @@ static int flush_to_var(void) {
 }
 
 static int send_signal_and_wait(int sig, const char *watch_path) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         usec_t start;
         int r;
@@ -1857,7 +1947,7 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
 
                 /* Let's ask for a sync, but only once. */
                 if (!bus) {
-                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                         r = bus_connect_system_systemd(&bus);
                         if (r < 0)
@@ -1920,7 +2010,7 @@ static int sync_journal(void) {
 
 int main(int argc, char *argv[]) {
         int r;
-        _cleanup_journal_close_ sd_journal *j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;
@@ -2002,6 +2092,8 @@ int main(int argc, char *argv[]) {
         case ACTION_DISK_USAGE:
         case ACTION_LIST_BOOTS:
         case ACTION_VACUUM:
+        case ACTION_LIST_FIELDS:
+        case ACTION_LIST_FIELD_NAMES:
                 /* These ones require access to the journal files, continue below. */
                 break;
 
@@ -2084,13 +2176,33 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        case ACTION_LIST_FIELD_NAMES: {
+                const char *field;
+
+                SD_JOURNAL_FOREACH_FIELD(j, field) {
+                        printf("%s\n", field);
+                        n_shown ++;
+                }
+
+                r = 0;
+                goto finish;
+        }
+
         case ACTION_SHOW:
+        case ACTION_LIST_FIELDS:
                 break;
 
         default:
                 assert_not_reached("Unknown action");
         }
 
+        if (arg_boot_offset != 0 &&
+            sd_journal_has_runtime_files(j) > 0 &&
+            sd_journal_has_persistent_files(j) == 0) {
+                log_info("Specifying boot ID has no effect, no persistent journal was found");
+                r = 0;
+                goto finish;
+        }
         /* add_boot() must be called first!
          * It may need to seek the journal to find parent boot IDs. */
         r = add_boot(j);
@@ -2131,9 +2243,11 @@ int main(int argc, char *argv[]) {
                 log_debug("Journal filter: %s", filter);
         }
 
-        if (arg_field) {
+        if (arg_action == ACTION_LIST_FIELDS) {
                 const void *data;
                 size_t size;
+
+                assert(arg_field);
 
                 r = sd_journal_set_data_threshold(j, 0);
                 if (r < 0) {
@@ -2336,7 +2450,7 @@ int main(int argc, char *argv[]) {
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
                                 arg_full * OUTPUT_FULL_WIDTH |
-                                on_tty() * OUTPUT_COLOR |
+                                colors_enabled() * OUTPUT_COLOR |
                                 arg_catalog * OUTPUT_CATALOG |
                                 arg_utc * OUTPUT_UTC;
 

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosdnetlinkhfoo
 #define foosdnetlinkhfoo
 
@@ -23,12 +21,13 @@
 ***/
 
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/rtnetlink.h>
 #include <linux/neighbour.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -73,6 +72,7 @@ int sd_netlink_message_append_flag(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uint8_t data);
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data);
 int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, uint32_t data);
+int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, const void *data, size_t len);
 int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data);
 int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short type, const struct in6_addr *data);
 int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data);
@@ -152,6 +152,9 @@ int sd_rtnl_message_neigh_get_family(sd_netlink_message *m, int *family);
 int sd_rtnl_message_neigh_get_ifindex(sd_netlink_message *m, int *family);
 int sd_rtnl_message_neigh_get_state(sd_netlink_message *m, uint16_t *state);
 int sd_rtnl_message_neigh_get_flags(sd_netlink_message *m, uint8_t *flags);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);
 
 _SD_END_DECLARATIONS;
 

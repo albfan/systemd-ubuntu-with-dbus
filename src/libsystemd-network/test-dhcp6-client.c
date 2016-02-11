@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -32,7 +30,6 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "socket-util.h"
@@ -71,11 +68,11 @@ static int test_client_basic(sd_event *e) {
                                           sizeof (mac_addr),
                                           ARPHRD_ETHER) >= 0);
 
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_CLIENTID) == -EINVAL);
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EEXIST);
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_NTP_SERVER) == -EEXIST);
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_SNTP_SERVERS) == -EEXIST);
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DOMAIN_LIST) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_CLIENTID) == -EINVAL);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVERS) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NTP_SERVER) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SNTP_SERVERS) == -EEXIST);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN_LIST) == -EEXIST);
         assert_se(sd_dhcp6_client_set_request_option(client, 10) == -EINVAL);
 
         assert_se(sd_dhcp6_client_set_callback(client, NULL, NULL) >= 0);
@@ -89,9 +86,9 @@ static int test_client_basic(sd_event *e) {
 static int test_option(sd_event *e) {
         uint8_t packet[] = {
                 'F', 'O', 'O',
-                0x00, DHCP6_OPTION_ORO, 0x00, 0x07,
+                0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x07,
                 'A', 'B', 'C', 'D', 'E', 'F', 'G',
-                0x00, DHCP6_OPTION_VENDOR_CLASS, 0x00, 0x09,
+                0x00, SD_DHCP6_OPTION_VENDOR_CLASS, 0x00, 0x09,
                 '1', '2', '3', '4', '5', '6', '7', '8', '9',
                 'B', 'A', 'R',
         };
@@ -125,7 +122,7 @@ static int test_option(sd_event *e) {
                                      &optval) >= 0);
         pos += 4 + optlen;
         assert_se(buf == &packet[pos]);
-        assert_se(optcode == DHCP6_OPTION_ORO);
+        assert_se(optcode == SD_DHCP6_OPTION_ORO);
         assert_se(optlen == 7);
         assert_se(buflen + pos == sizeof(packet));
 
@@ -138,7 +135,7 @@ static int test_option(sd_event *e) {
                                      &optval) >= 0);
         pos += 4 + optlen;
         assert_se(buf == &packet[pos]);
-        assert_se(optcode == DHCP6_OPTION_VENDOR_CLASS);
+        assert_se(optcode == SD_DHCP6_OPTION_VENDOR_CLASS);
         assert_se(optlen == 9);
         assert_se(buflen + pos == sizeof(packet));
 
@@ -206,7 +203,7 @@ static uint8_t msg_reply[173] = {
 };
 
 static int test_advertise_option(sd_event *e) {
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         DHCP6Message *advertise = (DHCP6Message *)msg_advertise;
         uint8_t *optval, *opt = msg_advertise + sizeof(DHCP6Message);
         uint16_t optcode;
@@ -233,13 +230,13 @@ static int test_advertise_option(sd_event *e) {
                                        &optval)) >= 0) {
 
                 switch(optcode) {
-                case DHCP6_OPTION_CLIENTID:
+                case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(optlen == 14);
 
                         opt_clientid = true;
                         break;
 
-                case DHCP6_OPTION_IA_NA:
+                case SD_DHCP6_OPTION_IA_NA:
                         assert_se(optlen == 94);
                         assert_se(!memcmp(optval, &msg_advertise[26], optlen));
 
@@ -258,7 +255,7 @@ static int test_advertise_option(sd_event *e) {
 
                         break;
 
-                case DHCP6_OPTION_SERVERID:
+                case SD_DHCP6_OPTION_SERVERID:
                         assert_se(optlen == 14);
                         assert_se(!memcmp(optval, &msg_advertise[179], optlen));
 
@@ -266,7 +263,7 @@ static int test_advertise_option(sd_event *e) {
                                                            optlen) >= 0);
                         break;
 
-                case DHCP6_OPTION_PREFERENCE:
+                case SD_DHCP6_OPTION_PREFERENCE:
                         assert_se(optlen == 1);
                         assert_se(!*optval);
 
@@ -274,24 +271,24 @@ static int test_advertise_option(sd_event *e) {
                                                              *optval) >= 0);
                         break;
 
-                case DHCP6_OPTION_ELAPSED_TIME:
+                case SD_DHCP6_OPTION_ELAPSED_TIME:
                         assert_se(optlen == 2);
 
                         break;
 
-                case DHCP6_OPTION_DNS_SERVERS:
+                case SD_DHCP6_OPTION_DNS_SERVERS:
                         assert_se(optlen == 16);
                         assert_se(dhcp6_lease_set_dns(lease, optval,
                                                       optlen) >= 0);
                         break;
 
-                case DHCP6_OPTION_DOMAIN_LIST:
+                case SD_DHCP6_OPTION_DOMAIN_LIST:
                         assert_se(optlen == 11);
                         assert_se(dhcp6_lease_set_domains(lease, optval,
                                                           optlen) >= 0);
                         break;
 
-                case DHCP6_OPTION_SNTP_SERVERS:
+                case SD_DHCP6_OPTION_SNTP_SERVERS:
                         assert_se(optlen == 16);
                         assert_se(dhcp6_lease_set_sntp(lease, optval,
                                                        optlen) >= 0);
@@ -380,7 +377,7 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
         assert_se(sd_dhcp6_lease_get_ntp_addrs(lease, &addrs) == 1);
         assert_se(!memcmp(addrs, &msg_advertise[159], 16));
 
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EBUSY);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVERS) == -EBUSY);
 
         if (verbose)
                 printf("  got DHCPv6 event %d\n", event);
@@ -408,7 +405,7 @@ static int test_client_send_reply(DHCP6Message *request) {
 
 static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
                                       size_t len) {
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -426,7 +423,7 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
         while ((r = dhcp6_option_parse(&option, &len,
                                        &optcode, &optlen, &optval)) >= 0) {
                 switch(optcode) {
-                case DHCP6_OPTION_CLIENTID:
+                case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(!found_clientid);
                         found_clientid = true;
 
@@ -435,7 +432,7 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
 
                         break;
 
-                case DHCP6_OPTION_IA_NA:
+                case SD_DHCP6_OPTION_IA_NA:
                         assert_se(!found_iana);
                         found_iana = true;
 
@@ -454,7 +451,7 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
 
                         break;
 
-                case DHCP6_OPTION_SERVERID:
+                case SD_DHCP6_OPTION_SERVERID:
                         assert_se(!found_serverid);
                         found_serverid = true;
 
@@ -463,7 +460,7 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
 
                         break;
 
-                case DHCP6_OPTION_ELAPSED_TIME:
+                case SD_DHCP6_OPTION_ELAPSED_TIME:
                         assert_se(!found_elapsed_time);
                         found_elapsed_time = true;
 
@@ -522,7 +519,7 @@ static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
         while ((r = dhcp6_option_parse(&option, &len,
                                        &optcode, &optlen, &optval)) >= 0) {
                 switch(optcode) {
-                case DHCP6_OPTION_CLIENTID:
+                case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(!found_clientid);
                         found_clientid = true;
 
@@ -531,7 +528,7 @@ static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
 
                         break;
 
-                case DHCP6_OPTION_IA_NA:
+                case SD_DHCP6_OPTION_IA_NA:
                         assert_se(!found_iana);
                         found_iana = true;
 
@@ -541,7 +538,7 @@ static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
 
                         break;
 
-                case DHCP6_OPTION_ELAPSED_TIME:
+                case SD_DHCP6_OPTION_ELAPSED_TIME:
                         assert_se(!found_elapsed_time);
                         found_elapsed_time = true;
 
@@ -599,7 +596,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
 static int test_client_verify_information_request(DHCP6Message *information_request,
                                                   uint8_t *option, size_t len) {
 
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -615,7 +612,7 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
         while ((r = dhcp6_option_parse(&option, &len,
                                        &optcode, &optlen, &optval)) >= 0) {
                 switch(optcode) {
-                case DHCP6_OPTION_CLIENTID:
+                case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(!found_clientid);
                         found_clientid = true;
 
@@ -624,17 +621,17 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
 
                         break;
 
-                case DHCP6_OPTION_IA_NA:
+                case SD_DHCP6_OPTION_IA_NA:
                         assert_not_reached("IA TA option must not be present");
 
                         break;
 
-                case DHCP6_OPTION_SERVERID:
+                case SD_DHCP6_OPTION_SERVERID:
                         assert_not_reached("Server ID option must not be present");
 
                         break;
 
-                case DHCP6_OPTION_ELAPSED_TIME:
+                case SD_DHCP6_OPTION_ELAPSED_TIME:
                         assert_se(!found_elapsed_time);
                         found_elapsed_time = true;
 
@@ -749,7 +746,7 @@ static int test_client_solicit(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e;
 
         assert_se(sd_event_new(&e) >= 0);
 

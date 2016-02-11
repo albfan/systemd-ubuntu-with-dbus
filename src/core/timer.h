@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -58,6 +56,7 @@ struct Timer {
         Unit meta;
 
         usec_t accuracy_usec;
+        usec_t random_usec;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_realtime;

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -27,11 +25,11 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -39,6 +37,9 @@
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);
 NSS_GETGR_PROTOTYPES(mymachines);
+
+#define HOST_UID_LIMIT ((uid_t) UINT32_C(0x10000))
+#define HOST_GID_LIMIT ((gid_t) UINT32_C(0x10000))
 
 static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         unsigned c = 0;
@@ -86,14 +87,16 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 int32_t *ttlp) {
 
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ int *ifindices = NULL;
         _cleanup_free_ char *class = NULL;
         size_t l, ms, idx;
         unsigned i = 0, c = 0;
         char *r_name;
         int n_ifindices, r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(pat);
@@ -235,13 +238,15 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *class = NULL;
         unsigned c = 0, i = 0;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         size_t l, idx, ms, alen;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(result);
@@ -396,14 +401,16 @@ enum nss_status _nss_mymachines_getpwnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *p, *e, *machine;
         uint32_t mapped;
         uid_t uid;
         size_t l;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(pwd);
@@ -414,6 +421,9 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         e = strrchr(p, '-');
         if (!e || e == p)
+                goto not_found;
+
+        if (e - p > HOST_NAME_MAX - 1) /* -1 for the last dash */
                 goto not_found;
 
         r = parse_uid(e + 1, &uid);
@@ -447,6 +457,10 @@ enum nss_status _nss_mymachines_getpwnam_r(
         r = sd_bus_message_read(reply, "u", &mapped);
         if (r < 0)
                 goto fail;
+
+        /* Refuse to work if the mapped address is in the host UID range, or if there was no mapping at all. */
+        if (mapped < HOST_UID_LIMIT || mapped == uid)
+                goto not_found;
 
         l = strlen(name);
         if (buflen < l+1) {
@@ -482,12 +496,14 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *machine, *object;
         uint32_t mapped;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!uid_is_valid(uid)) {
                 r = -EINVAL;
@@ -495,7 +511,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         }
 
         /* We consider all uids < 65536 host uids */
-        if (uid < 0x10000)
+        if (uid < HOST_UID_LIMIT)
                 goto not_found;
 
         r = sd_bus_open_system(&bus);
@@ -521,6 +537,9 @@ enum nss_status _nss_mymachines_getpwuid_r(
         r = sd_bus_message_read(reply, "sou", &machine, &object, &mapped);
         if (r < 0)
                 goto fail;
+
+        if (mapped == uid)
+                goto not_found;
 
         if (snprintf(buffer, buflen, "vu-%s-" UID_FMT, machine, (uid_t) mapped) >= (int) buflen) {
                 *errnop = ENOMEM;
@@ -553,14 +572,16 @@ enum nss_status _nss_mymachines_getgrnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *p, *e, *machine;
         uint32_t mapped;
         uid_t gid;
         size_t l;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(gr);
@@ -571,6 +592,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
 
         e = strrchr(p, '-');
         if (!e || e == p)
+                goto not_found;
+
+        if (e - p > HOST_NAME_MAX - 1)  /* -1 for the last dash */
                 goto not_found;
 
         r = parse_gid(e + 1, &gid);
@@ -605,6 +629,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (r < 0)
                 goto fail;
 
+        if (mapped < HOST_GID_LIMIT || mapped == gid)
+                goto not_found;
+
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
                 *errnop = ENOMEM;
@@ -637,12 +664,14 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *machine, *object;
         uint32_t mapped;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!gid_is_valid(gid)) {
                 r = -EINVAL;
@@ -650,7 +679,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         }
 
         /* We consider all gids < 65536 host gids */
-        if (gid < 0x10000)
+        if (gid < HOST_GID_LIMIT)
                 goto not_found;
 
         r = sd_bus_open_system(&bus);
@@ -676,6 +705,9 @@ enum nss_status _nss_mymachines_getgrgid_r(
         r = sd_bus_message_read(reply, "sou", &machine, &object, &mapped);
         if (r < 0)
                 goto fail;
+
+        if (mapped == gid)
+                goto not_found;
 
         if (buflen < sizeof(char*) + 1) {
                 *errnop = ENOMEM;

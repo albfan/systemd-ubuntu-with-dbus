@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -32,7 +30,6 @@
 
 #include "alloc-util.h"
 #include "macro.h"
-#include "resolve-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 
@@ -71,8 +68,8 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_resolve_query_unref_ sd_resolve_query *q1 = NULL, *q2 = NULL;
-        _cleanup_resolve_unref_ sd_resolve *resolve = NULL;
+        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q1 = NULL, *q2 = NULL;
+        _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
         int r = 0;
 
         struct addrinfo hints = {
@@ -102,11 +99,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 
-        /* Wait until the two queries are completed */
-        while (sd_resolve_query_is_done(q1) == 0 ||
-               sd_resolve_query_is_done(q2) == 0) {
-
+        /* Wait until all queries are completed */
+        for (;;) {
                 r = sd_resolve_wait(resolve, (uint64_t) -1);
+                if (r == 0)
+                        break;
                 if (r < 0) {
                         log_error_errno(r, "sd_resolve_wait(): %m");
                         assert_not_reached("sd_resolve_wait() failed");

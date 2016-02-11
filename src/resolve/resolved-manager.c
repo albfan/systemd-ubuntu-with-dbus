@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -21,7 +19,6 @@
 
 #include <netinet/in.h>
 #include <poll.h>
-#include <resolv.h>
 #include <sys/ioctl.h>
 
 #include "af-list.h"
@@ -38,8 +35,11 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-etc-hosts.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
+#include "resolved-mdns.h"
+#include "resolved-resolv-conf.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -193,7 +193,7 @@ fail:
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *i;
         int r;
 
@@ -204,7 +204,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, SD_EVENT_PRIORITY_IMPORTANT);
         if (r < 0)
                 return r;
 
@@ -286,7 +286,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         r = manager_write_resolv_conf(m);
         if (r < 0)
-                log_warning_errno(r, "Could not update resolv.conf: %m");
+                log_warning_errno(r, "Could not update "PRIVATE_RESOLV_CONF": %m");
 
         return 0;
 }
@@ -311,6 +311,12 @@ static int manager_network_monitor_listen(Manager *m) {
         r = sd_event_add_io(m->event, &m->network_event_source, fd, events, &on_network_event, m);
         if (r < 0)
                 return r;
+
+        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT+5);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->network_event_source, "network-monitor");
 
         return 0;
 }
@@ -351,7 +357,7 @@ static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
                 return -EINVAL;
         }
 
-        r = dns_label_escape(label, r, &n);
+        r = dns_label_escape_new(label, r, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to escape host name: %m");
 
@@ -419,6 +425,8 @@ static int manager_watch_hostname(Manager *m) {
                         return log_error_errno(r, "Failed to add hostname event source: %m");
         }
 
+        (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
+
         r = determine_hostname(&m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
                 log_info("Defaulting to hostname 'linux'.");
@@ -472,12 +480,21 @@ int manager_new(Manager **ret) {
 
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
+        m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
         m->hostname_fd = -1;
 
-        m->llmnr_support = SUPPORT_YES;
+        m->llmnr_support = RESOLVE_SUPPORT_YES;
+        m->mdns_support = RESOLVE_SUPPORT_NO;
+        m->dnssec_mode = DNSSEC_NO;
         m->read_resolv_conf = true;
+        m->need_builtin_fallbacks = true;
+        m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
 
-        r = manager_parse_dns_server(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
+        r = dns_trust_anchor_load(&m->trust_anchor);
+        if (r < 0)
+                return r;
+
+        r = manager_parse_config_file(m);
         if (r < 0)
                 return r;
 
@@ -527,6 +544,10 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = manager_mdns_start(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -536,14 +557,15 @@ Manager *manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
+        dns_server_unlink_all(m->dns_servers);
+        dns_server_unlink_all(m->fallback_dns_servers);
+        dns_search_domain_unlink_all(m->search_domains);
+
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
-
-        manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
-        manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
 
         dns_scope_free(m->unicast_scope);
 
@@ -553,7 +575,11 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
 
+        sd_netlink_unref(m->rtnl);
+        sd_event_source_unref(m->rtnl_event_source);
+
         manager_llmnr_stop(m);
+        manager_mdns_stop(m);
 
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
@@ -571,297 +597,12 @@ Manager *manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
+        dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
+
         free(m);
 
         return NULL;
-}
-
-int manager_read_resolv_conf(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
-        struct stat st, own;
-        char line[LINE_MAX];
-        DnsServer *s, *nx;
-        usec_t t;
-        int r;
-
-        assert(m);
-
-        /* Reads the system /etc/resolv.conf, if it exists and is not
-         * symlinked to our own resolv.conf instance */
-
-        if (!m->read_resolv_conf)
-                return 0;
-
-        r = stat("/etc/resolv.conf", &st);
-        if (r < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
-                r = -errno;
-                goto clear;
-        }
-
-        /* Have we already seen the file? */
-        t = timespec_load(&st.st_mtim);
-        if (t == m->resolv_conf_mtime)
-                return 0;
-
-        m->resolv_conf_mtime = t;
-
-        /* Is it symlinked to our own file? */
-        if (stat("/run/systemd/resolve/resolv.conf", &own) >= 0 &&
-            st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino) {
-                r = 0;
-                goto clear;
-        }
-
-        f = fopen("/etc/resolv.conf", "re");
-        if (!f) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
-                r = -errno;
-                goto clear;
-        }
-
-        if (fstat(fileno(f), &st) < 0) {
-                r = log_error_errno(errno, "Failed to stat open file: %m");
-                goto clear;
-        }
-
-        LIST_FOREACH(servers, s, m->dns_servers)
-                s->marked = true;
-
-        FOREACH_LINE(line, f, r = -errno; goto clear) {
-                union in_addr_union address;
-                int family;
-                char *l;
-                const char *a;
-
-                truncate_nl(line);
-
-                l = strstrip(line);
-                if (*l == '#' || *l == ';')
-                        continue;
-
-                a = first_word(l, "nameserver");
-                if (!a)
-                        continue;
-
-                r = in_addr_from_string_auto(a, &family, &address);
-                if (r < 0) {
-                        log_warning("Failed to parse name server %s.", a);
-                        continue;
-                }
-
-                LIST_FOREACH(servers, s, m->dns_servers)
-                        if (s->family == family && in_addr_equal(family, &s->address, &address) > 0)
-                                break;
-
-                if (s)
-                        s->marked = false;
-                else {
-                        r = dns_server_new(m, NULL, DNS_SERVER_SYSTEM, NULL, family, &address);
-                        if (r < 0)
-                                goto clear;
-                }
-        }
-
-        LIST_FOREACH_SAFE(servers, s, nx, m->dns_servers)
-                if (s->marked) {
-                        LIST_REMOVE(servers, m->dns_servers, s);
-                        dns_server_unref(s);
-                }
-
-        /* Whenever /etc/resolv.conf changes, start using the first
-         * DNS server of it. This is useful to deal with broken
-         * network managing implementations (like NetworkManager),
-         * that when connecting to a VPN place both the VPN DNS
-         * servers and the local ones in /etc/resolv.conf. Without
-         * resetting the DNS server to use back to the first entry we
-         * will continue to use the local one thus being unable to
-         * resolve VPN domains. */
-        manager_set_dns_server(m, m->dns_servers);
-
-        return 0;
-
-clear:
-        while (m->dns_servers) {
-                s = m->dns_servers;
-
-                LIST_REMOVE(servers, m->dns_servers, s);
-                dns_server_unref(s);
-        }
-
-        return r;
-}
-
-static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
-        _cleanup_free_ char *t  = NULL;
-        int r;
-
-        assert(s);
-        assert(f);
-        assert(count);
-
-        r = in_addr_to_string(s->family, &s->address, &t);
-        if (r < 0) {
-                log_warning_errno(r, "Invalid DNS address. Ignoring: %m");
-                return;
-        }
-
-        if (*count == MAXNS)
-                fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
-
-        fprintf(f, "nameserver %s\n", t);
-        (*count) ++;
-}
-
-static void write_resolv_conf_search(
-                const char *domain, FILE *f,
-                unsigned *count,
-                unsigned *length) {
-
-        assert(domain);
-        assert(f);
-        assert(length);
-
-        if (*count >= MAXDNSRCH ||
-            *length + strlen(domain) > 256) {
-                if (*count == MAXDNSRCH)
-                        fputs(" # Too many search domains configured, remaining ones ignored.", f);
-                if (*length <= 256)
-                        fputs(" # Total length of all search domains is too long, remaining ones ignored.", f);
-
-                return;
-        }
-
-        fprintf(f, " %s", domain);
-
-        (*length) += strlen(domain);
-        (*count) ++;
-}
-
-static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
-        Iterator i;
-
-        fputs("# This file is managed by systemd-resolved(8). Do not edit.\n#\n"
-              "# Third party programs must not access this file directly, but\n"
-              "# only through the symlink at /etc/resolv.conf. To manage\n"
-              "# resolv.conf(5) in a different way, replace the symlink by a\n"
-              "# static file or a different symlink.\n\n", f);
-
-        if (ordered_set_isempty(dns))
-                fputs("# No DNS servers known.\n", f);
-        else {
-                DnsServer *s;
-                unsigned count = 0;
-
-                ORDERED_SET_FOREACH(s, dns, i)
-                        write_resolv_conf_server(s, f, &count);
-        }
-
-        if (!ordered_set_isempty(domains)) {
-                unsigned length = 0, count = 0;
-                char *domain;
-
-                fputs("search", f);
-                ORDERED_SET_FOREACH(domain, domains, i)
-                        write_resolv_conf_search(domain, f, &count, &length);
-                fputs("\n", f);
-        }
-
-        return fflush_and_check(f);
-}
-
-int manager_write_resolv_conf(Manager *m) {
-        static const char path[] = "/run/systemd/resolve/resolv.conf";
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
-        DnsServer *s;
-        Iterator i;
-        Link *l;
-        int r;
-
-        assert(m);
-
-        /* Read the system /etc/resolv.conf first */
-        manager_read_resolv_conf(m);
-
-        /* Add the full list to a set, to filter out duplicates */
-        dns = ordered_set_new(&dns_server_hash_ops);
-        if (!dns)
-                return -ENOMEM;
-
-        domains = ordered_set_new(&dns_name_hash_ops);
-        if (!domains)
-                return -ENOMEM;
-
-        /* First add the system-wide servers */
-        LIST_FOREACH(servers, s, m->dns_servers) {
-                r = ordered_set_put(dns, s);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return r;
-        }
-
-        /* Then, add the per-link servers and domains */
-        HASHMAP_FOREACH(l, m->links, i) {
-                char **domain;
-
-                LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = ordered_set_put(dns, s);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!l->unicast_scope)
-                        continue;
-
-                STRV_FOREACH(domain, l->unicast_scope->domains) {
-                        r = ordered_set_put(domains, *domain);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        /* If we found nothing, add the fallback servers */
-        if (ordered_set_isempty(dns)) {
-                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = ordered_set_put(dns, s);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        r = fopen_temporary_label(path, path, &f, &temp_path);
-        if (r < 0)
-                return r;
-
-        fchmod(fileno(f), 0644);
-
-        r = write_resolv_conf_contents(f, dns, domains);
-        if (r < 0)
-                goto fail;
-
-        if (rename(temp_path, path) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        return 0;
-
-fail:
-        (void) unlink(path);
-        (void) unlink(temp_path);
-        return r;
 }
 
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
@@ -1046,7 +787,7 @@ static int write_loop(int fd, void *message, size_t length) {
 int manager_write(Manager *m, int fd, DnsPacket *p) {
         int r;
 
-        log_debug("Sending %s packet with id %u", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
+        log_debug("Sending %s packet with id %" PRIu16 ".", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
 
         r = write_loop(fd, DNS_PACKET_DATA(p), p->size);
         if (r < 0)
@@ -1161,7 +902,7 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
         assert(port > 0);
         assert(p);
 
-        log_debug("Sending %s packet with id %u on interface %i/%s", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
+        log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &addr->in, port, p);
@@ -1169,97 +910,6 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
                 return manager_ipv6_send(m, fd, ifindex, &addr->in6, port, p);
 
         return -EAFNOSUPPORT;
-}
-
-DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
-        DnsServer *s;
-
-        assert(m);
-        assert(in_addr);
-
-        LIST_FOREACH(servers, s, m->dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return s;
-
-        LIST_FOREACH(servers, s, m->fallback_dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return s;
-
-        return NULL;
-}
-
-DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
-        assert(m);
-
-        if (m->current_dns_server == s)
-                return s;
-
-        if (s) {
-                _cleanup_free_ char *ip = NULL;
-
-                in_addr_to_string(s->family, &s->address, &ip);
-                log_info("Switching to system DNS server %s.", strna(ip));
-        }
-
-        m->current_dns_server = s;
-
-        if (m->unicast_scope)
-                dns_cache_flush(&m->unicast_scope->cache);
-
-        return s;
-}
-
-DnsServer *manager_get_dns_server(Manager *m) {
-        Link *l;
-        assert(m);
-
-        /* Try to read updates resolv.conf */
-        manager_read_resolv_conf(m);
-
-        if (!m->current_dns_server)
-                manager_set_dns_server(m, m->dns_servers);
-
-        if (!m->current_dns_server) {
-                bool found = false;
-                Iterator i;
-
-                /* No DNS servers configured, let's see if there are
-                 * any on any links. If not, we use the fallback
-                 * servers */
-
-                HASHMAP_FOREACH(l, m->links, i)
-                        if (l->dns_servers) {
-                                found = true;
-                                break;
-                        }
-
-                if (!found)
-                        manager_set_dns_server(m, m->fallback_dns_servers);
-        }
-
-        return m->current_dns_server;
-}
-
-void manager_next_dns_server(Manager *m) {
-        assert(m);
-
-        /* If there's currently no DNS server set, then the next
-         * manager_get_dns_server() will find one */
-        if (!m->current_dns_server)
-                return;
-
-        /* Change to the next one */
-        if (m->current_dns_server->servers_next) {
-                manager_set_dns_server(m, m->current_dns_server->servers_next);
-                return;
-        }
-
-        /* If there was no next one, then start from the beginning of
-         * the list */
-        if (m->current_dns_server->type == DNS_SERVER_FALLBACK)
-                manager_set_dns_server(m, m->fallback_dns_servers);
-        else
-                manager_set_dns_server(m, m->dns_servers);
 }
 
 uint32_t manager_find_mtu(Manager *m) {
@@ -1396,11 +1046,25 @@ DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
         if (!l)
                 return NULL;
 
-        if (p->protocol == DNS_PROTOCOL_LLMNR) {
+        switch (p->protocol) {
+        case DNS_PROTOCOL_LLMNR:
                 if (p->family == AF_INET)
                         return l->llmnr_ipv4_scope;
                 else if (p->family == AF_INET6)
                         return l->llmnr_ipv6_scope;
+
+                break;
+
+        case DNS_PROTOCOL_MDNS:
+                if (p->family == AF_INET)
+                        return l->mdns_ipv4_scope;
+                else if (p->family == AF_INET6)
+                        return l->mdns_ipv6_scope;
+
+                break;
+
+        default:
+                break;
         }
 
         return NULL;
@@ -1413,28 +1077,6 @@ void manager_verify_all(Manager *m) {
 
         LIST_FOREACH(scopes, s, m->dns_scopes)
                 dns_zone_verify_all(&s->zone);
-}
-
-void manager_flush_dns_servers(Manager *m, DnsServerType t) {
-        DnsServer *s;
-
-        assert(m);
-
-        if (t == DNS_SERVER_SYSTEM)
-                while (m->dns_servers) {
-                        s = m->dns_servers;
-
-                        LIST_REMOVE(servers, m->dns_servers, s);
-                        dns_server_unref(s);
-                }
-
-        if (t == DNS_SERVER_FALLBACK)
-                while (m->fallback_dns_servers) {
-                        s = m->fallback_dns_servers;
-
-                        LIST_REMOVE(servers, m->fallback_dns_servers, s);
-                        dns_server_unref(s);
-                }
 }
 
 int manager_is_own_hostname(Manager *m, const char *name) {
@@ -1455,9 +1097,145 @@ int manager_is_own_hostname(Manager *m, const char *name) {
         return 0;
 }
 
-static const char* const support_table[_SUPPORT_MAX] = {
-        [SUPPORT_NO] = "no",
-        [SUPPORT_YES] = "yes",
-        [SUPPORT_RESOLVE] = "resolve",
-};
-DEFINE_STRING_TABLE_LOOKUP(support, Support);
+int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
+        DnsServer *s;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(m);
+        assert(dns);
+
+        r = ordered_set_ensure_allocated(dns, &dns_server_hash_ops);
+        if (r < 0)
+                return r;
+
+        /* First add the system-wide servers and domains */
+        LIST_FOREACH(servers, s, m->dns_servers) {
+                r = ordered_set_put(*dns, s);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
+        }
+
+        /* Then, add the per-link servers */
+        HASHMAP_FOREACH(l, m->links, i) {
+                LIST_FOREACH(servers, s, l->dns_servers) {
+                        r = ordered_set_put(*dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* If we found nothing, add the fallback servers */
+        if (ordered_set_isempty(*dns)) {
+                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
+                        r = ordered_set_put(*dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
+        DnsSearchDomain *d;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(m);
+        assert(domains);
+
+        r = ordered_set_ensure_allocated(domains, &dns_name_hash_ops);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(domains, d, m->search_domains) {
+                r = ordered_set_put(*domains, d->name);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
+        }
+
+        HASHMAP_FOREACH(l, m->links, i) {
+
+                LIST_FOREACH(domains, d, l->search_domains) {
+                        r = ordered_set_put(*domains, d->name);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+DnssecMode manager_get_dnssec_mode(Manager *m) {
+        assert(m);
+
+        if (m->dnssec_mode != _DNSSEC_MODE_INVALID)
+                return m->dnssec_mode;
+
+        return DNSSEC_NO;
+}
+
+bool manager_dnssec_supported(Manager *m) {
+        DnsServer *server;
+        Iterator i;
+        Link *l;
+
+        assert(m);
+
+        if (manager_get_dnssec_mode(m) == DNSSEC_NO)
+                return false;
+
+        server = manager_get_dns_server(m);
+        if (server && !dns_server_dnssec_supported(server))
+                return false;
+
+        HASHMAP_FOREACH(l, m->links, i)
+                if (!link_dnssec_supported(l))
+                        return false;
+
+        return true;
+}
+
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {
+
+        assert(verdict >= 0);
+        assert(verdict < _DNSSEC_VERDICT_MAX);
+
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *s = NULL;
+
+                (void) dns_resource_key_to_string(key, &s);
+
+                log_debug("Found verdict for lookup %s: %s", s ? strstrip(s) : "n/a", dnssec_verdict_to_string(verdict));
+        }
+
+        m->n_dnssec_verdict[verdict]++;
+}
+
+bool manager_routable(Manager *m, int family) {
+        Iterator i;
+        Link *l;
+
+        assert(m);
+
+        /* Returns true if the host has at least one interface with a routable address of the specified type */
+
+        HASHMAP_FOREACH(l, m->links, i)
+                if (link_relevant(l, family, false))
+                        return true;
+
+        return false;
+}

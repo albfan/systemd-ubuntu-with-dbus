@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -34,7 +32,7 @@
 #include "syslog-util.h"
 #include "util.h"
 
-static char *arg_identifier = NULL;
+static const char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
 static bool arg_level_prefix = true;
 
@@ -82,14 +80,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't':
-                        free(arg_identifier);
                         if (isempty(optarg))
                                 arg_identifier = NULL;
-                        else {
-                                arg_identifier = strdup(optarg);
-                                if (!arg_identifier)
-                                        return log_oom();
-                        }
+                        else
+                                arg_identifier = optarg;
                         break;
 
                 case 'p':

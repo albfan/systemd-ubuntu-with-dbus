@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosddevicehfoo
 #define foosddevicehfoo
 
@@ -23,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <inttypes.h>
+#include <sys/types.h>
 
 #include "_sd-common.h"
 
@@ -93,6 +91,9 @@ int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, con
 int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag);
 int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
 int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device, sd_device_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_enumerator, sd_device_enumerator_unref);
 
 _SD_END_DECLARATIONS;
 

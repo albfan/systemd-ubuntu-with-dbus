@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -21,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "kdbus.h"
 #include "list.h"
 #include "macro.h"
-#include "kdbus.h"
 
 typedef struct BusNamePolicy BusNamePolicy;
 

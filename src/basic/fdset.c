@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,19 +17,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <alloca.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stddef.h>
 
 #include "sd-daemon.h"
 
-#include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "set.h"
-#include "util.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)

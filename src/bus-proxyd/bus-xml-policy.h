@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,8 +21,8 @@
 
 #include <pthread.h>
 
-#include "list.h"
 #include "hashmap.h"
+#include "list.h"
 
 typedef enum PolicyItemType {
         _POLICY_ITEM_TYPE_UNSET = 0,

@@ -31,7 +31,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "netlink-util.h"
@@ -638,7 +637,7 @@ static int spawn_wait(struct udev_event *event,
                 .pid = pid,
                 .accept_failure = accept_failure,
         };
-        _cleanup_event_unref_ sd_event *e = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r, ret;
 
         r = sd_event_new(&e);
@@ -849,11 +848,11 @@ void udev_event_execute_rules(struct udev_event *event,
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
                                 udev_watch_end(event->udev, event->dev_db);
-                }
 
-                if (major(udev_device_get_devnum(dev)) == 0 &&
-                    streq(udev_device_get_action(dev), "move"))
-                        udev_device_copy_properties(dev, event->dev_db);
+                        if (major(udev_device_get_devnum(dev)) == 0 &&
+                            streq(udev_device_get_action(dev), "move"))
+                                udev_device_copy_properties(dev, event->dev_db);
+                }
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,

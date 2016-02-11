@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -123,15 +121,17 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int get_cgroup_root(char **ret) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *unit = NULL, *path = NULL;
         const char *m;
         int r;
 
         if (!arg_machine) {
                 r = cg_get_root_path(ret);
-                if (r < 0)
+                if (r == -ENOMEDIUM)
+                        return log_error_errno(r, "Failed to get root control group path: No cgroup filesystem mounted on /sys/fs/cgroup");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
 
                 return 0;

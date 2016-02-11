@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -33,7 +31,7 @@ _public_ int sd_bus_emit_signal(
                 const char *member,
                 const char *types, ...) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -70,7 +68,7 @@ _public_ int sd_bus_call_method_async(
                 void *userdata,
                 const char *types, ...) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -106,7 +104,7 @@ _public_ int sd_bus_call_method(
                 sd_bus_message **reply,
                 const char *types, ...) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
@@ -141,7 +139,7 @@ _public_ int sd_bus_reply_method_return(
                 sd_bus_message *call,
                 const char *types, ...) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert_return(call, -EINVAL);
@@ -177,7 +175,7 @@ _public_ int sd_bus_reply_method_error(
                 sd_bus_message *call,
                 const sd_bus_error *e) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert_return(call, -EINVAL);
@@ -206,7 +204,7 @@ _public_ int sd_bus_reply_method_errorf(
                 const char *format,
                 ...) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
 
         assert_return(call, -EINVAL);
@@ -233,7 +231,7 @@ _public_ int sd_bus_reply_method_errno(
                 int error,
                 const sd_bus_error *p) {
 
-        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
@@ -261,7 +259,7 @@ _public_ int sd_bus_reply_method_errnof(
                 const char *format,
                 ...) {
 
-        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
 
         assert_return(call, -EINVAL);
@@ -334,7 +332,7 @@ _public_ int sd_bus_get_property_trivial(
                 sd_bus_error *error,
                 char type, void *ptr) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
@@ -376,7 +374,7 @@ _public_ int sd_bus_get_property_string(
                 sd_bus_error *error,
                 char **ret) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *s;
         char *n;
         int r;
@@ -426,7 +424,7 @@ _public_ int sd_bus_get_property_strv(
                 sd_bus_error *error,
                 char ***ret) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
@@ -467,7 +465,7 @@ _public_ int sd_bus_set_property(
                 sd_bus_error *error,
                 const char *type, ...) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         va_list ap;
         int r;
 
@@ -555,7 +553,7 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
 }
 
 _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uid_t our_uid;
         bool know_caps = false;
         int r;

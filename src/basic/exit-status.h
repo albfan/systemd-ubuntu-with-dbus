@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
@@ -23,6 +21,8 @@
 
 #include <stdbool.h>
 
+#include "hashmap.h"
+#include "macro.h"
 #include "set.h"
 
 typedef enum ExitStatus {

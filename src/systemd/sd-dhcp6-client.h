@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosddhcp6clienthfoo
 #define foosddhcp6clienthfoo
 
@@ -26,8 +24,8 @@
 #include <net/ethernet.h>
 #include <sys/types.h>
 
-#include "sd-event.h"
 #include "sd-dhcp6-lease.h"
+#include "sd-event.h"
 
 #include "_sd-common.h"
 
@@ -39,6 +37,41 @@ enum {
         SD_DHCP6_CLIENT_EVENT_RETRANS_MAX               = 11,
         SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE                = 12,
         SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST       = 13,
+};
+
+enum {
+        SD_DHCP6_OPTION_CLIENTID                   = 1,
+        SD_DHCP6_OPTION_SERVERID                   = 2,
+        SD_DHCP6_OPTION_IA_NA                      = 3,
+        SD_DHCP6_OPTION_IA_TA                      = 4,
+        SD_DHCP6_OPTION_IAADDR                     = 5,
+        SD_DHCP6_OPTION_ORO                        = 6,
+        SD_DHCP6_OPTION_PREFERENCE                 = 7,
+        SD_DHCP6_OPTION_ELAPSED_TIME               = 8,
+        SD_DHCP6_OPTION_RELAY_MSG                  = 9,
+        /* option code 10 is unassigned */
+        SD_DHCP6_OPTION_AUTH                       = 11,
+        SD_DHCP6_OPTION_UNICAST                    = 12,
+        SD_DHCP6_OPTION_STATUS_CODE                = 13,
+        SD_DHCP6_OPTION_RAPID_COMMIT               = 14,
+        SD_DHCP6_OPTION_USER_CLASS                 = 15,
+        SD_DHCP6_OPTION_VENDOR_CLASS               = 16,
+        SD_DHCP6_OPTION_VENDOR_OPTS                = 17,
+        SD_DHCP6_OPTION_INTERFACE_ID               = 18,
+        SD_DHCP6_OPTION_RECONF_MSG                 = 19,
+        SD_DHCP6_OPTION_RECONF_ACCEPT              = 20,
+
+        SD_DHCP6_OPTION_DNS_SERVERS                = 23,  /* RFC 3646 */
+        SD_DHCP6_OPTION_DOMAIN_LIST                = 24,  /* RFC 3646 */
+
+        SD_DHCP6_OPTION_SNTP_SERVERS               = 31,  /* RFC 4075, deprecated */
+
+        /* option code 35 is unassigned */
+
+        SD_DHCP6_OPTION_NTP_SERVER                 = 56,  /* RFC 5908 */
+
+        /* option codes 89-142 are unassigned */
+        /* option codes 144-65535 are unassigned */
 };
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;
@@ -71,6 +104,8 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client);
 int sd_dhcp6_client_new(sd_dhcp6_client **ret);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_client, sd_dhcp6_client_unref);
 
 _SD_END_DECLARATIONS;
 

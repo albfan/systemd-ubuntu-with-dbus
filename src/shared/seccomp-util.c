@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,11 +17,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <seccomp.h>
+#include <stddef.h>
 
+#include "macro.h"
 #include "seccomp-util.h"
 #include "string-util.h"
-#include "util.h"
 
 const char* seccomp_arch_to_string(uint32_t c) {
 

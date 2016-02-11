@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -65,7 +63,7 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 }
 
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
         size_t size;
         int r;
@@ -336,6 +334,19 @@ int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, ui
                 return r;
 
         r = add_rtattr(m, type, &data, sizeof(uint32_t));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, const void *data, size_t len) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        r = add_rtattr(m, type, &data, len);
         if (r < 0)
                 return r;
 

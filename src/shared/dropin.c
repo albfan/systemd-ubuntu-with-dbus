@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -19,17 +17,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
+#include "hashmap.h"
+#include "log.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
+#include "unit-name.h"
 
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {
@@ -146,7 +154,7 @@ static int iterate_dir(
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return log_error_errno(errno, "Failed to read directory %s: %m", path);
 
                 if (!de)

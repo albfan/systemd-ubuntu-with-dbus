@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -89,7 +87,7 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
                 address->in_addr.in6.__in6_u.__u6_addr8[15] = link->mac.ether_addr_octet[5];
         }
         address->prefixlen = prefixlen;
-        address->flags = IFA_F_NOPREFIXROUTE;
+        address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
         address->cinfo.ifa_prefered = lifetime_preferred;
         address->cinfo.ifa_valid = lifetime_valid;
 

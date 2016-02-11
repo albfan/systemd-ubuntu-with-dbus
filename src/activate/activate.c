@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -39,9 +37,11 @@
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
+static int arg_socket_type = SOCK_STREAM;
 static char** arg_args = NULL;
 static char** arg_setenv = NULL;
 static const char *arg_fdname = NULL;
+static bool arg_inetd = false;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -97,8 +97,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-
-                fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
+                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
                         return log_error_errno(fd, "Failed to open '%s': %m", *address);
@@ -129,14 +128,20 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int launch(char* name, char **argv, char **env, int fds) {
+static int exec_process(const char* name, char **argv, char **env, int start_fd, int n_fds) {
 
-        static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
         _cleanup_strv_free_ char **envp = NULL;
-        _cleanup_free_ char *tmp = NULL;
+        _cleanup_free_ char *joined = NULL;
         unsigned n_env = 0, length;
-        char **s;
+        const char *tocopy;
         unsigned i;
+        char **s;
+        int r;
+
+        if (arg_inetd && n_fds != 1) {
+                log_error("--inetd only supported for single file descriptors.");
+                return -EINVAL;
+        }
 
         length = strv_length(arg_setenv);
 
@@ -146,70 +151,119 @@ static int launch(char* name, char **argv, char **env, int fds) {
                 return log_oom();
 
         STRV_FOREACH(s, arg_setenv) {
-                if (strchr(*s, '='))
-                        envp[n_env++] = *s;
-                else {
+
+                if (strchr(*s, '=')) {
+                        char *k;
+
+                        k = strdup(*s);
+                        if (!k)
+                                return log_oom();
+
+                        envp[n_env++] = k;
+                } else {
                         _cleanup_free_ char *p;
+                        const char *n;
 
                         p = strappend(*s, "=");
                         if (!p)
                                 return log_oom();
-                        envp[n_env] = strv_find_prefix(env, p);
-                        if (envp[n_env])
-                                n_env ++;
+
+                        n = strv_find_prefix(env, p);
+                        if (!n)
+                                continue;
+
+                        envp[n_env] = strdup(n);
+                        if (!envp[n_env])
+                                return log_oom();
+
+                        n_env ++;
                 }
         }
 
-        for (i = 0; i < ELEMENTSOF(tocopy); i++) {
-                envp[n_env] = strv_find_prefix(env, tocopy[i]);
-                if (envp[n_env])
-                        n_env ++;
-        }
+        FOREACH_STRING(tocopy, "TERM=", "PATH=", "USER=", "HOME=") {
+                const char *n;
 
-        if ((asprintf((char**)(envp + n_env++), "LISTEN_FDS=%d", fds) < 0) ||
-            (asprintf((char**)(envp + n_env++), "LISTEN_PID=%d", getpid()) < 0))
-                return log_oom();
+                n = strv_find_prefix(env, tocopy);
+                if (!n)
+                        continue;
 
-        if (arg_fdname) {
-                char *e;
-
-                e = strappend("LISTEN_FDNAMES=", arg_fdname);
-                if (!e)
+                envp[n_env] = strdup(n);
+                if (!envp[n_env])
                         return log_oom();
 
-                for (i = 1; i < (unsigned) fds; i++) {
-                        char *c;
-
-                        c = strjoin(e, ":", arg_fdname, NULL);
-                        if (!c) {
-                                free(e);
-                                return log_oom();
-                        }
-
-                        free(e);
-                        e = c;
-                }
-
-                envp[n_env++] = e;
+                n_env ++;
         }
 
-        tmp = strv_join(argv, " ");
-        if (!tmp)
+        if (arg_inetd) {
+                assert(n_fds == 1);
+
+                r = dup2(start_fd, STDIN_FILENO);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to dup connection to stdin: %m");
+
+                r = dup2(start_fd, STDOUT_FILENO);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to dup connection to stdout: %m");
+
+                start_fd = safe_close(start_fd);
+        } else {
+                if (start_fd != SD_LISTEN_FDS_START) {
+                        assert(n_fds == 1);
+
+                        r = dup2(start_fd, SD_LISTEN_FDS_START);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to dup connection: %m");
+
+                        safe_close(start_fd);
+                        start_fd = SD_LISTEN_FDS_START;
+                }
+
+                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%i", n_fds) < 0)
+                        return log_oom();
+
+                if (asprintf((char**)(envp + n_env++), "LISTEN_PID=" PID_FMT, getpid()) < 0)
+                        return log_oom();
+
+                if (arg_fdname) {
+                        char *e;
+
+                        e = strappend("LISTEN_FDNAMES=", arg_fdname);
+                        if (!e)
+                                return log_oom();
+
+                        for (i = 1; i < (unsigned) n_fds; i++) {
+                                char *c;
+
+                                c = strjoin(e, ":", arg_fdname, NULL);
+                                if (!c) {
+                                        free(e);
+                                        return log_oom();
+                                }
+
+                                free(e);
+                                e = c;
+                        }
+
+                        envp[n_env++] = e;
+                }
+        }
+
+        joined = strv_join(argv, " ");
+        if (!joined)
                 return log_oom();
 
-        log_info("Execing %s (%s)", name, tmp);
+        log_info("Execing %s (%s)", name, joined);
         execvpe(name, argv, envp);
 
-        return log_error_errno(errno, "Failed to execp %s (%s): %m", name, tmp);
+        return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
 }
 
-static int launch1(const char* child, char** argv, char **env, int fd) {
-        _cleanup_free_ char *tmp = NULL;
+static int fork_and_exec_process(const char* child, char** argv, char **env, int fd) {
+        _cleanup_free_ char *joined = NULL;
         pid_t parent_pid, child_pid;
-        int r;
 
-        tmp = strv_join(argv, " ");
-        if (!tmp)
+        joined = strv_join(argv, " ");
+        if (!joined)
                 return log_oom();
 
         parent_pid = getpid();
@@ -224,24 +278,6 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
 
-                r = dup2(fd, STDIN_FILENO);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to dup connection to stdin: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = dup2(fd, STDOUT_FILENO);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to dup connection to stdout: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = close(fd);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to close dupped connection: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
                 /* Make sure the child goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         _exit(EXIT_FAILURE);
@@ -251,31 +287,27 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
                 if (getppid() != parent_pid)
                         _exit(EXIT_SUCCESS);
 
-                execvp(child, argv);
-                log_error_errno(errno, "Failed to exec child %s: %m", child);
+                exec_process(child, argv, env, fd, 1);
                 _exit(EXIT_FAILURE);
         }
 
-        log_info("Spawned %s (%s) as PID %d", child, tmp, child_pid);
-
+        log_info("Spawned %s (%s) as PID %d", child, joined, child_pid);
         return 0;
 }
 
 static int do_accept(const char* name, char **argv, char **envp, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
-        _cleanup_close_ int fd2 = -1;
+        _cleanup_close_ int fd_accepted = -1;
 
-        fd2 = accept(fd, NULL, NULL);
-        if (fd2 < 0) {
-                log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
-                return fd2;
-        }
+        fd_accepted = accept4(fd, NULL, NULL, 0);
+        if (fd_accepted < 0)
+                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
 
-        getsockname_pretty(fd2, &local);
-        getpeername_pretty(fd2, &peer);
+        getsockname_pretty(fd_accepted, &local);
+        getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        return launch1(name, argv, envp, fd2);
+        return fork_and_exec_process(name, argv, envp, fd_accepted);
 }
 
 /* SIGCHLD handler. */
@@ -283,32 +315,38 @@ static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
         PROTECT_ERRNO;
 
         log_info("Child %d died with code %d", t->si_pid, t->si_status);
+
         /* Wait for a dead child. */
-        waitpid(t->si_pid, NULL, 0);
+        (void) waitpid(t->si_pid, NULL, 0);
 }
 
 static int install_chld_handler(void) {
-        int r;
-        struct sigaction act = {
+        static const struct sigaction act = {
                 .sa_flags = SA_SIGINFO,
                 .sa_sigaction = sigchld_hdl,
         };
 
+        int r;
+
         r = sigaction(SIGCHLD, &act, 0);
         if (r < 0)
-                log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
-        return r;
+                return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
+
+        return 0;
 }
 
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
-               "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
-               "  -a --accept              Spawn separate child for each connection\n"
                "  -h --help                Show this help and exit\n"
+               "     --version             Print version string and exit\n"
+               "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
+               "  -d --datagram            Listen on datagram instead of stream socket\n"
+               "     --seqpacket           Listen on SOCK_SEQPACKET instead of stream socket\n"
+               "  -a --accept              Spawn separate child for each connection\n"
                "  -E --setenv=NAME[=VALUE] Pass an environment variable to children\n"
-               "  --version                Print version string and exit\n"
+               "     --inetd               Enable inetd file descriptor passing protocol\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be passed through.\n"
                , program_invocation_short_name);
@@ -318,16 +356,21 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FDNAME,
+                ARG_SEQPACKET,
+                ARG_INETD,
         };
 
         static const struct option options[] = {
                 { "help",        no_argument,       NULL, 'h'           },
                 { "version",     no_argument,       NULL, ARG_VERSION   },
+                { "datagram",    no_argument,       NULL, 'd'           },
+                { "seqpacket",   no_argument,       NULL, ARG_SEQPACKET },
                 { "listen",      required_argument, NULL, 'l'           },
                 { "accept",      no_argument,       NULL, 'a'           },
                 { "setenv",      required_argument, NULL, 'E'           },
                 { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
                 { "fdname",      required_argument, NULL, ARG_FDNAME    },
+                { "inetd",       no_argument,       NULL, ARG_INETD     },
                 {}
         };
 
@@ -336,7 +379,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hl:aE:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hl:aEd", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         help();
@@ -350,6 +393,24 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
+                        break;
+
+                case 'd':
+                        if (arg_socket_type == SOCK_SEQPACKET) {
+                                log_error("--datagram may not be combined with --seqpacket.");
+                                return -EINVAL;
+                        }
+
+                        arg_socket_type = SOCK_DGRAM;
+                        break;
+
+                case ARG_SEQPACKET:
+                        if (arg_socket_type == SOCK_DGRAM) {
+                                log_error("--seqpacket may not be combined with --datagram.");
+                                return -EINVAL;
+                        }
+
+                        arg_socket_type = SOCK_SEQPACKET;
                         break;
 
                 case 'a':
@@ -372,6 +433,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_fdname = optarg;
                         break;
 
+                case ARG_INETD:
+                        arg_inetd = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -382,6 +447,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (optind == argc) {
                 log_error("%s: command to execute is missing.",
                           program_invocation_short_name);
+                return -EINVAL;
+        }
+
+        if (arg_socket_type == SOCK_DGRAM && arg_accept) {
+                log_error("Datagram sockets do not accept connections. "
+                          "The --datagram and --accept options may not be combined.");
                 return -EINVAL;
         }
 
@@ -427,15 +498,14 @@ int main(int argc, char **argv, char **envp) {
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
-                        r = do_accept(argv[optind], argv + optind, envp,
-                                      event.data.fd);
+                        r = do_accept(argv[optind], argv + optind, envp, event.data.fd);
                         if (r < 0)
                                 return EXIT_FAILURE;
                 } else
                         break;
         }
 
-        launch(argv[optind], argv + optind, envp, n);
+        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, n);
 
         return EXIT_SUCCESS;
 }
