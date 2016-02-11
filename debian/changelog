@@ -6,6 +6,7 @@ systemd (229-1) UNRELEASED; urgency=medium
     - Add option to optionally turn of color output. (Closes: #783692)
     - Don't git-ignore src/journal-remote/browse.html. (Closes: #805514)
     - Do not warn about Wants depencencies on masked units. (LP: #1543282)
+  * debian/systemd.install: Ship the new systemd-resolve.
   * debian/tests/systemd-fsckd: Tame overly strict test for failed plymouth
     unit, which is a race condition with plymouthd auto-stopping.
     (LP: #1543144)
