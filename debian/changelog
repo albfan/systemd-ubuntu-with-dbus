@@ -1,4 +1,4 @@
-systemd (229-1) UNRELEASED; urgency=medium
+systemd (229-1) unstable; urgency=medium
 
   * New upstream release 229.
     - Fix systemctl behaviour in chroots. (Closes: #802780)
@@ -47,7 +47,7 @@ systemd (229-1) UNRELEASED; urgency=medium
      set. This will be used for upstream CI.
   * Enable seccomp support on powerpc, ppc64el, and s390x.
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 08 Feb 2016 22:43:55 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 11 Feb 2016 21:02:39 +0100
 
 systemd (228-6) unstable; urgency=medium
 
