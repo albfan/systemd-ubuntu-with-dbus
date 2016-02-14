@@ -14,10 +14,10 @@ This reverts the Debian specific bits from
  3 files changed, 51 insertions(+), 2 deletions(-)
 
 diff --git a/src/basic/time-util.c b/src/basic/time-util.c
-index 3973850..83fbb94 100644
+index 510f018..c4cc217 100644
 --- a/src/basic/time-util.c
 +++ b/src/basic/time-util.c
-@@ -1073,8 +1073,25 @@ int get_timezone(char **tz) {
+@@ -1093,8 +1093,25 @@ int get_timezone(char **tz) {
          int r;
  
          r = readlink_malloc("/etc/localtime", &t);

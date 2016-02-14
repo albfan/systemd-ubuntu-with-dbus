@@ -1,4 +1,5 @@
 ## Cherry-picked from upstream
+time-util-map-ALARM-clockids-to-non-ALARM-clockids-in-now.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

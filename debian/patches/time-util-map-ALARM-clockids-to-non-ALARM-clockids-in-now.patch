@@ -1,0 +1,74 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 12 Feb 2016 21:29:01 +0100
+Subject: time-util: map ALARM clockids to non-ALARM clockids in now()
+
+Fixes: #2597
+---
+ src/basic/time-util.c              | 24 ++++++++++++++++++++++--
+ src/libsystemd/sd-event/sd-event.c |  6 +++++-
+ 2 files changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/src/basic/time-util.c b/src/basic/time-util.c
+index 3973850..510f018 100644
+--- a/src/basic/time-util.c
++++ b/src/basic/time-util.c
+@@ -42,10 +42,30 @@
+ 
+ static nsec_t timespec_load_nsec(const struct timespec *ts);
+ 
++static clockid_t map_clock_id(clockid_t c) {
++
++        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
++         * fail for them. Since they are essentially the same as their non-ALARM pendants (their only difference is
++         * when timers are set on them), let's just map them accordingly. This way, we can get the correct time even on
++         * those archs. */
++
++        switch (c) {
++
++        case CLOCK_BOOTTIME_ALARM:
++                return CLOCK_BOOTTIME;
++
++        case CLOCK_REALTIME_ALARM:
++                return CLOCK_REALTIME;
++
++        default:
++                return c;
++        }
++}
++
+ usec_t now(clockid_t clock_id) {
+         struct timespec ts;
+ 
+-        assert_se(clock_gettime(clock_id, &ts) == 0);
++        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
+ 
+         return timespec_load(&ts);
+ }
+@@ -53,7 +73,7 @@ usec_t now(clockid_t clock_id) {
+ nsec_t now_nsec(clockid_t clock_id) {
+         struct timespec ts;
+ 
+-        assert_se(clock_gettime(clock_id, &ts) == 0);
++        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
+ 
+         return timespec_load_nsec(&ts);
+ }
+diff --git a/src/libsystemd/sd-event/sd-event.c b/src/libsystemd/sd-event/sd-event.c
+index deef6ba..2b46a1f 100644
+--- a/src/libsystemd/sd-event/sd-event.c
++++ b/src/libsystemd/sd-event/sd-event.c
+@@ -2780,9 +2780,13 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
+                 *usec = e->timestamp.monotonic;
+                 break;
+ 
+-        default:
++        case CLOCK_BOOTTIME:
++        case CLOCK_BOOTTIME_ALARM:
+                 *usec = e->timestamp_boottime;
+                 break;
++
++        default:
++                assert_not_reached("Unknown clock?");
+         }
+ 
+         return 0;
