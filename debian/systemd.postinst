@@ -88,6 +88,7 @@ if dpkg --compare-versions "$2" lt "204-8"; then
         # systemctl enable will work even when systemd is not the active PID 1.
         if [ ! -e /etc/systemd/system/tmp.mount ]; then
             cp /usr/share/systemd/tmp.mount /etc/systemd/system/tmp.mount
+            _systemctl daemon-reload || true
         fi
         systemctl enable tmp.mount || true
     fi
