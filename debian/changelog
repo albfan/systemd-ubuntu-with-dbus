@@ -5,6 +5,8 @@ systemd (229-2) UNRELEASED; urgency=medium
     many architectures.
   * debian/systemd.postinst: Add missing newline to /etc/adjtime migration.
     (See #699554)
+  * debian/systemd.postinst: Only try to enable tmp.mount if we actually
+    copied it to /etc. Don't try to enable a generated unit. (LP: #1545707)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 14 Feb 2016 13:15:55 +0100
 
