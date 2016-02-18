@@ -433,7 +433,7 @@ class CoredumpTest(unittest.TestCase):
             cores = glob('/var/lib/systemd/coredump/core.bash.*')
             if cores:
                 break
-            time.sleep(0.1)
+            time.sleep(1)
         self.assertNotEqual(cores, [])
         self.assertEqual(glob('/tmp/core*'), [])
 
@@ -443,7 +443,7 @@ class CoredumpTest(unittest.TestCase):
             if re.search(b'Process.*bash.*dumped core', journal) and \
                re.search(b'#[0-9] .*bash', journal):
                 break
-            time.sleep(0.1)
+            time.sleep(1)
         self.assertRegex(journal, b'Process.*bash.*dumped core')
         self.assertIn(b'Stack trace', journal)
         self.assertRegex(journal, b'#[0-9] .*bash')
