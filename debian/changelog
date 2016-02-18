@@ -9,6 +9,8 @@ systemd (229-2) UNRELEASED; urgency=medium
     copied it to /etc. Don't try to enable a generated unit. (LP: #1545707)
   * debian/tests/boot-and-services: Increase timeouts of test_bash_crash from
     5 to 50 seconds.
+  * debian/extra/checkout-upstream: Try again after one minute if git checkout
+    fails, to avoid failures from transient network errors.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 14 Feb 2016 13:15:55 +0100
 

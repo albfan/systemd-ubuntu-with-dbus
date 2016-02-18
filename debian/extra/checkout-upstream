@@ -28,7 +28,7 @@ fi
 
 mkdir -p debian/tmp
 (cd debian/tmp
- git clone https://github.com/systemd/systemd.git upstream
+ git clone https://github.com/systemd/systemd.git upstream || (rm -rf upstream; sleep 60; git clone https://github.com/systemd/systemd.git upstream)
  cd upstream
  $FETCH
  $CO)
