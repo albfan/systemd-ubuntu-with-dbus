@@ -8,7 +8,7 @@ systemd (229-2) UNRELEASED; urgency=medium
   * debian/systemd.postinst: Only try to enable tmp.mount if we actually
     copied it to /etc. Don't try to enable a generated unit. (LP: #1545707)
   * debian/tests/boot-and-services: Increase timeouts of test_bash_crash from
-    5 to 50 seconds.
+    5 to 10 seconds, and sync the journal after every iteration.
   * debian/extra/checkout-upstream: Try again after one minute if git checkout
     fails, to avoid failures from transient network errors.
 

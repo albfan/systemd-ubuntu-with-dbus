@@ -438,7 +438,8 @@ class CoredumpTest(unittest.TestCase):
         self.assertEqual(glob('/tmp/core*'), [])
 
         # we should also get a message and stack trace in journal
-        for timeout in range(50):
+        for timeout in range(10):
+            subprocess.call(['journalctl', '--sync'])
             journal = subprocess.check_output(['journalctl', '/lib/systemd/systemd-coredump'])
             if re.search(b'Process.*bash.*dumped core', journal) and \
                re.search(b'#[0-9] .*bash', journal):
