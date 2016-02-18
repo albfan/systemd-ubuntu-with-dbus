@@ -14,7 +14,7 @@ import sys
 import unittest
 from time import sleep, time
 
-GRUB_AUTOPKGTEST_CONFIG_PATH = "/etc/default/grub.d/90-autopkgtest.cfg"
+GRUB_AUTOPKGTEST_CONFIG_PATH = "/etc/default/grub.d/50-cloudimg-settings.cfg"
 TEST_AUTOPKGTEST_CONFIG_PATH = "/etc/default/grub.d/99-fsckdtest.cfg"
 
 SYSTEMD_ETC_SYSTEM_UNIT_DIR = "/etc/systemd/system/"
