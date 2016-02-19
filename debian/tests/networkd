@@ -213,6 +213,7 @@ DHCP=%s
         self.do_test(coldplug=True, ipv6=False, dhcp_mode='ipv4',
                      extra_opts='IPv6AcceptRouterAdvertisements=False')
 
+    @unittest.skipIf('TEST_UPSTREAM' in os.environ, 'FIXME: fails often')
     def test_coldplug_dhcp_ip6(self):
         self.do_test(coldplug=True, ipv6=True)
 

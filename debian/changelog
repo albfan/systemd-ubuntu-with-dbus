@@ -18,6 +18,8 @@ systemd (229-2) UNRELEASED; urgency=medium
   * debian/tests/boot-and-services: Skip journal test for test_bash_crash when
     running against upstream, as this currently fails most of the time. To be
     investigated.
+  * debian/tests/networkd: Skip test_coldplug_dhcp_ip6 when running against
+    upstream, as this is brittle there. To be investigated.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 14 Feb 2016 13:15:55 +0100
 
