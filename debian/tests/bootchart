@@ -3,6 +3,12 @@
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 set -e
 
+# see PR#2664
+if [ -n "$TEST_UPSTREAM" ] && ! [ -x /lib/systemd/systemd-bootchart ]; then
+    echo "/lib/systemd/systemd-bootchart not available, skipping"
+    exit 0
+fi
+
 if ! [ -e /etc/default/grub ]; then
     echo "Not using grub, skipping"
     exit 0
