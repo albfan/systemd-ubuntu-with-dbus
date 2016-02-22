@@ -221,11 +221,11 @@ poweroff\n''')
         time.sleep(5)
 
         systemctl = subprocess.Popen(
-            ['systemctl', 'status', '-l', 'systemd-nspawn@c1'],
+            ['systemctl', 'status', '-overbose', '-l', 'systemd-nspawn@c1'],
             stdout=subprocess.PIPE)
-        out = systemctl.communicate()[0]
+        out = systemctl.communicate()[0].decode('UTF-8', 'replace')
         self.assertEqual(systemctl.returncode, 3, out)
-        self.assertIn(b'Stopped Container c1', out)
+        self.assertTrue('Stopped Container c1' in out, out)
 
 
 @unittest.skipUnless(os.path.exists('/sys/kernel/security/apparmor'),
