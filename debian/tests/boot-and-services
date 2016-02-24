@@ -220,6 +220,7 @@ poweroff\n''')
         subprocess.check_call(['systemctl', 'start', 'systemd-nspawn@c1'])
         time.sleep(5)
 
+        subprocess.call(['journalctl', '--sync'])
         systemctl = subprocess.Popen(
             ['systemctl', 'status', '-overbose', '-l', 'systemd-nspawn@c1'],
             stdout=subprocess.PIPE)
