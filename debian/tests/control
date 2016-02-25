@@ -59,21 +59,6 @@ Depends: systemd,
   libsystemd-dev,
 Restrictions: isolation-container
 
-Tests: bootchart
-Depends: systemd,
-  libpam-systemd,
-  acl,
-  locales,
-  evemu-tools,
-  python3,
-  cryptsetup-bin,
-  systemd-sysv,
-  dnsmasq-base,
-  build-essential,
-  pkg-config,
-  libsystemd-dev,
-Restrictions: needs-root, isolation-machine, breaks-testbed
-
 Tests: boot-and-services
 Depends: systemd-sysv,
   systemd-container,
@@ -96,6 +81,22 @@ Depends: systemd-sysv,
 Restrictions: needs-recommends, needs-root, isolation-machine, allow-stderr
 
 # NOUPSTREAM: Do not run these tests for upstream builds
+
+Tests: bootchart
+Depends: systemd,
+  libpam-systemd,
+  acl,
+  locales,
+  evemu-tools,
+  python3,
+  cryptsetup-bin,
+  systemd-sysv,
+  dnsmasq-base,
+  build-essential,
+  pkg-config,
+  libsystemd-dev,
+
+Restrictions: needs-root, isolation-machine, breaks-testbed
 
 Tests: cmdline-upstart-boot
 Depends: systemd-sysv,

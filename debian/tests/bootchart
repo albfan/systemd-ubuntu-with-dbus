@@ -4,7 +4,7 @@
 set -e
 
 # see PR#2664
-if [ -n "$TEST_UPSTREAM" ] && ! [ -x /lib/systemd/systemd-bootchart ]; then
+if ! [ -x /lib/systemd/systemd-bootchart ]; then
     echo "/lib/systemd/systemd-bootchart not available, skipping"
     exit 0
 fi
