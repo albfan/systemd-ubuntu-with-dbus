@@ -1,3 +1,9 @@
+systemd (229-3) UNRELEASED; urgency=medium
+
+  * debian/tests/timedated: Add tests for "timedatectl set-local-rtc".
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 29 Feb 2016 07:34:58 +0100
+
 systemd (229-2) unstable; urgency=medium
 
   * time-util: map ALARM clockids to non-ALARM clockids in now(), to work on

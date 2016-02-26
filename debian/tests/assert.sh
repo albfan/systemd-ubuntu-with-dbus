@@ -1,5 +1,13 @@
 # utility functions for shell tests
 
+assert_true() {
+    if ! $1; then
+        echo "FAIL: command '$1' failed with exit code $?" >&2
+        exit 1
+    fi
+}
+
+
 assert_eq() {
     if [ "$1" != "$2" ]; then
         echo "FAIL: expected: '$2' actual: '$1'" >&2
