@@ -95,7 +95,6 @@ Depends: systemd,
   build-essential,
   pkg-config,
   libsystemd-dev,
-
 Restrictions: needs-root, isolation-machine, breaks-testbed
 
 Tests: cmdline-upstart-boot
