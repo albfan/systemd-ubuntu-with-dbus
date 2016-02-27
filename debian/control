@@ -163,8 +163,9 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd
 Conflicts: core-dump-handler
-Replaces: core-dump-handler
+Replaces: core-dump-handler, systemd (<< 229-2)
 Provides: core-dump-handler
+Breaks: systemd (<< 229-2)
 Description: tools for storing and retrieving coredumps
  This package provides systemd tools for storing and retrieving coredumps:
   * systemd-coredump
