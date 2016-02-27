@@ -27,6 +27,9 @@ systemd (229-2) UNRELEASED; urgency=medium
     nspawn test, and sync journal before.
   * Move systemd-coredump socket and service into systemd-coredump binary
     package.
+  * Revert changing the default core dump ulimit and core_pattern. This
+    completely breaks core dumps without systemd-coredump. It's also
+    contradicting core(8). (Closes: #815020)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 14 Feb 2016 13:15:55 +0100
 
