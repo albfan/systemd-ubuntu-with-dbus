@@ -1,4 +1,4 @@
-systemd (229-2) UNRELEASED; urgency=medium
+systemd (229-2) unstable; urgency=medium
 
   * time-util: map ALARM clockids to non-ALARM clockids in now(), to work on
     architectures which don't support CLOCK_BOOTTIME_ALARM. Fixes FTBFS on
@@ -36,7 +36,7 @@ systemd (229-2) UNRELEASED; urgency=medium
     Lippers-Hollmann for investigating this! (Closes: #814566,
     #814667, #815586, #815884, #815793)
 
- -- Martin Pitt <mpitt@debian.org>  Sun, 14 Feb 2016 13:15:55 +0100
+ -- Martin Pitt <mpitt@debian.org>  Sun, 28 Feb 2016 22:16:12 +0100
 
 systemd (229-1) unstable; urgency=medium
 
