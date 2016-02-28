@@ -41,7 +41,7 @@ index e208857..9f9e097 100644
          r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
          if (r < 0) {
 diff --git a/sysctl.d/50-coredump.conf.in b/sysctl.d/50-coredump.conf.in
-index 5a25de4..6fe01ac 100644
+index 5a25de4..1e54fed 100644
 --- a/sysctl.d/50-coredump.conf.in
 +++ b/sysctl.d/50-coredump.conf.in
 @@ -9,4 +9,4 @@
