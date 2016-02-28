@@ -32,3 +32,4 @@ fsckd-daemon-for-inter-fsckd-communication.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
 Revert-core-one-step-back-again-for-nspawn-we-actual.patch
 Revert-core-set-RLIMIT_CORE-to-unlimited-by-default.patch
+Revert-Revert-networkd-ndisc-revert-to-letting-the-k.patch

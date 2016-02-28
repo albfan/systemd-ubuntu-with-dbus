@@ -1,0 +1,181 @@
+From f1f54ef2f8509100483cb8dc8a9a2f9c3c823700 Mon Sep 17 00:00:00 2001
+From: Stefan Lippers-Hollmann <s.l-h@gmx.de>
+Date: Thu, 25 Feb 2016 00:29:28 +0100
+Subject: [PATCH] Revert "Revert "networkd: ndisc - revert to letting the
+ kernel handle NDisc""
+
+networkd v229 introduces many regressions in IPv6 related RA handling,
+reverting this at least fixes:
+ * https://bugs.debian.org/814566
+   networkd >= 229-1 starts assigning IPv6 addresses/ routes to lower bridge
+   members
+   which may be https://github.com/systemd/systemd/issues/2572
+   [networkd] bridged intefaces still get RA ipv6 addresses #2572
+and is quite likely to also fix:
+ * https://bugs.debian.org/814667
+   systemd-networkd overrides default kernel net.ipv6.conf.interface.accept_ra
+ * https://bugs.debian.org/815586
+   does its own RA handling and is doing it wrong
+
+This reverts commit fe30727643a7c53faa29f1caa8dcabcb2b6f6fcb.
+
+Signed-off-by: Stefan Lippers-Hollmann <s.l-h@gmx.de>
+---
+ src/network/networkd-link.c  | 20 ++++++++++++--------
+ src/network/networkd-ndisc.c | 13 ++++++++-----
+ 2 files changed, 20 insertions(+), 13 deletions(-)
+
+diff --git a/src/network/networkd-link.c b/src/network/networkd-link.c
+index 692c0bf..16c9927 100644
+--- a/src/network/networkd-link.c
++++ b/src/network/networkd-link.c
+@@ -623,9 +623,6 @@ void link_check_ready(Link *link) {
+              !link->dhcp4_configured && !link->dhcp6_configured))
+                 return;
+ 
+-        if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
+-                return;
+-
+         SET_FOREACH(a, link->addresses, i)
+                 if (!address_is_ready(a))
+                         return;
+@@ -1923,6 +1920,7 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
+ 
+ static int link_set_ipv6_accept_ra(Link *link) {
+         const char *p = NULL;
++        const char *v;
+         int r;
+ 
+         /* Make this a NOP if IPv6 is not available */
+@@ -1935,12 +1933,16 @@ static int link_set_ipv6_accept_ra(Link *link) {
+         if (!link->network)
+                 return 0;
+ 
++        if (link_ipv6_accept_ra_enabled(link))
++                v = "1";
++        else
++                v = "0";
++
+         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
+ 
+-        /* We handle router advertisments ourselves, tell the kernel to GTFO */
+-        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
++        r = write_string_file(p, v, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+         if (r < 0)
+-                log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
++                log_link_warning_errno(link, r, "Cannot configure kernel IPv6 accept_ra for interface: %m");
+ 
+         return 0;
+ }
+@@ -2001,6 +2003,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
+         return 0;
+ }
+ 
++/*
+ static int link_drop_foreign_config(Link *link) {
+         Address *address;
+         Route *route;
+@@ -2008,7 +2011,6 @@ static int link_drop_foreign_config(Link *link) {
+         int r;
+ 
+         SET_FOREACH(address, link->addresses_foreign, i) {
+-                /* we consider IPv6LL addresses to be managed by the kernel */
+                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
+                         continue;
+ 
+@@ -2018,7 +2020,6 @@ static int link_drop_foreign_config(Link *link) {
+         }
+ 
+         SET_FOREACH(route, link->routes_foreign, i) {
+-                /* do not touch routes managed by the kernel */
+                 if (route->protocol == RTPROT_KERNEL)
+                         continue;
+ 
+@@ -2029,6 +2030,7 @@ static int link_drop_foreign_config(Link *link) {
+ 
+         return 0;
+ }
++*/
+ 
+ static int link_configure(Link *link) {
+         int r;
+@@ -2039,11 +2041,13 @@ static int link_configure(Link *link) {
+ 
+         /* Drop foreign config, but ignore loopback or critical devices.
+          * We do not want to remove loopback address or addresses used for root NFS. */
++/*
+         if (!(link->flags & IFF_LOOPBACK) && !(link->network->dhcp_critical)) {
+                 r = link_drop_foreign_config(link);
+                 if (r < 0)
+                         return r;
+         }
++*/
+ 
+         r = link_set_bridge_fdb(link);
+         if (r < 0)
+diff --git a/src/network/networkd-ndisc.c b/src/network/networkd-ndisc.c
+index f2287be..5f362e9 100644
+--- a/src/network/networkd-ndisc.c
++++ b/src/network/networkd-ndisc.c
+@@ -24,7 +24,7 @@
+ #include "sd-ndisc.h"
+ 
+ #include "networkd-link.h"
+-
++/*
+ static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+         _cleanup_link_unref_ Link *link = userdata;
+         int r;
+@@ -75,7 +75,6 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr
+         if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
+                 memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
+         else {
+-                /* see RFC4291 section 2.5.1 */
+                 address->in_addr.in6.__in6_u.__u6_addr8[8]  = link->mac.ether_addr_octet[0];
+                 address->in_addr.in6.__in6_u.__u6_addr8[8] ^= 1 << 1;
+                 address->in_addr.in6.__in6_u.__u6_addr8[9]  = link->mac.ether_addr_octet[1];
+@@ -138,11 +137,12 @@ static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *pre
+ 
+         link->ndisc_messages ++;
+ }
++*/
+ 
+ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
+         _cleanup_route_free_ Route *route = NULL;
+         Link *link = userdata;
+-        usec_t time_now;
++        /* usec_t time_now; */
+         int r;
+ 
+         assert(link);
+@@ -161,6 +161,8 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
+                         log_link_warning_errno(link, r, "Starting DHCPv6 client on NDisc request failed: %m");
+         }
+ 
++        return;
++/*
+         if (!gateway)
+                 return;
+ 
+@@ -187,6 +189,7 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
+         }
+ 
+         link->ndisc_messages ++;
++*/
+ }
+ 
+ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
+@@ -240,8 +243,8 @@ int ndisc_configure(Link *link) {
+ 
+         r = sd_ndisc_set_callback(link->ndisc_router_discovery,
+                                   ndisc_router_handler,
+-                                  ndisc_prefix_onlink_handler,
+-                                  ndisc_prefix_autonomous_handler,
++                                  NULL,
++                                  NULL,
+                                   ndisc_handler,
+                                   link);
+ 
+-- 
+2.7.0
+
