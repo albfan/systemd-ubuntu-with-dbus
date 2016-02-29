@@ -1,0 +1,77 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 26 Feb 2016 12:33:41 +0100
+Subject: clock-util: be more tolerant in parsing /etc/adjtime
+
+As we default to "hardware clock is in UTC" if /etc/adjtime is not present, it
+also makes sense to have that default if /etc/adjtime contains only one or two
+lines.
+
+Drop the "gibberish" test case, as this was just EIO because of not containing
+three lines, which is already contained in other tests. clock_is_localtime()
+never actually validated the format of the first two lines, and there is little
+point in doing that.
+
+This addresses the reading half of issue #2638.
+---
+ src/basic/clock-util.c |  4 +++-
+ src/test/test-clock.c  | 16 +++++++++-------
+ 2 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/src/basic/clock-util.c b/src/basic/clock-util.c
+index dd6c043..7fe8d35 100644
+--- a/src/basic/clock-util.c
++++ b/src/basic/clock-util.c
+@@ -91,7 +91,8 @@ int clock_is_localtime(const char* adjtime_path) {
+                         fgets(line, sizeof(line), f) &&
+                         fgets(line, sizeof(line), f);
+                 if (!b)
+-                        return -EIO;
++                        /* less than three lines -> default to UTC */
++                        return 0;
+ 
+                 truncate_nl(line);
+                 return streq(line, "LOCAL");
+@@ -99,6 +100,7 @@ int clock_is_localtime(const char* adjtime_path) {
+         } else if (errno != ENOENT)
+                 return -errno;
+ 
++        /* adjtime not present -> default to UTC */
+         return 0;
+ }
+ 
+diff --git a/src/test/test-clock.c b/src/test/test-clock.c
+index 27f6b8c..92c4f79 100644
+--- a/src/test/test-clock.c
++++ b/src/test/test-clock.c
+@@ -41,10 +41,14 @@ static void test_clock_is_localtime(void) {
+                 /* no final EOL */
+                 {"0.0 0 0\n0\nUTC", 0},
+                 {"0.0 0 0\n0\nLOCAL", 1},
++                /* empty value -> defaults to UTC */
++                {"0.0 0 0\n0\n", 0},
+                 /* unknown value -> defaults to UTC */
+                 {"0.0 0 0\n0\nFOO\n", 0},
+-                /* gibberish */
+-                {"br0ken", -EIO},
++                /* no third line */
++                {"0.0 0 0", 0},
++                {"0.0 0 0\n", 0},
++                {"0.0 0 0\n0", 0},
+         };
+ 
+         /* without an adjtime file we default to UTC */
+@@ -75,11 +79,9 @@ static void test_clock_is_localtime_system(void) {
+ 
+         if (access("/etc/adjtime", F_OK) == 0) {
+                 log_info("/etc/adjtime exists, clock_is_localtime() == %i", r);
+-                /* we cannot assert much if /etc/adjtime exists, just that we
+-                 * expect either an answer, or an EIO if the local file really
+-                 * is badly malformed. I. e. we don't expect any other error
+-                 * code or crash. */
+-                assert(r == 0 || r == 1 || r == -EIO);
++                /* if /etc/adjtime exists we expect some answer, no error or
++                 * crash */
++                assert(r == 0 || r == 1);
+         } else
+                 /* default is UTC if there is no /etc/adjtime */
+                 assert(r == 0);

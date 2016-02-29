@@ -1,0 +1,81 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 26 Feb 2016 15:54:05 +0100
+Subject: timedated: be more tolerant in parsing /etc/adjtime
+
+Similarly to the previous commit, make context_write_data_local_rtc()
+understand /etc/adjtime files with just one or two lines, with or without a
+final newline.
+
+Normalize the file to the current definition in hwclock(8), in the spirit of
+"be liberal what you accept and strict what you produce": Add line terminators,
+and set the second line to "0" if missing.
+
+Fixes: #2638
+---
+ src/timedate/timedated.c | 44 +++++++++++++++++++++++++++++---------------
+ 1 file changed, 29 insertions(+), 15 deletions(-)
+
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index 55c24ac..4e12056 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -125,30 +125,44 @@ static int context_write_data_local_rtc(Context *c) {
+                 if (!w)
+                         return -ENOMEM;
+         } else {
+-                char *p, *e;
++                char *p;
++                char *e = (char*) "\n"; /* default if there are not 3 lines with \n terminator */
++                const char *prepend = "";
+                 size_t a, b;
+ 
+-                p = strchr(s, '\n');
+-                if (!p)
+-                        return -EIO;
+-
+-                p = strchr(p+1, '\n');
+-                if (!p)
+-                        return -EIO;
+-
+-                p++;
+-                e = strchr(p, '\n');
+-                if (!e)
+-                        return -EIO;
++                p = strchrnul(s, '\n');
++                if (*p == '\0') {
++                        /* only one line, no \n terminator */
++                        prepend = "\n0\n";
++                } else if (p[1] == '\0') {
++                        /* only one line, with \n terminator */
++                        ++p;
++                        prepend = "0\n";
++                } else {
++                        p = strchr(p+1, '\n');
++                        if (!p) {
++                                /* only two lines, no \n terminator */
++                                prepend = "\n";
++                                p = s + strlen(s);
++                        } else {
++                                char *end;
++                                /* third line might have a \n terminator or not */
++                                p++;
++                                end = strchr(p, '\n');
++                                /* if we actually have a fourth line, use that as suffix "e", otherwise the default \n */
++                                if (end)
++                                        e = end;
++                        }
++                }
+ 
+                 a = p - s;
+                 b = strlen(e);
+ 
+-                w = new(char, a + (c->local_rtc ? 5 : 3) + b + 1);
++                w = new(char, a + (c->local_rtc ? 5 : 3) + strlen(prepend) + b + 1);
+                 if (!w)
+                         return -ENOMEM;
+ 
+-                *(char*) mempcpy(stpcpy(mempcpy(w, s, a), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
++                *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+ 
+                 if (streq(w, NULL_ADJTIME_UTC)) {
+                         if (unlink("/etc/adjtime") < 0)

@@ -1,0 +1,251 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 26 Feb 2016 11:25:22 +0100
+Subject: clock-util: make clock_is_localtime() testable and add initial tests
+
+Add path argument to clock_is_localtime() and default to "/etc/adjtime" if it's
+NULL. This makes the function testable.
+
+Add test-clock: initial test cases for some scenarios, using a temporary file.
+This also checks the behaviour with a NULL (i. e. the system's /etc/adjtime)
+file.
+---
+ .gitignore               |  1 +
+ Makefile.am              |  7 ++++
+ src/basic/clock-util.c   |  7 ++--
+ src/basic/clock-util.h   |  2 +-
+ src/core/dbus-manager.c  |  2 +-
+ src/core/main.c          |  2 +-
+ src/test/test-clock.c    | 93 ++++++++++++++++++++++++++++++++++++++++++++++++
+ src/timedate/timedated.c |  2 +-
+ src/timesync/timesyncd.c |  2 +-
+ 9 files changed, 111 insertions(+), 7 deletions(-)
+ create mode 100644 src/test/test-clock.c
+
+diff --git a/.gitignore b/.gitignore
+index 586b379..9cdfb3a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -168,6 +168,7 @@
+ /test-cgroup
+ /test-cgroup-mask
+ /test-cgroup-util
++/test-clock
+ /test-compress
+ /test-compress-benchmark
+ /test-condition
+diff --git a/Makefile.am b/Makefile.am
+index 3b7cc1e..1caaccd 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1471,6 +1471,7 @@ tests += \
+ 	test-prioq \
+ 	test-fileio \
+ 	test-time \
++	test-clock \
+ 	test-hashmap \
+ 	test-set \
+ 	test-bitmap \
+@@ -2000,6 +2001,12 @@ test_time_SOURCES = \
+ test_time_LDADD = \
+ 	libshared.la
+ 
++test_clock_SOURCES = \
++	src/test/test-clock.c
++
++test_clock_LDADD = \
++	libshared.la
++
+ test_architecture_SOURCES = \
+ 	src/test/test-architecture.c
+ 
+diff --git a/src/basic/clock-util.c b/src/basic/clock-util.c
+index 507e757..dd6c043 100644
+--- a/src/basic/clock-util.c
++++ b/src/basic/clock-util.c
+@@ -69,9 +69,12 @@ int clock_set_hwclock(const struct tm *tm) {
+         return 0;
+ }
+ 
+-int clock_is_localtime(void) {
++int clock_is_localtime(const char* adjtime_path) {
+         _cleanup_fclose_ FILE *f;
+ 
++        if (adjtime_path == NULL)
++                adjtime_path = "/etc/adjtime";
++
+         /*
+          * The third line of adjtime is "UTC" or "LOCAL" or nothing.
+          *   # /etc/adjtime
+@@ -79,7 +82,7 @@ int clock_is_localtime(void) {
+          *   0
+          *   UTC
+          */
+-        f = fopen("/etc/adjtime", "re");
++        f = fopen(adjtime_path, "re");
+         if (f) {
+                 char line[LINE_MAX];
+                 bool b;
+diff --git a/src/basic/clock-util.h b/src/basic/clock-util.h
+index f471f2a..8830cd2 100644
+--- a/src/basic/clock-util.h
++++ b/src/basic/clock-util.h
+@@ -21,7 +21,7 @@
+ 
+ #include <time.h>
+ 
+-int clock_is_localtime(void);
++int clock_is_localtime(const char* adjtime_path);
+ int clock_set_timezone(int *min);
+ int clock_reset_timewarp(void);
+ int clock_get_hwclock(struct tm *tm);
+diff --git a/src/core/dbus-manager.c b/src/core/dbus-manager.c
+index f939196..00372b9 100644
+--- a/src/core/dbus-manager.c
++++ b/src/core/dbus-manager.c
+@@ -139,7 +139,7 @@ static int property_get_tainted(
+         if (access("/proc/cgroups", F_OK) < 0)
+                 e = stpcpy(e, "cgroups-missing:");
+ 
+-        if (clock_is_localtime() > 0)
++        if (clock_is_localtime(NULL) > 0)
+                 e = stpcpy(e, "local-hwclock:");
+ 
+         /* remove the last ':' */
+diff --git a/src/core/main.c b/src/core/main.c
+index e208857..7932755 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -1388,7 +1388,7 @@ int main(int argc, char *argv[]) {
+                 }
+ 
+                 if (!skip_setup) {
+-                        if (clock_is_localtime() > 0) {
++                        if (clock_is_localtime(NULL) > 0) {
+                                 int min;
+ 
+                                 /*
+diff --git a/src/test/test-clock.c b/src/test/test-clock.c
+new file mode 100644
+index 0000000..27f6b8c
+--- /dev/null
++++ b/src/test/test-clock.c
+@@ -0,0 +1,93 @@
++/***
++  This file is part of systemd.
++
++  Copyright (C) 2016 Canonical Ltd.
++
++  systemd is free software; you can redistribute it and/or modify it
++  under the terms of the GNU Lesser General Public License as published by
++  the Free Software Foundation; either version 2.1 of the License, or
++  (at your option) any later version.
++
++  systemd is distributed in the hope that it will be useful, but
++  WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++  Lesser General Public License for more details.
++
++  You should have received a copy of the GNU Lesser General Public License
++  along with systemd; If not, see <http://www.gnu.org/licenses/>.
++***/
++
++#include <unistd.h>
++#include <fcntl.h>
++
++#include "macro.h"
++#include "fileio.h"
++#include "log.h"
++#include "clock-util.h"
++
++static void test_clock_is_localtime(void) {
++        char adjtime[] = "/tmp/test-adjtime.XXXXXX";
++        int fd;
++        FILE* f;
++
++        const struct scenario {
++                const char* contents;
++                int expected_result;
++        } scenarios[] = {
++                /* adjtime configures UTC */
++                {"0.0 0 0\n0\nUTC\n", 0},
++                /* adjtime configures local time */
++                {"0.0 0 0\n0\nLOCAL\n", 1},
++                /* no final EOL */
++                {"0.0 0 0\n0\nUTC", 0},
++                {"0.0 0 0\n0\nLOCAL", 1},
++                /* unknown value -> defaults to UTC */
++                {"0.0 0 0\n0\nFOO\n", 0},
++                /* gibberish */
++                {"br0ken", -EIO},
++        };
++
++        /* without an adjtime file we default to UTC */
++        assert_se(clock_is_localtime("/nonexisting/adjtime") == 0);
++
++        fd = mkostemp_safe(adjtime, O_WRONLY|O_CLOEXEC);
++        assert(fd > 0);
++        log_info("adjtime test file: %s", adjtime);
++        f = fdopen(fd, "w");
++        assert(f);
++
++        for (size_t i = 0; i < ELEMENTSOF(scenarios); ++i) {
++                log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
++                log_info("%s", scenarios[i].contents);
++                rewind(f);
++                ftruncate(fd, 0);
++                assert_se(write_string_stream(f, scenarios[i].contents, false) == 0);
++                assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
++        }
++
++        unlink(adjtime);
++}
++
++/* Test with the real /etc/adjtime */
++static void test_clock_is_localtime_system(void) {
++        int r;
++        r = clock_is_localtime(NULL);
++
++        if (access("/etc/adjtime", F_OK) == 0) {
++                log_info("/etc/adjtime exists, clock_is_localtime() == %i", r);
++                /* we cannot assert much if /etc/adjtime exists, just that we
++                 * expect either an answer, or an EIO if the local file really
++                 * is badly malformed. I. e. we don't expect any other error
++                 * code or crash. */
++                assert(r == 0 || r == 1 || r == -EIO);
++        } else
++                /* default is UTC if there is no /etc/adjtime */
++                assert(r == 0);
++}
++
++int main(int argc, char *argv[]) {
++        test_clock_is_localtime();
++        test_clock_is_localtime_system();
++
++        return 0;
++}
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index 2a10135..55c24ac 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -78,7 +78,7 @@ static int context_read_data(Context *c) {
+         c->zone = t;
+         t = NULL;
+ 
+-        c->local_rtc = clock_is_localtime() > 0;
++        c->local_rtc = clock_is_localtime(NULL) > 0;
+ 
+         return 0;
+ }
+diff --git a/src/timesync/timesyncd.c b/src/timesync/timesyncd.c
+index 23e1915..b67d672 100644
+--- a/src/timesync/timesyncd.c
++++ b/src/timesync/timesyncd.c
+@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
+                 goto finish;
+         }
+ 
+-        if (clock_is_localtime() > 0) {
++        if (clock_is_localtime(NULL) > 0) {
+                 log_info("The system is configured to read the RTC time in the local time zone. "
+                          "This mode can not be fully supported. All system time to RTC updates are disabled.");
+                 m->rtc_local_time = true;

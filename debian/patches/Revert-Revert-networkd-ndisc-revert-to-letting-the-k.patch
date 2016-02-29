@@ -1,8 +1,7 @@
-From f1f54ef2f8509100483cb8dc8a9a2f9c3c823700 Mon Sep 17 00:00:00 2001
 From: Stefan Lippers-Hollmann <s.l-h@gmx.de>
 Date: Thu, 25 Feb 2016 00:29:28 +0100
-Subject: [PATCH] Revert "Revert "networkd: ndisc - revert to letting the
- kernel handle NDisc""
+Subject: Revert "Revert "networkd: ndisc - revert to letting the kernel
+ handle NDisc""
 
 networkd v229 introduces many regressions in IPv6 related RA handling,
 reverting this at least fixes:
@@ -176,6 +175,3 @@ index f2287be..5f362e9 100644
                                    ndisc_handler,
                                    link);
  
--- 
-2.7.0
-
