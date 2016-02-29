@@ -2,6 +2,11 @@ systemd (229-3) UNRELEASED; urgency=medium
 
   * debian/tests/timedated: Add tests for "timedatectl set-local-rtc".
   * Be more tolerant in parsing /etc/adjtime.
+  * debian/systemd.postinst: Don't fail package installation if systemctl
+    daemon-reload trigger fails. This does not fix the root cause of the
+    reload failures, but at least causes fewer packages to be in a broken
+    state after upgrade, so that a reboot or apt-get -f install have a much
+    higher chance in succeeding. (For bugs like LP #1502097 or LP #1447654)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Feb 2016 07:34:58 +0100
 

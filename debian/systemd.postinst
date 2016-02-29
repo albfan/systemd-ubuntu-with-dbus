@@ -21,7 +21,7 @@ if [ "$1" = "triggered" ]; then
                 _update_catalog
                 ;;
             /etc/init.d)
-                _systemctl daemon-reload
+                _systemctl daemon-reload || true
                 ;;
         esac
     done
