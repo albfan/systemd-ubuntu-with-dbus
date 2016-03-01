@@ -7,6 +7,8 @@ systemd (229-3) UNRELEASED; urgency=medium
     reload failures, but at least causes fewer packages to be in a broken
     state after upgrade, so that a reboot or apt-get -f install have a much
     higher chance in succeeding. (For bugs like LP #1502097 or LP #1447654)
+  * debian/tests/networkd: Skip test_hogplug_dhcp_ip6 when running against
+    upstream as well.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Feb 2016 07:34:58 +0100
 
