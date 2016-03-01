@@ -24,6 +24,9 @@ systemd (229-4ubuntu1) UNRELEASED; urgency=medium
     - Migrate existing s390x network configuration to new names. (LP: #1526808)
     - systemd.postinst: Bump Version comparison for migrating the UTC setting
       from /etc/default/rcS to /etc/adjtime, to run it for upgrades to 16.04.
+    - VMWare BIOS reports implausibly high onboard numbers. This got fixed in
+      upstream commit 6c1e69f9. Migrate names in ifupdown accordingly.
+      (LP: #1550539)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:13:25 +0200
 

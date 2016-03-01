@@ -100,6 +100,23 @@ EOF
       [ "$(dpkg --print-architecture)" = "s390x" ]; then
     sed 's/enccw[0.]*/enc/' -i /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null || true
   fi
+
+  # VMWare BIOS reports implausibly high onboard numbers, this got fixed in
+  # https://github.com/systemd/systemd/commit/6c1e69f9; migrate names in
+  # ifupdown accordingly
+  if dpkg --compare-versions "$2" lt-nl "229-2ubuntu2"; then
+    for i in /sys/class/net/eno*; do
+        if [ "${i#*/eno}" -gt 16383 ] 2>/dev/null; then
+            if slotname=$(udevadm info --query=property $i | grep '^ID_NET_NAME_SLOT='); then
+                slotname=${slotname#*=}
+                echo "Migrating broken onboard-based network interface name ${i##*/} to slot-based name $slotname in /etc/network/interfaces and interfaces.d/..."
+                sed -i "s/\\b${i##*/}\\b/$slotname/g" /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null || true
+            else
+                echo "WARNING: Cannot determine proper name for broken onboard-based network interface name ${i##*/}; you must adjust /etc/network/interfaces and interfaces.d/ manually"
+            fi
+        fi
+    done
+  fi
 }
 
 update_hwdb() {
