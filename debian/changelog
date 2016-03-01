@@ -1,5 +1,6 @@
 systemd (229-3) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * debian/tests/timedated: Add tests for "timedatectl set-local-rtc".
   * Be more tolerant in parsing /etc/adjtime.
   * debian/systemd.postinst: Don't fail package installation if systemctl
@@ -9,6 +10,9 @@ systemd (229-3) UNRELEASED; urgency=medium
     higher chance in succeeding. (For bugs like LP #1502097 or LP #1447654)
   * debian/tests/networkd: Skip test_hogplug_dhcp_ip6 when running against
     upstream as well.
+
+  [ Felipe Sateler ]
+  * Set the paths of loadkeys and setfont via configure arguments, not a patch
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 29 Feb 2016 07:34:58 +0100
 
