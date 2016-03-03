@@ -16,6 +16,8 @@ systemd (215-17+deb8u4) UNRELEASED; urgency=medium
   * Only skip the filesystem check for /usr if the /run/initramfs/fsck-usr
     flag file exists. Otherwise we break booting with dracut which uses
     systemd inside the initramfs. (Closes: #810748)
+  * Fix --network-interface in systemd-nspawn to not fail when modifying an
+    existing link. (Closes: #813696)
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 09 Jan 2016 16:24:05 +0100
 
