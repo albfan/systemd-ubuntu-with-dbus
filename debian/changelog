@@ -13,6 +13,9 @@ systemd (215-17+deb8u4) UNRELEASED; urgency=medium
   * Make sure all swap units are ordered before the swap target. This avoids
     that swap devices are being stopped prematurely during shutdown.
     (Closes: #805133)
+  * Only skip the filesystem check for /usr if the /run/initramfs/fsck-usr
+    flag file exists. Otherwise we break booting with dracut which uses
+    systemd inside the initramfs. (Closes: #810748)
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 09 Jan 2016 16:24:05 +0100
 
