@@ -438,14 +438,10 @@ class CoredumpTest(unittest.TestCase):
         self.assertNotEqual(cores, [])
         self.assertEqual(glob('/tmp/core*'), [])
 
-        # FIXME: this often fails on upstream PRs
-        if 'TEST_UPSTREAM' in os.environ:
-            return
-
         # we should also get a message and stack trace in journal
         for timeout in range(10):
             subprocess.call(['journalctl', '--sync'])
-            journal = subprocess.check_output(['journalctl', '/lib/systemd/systemd-coredump'])
+            journal = subprocess.check_output(['journalctl', '-t', 'systemd-coredump'])
             if re.search(b'Process.*bash.*dumped core', journal) and \
                re.search(b'#[0-9] .*bash', journal):
                 break

@@ -11,6 +11,10 @@ systemd (229-3) UNRELEASED; urgency=medium
   * debian/tests/networkd: Skip test_hogplug_dhcp_ip6 when running against
     upstream as well.
 
+  [ Evgeny Vereshchagin ]
+  * debian/tests/boot-and-services: Search systemd-coredump's output by
+    SYSLOG_IDENTIFIER.
+
   [ Felipe Sateler ]
   * Set the paths of loadkeys and setfont via configure arguments, not a patch
 
