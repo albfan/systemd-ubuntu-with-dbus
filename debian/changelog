@@ -10,6 +10,8 @@ systemd (229-3) UNRELEASED; urgency=medium
     higher chance in succeeding. (For bugs like LP #1502097 or LP #1447654)
   * debian/tests/networkd: Skip test_hogplug_dhcp_ip6 when running against
     upstream as well.
+  * debian/tests/boot-and-services: Wait for units to stop with a "systemctl
+    is-active" loop instead of static sleeps.
 
   [ Evgeny Vereshchagin ]
   * debian/tests/boot-and-services: Search systemd-coredump's output by

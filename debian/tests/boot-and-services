@@ -14,6 +14,19 @@ import re
 from glob import glob
 
 
+def wait_unit_stop(unit, timeout=10):
+    '''Wait until given unit is not running any more
+
+    Raise RuntimeError on timeout.
+    '''
+    for i in range(timeout):
+        if subprocess.call(['systemctl', 'is-active', '--quiet', unit]) != 0:
+            return
+        time.sleep(1)
+
+    raise RuntimeError('Timed out waiting for %s to stop' % unit)
+
+
 class ServicesTest(unittest.TestCase):
     '''Check that expected services are running'''
 
@@ -138,7 +151,7 @@ class ServicesTest(unittest.TestCase):
         os.close(os.open('/tmp/newfile.test',
                          os.O_CREAT | os.O_EXCL | os.O_WRONLY))
         subprocess.check_call(['systemctl', 'start', 'systemd-tmpfiles-clean'])
-        time.sleep(2)
+        wait_unit_stop('systemd-tmpfiles-clean')
         self.assertTrue(os.path.exists('/tmp/newfile.test'))
 
     # Helper methods
@@ -218,7 +231,7 @@ poweroff\n''')
         self.addCleanup(shutil.rmtree, cont)
         os.sync()
         subprocess.check_call(['systemctl', 'start', 'systemd-nspawn@c1'])
-        time.sleep(5)
+        wait_unit_stop('systemd-nspawn@c1')
 
         subprocess.call(['journalctl', '--sync'])
         systemctl = subprocess.Popen(
@@ -263,8 +276,7 @@ AppArmorProfile=violator-test
         # launch
         subprocess.check_call(['systemctl', 'daemon-reload'])
         subprocess.check_call(['systemctl', 'start', 'violator.service'])
-
-        time.sleep(2)
+        wait_unit_stop('violator.service')
 
         # check status
         st = subprocess.Popen(['systemctl', 'status', '-l',
@@ -404,7 +416,7 @@ SystemCallFilter=access
         # launch
         subprocess.check_call(['systemctl', 'daemon-reload'])
         subprocess.check_call(['systemctl', 'start', 'scfail.service'])
-        time.sleep(2)
+        wait_unit_stop('scfail.service')
 
         # check status
         st = subprocess.Popen(['systemctl', 'status', '-l',
