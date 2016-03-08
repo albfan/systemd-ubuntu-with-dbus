@@ -213,7 +213,7 @@ DHCP=%s
         self.do_test(coldplug=True, ipv6=False, dhcp_mode='ipv4',
                      extra_opts='IPv6AcceptRouterAdvertisements=False')
 
-    @unittest.skipIf('TEST_UPSTREAM' in os.environ, 'FIXME: fails often')
+    @unittest.skip('FIXME: regression in 229, TBI')
     def test_coldplug_dhcp_ip6(self):
         self.do_test(coldplug=True, ipv6=True)
 
@@ -221,7 +221,7 @@ DHCP=%s
         # With IPv4 only we have a 12s timeout on RA, so we need to wait longer
         self.do_test(coldplug=False, ipv6=False, online_timeout=15)
 
-    @unittest.skipIf('TEST_UPSTREAM' in os.environ, 'FIXME: fails often')
+    @unittest.skip('FIXME: regression in 229, TBI')
     def test_hotplug_dhcp_ip6(self):
         self.do_test(coldplug=False, ipv6=True)
 

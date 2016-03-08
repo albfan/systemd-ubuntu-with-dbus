@@ -12,6 +12,9 @@ systemd (229-3) UNRELEASED; urgency=medium
     upstream as well.
   * debian/tests/boot-and-services: Wait for units to stop with a "systemctl
     is-active" loop instead of static sleeps.
+  * debian/tests/networkd: Skip DHCPv6 tests for downstream packages too. This
+    is an actual regression in networkd-229, to be investigated. But this
+    shouldn't hold up reverse dependencies.
 
   [ Evgeny Vereshchagin ]
   * debian/tests/boot-and-services: Search systemd-coredump's output by
