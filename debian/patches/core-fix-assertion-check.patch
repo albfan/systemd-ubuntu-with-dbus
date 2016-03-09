@@ -1,0 +1,22 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 16 Feb 2016 13:18:36 +0100
+Subject: core: fix assertion check
+
+Fixes: #2632
+---
+ src/core/timer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/timer.c b/src/core/timer.c
+index 6f3e6a8..3d0bae1 100644
+--- a/src/core/timer.c
++++ b/src/core/timer.c
+@@ -334,7 +334,7 @@ static void add_random(Timer *t, usec_t *v) {
+         usec_t add;
+ 
+         assert(t);
+-        assert(*v);
++        assert(v);
+ 
+         if (t->random_usec == 0)
+                 return;
