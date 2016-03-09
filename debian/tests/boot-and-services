@@ -239,7 +239,7 @@ poweroff\n''')
             stdout=subprocess.PIPE)
         out = systemctl.communicate()[0].decode('UTF-8', 'replace')
         self.assertEqual(systemctl.returncode, 3, out)
-        self.assertTrue('Stopped Container c1' in out, out)
+        self.assertNotIn('failed', out)
 
 
 @unittest.skipUnless(os.path.exists('/sys/kernel/security/apparmor'),
