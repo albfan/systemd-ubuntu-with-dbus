@@ -20,6 +20,7 @@ systemd (229-3) UNRELEASED; urgency=medium
     message in NspawnTests.test_service(), this is sometimes not present. Just
     check that the unit did not fail.
   * Add "adduser" dependency to systemd-coredump, to quiesce lintian.
+  * Bump Standards-Version to 3.9.7 (no changes necessary).
 
   [ Evgeny Vereshchagin ]
   * debian/tests/boot-and-services: Search systemd-coredump's output by
