@@ -19,6 +19,7 @@ systemd (229-3) UNRELEASED; urgency=medium
   * debian/tests/boot-and-services: Don't assert on "Stopped Container c1"
     message in NspawnTests.test_service(), this is sometimes not present. Just
     check that the unit did not fail.
+  * Add "adduser" dependency to systemd-coredump, to quiesce lintian.
 
   [ Evgeny Vereshchagin ]
   * debian/tests/boot-and-services: Search systemd-coredump's output by
