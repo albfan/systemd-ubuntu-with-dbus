@@ -25,6 +25,7 @@ systemd (229-3) UNRELEASED; urgency=medium
   [ Evgeny Vereshchagin ]
   * debian/tests/boot-and-services: Search systemd-coredump's output by
     SYSLOG_IDENTIFIER.
+  * Add missing "Recommends: btrfs-tools" to systemd-container.
 
   [ Felipe Sateler ]
   * Set the paths of loadkeys and setfont via configure arguments, not a patch

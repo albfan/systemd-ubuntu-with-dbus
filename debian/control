@@ -129,6 +129,7 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd
+Recommends: btrfs-tools
 Breaks: systemd (<< 224-2)
 Replaces: systemd (<< 224-2)
 Description: systemd container/nspawn tools
