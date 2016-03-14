@@ -7,6 +7,7 @@ if [ "$1" = configure ]; then
 
     # enable systemd-coredump right after package installation
     /lib/systemd/systemd-sysctl /usr/lib/sysctl.d/50-coredump.conf || true
+    systemctl start systemd-coredump.socket || true
 fi
 
 #DEBHELPER#
