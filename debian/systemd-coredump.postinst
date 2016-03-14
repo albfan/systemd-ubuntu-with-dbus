@@ -6,10 +6,10 @@ if [ "$1" = configure ]; then
         --gecos "systemd core dump processing" systemd-coredump
 
     # enable systemd-coredump right after package installation
-    /lib/systemd/systemd-sysctl /usr/lib/sysctl.d/50-coredump.conf || true
     if [ -d /run/systemd/system ]; then
         systemctl start systemd-coredump.socket || true
     fi
+    /lib/systemd/systemd-sysctl /usr/lib/sysctl.d/50-coredump.conf || true
 fi
 
 #DEBHELPER#
