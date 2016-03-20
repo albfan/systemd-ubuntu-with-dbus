@@ -1,0 +1,44 @@
+From: Hristo Venev <hristo@venev.name>
+Date: Mon, 22 Feb 2016 08:02:48 -0500
+Subject: calendarspec: fix find_next skipping times
+
+reset usec when bumping hours/minutes
+---
+ src/basic/calendarspec.c     | 4 ++--
+ src/test/test-calendarspec.c | 1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/basic/calendarspec.c b/src/basic/calendarspec.c
+index 7758790..ac7b7c4 100644
+--- a/src/basic/calendarspec.c
++++ b/src/basic/calendarspec.c
+@@ -1027,7 +1027,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
+ 
+                 r = find_matching_component(spec->hour, &c.tm_hour);
+                 if (r > 0)
+-                        c.tm_min = c.tm_sec = 0;
++                        c.tm_min = c.tm_sec = tm_usec = 0;
+                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
+                         c.tm_mday ++;
+                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
+@@ -1036,7 +1036,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
+ 
+                 r = find_matching_component(spec->minute, &c.tm_min);
+                 if (r > 0)
+-                        c.tm_sec = 0;
++                        c.tm_sec = tm_usec = 0;
+                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
+                         c.tm_hour ++;
+                         c.tm_min = c.tm_sec = tm_usec = 0;
+diff --git a/src/test/test-calendarspec.c b/src/test/test-calendarspec.c
+index 8754cb3..5a8c6cb 100644
+--- a/src/test/test-calendarspec.c
++++ b/src/test/test-calendarspec.c
+@@ -137,6 +137,7 @@ int main(int argc, char* argv[]) {
+         test_next("2015-11-13 09:11:23.42", "EET", 12345, 1447398683420000);
+         test_next("2015-11-13 09:11:23.42/1.77", "EET", 1447398683420000, 1447398685190000);
+         test_next("2015-11-13 09:11:23.42/1.77", "EET", 1447398683419999, 1447398683420000);
++        test_next("Sun 16:00:00", "CET", 1456041600123456, 1456066800000000);
+ 
+         assert_se(calendar_spec_from_string("test", &c) < 0);
+         assert_se(calendar_spec_from_string("", &c) < 0);

@@ -5,6 +5,7 @@ clock-util-make-clock_is_localtime-testable-and-add-initi.patch
 clock-util-be-more-tolerant-in-parsing-etc-adjtime.patch
 timedated-be-more-tolerant-in-parsing-etc-adjtime.patch
 core-fix-assertion-check.patch
+calendarspec-fix-find_next-skipping-times.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
