@@ -1,0 +1,34 @@
+From: Ronny Chevalier <chevalier.ronny@gmail.com>
+Date: Wed, 2 Mar 2016 22:06:47 +0100
+Subject: systemctl: rm empty dropin dirs after cancelled edit
+
+Fixes #2734
+---
+ src/systemctl/systemctl.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 908ccab..e15f84b 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -6157,9 +6157,19 @@ static int edit(int argc, char *argv[], void *userdata) {
+                 r = daemon_reload(argc, argv, userdata);
+ 
+ end:
+-        STRV_FOREACH_PAIR(original, tmp, paths)
++        STRV_FOREACH_PAIR(original, tmp, paths) {
+                 (void) unlink(*tmp);
+ 
++                /* Removing empty dropin dirs */
++                if (!arg_full) {
++                        _cleanup_free_ char *dir = dirname_malloc(*original);
++                        /* no need to check if the dir is empty, rmdir
++                         * does nothing if it is not the case.
++                         */
++                        (void) rmdir(dir);
++                }
++        }
++
+         return r;
+ }
+ 

@@ -1,0 +1,51 @@
+From: Evgeny Vereshchagin <evvers@ya.ru>
+Date: Wed, 17 Feb 2016 22:32:36 +0000
+Subject: core: revert "core: resolve specifier in config_parse_exec()"
+
+This reverts commit cb48dfca6a8bc15d9081651001a16bf51e03838a.
+
+Exec*-settings resolve specifiers twice:
+%%U -> config_parse_exec [cb48dfca6a8] -> %U -> service_spawn -> 0
+
+Fixes #2637
+---
+ src/core/load-fragment.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/src/core/load-fragment.c b/src/core/load-fragment.c
+index b3dec7b..8804b3a 100644
+--- a/src/core/load-fragment.c
++++ b/src/core/load-fragment.c
+@@ -574,9 +574,7 @@ int config_parse_exec(
+                 void *data,
+                 void *userdata) {
+ 
+-        _cleanup_free_ char *cmd = NULL;
+         ExecCommand **e = data;
+-        Unit *u = userdata;
+         const char *p;
+         bool semicolon;
+         int r;
+@@ -585,7 +583,6 @@ int config_parse_exec(
+         assert(lvalue);
+         assert(rvalue);
+         assert(e);
+-        assert(u);
+ 
+         e += ltype;
+         rvalue += strspn(rvalue, WHITESPACE);
+@@ -596,13 +593,7 @@ int config_parse_exec(
+                 return 0;
+         }
+ 
+-        r = unit_full_printf(u, rvalue, &cmd);
+-        if (r < 0) {
+-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
+-                return 0;
+-        }
+-
+-        p = cmd;
++        p = rvalue;
+         do {
+                 _cleanup_free_ char *path = NULL, *firstword = NULL;
+                 bool separate_argv0 = false, ignore = false;

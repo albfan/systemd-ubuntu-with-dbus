@@ -1,0 +1,50 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 18 Feb 2016 22:51:23 +0100
+Subject: core: exclude .slice units from "systemctl isolate"
+
+Fixes: #1969
+---
+ src/core/scope.c | 3 +--
+ src/core/slice.c | 8 ++++++++
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/scope.c b/src/core/scope.c
+index c5d0ece..361695c 100644
+--- a/src/core/scope.c
++++ b/src/core/scope.c
+@@ -50,8 +50,7 @@ static void scope_init(Unit *u) {
+         assert(u->load_state == UNIT_STUB);
+ 
+         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+-
+-        UNIT(s)->ignore_on_isolate = true;
++        u->ignore_on_isolate = true;
+ }
+ 
+ static void scope_done(Unit *u) {
+diff --git a/src/core/slice.c b/src/core/slice.c
+index d65364c..667f61b 100644
+--- a/src/core/slice.c
++++ b/src/core/slice.c
+@@ -34,6 +34,13 @@ static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
+         [SLICE_ACTIVE] = UNIT_ACTIVE
+ };
+ 
++static void slice_init(Unit *u) {
++        assert(u);
++        assert(u->load_state == UNIT_STUB);
++
++        u->ignore_on_isolate = true;
++}
++
+ static void slice_set_state(Slice *t, SliceState state) {
+         SliceState old_state;
+         assert(t);
+@@ -305,6 +312,7 @@ const UnitVTable slice_vtable = {
+         .no_instances = true,
+         .can_transient = true,
+ 
++        .init = slice_init,
+         .load = slice_load,
+ 
+         .coldplug = slice_coldplug,

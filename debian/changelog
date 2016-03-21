@@ -24,6 +24,8 @@ systemd (229-3) UNRELEASED; urgency=medium
   * Fix timespec parsing by correctly initializing microseconds.
     (Closes: #818698, LP: #1559038)
   * networkd: Add fallback if FIONREAD is not supported. (Closes: #818488)
+  * Cherry-pick various fixes from upstream master.
+    - Fixes logout when changing the current target. (Closes: #805442)
 
   [ Evgeny Vereshchagin ]
   * debian/tests/boot-and-services: Search systemd-coredump's output by

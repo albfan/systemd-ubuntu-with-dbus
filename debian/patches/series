@@ -7,6 +7,16 @@ timedated-be-more-tolerant-in-parsing-etc-adjtime.patch
 core-fix-assertion-check.patch
 calendarspec-fix-find_next-skipping-times.patch
 networkd-FIONREAD-is-not-reliable-on-some-sockets.patch
+udev-fix-cg_unified-return-code-checking.patch
+core-revert-core-resolve-specifier-in-config_parse_exec.patch
+activate-fix-E-option-parsing.patch
+core-exclude-.slice-units-from-systemctl-isolate.patch
+resolved-fix-notification-iteration-logic-when-transactio.patch
+systemctl-rm-empty-dropin-dirs-after-cancelled-edit.patch
+systemctl-improve-error-message-when-starting-a-unit-fail.patch
+shared-machine-pool-fix-mkfs.btrfs-checking.patch
+shared-machine-pool-fix-another-mkfs.btrfs-checking.patch
+systemd-obey-systemd.log_color-config.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

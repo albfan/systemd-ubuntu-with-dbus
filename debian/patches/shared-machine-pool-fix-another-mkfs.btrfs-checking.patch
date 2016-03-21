@@ -1,0 +1,48 @@
+From: Evgeny Vereshchagin <evvers@ya.ru>
+Date: Mon, 14 Mar 2016 00:54:35 +0000
+Subject: shared/machine-pool: fix another mkfs.btrfs checking
+
+Fixes:
+       Message: Process 806 (systemd-importd) of user 0 dumped core.
+
+                Stack trace of thread 806:
+                #0  0x00007f5eaeff7227 raise (libc.so.6)
+                #1  0x00007f5eaeff8e8a abort (libc.so.6)
+                #2  0x000055b6d3418f4f log_assert_failed (systemd-importd)
+                #3  0x000055b6d3409daf safe_close (systemd-importd)
+                #4  0x000055b6d33c25ea closep (systemd-importd)
+                #5  0x000055b6d33c38d9 setup_machine_directory (systemd-importd)
+                #6  0x000055b6d33b8536 method_pull_tar_or_raw (systemd-importd)
+                #7  0x000055b6d33ed097 method_callbacks_run (systemd-importd)
+                #8  0x000055b6d33ef929 object_find_and_run (systemd-importd)
+                #9  0x000055b6d33eff6b bus_process_object (systemd-importd)
+                #10 0x000055b6d3447f77 process_message (systemd-importd)
+                #11 0x000055b6d344815a process_running (systemd-importd)
+                #12 0x000055b6d3448a10 bus_process_internal (systemd-importd)
+                #13 0x000055b6d3448ae1 sd_bus_process (systemd-importd)
+                #14 0x000055b6d3449779 time_callback (systemd-importd)
+                #15 0x000055b6d3454ff4 source_dispatch (systemd-importd)
+                #16 0x000055b6d34562b9 sd_event_dispatch (systemd-importd)
+                #17 0x000055b6d34566f8 sd_event_run (systemd-importd)
+                #18 0x000055b6d33ba72a bus_event_loop_with_idle (systemd-importd)
+                #19 0x000055b6d33b95bc manager_run (systemd-importd)
+                #20 0x000055b6d33b9766 main (systemd-importd)
+                #21 0x00007f5eaefe2a00 __libc_start_main (libc.so.6)
+                #22 0x000055b6d33b5569 _start (systemd-importd)
+---
+ src/shared/machine-pool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/shared/machine-pool.c b/src/shared/machine-pool.c
+index 60e4cf4..bdc840c 100644
+--- a/src/shared/machine-pool.c
++++ b/src/shared/machine-pool.c
+@@ -138,7 +138,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
+ 
+                 execlp("mkfs.btrfs", "-Lvar-lib-machines", tmp, NULL);
+                 if (errno == ENOENT)
+-                        return 99;
++                        _exit(99);
+ 
+                 _exit(EXIT_FAILURE);
+         }

@@ -1,0 +1,22 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 18 Feb 2016 21:54:31 -0500
+Subject: activate: fix -E option parsing
+
+Fixes #2658.
+---
+ src/activate/activate.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/activate/activate.c b/src/activate/activate.c
+index 0db4967..4b3d0e5 100644
+--- a/src/activate/activate.c
++++ b/src/activate/activate.c
+@@ -379,7 +379,7 @@ static int parse_argv(int argc, char *argv[]) {
+         assert(argc >= 0);
+         assert(argv);
+ 
+-        while ((c = getopt_long(argc, argv, "+hl:aEd", options, NULL)) >= 0)
++        while ((c = getopt_long(argc, argv, "+hl:aE:d", options, NULL)) >= 0)
+                 switch(c) {
+                 case 'h':
+                         help();

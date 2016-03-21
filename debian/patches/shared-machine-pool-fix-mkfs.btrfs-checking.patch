@@ -1,0 +1,27 @@
+From: Evgeny Vereshchagin <evvers@ya.ru>
+Date: Sun, 13 Mar 2016 23:51:37 +0000
+Subject: shared/machine-pool: fix mkfs.btrfs checking
+
+binary_is_good translates ENOENT to 0
+See https://github.com/systemd/systemd/commit/85eca92e#diff-bcad68c477b6651521e880c40b7a9b40R813
+---
+ src/shared/machine-pool.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/src/shared/machine-pool.c b/src/shared/machine-pool.c
+index e5674e4..60e4cf4 100644
+--- a/src/shared/machine-pool.c
++++ b/src/shared/machine-pool.c
+@@ -238,10 +238,8 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
+         }
+ 
+         r = mkfs_exists("btrfs");
+-        if (r == -ENOENT) {
+-                log_debug("mkfs.btrfs is missing, cannot create loopback file for /var/lib/machines.");
+-                return 0;
+-        }
++        if (r == 0)
++                return sd_bus_error_set_errnof(error, ENOENT, "Cannot set up /var/lib/machines, mkfs.btrfs is missing");
+         if (r < 0)
+                 return r;
+ 

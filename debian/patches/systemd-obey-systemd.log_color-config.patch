@@ -1,0 +1,113 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Wed, 16 Mar 2016 09:27:37 -0400
+Subject: systemd: obey systemd.log_color config
+
+Fixes #2845.
+---
+ src/core/job.c         | 26 +++++++++++++++++---------
+ src/core/main.c        | 13 +++++++++----
+ src/core/transaction.c |  9 ++++++++-
+ 3 files changed, 34 insertions(+), 14 deletions(-)
+
+diff --git a/src/core/job.c b/src/core/job.c
+index 97304c4..9063b34 100644
+--- a/src/core/job.c
++++ b/src/core/job.c
+@@ -690,17 +690,20 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
+ }
+ 
+ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
+-        static const char* const job_result_status_table[_JOB_RESULT_MAX] = {
+-                [JOB_DONE]        = ANSI_GREEN            "  OK  " ANSI_NORMAL,
+-                [JOB_TIMEOUT]     = ANSI_HIGHLIGHT_RED    " TIME " ANSI_NORMAL,
+-                [JOB_FAILED]      = ANSI_HIGHLIGHT_RED    "FAILED" ANSI_NORMAL,
+-                [JOB_DEPENDENCY]  = ANSI_HIGHLIGHT_YELLOW "DEPEND" ANSI_NORMAL,
+-                [JOB_SKIPPED]     = ANSI_HIGHLIGHT        " INFO " ANSI_NORMAL,
+-                [JOB_ASSERT]      = ANSI_HIGHLIGHT_YELLOW "ASSERT" ANSI_NORMAL,
+-                [JOB_UNSUPPORTED] = ANSI_HIGHLIGHT_YELLOW "UNSUPP" ANSI_NORMAL,
++        static struct {
++                const char *color, *word;
++        } const statuses[_JOB_RESULT_MAX] = {
++                [JOB_DONE]        = {ANSI_GREEN,            "  OK  "},
++                [JOB_TIMEOUT]     = {ANSI_HIGHLIGHT_RED,    " TIME "},
++                [JOB_FAILED]      = {ANSI_HIGHLIGHT_RED,    "FAILED"},
++                [JOB_DEPENDENCY]  = {ANSI_HIGHLIGHT_YELLOW, "DEPEND"},
++                [JOB_SKIPPED]     = {ANSI_HIGHLIGHT,        " INFO "},
++                [JOB_ASSERT]      = {ANSI_HIGHLIGHT_YELLOW, "ASSERT"},
++                [JOB_UNSUPPORTED] = {ANSI_HIGHLIGHT_YELLOW, "UNSUPP"},
+         };
+ 
+         const char *format;
++        const char *status;
+ 
+         assert(u);
+         assert(t >= 0);
+@@ -714,11 +717,16 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
+         if (!format)
+                 return;
+ 
++        if (log_get_show_color())
++                status = strjoina(statuses[result].color, statuses[result].word, ANSI_NORMAL);
++        else
++                status = statuses[result].word;
++
+         if (result != JOB_DONE)
+                 manager_flip_auto_status(u->manager, true);
+ 
+         DISABLE_WARNING_FORMAT_NONLITERAL;
+-        unit_status_printf(u, job_result_status_table[result], format);
++        unit_status_printf(u, status, format);
+         REENABLE_WARNING;
+ 
+         if (t == JOB_START && result == JOB_FAILED) {
+diff --git a/src/core/main.c b/src/core/main.c
+index 7932755..aca8175 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -1230,10 +1230,15 @@ static int status_welcome(void) {
+         if (r < 0 && r != -ENOENT)
+                 log_warning_errno(r, "Failed to read os-release file: %m");
+ 
+-        return status_printf(NULL, false, false,
+-                             "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
+-                             isempty(ansi_color) ? "1" : ansi_color,
+-                             isempty(pretty_name) ? "Linux" : pretty_name);
++        if (log_get_show_color())
++                return status_printf(NULL, false, false,
++                                     "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
++                                     isempty(ansi_color) ? "1" : ansi_color,
++                                     isempty(pretty_name) ? "Linux" : pretty_name);
++        else
++                return status_printf(NULL, false, false,
++                                     "\nWelcome to %s!\n",
++                                     isempty(pretty_name) ? "Linux" : pretty_name);
+ }
+ 
+ static int write_container_id(void) {
+diff --git a/src/core/transaction.c b/src/core/transaction.c
+index b28fc76..c894001 100644
+--- a/src/core/transaction.c
++++ b/src/core/transaction.c
+@@ -391,6 +391,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
+ 
+ 
+                 if (delete) {
++                        const char *status;
+                         /* logging for j not k here here to provide consistent narrative */
+                         log_unit_warning(j->unit,
+                                          "Breaking ordering cycle by deleting job %s/%s",
+@@ -399,7 +400,13 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
+                                        "Job %s/%s deleted to break ordering cycle starting with %s/%s",
+                                        delete->unit->id, job_type_to_string(delete->type),
+                                        j->unit->id, job_type_to_string(j->type));
+-                        unit_status_printf(delete->unit, ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL,
++
++                        if (log_get_show_color())
++                                status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
++                        else
++                                status = " SKIP ";
++
++                        unit_status_printf(delete->unit, status,
+                                            "Ordering cycle found, skipping %s");
+                         transaction_delete_unit(tr, delete->unit);
+                         return -EAGAIN;
