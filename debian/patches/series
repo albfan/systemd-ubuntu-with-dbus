@@ -6,6 +6,7 @@ clock-util-be-more-tolerant-in-parsing-etc-adjtime.patch
 timedated-be-more-tolerant-in-parsing-etc-adjtime.patch
 core-fix-assertion-check.patch
 calendarspec-fix-find_next-skipping-times.patch
+networkd-FIONREAD-is-not-reliable-on-some-sockets.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

@@ -1,0 +1,236 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 15 Feb 2016 22:50:01 +0100
+Subject: networkd: FIONREAD is not reliable on some sockets
+
+Fixes: #2457
+---
+ src/basic/socket-util.c                  | 34 ++++++++++++++++++++++++++++++++
+ src/basic/socket-util.h                  |  2 ++
+ src/libsystemd-network/sd-dhcp-client.c  | 23 +++++++++------------
+ src/libsystemd-network/sd-dhcp-server.c  |  9 ++++-----
+ src/libsystemd-network/sd-dhcp6-client.c | 13 ++++++------
+ src/libsystemd-network/sd-ndisc.c        | 13 +++++-------
+ src/resolve/resolved-manager.c           | 10 ++++------
+ 7 files changed, 64 insertions(+), 40 deletions(-)
+
+diff --git a/src/basic/socket-util.c b/src/basic/socket-util.c
+index 49e5f5b..5851268 100644
+--- a/src/basic/socket-util.c
++++ b/src/basic/socket-util.c
+@@ -936,3 +936,37 @@ int receive_one_fd(int transport_fd, int flags) {
+ 
+         return *(int*) CMSG_DATA(found);
+ }
++
++ssize_t next_datagram_size_fd(int fd) {
++        ssize_t l;
++        int k;
++
++        /* This is a bit like FIONREAD/SIOCINQ, however a bit more powerful. The difference being: recv(MSG_PEEK) will
++         * actually cause the next datagram in the queue to be validated regarding checksums, which FIONREAD dosn't
++         * do. This difference is actually of major importance as we need to be sure that the size returned here
++         * actually matches what we will read with recvmsg() next, as otherwise we might end up allocating a buffer of
++         * the wrong size. */
++
++        l = recv(fd, NULL, 0, MSG_PEEK|MSG_TRUNC);
++        if (l < 0) {
++                if (errno == EOPNOTSUPP)
++                        goto fallback;
++
++                return -errno;
++        }
++        if (l == 0)
++                goto fallback;
++
++        return l;
++
++fallback:
++        k = 0;
++
++        /* Some sockets (AF_PACKET) do not support null-sized recv() with MSG_TRUNC set, let's fall back to FIONREAD
++         * for them. Checksums don't matter for raw sockets anyway, hence this should be fine. */
++
++        if (ioctl(fd, FIONREAD, &k) < 0)
++                return -errno;
++
++        return (ssize_t) k;
++}
+diff --git a/src/basic/socket-util.h b/src/basic/socket-util.h
+index 92edc1d..d17a2f3 100644
+--- a/src/basic/socket-util.h
++++ b/src/basic/socket-util.h
+@@ -133,5 +133,7 @@ int send_one_fd_sa(int transport_fd,
+ #define send_one_fd(transport_fd, fd, flags) send_one_fd_sa(transport_fd, fd, NULL, 0, flags)
+ int receive_one_fd(int transport_fd, int flags);
+ 
++ssize_t next_datagram_size_fd(int fd);
++
+ #define CMSG_FOREACH(cmsg, mh)                                          \
+         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index cad1a52..729ef88 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -1525,20 +1525,17 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
+                                       uint32_t revents, void *userdata) {
+         sd_dhcp_client *client = userdata;
+         _cleanup_free_ DHCPMessage *message = NULL;
+-        int buflen = 0, len, r;
+         const struct ether_addr zero_mac = { { 0, 0, 0, 0, 0, 0 } };
+         const struct ether_addr *expected_chaddr = NULL;
+         uint8_t expected_hlen = 0;
++        ssize_t len, buflen;
+ 
+         assert(s);
+         assert(client);
+ 
+-        r = ioctl(fd, FIONREAD, &buflen);
+-        if (r < 0)
+-                return -errno;
+-        else if (buflen < 0)
+-                /* this can't be right */
+-                return -EIO;
++        buflen = next_datagram_size_fd(fd);
++        if (buflen < 0)
++                return buflen;
+ 
+         message = malloc0(buflen);
+         if (!message)
+@@ -1616,17 +1613,15 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
+         };
+         struct cmsghdr *cmsg;
+         bool checksum = true;
+-        int buflen = 0, len, r;
++        ssize_t buflen, len;
++        int r;
+ 
+         assert(s);
+         assert(client);
+ 
+-        r = ioctl(fd, FIONREAD, &buflen);
+-        if (r < 0)
+-                return -errno;
+-        else if (buflen < 0)
+-                /* this can't be right */
+-                return -EIO;
++        buflen = next_datagram_size_fd(fd);
++        if (buflen < 0)
++                return buflen;
+ 
+         packet = malloc0(buflen);
+         if (!packet)
+diff --git a/src/libsystemd-network/sd-dhcp-server.c b/src/libsystemd-network/sd-dhcp-server.c
+index ad3a37b..54ff1a3 100644
+--- a/src/libsystemd-network/sd-dhcp-server.c
++++ b/src/libsystemd-network/sd-dhcp-server.c
+@@ -955,14 +955,13 @@ static int server_receive_message(sd_event_source *s, int fd,
+                 .msg_controllen = sizeof(cmsgbuf),
+         };
+         struct cmsghdr *cmsg;
+-        int buflen = 0, len;
++        ssize_t buflen, len;
+ 
+         assert(server);
+ 
+-        if (ioctl(fd, FIONREAD, &buflen) < 0)
+-                return -errno;
+-        else if (buflen < 0)
+-                return -EIO;
++        buflen = next_datagram_size_fd(fd);
++        if (buflen < 0)
++                return buflen;
+ 
+         message = malloc(buflen);
+         if (!message)
+diff --git a/src/libsystemd-network/sd-dhcp6-client.c b/src/libsystemd-network/sd-dhcp6-client.c
+index 5b6b9cb..7d56d4c 100644
+--- a/src/libsystemd-network/sd-dhcp6-client.c
++++ b/src/libsystemd-network/sd-dhcp6-client.c
+@@ -33,6 +33,7 @@
+ #include "in-addr-util.h"
+ #include "network-internal.h"
+ #include "random-util.h"
++#include "socket-util.h"
+ #include "string-table.h"
+ #include "util.h"
+ 
+@@ -891,18 +892,16 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents,
+         sd_dhcp6_client *client = userdata;
+         DHCP6_CLIENT_DONT_DESTROY(client);
+         _cleanup_free_ DHCP6Message *message = NULL;
+-        int r, buflen, len;
++        ssize_t buflen, len;
++        int r = 0;
+ 
+         assert(s);
+         assert(client);
+         assert(client->event);
+ 
+-        r = ioctl(fd, FIONREAD, &buflen);
+-        if (r < 0)
+-                return -errno;
+-        else if (buflen < 0)
+-                /* This really should not happen */
+-                return -EIO;
++        buflen = next_datagram_size_fd(fd);
++        if (buflen < 0)
++                return buflen;
+ 
+         message = malloc(buflen);
+         if (!message)
+diff --git a/src/libsystemd-network/sd-ndisc.c b/src/libsystemd-network/sd-ndisc.c
+index 519d2aa..bae6a49 100644
+--- a/src/libsystemd-network/sd-ndisc.c
++++ b/src/libsystemd-network/sd-ndisc.c
+@@ -491,19 +491,16 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
+         struct cmsghdr *cmsg;
+         struct in6_addr *gw;
+         unsigned lifetime;
+-        ssize_t len;
+-        int r, pref, stateful, buflen = 0;
++        ssize_t len, buflen;
++        int r, pref, stateful;
+ 
+         assert(s);
+         assert(nd);
+         assert(nd->event);
+ 
+-        r = ioctl(fd, FIONREAD, &buflen);
+-        if (r < 0)
+-                return -errno;
+-        else if (buflen < 0)
+-                /* This really should not happen */
+-                return -EIO;
++        buflen = next_datagram_size_fd(fd);
++        if (buflen < 0)
++                return buflen;
+ 
+         iov.iov_len = buflen;
+ 
+diff --git a/src/resolve/resolved-manager.c b/src/resolve/resolved-manager.c
+index bf5efe4..7f90734 100644
+--- a/src/resolve/resolved-manager.c
++++ b/src/resolve/resolved-manager.c
+@@ -617,18 +617,16 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
+         struct msghdr mh = {};
+         struct cmsghdr *cmsg;
+         struct iovec iov;
+-        int ms = 0, r;
+-        ssize_t l;
++        ssize_t ms, l;
++        int r;
+ 
+         assert(m);
+         assert(fd >= 0);
+         assert(ret);
+ 
+-        r = ioctl(fd, FIONREAD, &ms);
+-        if (r < 0)
+-                return -errno;
++        ms = next_datagram_size_fd(fd);
+         if (ms < 0)
+-                return -EIO;
++                return ms;
+ 
+         r = dns_packet_new(&p, protocol, ms);
+         if (r < 0)
