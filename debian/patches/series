@@ -17,6 +17,7 @@ systemctl-improve-error-message-when-starting-a-unit-fail.patch
 shared-machine-pool-fix-mkfs.btrfs-checking.patch
 shared-machine-pool-fix-another-mkfs.btrfs-checking.patch
 systemd-obey-systemd.log_color-config.patch
+device-Ensure-we-have-sysfs-path-before-comparing.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

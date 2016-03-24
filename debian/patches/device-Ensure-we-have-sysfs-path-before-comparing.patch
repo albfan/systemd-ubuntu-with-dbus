@@ -1,0 +1,29 @@
+From: Colin Guthrie <colin@mageia.org>
+Date: Mon, 14 Mar 2016 09:42:07 +0000
+Subject: device: Ensure we have sysfs path before comparing.
+
+In some cases we do not have a udev device when setting up a unit
+(certainly the code gracefully handles this). However, we do
+then go on to compare the path via path_equal which will assert
+if a null value is passed in.
+
+See https://bugs.mageia.org/show_bug.cgi?id=17766
+
+Not sure if this is the correct fix, but it avoids the crash
+---
+ src/core/device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/device.c b/src/core/device.c
+index d201dc5..c64e01c 100644
+--- a/src/core/device.c
++++ b/src/core/device.c
+@@ -318,7 +318,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
+          * the GC to have garbaged it. That's desired since the device
+          * unit may have a dependency on the mount unit which was
+          * added during the loading of the later. */
+-        if (u && DEVICE(u)->state == DEVICE_PLUGGED) {
++        if (sysfs && u && DEVICE(u)->state == DEVICE_PLUGGED) {
+                 /* This unit is in plugged state: we're sure it's
+                  * attached to a device. */
+                 if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
