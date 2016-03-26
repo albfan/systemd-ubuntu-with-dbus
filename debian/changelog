@@ -2,6 +2,7 @@ systemd (229-4) UNRELEASED; urgency=medium
 
   * Fix assertion crash when processing a (broken) device without a sysfs
     path. (LP: #1560695)
+  * Fix crash when shutdown is issued from a non-tty. (LP: #1553040)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
 

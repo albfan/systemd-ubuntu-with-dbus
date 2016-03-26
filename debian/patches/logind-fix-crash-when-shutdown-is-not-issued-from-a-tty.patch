@@ -1,0 +1,28 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 23 Mar 2016 08:46:58 +0100
+Subject: logind: fix crash when shutdown is not issued from a tty
+
+It's possible that sd_bus_creds_get_tty() fails and thus
+scheduled_shutdown_tty is NULL in method_schedule_shutdown().
+
+Fix logind_wall_tty_filter() to get along with that, by showing the message on
+all TTYs, instead of crashing in strcmp().
+
+https://launchpad.net/bugs/1553040
+---
+ src/login/logind-utmp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/login/logind-utmp.c b/src/login/logind-utmp.c
+index 11a91c3..29ab00e 100644
+--- a/src/login/logind-utmp.c
++++ b/src/login/logind-utmp.c
+@@ -65,7 +65,7 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
+ 
+         assert(m);
+ 
+-        if (!startswith(tty, "/dev/"))
++        if (!startswith(tty, "/dev/") || !m->scheduled_shutdown_tty)
+                 return true;
+ 
+         return !streq(tty + 5, m->scheduled_shutdown_tty);
