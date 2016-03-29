@@ -19,6 +19,7 @@ shared-machine-pool-fix-another-mkfs.btrfs-checking.patch
 systemd-obey-systemd.log_color-config.patch
 device-Ensure-we-have-sysfs-path-before-comparing.patch
 logind-fix-crash-when-shutdown-is-not-issued-from-a-tty.patch
+networkd-rework-idle-detection-logic-of-networkd.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

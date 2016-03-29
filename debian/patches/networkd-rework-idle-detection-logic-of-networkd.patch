@@ -1,0 +1,52 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 15 Feb 2016 19:11:18 +0100
+Subject: networkd: rework idle detection logic of networkd
+
+This patch makes networkd stay around as long as there is more than just a
+loopback interface around, or the loopback device isn't fully probed yet, or
+the loopback device has a .network file attached.
+
+In essence, this means networkd stays around now continously as it should,
+unless it is running in some (container?) environment that really has no
+interface except a loopback device.
+
+Fixes #2577.
+---
+ src/network/networkd-manager.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/src/network/networkd-manager.c b/src/network/networkd-manager.c
+index b527191..b8cb7f8 100644
+--- a/src/network/networkd-manager.c
++++ b/src/network/networkd-manager.c
+@@ -1091,22 +1091,19 @@ static bool manager_check_idle(void *userdata) {
+ 
+         assert(m);
+ 
++        /* Check whether we are idle now. The only case when we decide to be idle is when there's only a loopback
++         * device around, for which we have no configuration, and which already left the PENDING state. In all other
++         * cases we are not idle. */
++
+         HASHMAP_FOREACH(link, m->links, i) {
+-                /* we are not woken on udev activity, so let's just wait for the
+-                 * pending udev event */
++                /* We are not woken on udev activity, so let's just wait for the pending udev event */
+                 if (link->state == LINK_STATE_PENDING)
+                         return false;
+ 
+-                if (!link->network)
+-                        continue;
++                if ((link->flags & IFF_LOOPBACK) == 0)
++                        return false;
+ 
+-                /* we are not woken on netork activity, so let's stay around */
+-                if (link_lldp_enabled(link) ||
+-                    link_ipv4ll_enabled(link) ||
+-                    link_dhcp4_server_enabled(link) ||
+-                    link_dhcp4_enabled(link) ||
+-                    link_dhcp6_enabled(link) ||
+-                    link_ipv6_accept_ra_enabled(link))
++                if (link->network)
+                         return false;
+         }
+ 
