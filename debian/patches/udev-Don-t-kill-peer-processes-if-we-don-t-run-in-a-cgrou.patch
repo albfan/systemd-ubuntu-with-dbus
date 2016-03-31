@@ -1,0 +1,26 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Thu, 31 Mar 2016 21:47:02 +0200
+Subject: udev: Don't kill peer processes if we don't run in a cgroup
+
+This happens when running under/upgrading from upstart. udevd and everything
+else run in the root hierarchy on all controllers then, and the alleged cleanup
+of "our" cgroup becomes a system-wide killing spree.
+
+Bug-Ubuntu: https://launchpad.net/bugs/1555237
+---
+ src/udev/udevd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/udevd.c b/src/udev/udevd.c
+index bb92f16..a1396f1 100644
+--- a/src/udev/udevd.c
++++ b/src/udev/udevd.c
+@@ -1254,7 +1254,7 @@ static int on_post(sd_event_source *s, void *userdata) {
+                                 r = sd_event_exit(manager->event, 0);
+                                 if (r < 0)
+                                         return r;
+-                        } else if (manager->cgroup)
++                        } else if (manager->cgroup && !streq(manager->cgroup, "/"))
+                                 /* cleanup possible left-over processes in our cgroup */
+                                 cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, false, true, NULL);
+                 }
