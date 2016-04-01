@@ -20,6 +20,8 @@ systemd-obey-systemd.log_color-config.patch
 device-Ensure-we-have-sysfs-path-before-comparing.patch
 logind-fix-crash-when-shutdown-is-not-issued-from-a-tty.patch
 networkd-rework-idle-detection-logic-of-networkd.patch
+bus-util-Fix-reading-uint32-properties.patch
+systemctl-use-correct-printf-macros-for-uint32.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

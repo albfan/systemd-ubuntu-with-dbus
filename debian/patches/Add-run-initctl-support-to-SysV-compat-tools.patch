@@ -11,7 +11,7 @@ as PID 1.
  1 file changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index fc9ede7..4657b6b 100644
+index f010df9..08034eb 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -7307,17 +7307,22 @@ static int talk_initctl(void) {

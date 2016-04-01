@@ -1,0 +1,26 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 1 Apr 2016 14:16:14 +0200
+Subject: bus-util: Fix reading uint32 properties
+
+Fix copy&paste bug in map_basic() to use the correct data type for
+SD_BUS_TYPE_UINT32. Before we were copying the wrong 32 bits into the
+destination pointer, resulting in complete garbage on big-endian systems.
+
+Fixes #2927
+---
+ src/shared/bus-util.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/shared/bus-util.c b/src/shared/bus-util.c
+index 38557f0..df1186c 100644
+--- a/src/shared/bus-util.c
++++ b/src/shared/bus-util.c
+@@ -1068,7 +1068,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
+         }
+ 
+         case SD_BUS_TYPE_UINT32: {
+-                uint64_t u;
++                uint32_t u;
+                 uint32_t *p = userdata;
+ 
+                 r = sd_bus_message_read_basic(m, type, &u);

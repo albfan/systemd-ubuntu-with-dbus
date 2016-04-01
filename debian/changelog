@@ -5,6 +5,7 @@ systemd (229-4) UNRELEASED; urgency=medium
   * Fix crash when shutdown is issued from a non-tty. (LP: #1553040)
   * networkd: Stay running while any non-loopback interface is up.
     (Closes: #819414)
+  * Fix reading uint32 D-Bus properties on big-endian.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
 
