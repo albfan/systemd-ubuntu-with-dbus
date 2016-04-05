@@ -1,0 +1,84 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 4 Apr 2016 11:09:00 +0200
+Subject: sd-device: fix crash if a device has many tags or devlinks
+
+strjoina() is unsafe to be used in an unbounded loop as alloca() has no error
+reporting. Thus devices with a large number of tags or devlinks trigger a
+segfault in device_properties_prepare() due to overflowing the stack.
+
+Rewrite the building of the "tags" and "devlinks" strings using
+GREEDY_REALLOC() and strpcpy() to work with arbitrarily long strings. This also
+avoids re-copying the entire string in each loop iteration.
+
+Before this commit we always appended one final ":" to "tags". Change this to
+start with an iniital ":" and for each tag append instead of prepend a ":".
+This unifies what happens for the first and all subsequent tags so that we can
+use a for loop.
+
+Fixes #2954
+---
+ src/libsystemd/sd-device/sd-device.c | 37 +++++++++++++++++++++++-------------
+ 1 file changed, 24 insertions(+), 13 deletions(-)
+
+diff --git a/src/libsystemd/sd-device/sd-device.c b/src/libsystemd/sd-device/sd-device.c
+index 9633e46..f9db079 100644
+--- a/src/libsystemd/sd-device/sd-device.c
++++ b/src/libsystemd/sd-device/sd-device.c
+@@ -1457,15 +1457,20 @@ static int device_properties_prepare(sd_device *device) {
+                 return r;
+ 
+         if (device->property_devlinks_outdated) {
+-                char *devlinks = NULL;
++                _cleanup_free_ char *devlinks = NULL;
++                size_t devlinks_allocated = 0, devlinks_len = 0;
+                 const char *devlink;
+ 
+-                devlink = sd_device_get_devlink_first(device);
+-                if (devlink)
+-                        devlinks = strdupa(devlink);
++                for (devlink = sd_device_get_devlink_first(device); devlink; devlink = sd_device_get_devlink_next(device)) {
++                        char *e;
+ 
+-                while ((devlink = sd_device_get_devlink_next(device)))
+-                        devlinks = strjoina(devlinks, " ", devlink);
++                        if (!GREEDY_REALLOC(devlinks, devlinks_allocated, devlinks_len + strlen(devlink) + 2))
++                                return -ENOMEM;
++                        if (devlinks_len > 0)
++                                stpcpy(devlinks + devlinks_len++, " ");
++                        e = stpcpy(devlinks + devlinks_len, devlink);
++                        devlinks_len = e - devlinks;
++                }
+ 
+                 r = device_add_property_internal(device, "DEVLINKS", devlinks);
+                 if (r < 0)
+@@ -1475,17 +1480,23 @@ static int device_properties_prepare(sd_device *device) {
+         }
+ 
+         if (device->property_tags_outdated) {
+-                char *tags = NULL;
++                _cleanup_free_ char *tags = NULL;
++                size_t tags_allocated = 0, tags_len = 0;
+                 const char *tag;
+ 
+-                tag = sd_device_get_tag_first(device);
+-                if (tag)
+-                        tags = strjoina(":", tag);
++                if (!GREEDY_REALLOC(tags, tags_allocated, 2))
++                        return -ENOMEM;
++                stpcpy(tags, ":");
++                tags_len++;
+ 
+-                while ((tag = sd_device_get_tag_next(device)))
+-                        tags = strjoina(tags, ":", tag);
++                for (tag = sd_device_get_tag_first(device); tag; tag = sd_device_get_tag_next(device)) {
++                        char *e;
+ 
+-                tags = strjoina(tags, ":");
++                        if (!GREEDY_REALLOC(tags, tags_allocated, tags_len + strlen(tag) + 1))
++                                return -ENOMEM;
++                        e = stpcpy(stpcpy(tags + tags_len, tag), ":");
++                        tags_len = e - tags;
++                }
+ 
+                 r = device_add_property_internal(device, "TAGS", tags);
+                 if (r < 0)
