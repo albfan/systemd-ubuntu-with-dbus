@@ -1,0 +1,29 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Tue, 5 Apr 2016 10:30:45 +0200
+Subject: polkit: don't start polkit agent when running as root
+
+On the server side we already bypass the polkit checks if the caller is root
+(see the sd_bus_query_sender_privilege() call in bus_verify_polkit_async()). So
+there is no reason to invoke polkit when running
+systemctl/machinectl/loginctl/timedatectl as root.
+
+Fixes #2748
+---
+ src/shared/spawn-polkit-agent.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/shared/spawn-polkit-agent.c b/src/shared/spawn-polkit-agent.c
+index cf3c8ad..7dae4d1 100644
+--- a/src/shared/spawn-polkit-agent.c
++++ b/src/shared/spawn-polkit-agent.c
+@@ -44,6 +44,10 @@ int polkit_agent_open(void) {
+         if (agent_pid > 0)
+                 return 0;
+ 
++        /* Clients that run as root don't need to activate/query polkit */
++        if (geteuid() == 0)
++                return 0;
++
+         /* We check STDIN here, not STDOUT, since this is about input,
+          * not output */
+         if (!isatty(STDIN_FILENO))

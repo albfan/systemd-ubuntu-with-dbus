@@ -23,6 +23,7 @@ networkd-rework-idle-detection-logic-of-networkd.patch
 bus-util-Fix-reading-uint32-properties.patch
 systemctl-use-correct-printf-macros-for-uint32.patch
 sd-device-fix-crash-if-a-device-has-many-tags-or-devlinks.patch
+polkit-don-t-start-polkit-agent-when-running-as-root.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch

@@ -7,6 +7,8 @@ systemd (229-4) UNRELEASED; urgency=medium
     (Closes: #819414)
   * Fix reading uint32 D-Bus properties on big-endian.
   * Fix crash if an udev device has many tags or devlinks. (LP: #1564976)
+  * systemctl, loginctl, etc.: Don't start polkit agent when running as root.
+    (LP: #1565617)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
 
