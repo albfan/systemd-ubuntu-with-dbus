@@ -1,0 +1,22 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Tue, 1 Mar 2016 14:43:43 +0100
+Subject: keymap: Add HP ZBook
+
+https://launchpad.net/bugs/1535219
+---
+ hwdb/60-keyboard.hwdb | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
+index 01213b6..4c0c315 100644
+--- a/hwdb/60-keyboard.hwdb
++++ b/hwdb/60-keyboard.hwdb
+@@ -492,6 +492,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:pvr*
+ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook445G1NotebookPC:pvr*
+ # HP ProBook 450 G0
+ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook450G0:pvr*
++# HP ZBook
++evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
+  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ 
+ # HP ProBook 6555b

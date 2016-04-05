@@ -9,6 +9,7 @@ systemd (229-4) UNRELEASED; urgency=medium
   * Fix crash if an udev device has many tags or devlinks. (LP: #1564976)
   * systemctl, loginctl, etc.: Don't start polkit agent when running as root.
     (LP: #1565617)
+  * keymap: Add Add HP ZBook (LP: #1535219) and HP ProBook 440 G3.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
 
