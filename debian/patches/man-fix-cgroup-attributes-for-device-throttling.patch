@@ -1,0 +1,23 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Tue, 5 Apr 2016 15:28:47 +0200
+Subject: man: fix cgroup attributes for device throttling
+
+---
+ man/systemd.resource-control.xml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/man/systemd.resource-control.xml b/man/systemd.resource-control.xml
+index 804d737..fd6f7a1 100644
+--- a/man/systemd.resource-control.xml
++++ b/man/systemd.resource-control.xml
+@@ -328,8 +328,8 @@
+           Gigabytes, or Terabytes, respectively, to the base of
+           1000. (Example:
+           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
+-          controls the <literal>blkio.read_bps_device</literal> and
+-          <literal>blkio.write_bps_device</literal> control group
++          controls the <literal>blkio.throttle.read_bps_device</literal> and
++          <literal>blkio.throttle.write_bps_device</literal> control group
+           attributes. Use this option multiple times to set bandwidth
+           limits for multiple devices. For details about these control
+           group attributes, see <ulink

@@ -26,6 +26,8 @@ sd-device-fix-crash-if-a-device-has-many-tags-or-devlinks.patch
 polkit-don-t-start-polkit-agent-when-running-as-root.patch
 keymap-Add-HP-ZBook.patch
 keymap-Some-HP-refactoring-add-Probook-440-G3-keys.patch
+man-update-links-to-kernel.org-cgroup-documentation.patch
+man-fix-cgroup-attributes-for-device-throttling.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
