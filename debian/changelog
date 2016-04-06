@@ -14,6 +14,7 @@ systemd (229-4) UNRELEASED; urgency=medium
     kernel.org. (Closes: #819970)
   * Install test-udev into libudev-dev, so that we have it available for
     autopkgtests.
+  * Add "udev" autopkgtest for running the upstream test/udev-test.pl.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
 

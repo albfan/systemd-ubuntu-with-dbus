@@ -73,11 +73,22 @@ Depends: systemd-sysv,
   python3
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
 
+Tests: udev
+Depends: tree,
+  libudev-dev,
+  perl,
+  xz-utils,
+Restrictions: needs-root, allow-stderr, isolation-machine
+
 Tests: boot-smoke
 Depends: systemd-sysv,
   network-manager,
   policykit-1,
   lightdm,
+  tree,
+  libudev-dev,
+  perl,
+  xz-utils,
 Restrictions: needs-recommends, needs-root, isolation-machine, allow-stderr
 
 # NOUPSTREAM: Do not run these tests for upstream builds
