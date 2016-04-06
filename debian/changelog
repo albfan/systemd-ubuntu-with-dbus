@@ -12,6 +12,8 @@ systemd (229-4) UNRELEASED; urgency=medium
   * keymap: Add Add HP ZBook (LP: #1535219) and HP ProBook 440 G3.
   * systemd.resource-control.5: Fix links to cgroup documentation on
     kernel.org. (Closes: #819970)
+  * Install test-udev into libudev-dev, so that we have it available for
+    autopkgtests.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
 

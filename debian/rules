@@ -228,6 +228,9 @@ endif
 		(cd debian/$$pkg; find -mindepth 1 -type d) | (cd debian/systemd; xargs rmdir --ignore-fail-on-non-empty --verbose || true); \
 	done
 
+	# ship test-udev, so that we have it for autopkgtests
+	install build-deb/test-udev debian/libudev-dev/usr/lib/$(DEB_HOST_MULTIARCH)/
+
 	# Ubuntu specific files
 	if dpkg-vendor --is ubuntu; then \
 		install -D --mode=644 debian/extra/udev.py debian/udev/usr/share/apport/package-hooks/udev.py; \
