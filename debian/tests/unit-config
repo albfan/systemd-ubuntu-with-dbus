@@ -101,6 +101,10 @@ echo hello
         self.assertEqual(os.readlink(l),
                          '/lib/systemd/system/test_enable.service')
 
+        # enable should be idempotent
+        subprocess.check_call(['systemctl', 'enable', 'test_enable.service'])
+        self.assertEnabled(True)
+
     def test_unit_disable(self):
         '''no sysv: disable unit'''
 
@@ -117,6 +121,10 @@ echo hello
 
         l = '/etc/systemd/system/multi-user.target.wants/test_enable.service'
         self.assertFalse(os.path.islink(l))
+
+        # disable should be idempotent
+        subprocess.check_call(['systemctl', 'disable', 'test_enable.service'])
+        self.assertEnabled(False)
 
     def test_unit_sysv_enable(self):
         '''with sysv: enable unit'''
@@ -143,6 +151,10 @@ echo hello
         self.assertEqual(len(l), 1, 'expect one symlink in %s' % repr(l))
         self.assertEqual(os.readlink(l[0]), '../init.d/test_enable')
 
+        # enable should be idempotent
+        subprocess.check_call(['systemctl', 'enable', 'test_enable.service'])
+        self.assertEnabled(True)
+
     def test_unit_sysv_disable(self):
         '''with sysv: disable unit'''
 
@@ -164,6 +176,10 @@ echo hello
         # disabled the sysv script
         l = glob('/etc/rc2.d/S??test_enable')
         self.assertEqual(l, [])
+
+        # disable should be idempotent
+        subprocess.check_call(['systemctl', 'enable', 'test_enable.service'])
+        self.assertEnabled(True)
 
     def test_unit_alias_enable(self):
         '''no sysv: enable unit with an alias'''
@@ -279,6 +295,10 @@ echo hello
         self.assertEqual(len(l), 1, 'expect one symlink in %s' % repr(l))
         self.assertEqual(os.readlink(l[0]), '../init.d/test_enable')
 
+        # enable should be idempotent
+        subprocess.check_call(['systemctl', 'enable', 'test_enable'])
+        self.assertEnabled(True)
+
     def test_sysv_disable(self):
         '''only sysv: disable'''
 
@@ -288,6 +308,10 @@ echo hello
         # disabled the sysv script
         l = glob('/etc/rc2.d/S??test_enable')
         self.assertEqual(l, [])
+
+        # disable should be idempotent
+        subprocess.check_call(['systemctl', 'disable', 'test_enable'])
+        self.assertEnabled(False)
 
     def test_unit_link(self):
         '''systemctl link'''

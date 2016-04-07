@@ -2,6 +2,8 @@ systemd (229-5) UNRELEASED; urgency=medium
 
   * debian/tests/unit-config: Call "daemon-reload" to clean up generated units
     in between tests.
+  * debian/tests/unit-config: Check that enable/disable commands are
+    idempotent.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
