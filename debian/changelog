@@ -1,4 +1,4 @@
-systemd (229-4ubuntu1) UNRELEASED; urgency=medium
+systemd (229-4ubuntu1) xenial; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Hack to support system-image read-only /etc, and modify files in
@@ -32,7 +32,7 @@ systemd (229-4ubuntu1) UNRELEASED; urgency=medium
       in the root hierarchy on all controllers then, and the alleged cleanup of
       "our" cgroup becomes a system-wide killing spree. (LP: #1555237)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:13:25 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 09:53:25 +0200
 
 systemd (229-4) unstable; urgency=medium
 
