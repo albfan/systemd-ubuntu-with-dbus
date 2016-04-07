@@ -21,7 +21,7 @@ Fixes #2954
  1 file changed, 24 insertions(+), 13 deletions(-)
 
 diff --git a/src/libsystemd/sd-device/sd-device.c b/src/libsystemd/sd-device/sd-device.c
-index 9633e46..f9db079 100644
+index 9633e46..27927e1 100644
 --- a/src/libsystemd/sd-device/sd-device.c
 +++ b/src/libsystemd/sd-device/sd-device.c
 @@ -1457,15 +1457,20 @@ static int device_properties_prepare(sd_device *device) {
@@ -74,7 +74,7 @@ index 9633e46..f9db079 100644
 +                        char *e;
  
 -                tags = strjoina(tags, ":");
-+                        if (!GREEDY_REALLOC(tags, tags_allocated, tags_len + strlen(tag) + 1))
++                        if (!GREEDY_REALLOC(tags, tags_allocated, tags_len + strlen(tag) + 2))
 +                                return -ENOMEM;
 +                        e = stpcpy(stpcpy(tags + tags_len, tag), ":");
 +                        tags_len = e - tags;
