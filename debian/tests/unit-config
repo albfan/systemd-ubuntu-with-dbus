@@ -10,12 +10,17 @@ import sys
 import tempfile
 from glob import glob
 
+if os.path.isdir('/usr/lib/systemd/system'):
+    system_unit_dir = '/usr/lib/systemd/system'
+else:
+    system_unit_dir = '/lib/systemd/system'
+
 
 class EnableTests(unittest.TestCase):
     def tearDown(self):
         # remove all traces from our test unit
-        f = glob('/lib/systemd/system/test_enable*.service')
-        f += glob('/lib/systemd/system/*/test_enable*.service')
+        f = glob(system_unit_dir + '/test_enable*.service')
+        f += glob(system_unit_dir + '/*/test_enable*.service')
         f += glob('/etc/systemd/system/test_enable*.service')
         f += glob('/etc/systemd/system/*/test_enable*.service')
         f += glob('/etc/init.d/test_enable*')
@@ -23,10 +28,10 @@ class EnableTests(unittest.TestCase):
         [os.unlink(i) for i in f]
         subprocess.check_call(['systemctl', 'daemon-reload'])
 
-    def create_unit(self, suffix='', dir='/lib', enable=False):
+    def create_unit(self, suffix='', enable=False):
         '''Create a test unit'''
 
-        unit = os.path.join(dir, 'systemd', 'system',
+        unit = os.path.join(system_unit_dir,
                             'test_enable%s.service' % suffix)
         with open(unit, 'w') as f:
             f.write('''[Unit]
@@ -99,7 +104,7 @@ echo hello
         l = '/etc/systemd/system/multi-user.target.wants/test_enable.service'
         self.assertTrue(os.path.islink(l))
         self.assertEqual(os.readlink(l),
-                         '/lib/systemd/system/test_enable.service')
+                         system_unit_dir + '/test_enable.service')
 
         # enable should be idempotent
         subprocess.check_call(['systemctl', 'enable', 'test_enable.service'])
@@ -144,7 +149,7 @@ echo hello
         l = '/etc/systemd/system/multi-user.target.wants/test_enable.service'
         self.assertTrue(os.path.islink(l))
         self.assertEqual(os.readlink(l),
-                         '/lib/systemd/system/test_enable.service')
+                         system_unit_dir + '/test_enable.service')
 
         # enabled the sysv script
         l = glob('/etc/rc2.d/S??test_enable')
@@ -198,13 +203,13 @@ echo hello
         l = '/etc/systemd/system/multi-user.target.wants/test_enable.service'
         self.assertTrue(os.path.islink(l))
         self.assertEqual(os.readlink(l),
-                         '/lib/systemd/system/test_enable.service')
+                         system_unit_dir + '/test_enable.service')
 
         # alias symlink
         l = '/etc/systemd/system/test_enablea.service'
         self.assertTrue(os.path.islink(l))
         self.assertEqual(os.readlink(l),
-                         '/lib/systemd/system/test_enable.service')
+                         system_unit_dir + '/test_enable.service')
 
     def test_unit_alias_disable(self):
         '''no sysv: disable unit with an alias'''
@@ -212,7 +217,7 @@ echo hello
         u = self.create_unit()
         with open(u, 'a') as f:
             f.write('Alias=test_enablea.service\n')
-        os.symlink('/lib/systemd/system/test_enable.service',
+        os.symlink(system_unit_dir + '/test_enable.service',
                    '/etc/systemd/system/test_enablea.service')
 
         subprocess.check_call(['systemctl', 'disable', 'test_enable'])
@@ -243,13 +248,13 @@ echo hello
         l = '/etc/systemd/system/multi-user.target.wants/test_enable.service'
         self.assertTrue(os.path.islink(l))
         self.assertEqual(os.readlink(l),
-                         '/lib/systemd/system/test_enable.service')
+                         system_unit_dir + '/test_enable.service')
 
         # alias symlink
         l = '/etc/systemd/system/test_enablea.service'
         self.assertTrue(os.path.islink(l))
         self.assertEqual(os.readlink(l),
-                         '/lib/systemd/system/test_enable.service')
+                         system_unit_dir + '/test_enable.service')
 
         # enabled the sysv script
         l = glob('/etc/rc2.d/S??test_enable')
@@ -264,7 +269,7 @@ echo hello
         u = self.create_unit(enable=True)
         with open(u, 'a') as f:
             f.write('Alias=test_enablea.service\n')
-        os.symlink('/lib/systemd/system/test_enable.service',
+        os.symlink(system_unit_dir + '/test_enable.service',
                    '/etc/systemd/system/test_enablea.service')
         self.create_sysv(enable=True)
 

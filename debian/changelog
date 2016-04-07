@@ -4,6 +4,8 @@ systemd (229-5) UNRELEASED; urgency=medium
     in between tests.
   * debian/tests/unit-config: Check that enable/disable commands are
     idempotent.
+  * debian/tests/unit-config: Detect if system units are in /usr/, so that the
+    test works on systems with merged /usr.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
