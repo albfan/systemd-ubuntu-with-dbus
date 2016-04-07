@@ -21,6 +21,7 @@ class EnableTests(unittest.TestCase):
         f += glob('/etc/init.d/test_enable*')
         f += glob('/etc/rc?.d/???test_enable*')
         [os.unlink(i) for i in f]
+        subprocess.check_call(['systemctl', 'daemon-reload'])
 
     def create_unit(self, suffix='', dir='/lib', enable=False):
         '''Create a test unit'''

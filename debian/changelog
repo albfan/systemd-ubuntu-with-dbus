@@ -1,3 +1,10 @@
+systemd (229-5) UNRELEASED; urgency=medium
+
+  * debian/tests/unit-config: Call "daemon-reload" to clean up generated units
+    in between tests.
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
+
 systemd (229-4) unstable; urgency=medium
 
   * Fix assertion crash when processing a (broken) device without a sysfs
