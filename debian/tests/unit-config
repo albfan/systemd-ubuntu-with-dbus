@@ -14,6 +14,8 @@ if os.path.isdir('/usr/lib/systemd/system'):
     system_unit_dir = '/usr/lib/systemd/system'
 else:
     system_unit_dir = '/lib/systemd/system'
+systemd_sysv_install = os.path.join(os.path.dirname(system_unit_dir),
+                                    'systemd-sysv-install')
 
 
 class EnableTests(unittest.TestCase):
@@ -68,10 +70,8 @@ echo hello
         os.chmod(script, 0o755)
 
         if enable:
-            subprocess.check_call(['update-rc.d', os.path.basename(script),
-                                   'defaults'])
-            subprocess.check_call(['update-rc.d', os.path.basename(script),
-                                   'enable'])
+            subprocess.check_call(
+                [systemd_sysv_install, 'enable', os.path.basename(script)])
 
     def assertEnabled(self, enabled, unit='test_enable.service'):
         '''assert that given unit has expected state'''
