@@ -1,4 +1,4 @@
-systemd (229-4) UNRELEASED; urgency=medium
+systemd (229-4) unstable; urgency=medium
 
   * Fix assertion crash when processing a (broken) device without a sysfs
     path. (Closes: #819290, LP: #1560695)
@@ -16,7 +16,7 @@ systemd (229-4) UNRELEASED; urgency=medium
     autopkgtests.
   * Add "udev" autopkgtest for running the upstream test/udev-test.pl.
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 24 Mar 2016 08:28:52 +0100
+ -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 08:11:10 +0200
 
 systemd (229-3) unstable; urgency=medium
 
