@@ -8,6 +8,9 @@ systemd (229-5) UNRELEASED; urgency=medium
     test works on systems with merged /usr.
   * debian/tests/unit-config: Use systemd-sysv-install instead of update-rc.d
     directly, so that the test works under Fedora too.
+  * debian/tests/unit-config: Check disabling of a "systemctl link"ed unit,
+    and check "systemctl enable" on a unit with full path which is not in the
+    standard directories.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
