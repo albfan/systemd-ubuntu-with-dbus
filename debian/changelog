@@ -11,6 +11,9 @@ systemd (229-5) UNRELEASED; urgency=medium
   * debian/tests/unit-config: Check disabling of a "systemctl link"ed unit,
     and check "systemctl enable" on a unit with full path which is not in the
     standard directories.
+  * Rename debian/extra/rules/73-idrac.rules to 73-special-net-names.rules, as
+    it is going to get rules for other devices. Also install it into the
+    initramfs.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
