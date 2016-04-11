@@ -14,6 +14,8 @@ systemd (229-5) UNRELEASED; urgency=medium
   * Rename debian/extra/rules/73-idrac.rules to 73-special-net-names.rules, as
     it is going to get rules for other devices. Also install it into the
     initramfs.
+  * debian/extra/rules/73-special-net-names.rules: Add DEVPATH number based
+    naming schema for ibmveth devices. (LP: #1561096)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
