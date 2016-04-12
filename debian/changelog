@@ -1,3 +1,29 @@
+systemd (229-4ubuntu2) UNRELEASED; urgency=medium
+
+  * debian/tests/unit-config: Call "daemon-reload" to clean up generated units
+    in between tests.
+  * debian/tests/unit-config: Check that enable/disable commands are
+    idempotent.
+  * debian/tests/unit-config: Detect if system units are in /usr/, so that the
+    test works on systems with merged /usr.
+  * debian/tests/unit-config: Use systemd-sysv-install instead of update-rc.d
+    directly, so that the test works under Fedora too.
+  * debian/tests/unit-config: Check disabling of a "systemctl link"ed unit,
+    and check "systemctl enable" on a unit with full path which is not in the
+    standard directories.
+  * Rename debian/extra/rules/73-idrac.rules to 73-special-net-names.rules, as
+    it is going to get rules for other devices. Also install it into the
+    initramfs.
+  * debian/extra/rules/73-special-net-names.rules: Add DEVPATH number based
+    naming schema for ibmveth devices. (LP: #1561096)
+  * Don't set SYSTEMD_READY=0 on DM_UDEV_DISABLE_OTHER_RULES_FLAG=1 devmapper
+    devices with "change" events, as this causes spurious unmounting with
+    multipath devices. (LP: #1565969)
+  * Fix bogus "No [Install] section" warning when enabling a unit with full
+    path. (LP: #1563590)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 21:39:45 +0200
+
 systemd (229-4ubuntu1) xenial; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:

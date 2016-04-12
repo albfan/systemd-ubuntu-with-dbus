@@ -1,0 +1,30 @@
+From: =?utf-8?q?Luk=C3=A1=C5=A1_Nykr=C3=BDn?= <lnykryn@redhat.com>
+Date: Tue, 12 Apr 2016 07:44:28 +0200
+Subject: rules: set SYSTEMD_READY=0 on DM_UDEV_DISABLE_OTHER_RULES_FLAG=1
+ only with ADD event (#2747)
+
+The "SYSTEMD_READY=0" will cause automatic unmount
+of mountpoint that is on top of such DM device
+if this is used with multipath which sets
+DM_UDEV_DISABLE_OTHER_RULES_FLAG in case
+we have a CHANGE event thatcomes after DM multipath
+device reload when one of the paths is down or up.
+
+See https://bugzilla.redhat.com/show_bug.cgi?id=1312011
+---
+ rules/99-systemd.rules.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
+index 5c2cda5..0ac4f6a 100644
+--- a/rules/99-systemd.rules.in
++++ b/rules/99-systemd.rules.in
+@@ -11,7 +11,7 @@ SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270
+ KERNEL=="vport*", TAG+="systemd"
+ 
+ SUBSYSTEM=="block", TAG+="systemd"
+-SUBSYSTEM=="block", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
++SUBSYSTEM=="block", ACTION=="add", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
+ 
+ # Ignore encrypted devices with no identified superblock on it, since
+ # we are probably still calling mke2fs or mkswap on it.

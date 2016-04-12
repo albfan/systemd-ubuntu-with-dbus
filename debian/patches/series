@@ -28,6 +28,7 @@ keymap-Add-HP-ZBook.patch
 keymap-Some-HP-refactoring-add-Probook-440-G3-keys.patch
 man-update-links-to-kernel.org-cgroup-documentation.patch
 man-fix-cgroup-attributes-for-device-throttling.patch
+rules-set-SYSTEMD_READY-0-on-DM_UDEV_DISABLE_OTHER_RULES_.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
@@ -60,6 +61,7 @@ Skip-filesystem-check-if-already-done-by-the-initram.patch
 Revert-core-one-step-back-again-for-nspawn-we-actual.patch
 Revert-core-set-RLIMIT_CORE-to-unlimited-by-default.patch
 Revert-Revert-networkd-ndisc-revert-to-letting-the-k.patch
+Install-correctly-report-symlink-creations.patch
 
 ## Ubuntu patches:
 Support-system-image-read-only-etc.patch
