@@ -1,3 +1,12 @@
+systemd (229-4ubuntu3) UNRELEASED; urgency=medium
+
+  * debian/tests/cmdline-upstart-boot: In test_rsyslog(), check for messages
+    from dbus instead of NetworkManager. NM 1.2 does not seem to log to syslog
+    by default any more.
+  * 73-special-net-names.rules: Refine ibmveth naming.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 12 Apr 2016 10:42:40 +0200
+
 systemd (229-4ubuntu2) xenial; urgency=medium
 
   * debian/tests/unit-config: Call "daemon-reload" to clean up generated units
