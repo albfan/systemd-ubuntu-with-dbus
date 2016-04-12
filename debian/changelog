@@ -1,8 +1,8 @@
-systemd (229-4ubuntu4) UNRELEASED; urgency=medium
+systemd (229-4ubuntu4) xenial; urgency=medium
 
   * 73-special-net-names.rules: Further refine ibmveth naming.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 12 Apr 2016 12:05:54 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 12 Apr 2016 12:06:30 +0200
 
 systemd (229-4ubuntu3) xenial; urgency=medium
 
