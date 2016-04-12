@@ -49,7 +49,7 @@ class ServicesTest(unittest.TestCase):
         # has kernel messages
         self.assertRegex(log, 'kernel:.*[cC]ommand line:')
         # has other services
-        self.assertRegex(log, 'NetworkManager.*:')
+        self.assertRegex(log, 'dbus.*:')
 
     def test_udev(self):
         out = subprocess.check_output(['udevadm', 'info', '--export-db'])

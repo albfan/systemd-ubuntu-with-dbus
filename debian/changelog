@@ -21,6 +21,9 @@ systemd (229-5) UNRELEASED; urgency=medium
     multipath devices. (LP: #1565969)
   * Fix bogus "No [Install] section" warning when enabling a unit with full
     path. (LP: #1563590)
+  * debian/tests/cmdline-upstart-boot: In test_rsyslog(), check for messages
+    from dbus instead of NetworkManager. NM 1.2 does not seem to log to syslog
+    by default any more.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
