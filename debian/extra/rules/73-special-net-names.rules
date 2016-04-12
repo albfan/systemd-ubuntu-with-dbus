@@ -4,6 +4,6 @@ ACTION=="add", SUBSYSTEM=="net", SUBSYSTEMS=="usb", ATTRS{idVendor}=="413c", ATT
 
 # ibmveth devices' $DEVPATH number is tied to (virtual) hardware (slot id
 # selected in the HMC), thus this provides a reliable naming (e. g.
-# "/devices/vio/30000002/net/eth1"); the bus number ('3') is irrelevant, and
-# there should only ever be one bus.
-ACTION=="add", SUBSYSTEM=="net", NAME=="", DRIVERS=="ibmveth", PROGRAM="/bin/sh -ec 'D=${DEVPATH#*/vio/}; D=${D%%%%/*}; D=${D##*0}; echo ${D:-0}'", NAME="ibmveth$result"
+# "/devices/vio/30000002/net/eth1"); we ignore the bus number, as
+# there should only ever be one bus, and then remove leading zeros
+ACTION=="add", SUBSYSTEM=="net", NAME=="", DRIVERS=="ibmveth", PROGRAM="/bin/sh -ec 'D=${DEVPATH#*/vio/}; D=${D%%%%/*}; D=${D#????}; D=${D#0}; D=${D#0}; D=${D#0}; D=${D#0}; echo ${D:-0}'", NAME="ibmveth$result"
