@@ -28,6 +28,7 @@ keymap-Add-HP-ZBook.patch
 keymap-Some-HP-refactoring-add-Probook-440-G3-keys.patch
 man-update-links-to-kernel.org-cgroup-documentation.patch
 man-fix-cgroup-attributes-for-device-throttling.patch
+rules-set-SYSTEMD_READY-0-on-DM_UDEV_DISABLE_OTHER_RULES_.patch
 
 ## Debian specific patches
 Add-back-support-for-Debian-specific-config-files.patch
