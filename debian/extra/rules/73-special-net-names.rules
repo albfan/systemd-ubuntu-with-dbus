@@ -2,7 +2,8 @@
 #   which terminates in the iDRAC. Help identify this with 'idrac'
 ACTION=="add", SUBSYSTEM=="net", SUBSYSTEMS=="usb", ATTRS{idVendor}=="413c", ATTRS{idProduct}=="a102", NAME="idrac"
 
-# ibmveth devices' $DEVPATH number usually starts with '3' and is tied to
-# (virtual) hardware (slot id selected in the HMC), thus this provides a
-# reliable naming (e. g. "/devices/vio/30000002/net/eth1")
-ACTION=="add", SUBSYSTEM=="net", NAME=="", DRIVERS=="ibmveth", PROGRAM="/bin/sh -ec 'D=${DEVPATH#*/vio/}; D=${D#3}; echo ${D%%%%/*} | sed s/^0*//", NAME="ibmveth$result"
+# ibmveth devices' $DEVPATH number is tied to (virtual) hardware (slot id
+# selected in the HMC), thus this provides a reliable naming (e. g.
+# "/devices/vio/30000002/net/eth1"); the bus number ('3') is irrelevant, and
+# there should only ever be one bus.
+ACTION=="add", SUBSYSTEM=="net", NAME=="", DRIVERS=="ibmveth", PROGRAM="/bin/sh -ec 'D=${DEVPATH#*/vio/}; D=${D%%%%/*}; D=${D##*0}; echo ${D:-0}'", NAME="ibmveth$result"
