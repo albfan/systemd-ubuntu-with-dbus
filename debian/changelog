@@ -1,4 +1,4 @@
-systemd (229-4ubuntu2) UNRELEASED; urgency=medium
+systemd (229-4ubuntu2) xenial; urgency=medium
 
   * debian/tests/unit-config: Call "daemon-reload" to clean up generated units
     in between tests.
@@ -22,7 +22,7 @@ systemd (229-4ubuntu2) UNRELEASED; urgency=medium
   * Fix bogus "No [Install] section" warning when enabling a unit with full
     path. (LP: #1563590)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Apr 2016 21:39:45 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 12 Apr 2016 09:17:35 +0200
 
 systemd (229-4ubuntu1) xenial; urgency=medium
 
