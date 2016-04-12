@@ -19,6 +19,8 @@ systemd (229-5) UNRELEASED; urgency=medium
   * Don't set SYSTEMD_READY=0 on DM_UDEV_DISABLE_OTHER_RULES_FLAG=1 devmapper
     devices with "change" events, as this causes spurious unmounting with
     multipath devices. (LP: #1565969)
+  * Fix bogus "No [Install] section" warning when enabling a unit with full
+    path. (LP: #1563590)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Apr 2016 21:39:45 +0200
 
